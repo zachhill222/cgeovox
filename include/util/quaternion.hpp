@@ -2,6 +2,7 @@
 #define QUATERNION_H
 
 #include "util/point.hpp"
+#include "ostream"
 #include <cmath>
 
 
@@ -15,6 +16,8 @@ namespace GeoVox::util{
 
 		//// ATTRIBUTES
 		double operator[](int idx) const;
+		double& operator[](int idx);
+
 		double q0() const;
 		Point3 qv() const;
 
@@ -43,6 +46,114 @@ namespace GeoVox::util{
 		double _q0;
 		Point3 _qv;
 	};
+
+
+	//// IMPLEMENTATION
+	double Quaternion::operator[](int idx) const{
+		if (idx==0){
+			return _q0;
+		}
+		return _qv[idx-1];
+	}
+
+	double& Quaternion::operator[](int idx){
+		if (idx==0){
+			return _q0;
+		}
+		return _qv[idx-1];
+	}
+
+	double Quaternion::q0() const {return _q0;}
+
+	Point3 Quaternion::qv() const {return _qv;}
+
+	Quaternion Quaternion::conj() const{
+		return Quaternion(_q0, -_qv);
+	}
+	Quaternion Quaternion::inv() const{
+		double C = 1.0/squaredNorm();
+		return Quaternion(C*_q0, (-C)*_qv);
+	}
+	double Quaternion::squaredNorm() const{
+		return _q0*_q0 + _qv.squaredNorm();
+	}
+	double Quaternion::norm() const{
+		return std::sqrt(squaredNorm());
+	}
+
+	Quaternion* Quaternion::normalize(){
+		double C = 1.0/norm();
+		_q0*=C;
+		_qv*=C;
+		return this;
+	}
+	Quaternion* Quaternion::setrotation(const double& theta, const Point3& axis){
+		_q0 = std::cos(0.5*theta);
+		_qv = std::sin(0.5*theta)*axis.normalized();
+		return this;
+	}
+	Point3 Quaternion::rotate(const Point3& point) const {
+		Quaternion V = Quaternion(0.0, point);
+		V = operator*((V*conj()));
+		return V.qv();
+	}
+
+	///// ARITHMETIC
+	Quaternion* Quaternion::operator+=(const Quaternion& other){
+		_q0+=other.q0();
+		_qv+=other.qv();
+		return this;
+	}
+	Quaternion Quaternion::operator+(const Quaternion& other) const{
+		return Quaternion(_q0+other.q0(), _qv+other.qv());
+	}
+	Quaternion* Quaternion::operator-=(const Quaternion& other){
+		_q0-=other.q0();
+		_qv-=other.qv();
+		return this;
+	}
+	Quaternion Quaternion::operator-(const Quaternion& other) const{
+		return Quaternion(_q0-other.q0(), _qv-other.qv());
+	}
+	Quaternion* Quaternion::operator*=(const Quaternion& other){
+		double Q0 = _q0*other.q0() - _qv.dot(other.qv());
+		_qv = _q0*other.qv() + other.q0()*_qv + _qv.cross(other.qv());
+		_q0 = Q0;
+		return this;
+	}
+	Quaternion Quaternion::operator*(const Quaternion& other) const{
+		double Q0 = _q0*other.q0() - _qv.dot(other.qv());
+		Point3  QV = _q0*other.qv() + other.q0()*_qv + _qv.cross(other.qv());
+		return Quaternion(Q0, QV);
+	}
+	Quaternion* Quaternion::operator/=(const Quaternion& other){
+		operator*=(other.inv());
+		return this;
+	}
+	Quaternion Quaternion::operator/(const Quaternion& other) const{
+		return operator*(other.inv());
+	}
+	
+	bool Quaternion::operator==(const Quaternion& other) const{
+		if (_q0 != other.q0()){
+			return false;
+		}
+
+		if (_qv != other.qv()){
+			return false;
+		}
+
+		return true;
+	}
+
+
+	///Print to ostream.
+	std::ostream& operator<<(std::ostream& os, const Quaternion &quaternion){
+		for (int i = 0; i < 4; i++){
+			os << quaternion[i] << " ";
+		}
+		return os;
+	}
 }
 
 

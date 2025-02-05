@@ -1,5 +1,5 @@
 INC_DIR    = ../include
-LIB_DIR    = ../lib
+LIB_DIR    = #../lib
 
 SRC        = $(wildcard *.cpp)
 OBJ        = $(SRC:.cpp=.o)
@@ -8,7 +8,7 @@ TARGETS     = $(SRC:.cpp=)
 CC         = g++ -fopenmp
 CFLAGS     = -O2 -Wall
 LDFLAGS    = -L$(LIB_DIR)
-LDLIBS     = -lcgeovox
+LDLIBS     = #-lcgeovox
 
 
 .PHONY: all
@@ -24,10 +24,10 @@ all: $(TARGETS)
 
 # LINK
 $(TARGETS) : % : %.o $(OBJ)
-	$(CC) $(LDFLAGS) $< -o $@ $(LDLIBS)
+	$(CC) $< -o $@
 
 # COMPILE
-%.o: %.cpp $(LIB_DIR)/libcgeovox.a
+%.o: %.cpp
 	$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
 
 

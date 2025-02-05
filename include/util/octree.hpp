@@ -1,7 +1,4 @@
-#ifndef OCTREE_H
-#define OCTREE_H
-
-#define MAX_OCTREE_DEPTH 16
+#pragma once
 
 
 #include "util/point.hpp"
@@ -12,284 +9,259 @@
 
 
 namespace GeoVox::util{
-
-	template<typename root_t, typename node_t, typename data_t>
-	class OctreeNode{
-	public:
-		OctreeNode() : box(Box()), ID(0), ijk{0,0,0}, _isdivided(false), _depth(0), _root(NULL) {}
-
-		OctreeNode(const Box& box) : box(box), ID(0), ijk{0,0,0}, _isdivided(false), _depth(0), _root(NULL) {}
-
-		OctreeNode(const Box& box, const long unsigned int ID, unsigned int (&ijk)[3], unsigned int depth, root_t* root):
-				box(box), ID(ID), ijk{ijk[0], ijk[1], ijk[2]}, _isdivided(false), _depth(depth), _root(root) {}
-		
-		virtual ~OctreeNode(){
-			if (_isdivided){
-				for (int i=0; i<8; i++){
-					delete _children[i];
-				}
-			}
-		}
-
-		//data access
-		// long unsigned int size() const;
-		inline long unsigned int size() const {return _ndata;} //return number of stored data in this node and below
-		void set_ndata();
-		data_t operator[](long unsigned int idx) const;
-		inline unsigned int depth() const {return _depth;}
-
-		inline bool isdivided() const {return _isdivided;}
-		inline node_t const* child_const(int c_idx) const {return reinterpret_cast<node_t const*>(_children[c_idx]);}
-
-
-		long unsigned int find(const data_t& value) const; //return index of first instance of stored value. Raises an error if value cannot be found.
-
-		//data storage logic
-		virtual void insert_data(data_t value);
-		virtual bool data_valid(const data_t& value) const; //IMPLEMENTED IN INHERITED CLASS
-		virtual void push_data_to_children();
-		void make_children();
-		
-		//access nodes
-		node_t* findleaf(const Point3& point); //find leaf node that contains the given point. Return NULL if there is none.
-		node_t* findnode(unsigned int depth, const Point3& point); //find node that contains the given point at the given depth. Return NULL if there is none.
-		node_t const* findleaf_const(const Point3& point) const; //same as findnode, can be used in const member functions.
-
-		Box box; //TODO: this should be const, but have trouble in _root
-		const long unsigned int ID;
-		const unsigned int ijk[3];
-
-
-		//data
-		std::vector<data_t> _data;
-	protected:
-		long unsigned int _ndata;
-
-		//node identifiers
-		bool _isdivided;
-		unsigned int _depth;
-		
-		//tree structure
-		root_t* _root;
-		node_t* _children[8];
-	};
-
-
-	////////////////////// NODE IMPLEMENTATIONS //////////////////////////////
-	template<typename root_t, typename node_t, typename data_t>
-	bool OctreeNode<root_t, node_t, data_t>::data_valid(const data_t& value) const{
-		throw std::invalid_argument("This function should never be called. Each octree class must implement a method: bool data_valid(const data_t& value) const override");
-		return false;
-	}
-
-
-	template<typename root_t, typename node_t, typename data_t>
-	void OctreeNode<root_t, node_t, data_t>::set_ndata(){
-		if (_isdivided){
-			_ndata = 0;
-			for (int c_idx=0; c_idx<8; c_idx++){
-				_ndata += _children[c_idx]->size();
-			}
-			return;
-		}
-
-		_ndata = _data.size();
-	}
-
-
-	template<typename root_t, typename node_t, typename data_t>
-	void OctreeNode<root_t, node_t, data_t>::make_children(){
-		// std::cout << "make_children(" << ID << "): _isdivided= " << _isdivided << " depth= " << _depth << std::endl;
-		if (_isdivided){
-			return;
-		}
-
-		if (_depth >= MAX_OCTREE_DEPTH){
-			throw std::runtime_error("MAX_OCTREE_DEPTH exceeded. Re-define MAX_OCTREE_DEPTH if this depth is allowed.");
-		}
-
-
-		//create children
-		_isdivided = true;
-		_root->_nleaves += 7;
-		_root->_maxdepth = std::max(_root->_maxdepth, _depth+1);
-
-		unsigned int c_ijk[3];
-
-		c_ijk[0] = 2*ijk[0];   c_ijk[1] = 2*ijk[1];   c_ijk[2]= 2*ijk[2];
-		_children[0] = new node_t(Box(box[0], box.center()), ID*8+1, c_ijk, _depth+1, _root);
-
-		c_ijk[0] = 2*ijk[0]+1; c_ijk[1] = 2*ijk[1];   c_ijk[2]= 2*ijk[2];
-		_children[1] = new node_t(Box(box[1], box.center()), ID*8+2, c_ijk, _depth+1, _root);
-
-		c_ijk[0] = 2*ijk[0];   c_ijk[1] = 2*ijk[1]+1; c_ijk[2]= 2*ijk[2];
-		_children[2] = new node_t(Box(box[2], box.center()), ID*8+3, c_ijk, _depth+1, _root);
-
-		c_ijk[0] = 2*ijk[0]+1; c_ijk[1] = 2*ijk[1]+1; c_ijk[2]= 2*ijk[2];
-		_children[3] = new node_t(Box(box[3], box.center()), ID*8+4, c_ijk, _depth+1, _root);
-
-		c_ijk[0] = 2*ijk[0];   c_ijk[1] = 2*ijk[1];   c_ijk[2]= 2*ijk[2]+1;
-		_children[4] = new node_t(Box(box[4], box.center()), ID*8+5, c_ijk, _depth+1, _root);
-
-		c_ijk[0] = 2*ijk[0]+1; c_ijk[1] = 2*ijk[1];   c_ijk[2]= 2*ijk[2]+1;
-		_children[5] = new node_t(Box(box[5], box.center()), ID*8+6, c_ijk, _depth+1, _root);
-
-		c_ijk[0] = 2*ijk[0];   c_ijk[1] = 2*ijk[1]+1; c_ijk[2]= 2*ijk[2]+1;
-		_children[6] = new node_t(Box(box[6], box.center()), ID*8+7, c_ijk, _depth+1, _root);
-
-		c_ijk[0] = 2*ijk[0]+1; c_ijk[1] = 2*ijk[1]+1; c_ijk[2]= 2*ijk[2]+1;
-		_children[7] = new node_t(Box(box[7], box.center()), ID*8+8, c_ijk, _depth+1, _root);
-
-		push_data_to_children();
-
-		//set number of nodes
-		for (int c_idx=0; c_idx<8; c_idx++){
-			_children[c_idx]->set_ndata();
-		}
-
-		//only leaf nodes contain data
-		_data.clear();
-	}
-
-
-
-	template<typename root_t, typename node_t, typename data_t>
-	void OctreeNode<root_t, node_t, data_t>::push_data_to_children(){
-		//push data to children and clear current data
-		for (long unsigned int d_idx=0; d_idx<_data.size(); d_idx++){
-			for (int c_idx=0; c_idx<8; c_idx++){
-				if (_children[c_idx]->data_valid(_data[d_idx])){
-					_children[c_idx]->_data.push_back(_data[d_idx]);
-					break;
-				}
-			}
-		}
-	}
-
-
-	template<typename root_t, typename node_t, typename data_t>
-	void OctreeNode<root_t, node_t, data_t>::insert_data(data_t value){
-		if (_isdivided){
-			_ndata+=1;
-			for (int c_idx=0; c_idx<8; c_idx++){
-				if (_children[c_idx]->data_valid(value)){
-					_children[c_idx]->insert_data(value);
-					return;
-				}
-			}
-			return;
-		}
-
-		_data.push_back(value);
-		_ndata += 1;
-		if (_data.size()>_root->max_data_per_leaf){
-			make_children();
-		}
-
-		return;
-	}
-
-
-	template<typename root_t, typename node_t, typename data_t>
-	data_t OctreeNode<root_t, node_t, data_t>::operator[](const long unsigned int idx) const{
-		if (_isdivided) {
-			long unsigned int pt_counter = 0;
-			for (int c_idx=0; c_idx<8; c_idx++){
-				if (pt_counter + _children[c_idx]->size() > idx){
-					return _children[c_idx]->operator[](idx-pt_counter);
-				}else{
-					pt_counter += _children[c_idx]->size();
-				}
-			}
-		}
-		return _data[idx];
-	}
-
-
-	template<typename root_t, typename node_t, typename data_t>
-	long unsigned int OctreeNode<root_t, node_t, data_t>::find(const data_t& value) const{
-		if (_isdivided){
-			long unsigned int result = 0;
-			for (int c_idx=0; c_idx<8; c_idx++){
-				if (_children[c_idx]->data_valid(value)){
-					return result + _children[c_idx]->find(value);
-				}else{
-					result += _children[c_idx]->size();
-				}
-			}
-		}else{
-			for (long unsigned int d_idx=0; d_idx<_data.size(); d_idx++){
-				if (_data[d_idx] == value){
-					return d_idx;
-				}
-			}
-		}
-
-		throw std::invalid_argument("Couldn't find specified value.");
-		return 0;
-	}
-
-
-	template<typename root_t, typename node_t, typename data_t>
-	node_t* OctreeNode<root_t, node_t, data_t>::findleaf(const Point3& point){
-		if (_isdivided){
-			for (int c_idx=0; c_idx<8; c_idx++){
-				if (_children[c_idx]->box.contains(point)){
-					return _children[c_idx]->findleaf(point);
-				}
-			}
-		}
-
-		if (box.contains(point)){
-			return reinterpret_cast<node_t*>(this);
-		}
-
-		return NULL;
-	}
-
-
-	template<typename root_t, typename node_t, typename data_t>
-	node_t const* OctreeNode<root_t, node_t, data_t>::findleaf_const(const Point3& point) const{
-		if (_isdivided){
-			for (int c_idx=0; c_idx<8; c_idx++){
-				if (_children[c_idx]->box.contains(point)){
-					return _children[c_idx]->findleaf_const(point);
-				}
-			}
-		}
-
-		if (box.contains(point)){
-			return reinterpret_cast<node_t const*>(this);
-		}
-
-		return NULL;
-	}
-
-
-	template<typename root_t, typename node_t, typename data_t>
-	node_t* OctreeNode<root_t, node_t, data_t>::findnode(const unsigned int depth, const Point3& point){
-		if (box.contains(point) && depth >= _depth){
-			if (depth == _depth){
-				return reinterpret_cast<node_t*>(this);
-			}
-			if (_isdivided){
-				for (int c_idx=0; c_idx<8; c_idx++){
-					if (_children[c_idx]->_box.contains(point)){
-						return _children[c_idx]->findnode(depth, point);
+	///Basic octree class, can be used in d=2 or d=3 (and possibly others). A octree that will be used should inherit from this class and define the member function is_data_valid().
+	template <int dim=3, size_t n_data=4, bool multiple_data=false, typename data_t>
+	class BasicOctree
+	{
+	private:
+		static const n_children = std::pow(2,dim);
+		struct Node
+		{
+			int data_index = 0; //cursor for inserting data. points to next data to insert.
+			// int traversal_index = 0; //cursor for tracking current progress of a tree traversal.
+			size_t* data_idx = NULL;
+			Node* children[n_children] {NULL};
+			Node* parent = NULL;
+			Box<dim>* bbox;
+			Node(Node* parent, Box<dim>* bbox) : parent(parent), bbox(bbox)
+			~Node() {data_idx = new size_t[n_data];}
+			{
+				delete bbox;
+				if (data_idx!=NULL){delete[] data_idx;}
+				if (children[i]!=NULL)
+				{
+					for (int i=0; i<n_children; i++)
+					{
+						delete children[i];
 					}
 				}
 			}
 		}
 
-		return NULL;
+		///member function for determining where to put data.
+		virtual bool is_data_valid(Box<dim> const &box, data_t const &data){return false;}
+		Node* root = NULL;
+
+		///vector for storing data in a contiguous array.
+		std::vector<data_t> _data;
+
+		//DIVISION
+		void divide_multiple_data(Node* node)
+		{
+			//check if division is allowed
+			if (node==NULL){return;}
+			if (node->children[0]==NULL){return;}
+			if (node->data_idx==NULL){return;}
+
+			//find box center for constructing bounding boxes of children
+			Point<dim> _center = node->bbox.center();
+			
+			//make children and pass data
+			for (int i=0; i<n_children; i++)
+			{
+				node->children[i] = new Node(node, new Box<dim>(node->box[i], center));
+				//pass data indices to children
+				for (int j=0; j<n_data; j++)
+				{	
+					//check if end of data has been reached.
+					if (node->data_idx[j]==NULL){break;}
+
+					//check if data can be passed to child.
+					if (is_data_valid(node->children[i]->bbox, _data[node->data_idx[j]]))
+					{	
+						//insert data
+						node->children[i]->data_idx[node->children[i]->data_index] = node->data_idx[j];
+						node->children[i]->data_index += 1;
+					}
+				}
+			}
+
+			//free memory
+			delete[] node->data_idx;
+		}
+
+		void divide_single_data(Node* node)
+		{
+			//check if division is allowed
+			if (node==NULL){return;}
+			if (node->children[0]==NULL){return;}
+			if (node->data_idx==NULL){return;}
+
+			//find box center for constructing bounding boxes of children
+			Point<dim> _center = node->bbox.center();
+			
+			//initialize array for ensuring only one copy of any data is passed
+			bool data_passed[n_data] {false;}
+
+			//make children and pass data
+			for (int i=0; i<n_children; i++)
+			{
+				node->children[i] = new Node(node, new Box<dim>(node->box[i], center));
+				//pass data indices to children
+				for (int j=0; j<n_data; j++)
+				{	
+					//check if end of data has been reached.
+					if (node->data_idx[j]==NULL){break;}
+					if (data_passed[j]){continue;} //this data was already passed
+					data_passed[j] = true;
+
+					//check if data can be passed to child.
+					if (is_data_valid(node->children[i]->bbox, _data[node->data_idx[j]]))
+					{
+						//insert data
+						node->children[i]->data_idx[node->children[i]->data_index] = node->data_idx[j];
+						node->children[i]->data_index += 1;
+					}
+				}
+			}
+
+			//free memory
+			delete[] node->data_idx;
+		}
+
+		void divide(Node* node)
+		{
+			if(multiple_data){divide_multiple_data(node);}
+			else(divide_single_data(node);)
+		}
+
+		
+		//INSERTION
+		void recursive_insert(Node* node, size_t &idx)
+		{
+			//check if data is valid
+			if (not is_data_valid(node->bbox, _data[idx])){return;}
+
+			//check if current node is divided
+			if (node->children[0]==NULL)
+			{
+				//node is not divided
+				//check if current node has room for more data
+				if (node->data_index < n_data)
+				{
+					node->data_idx[node->data_index] = idx;
+					node->data_index += 1;
+					return;
+				}
+
+				//node must divide
+				divide(node);
+
+				//call data insertion on same node to pass to children branch
+				recursive_insert(node, idx);
+			}
+			else
+			{
+				//node is divided
+				for (int i=0; i<n_children; i++)
+				{
+					recursive_insert(node->children[i], idx);
+					if (!multiple_data){return;}
+				}
+			}
+		}
+
+
+		//FIND NODES
+		size_t recursive_find(Node const* node, const data_t &val) const
+		{
+			if (node->children[i]==NULL)
+			{
+				//not divided
+				for (int j=0; j<node->data_index; j++)
+				{
+					if (val==_data[node->data_idx[j]]){return node->data_idx[j];}
+				}
+			}
+			else
+			{
+				for (int i=0; i<n_children; i++)
+				{
+					if (is_data_valid(node->children[i]->bbox, val)){return recursive_find(node->children[i], val);}
+				}
+			}
+
+			throw std::runtime_error("value not found.")
+		}
+
+		bool recursive_contains(Node const* node, const data_t &val) const
+		{
+			if (node->children[i]==NULL)
+			{
+				//not divided
+				for (int j=0; j<node->data_index; j++)
+				{
+					if (val==_data[node->data_idx[j]]){return true;}
+				}
+			}
+			else
+			{
+				for (int i=0; i<n_children; i++)
+				{
+					if (is_data_valid(node->children[i]->bbox, val)){return recursive_contains(node->children[i], val);}
+				}
+			}
+		}
+
+
+		//TREE TRAVERSAL
+		// Node* next_node(Node const* node, const int next_child)
+		// {
+
+		// 	if (node->children[0]==NULL)
+		// 	{
+		// 		//node is not divided. check what index of the parent current node is.
+		// 		if (node->parent==NULL){return NULL;} //tree has only the root node.
+		// 		for (int i=0; i<n_children; i++)
+		// 		{
+		// 			if (node->parent->children[i] == node)
+		// 			{
+		// 				if (i==n_children-1)
+		// 				{
+		// 					//node is last child of parent
+		// 					return next_node(node->parent->parent)
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// 	else
+		// 	{
+		// 		//node is divided.
+		// 		return node->children[0];
+		// 	}
+		// }
+
+	
+	public:
+		BasicOctree() {root = new Node(NULL, new Box);}
+		BasicOctree(const Box &bbox) {root = new Node(NULL, &bbox)}
+		~BasicOctree() {delete root;}
+
+		void insert(const data_t &val)
+		{
+			if (recursive_contains(root, val)){return;}
+			_data.push_back(val);
+			recursive_insert(root, val);
+		}
+
+		size_t find(const data_t &val) const {return recursive_find(root, val);}
+
+		bool contains(const data_t &val) const {return recursive_contains(root, val);}
+
+		data_t operator[](const size_t &idx) const {return _data[idx];}
+
+		// void sort_data()
+		// {
+
+		// }
+
+
 	}
+
+
+
 
 
 
 }
 
-
-
-
-
-#endif

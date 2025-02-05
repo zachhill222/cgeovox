@@ -1,5 +1,4 @@
-#ifndef BOX_H
-#define BOX_H
+#pragma once
 
 #include "Eigen/Core"
 #include "util/point.hpp"
@@ -12,29 +11,29 @@
 // using Point3 = GeoVox::util::Point3;
 
 namespace GeoVox::util{
+	template <int dim=3>
 	class Box{
 	public:
-		Box(): _low(Point3(0.0, 0.0, 0.0)), _high(Point3(1.0, 1.0, 1.0)) {}
+		Box() {}
 
-		Box(const Point3& vertex1, const Point3& vertex2){
+		Box(const Point<dim> &vertex1, const Point<dim> &vertex2){
 			_low = el_min(vertex1, vertex2);
 			_high = el_max(vertex1, vertex2);
 			
 			if (!(_low<_high)){
-				std::invalid_argument("Box: low<high");
+				throw std::invalid_argument("Box: low<high");
 			}
-
 		}
 
-		Box(const Box& box1, const Box& box2){
+		Box(const Box &box1, const Box &box2){
 			_low = el_min(box1.low(), box2.low());
 			_high = el_max(box1.high(), box2.high());
 			if (!(_low<_high)){
-				std::invalid_argument("Box: low<high");
+				throw std::invalid_argument("Box: low<high");
 			}
 		}
 
-		Box(const Box& other){
+		Box(const Box &other){
 			_low = other.low();
 			_high = other.high();
 		}
@@ -43,58 +42,153 @@ namespace GeoVox::util{
 		//////////////////////////
 		/////// ATTRIBUTES ///////
 		//////////////////////////
-		Point3 low() const;//get low
-		Point3 high() const; //get high
-		Point3 center() const; //get center of the box
-		inline Point3 sidelength() const {return _high-_low;}
+		inline Point<dim> low() const {return _low;}
+		inline Point<dim> high() const {return _high;}
+		inline Point<dim> center() const {return 0.5*(_low+_high);}
+		inline Point<dim> sidelength() const {return _high-_low;}
 
-		Point3 operator[](const int idx) const; //GET idx-TH VERTEX IN VTK-VOXEL ORDERING 
-		void setlow(const Point3& newlow);
-		void sethigh(const Point3& newhigh);
-		Point3 hexvertex(const int idx) const; //Get idx-th vertex in vtk-hexahedral ordering
+		///Get i-th vertex in vtk pixel/voxel order.
+		Point<dim> operator[](const int idx) const {
+			Point<dim> vertex;
+			int p = idx;
+			int r = 0;
+			for (int i=0; i<dim; i++){
+				r = p%2;
+				p = p/2;
+				if (r){vertex[i] = _high[i];}
+				else {vertex[i] = _low[i];}
+			}
+			return vertex;
+		}
+
+		void setlow(const Point<dim> &newlow){
+			Point<dim> _newlow = el_min(newlow, _high);
+			Point<dim> _newhigh = el_max(newlow, _high);
+			if (_newlow < _newhigh){
+				_low = _newlow;
+				_high = _newhigh;
+			}else{
+				throw std::out_of_range("Box: can't move _low to newlow");
+			}
+		}
+
+		void sethigh(const Point<dim> &newhigh){
+			Point<dim> _newlow = el_min(newhigh, _high);
+			Point<dim> _newhigh = el_max(newhigh, _high);
+			if (_newlow < _newhigh){
+				_low = _newlow;
+				_high = _newhigh;
+			}else{
+				std::out_of_range("Box: can't move _high to newhigh");
+			}
+		}
+
+		///Get i-th vertex in vtk quad/hexahedron order.
+		Point<dim> hexvertex(const int idx) const{
+			switch (idx){
+			case 2: return operator[](3);
+			case 3: return operator[](2);
+			case 6: return operator[](7);
+			case 7: return operator[](6);
+			default: return operator[](idx);
+			}
+		}
 
 
 		///////////////////////////////////////////////
 		/////// CONTAINMENT AND INTERSECTION //////////
 		///////////////////////////////////////////////
-		bool contains(const Point3& point) const; //check if point is in box
-		bool contains_strict(const Point3& point) const; //check if point is in interior of the box
-		bool contains(const Box& other) const; //check if this box contains the entire other box
-		bool intersects(const Box& other) const; //check if this box intersects the other box
-		Point3 support(const Point3& direction) const;
+		///Check if point is in the closed box.
+		inline bool contains(const Point<dim> &point) const {return _low<=point and point<=_high;}
+		///Check if point is in the open box.
+		inline bool contains_strict(const Point<dim> &point) const {return _low<point and point<_high;}
+		///Check if this box contains the other.
+		inline bool contains(const Box<dim> &other) const {return _low<=other.low() and other.high()<=_high;}
+		///Check if this box intersects the other.
+		bool intersects(const Box<dim> &other) const{
+			for (int i=0; i<std::pow(2,dim); i++){
+				if (this->contains(other[i])){return true;}
+				if (other.contains(operator[](i))){return true;}
+			}
+			return false;
+		}
+		///Find a location of the supporting hyperplane with the given direction. This maximizes dot(x,direction) over all points x in the box.
+		Point<dim> support(const Point<dim> &direction) const{
+			double maxdot = direction.dot(operator[](0));
+			int maxind = 0;
+
+			double tempdot;
+			for (int i=1; i<std::pow(2,dim); i++){
+				tempdot = direction.dot(operator[](i));
+				if (tempdot > maxdot){
+					maxdot = tempdot;
+					maxind = i;
+				}
+			}
+			return operator[](maxind); 
+		}
 
 
 		///////////////////////////////////////////////
 		////////// SHIFTING AND SCALING ///////////////
 		///////////////////////////////////////////////
-		Box* operator+=(const Point3& shift); //shift by +shift
-		Box operator+(const Point3& shift) const; 
-		Box* operator-=(const Point3& shift);
-		Box operator-(const Point3& shift) const;
+		Box<dim>* operator+=(const Point<dim> &shift){
+			_low+=shift;
+			_high+=shift;
+			return this;
+		}
+		Box<dim> operator+(const Point<dim> &shift) const{
+			return Box(_low+shift, _high+shift);
+		}
+		Box<dim>* operator-=(const Point<dim> &shift){
+			_low-=shift;
+			_high-=shift;
+			return this;
+		}
+		Box<dim> operator-(const Point<dim> &shift) const{
+			return Box(_low-shift, _high-shift);
+		}
 
-		Box* operator*=(const double& scale); //scale towards center
-		Box operator*(const double& scale) const;
-		Box* operator/=(const double& scale);
-		Box operator/(const double& scale) const;
+		///Scale box towards center.
+		Box<dim>* operator*=(const double& scale){
+			Point<dim> _center = center();
+			_low = _center + scale*(_low-_center);
+			_high = _center + scale*(_high-_center);
+			return this;
+		}
+		Box<dim> operator*(const double& scale) const{
+			Point<dim> _center = center();
+			return Box(_center+scale*(_low-_center), _center+scale*(_high-_center));
+		}
+		inline Box<dim>* operator/=(const double& scale){return operator*=(1.0/scale);}
+		inline Box<dim> operator/(const double& scale) const{return operator*(1.0/scale);}
 
-		Box* combine(const Box& other); //combine this box with other (same thing as the Box(Box,Box) initializer)
+		///Enlarge this box so that it contains the other.
+		Box<dim>* combine(const Box<dim>& other){
+			Point<dim> _newlow = el_min(_low, other.low());
+			Point<dim> _newhigh = el_max(_high, other.high());
+			_low = _newlow;
+			_high = _newhigh;
+			return this;
+		}
 
-		std::string tostr() const;
+		std::string tostr() const{
+			std::stringstream ss;
+			for (int i=0; i<std::pow(2,dim); i++){
+				ss << i << ": " << operator[](i) << "\n";
+			}
+			return ss.str();
+		}
 
 	private:
-		Point3 _low;
-		Point3 _high;
+		Point<dim> _low;
+		Point<dim> _high;
 	};
 
 	//LHS scalar multiplication
-	Box operator*(const double& scale, const Box& box);
+	template <int dim>
+	Box<dim> operator*(const double &scale, const Box<dim> &box);
 }
-
-
-
-
-#endif
-
 
 
 
