@@ -1,5 +1,4 @@
-#ifndef POLYTOPES_H
-#define POLYTOPES_H
+#pragma once
 
 #include "util/point.hpp"
 #include <iostream>
@@ -7,7 +6,7 @@
 #include <initializer_list>
 
 
-namespace GeoVox::util{
+namespace gv::util{
 	//TYPE DEFS
 	template <int dim>
 	class Polytope;
@@ -133,6 +132,3 @@ namespace GeoVox::util{
 		}
 	}
 }
-
-
-#endif

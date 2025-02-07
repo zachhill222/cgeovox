@@ -1,24 +1,23 @@
 #pragma once
 
-#include "Eigen/Core"
 #include "util/point.hpp"
 
 #include <stdexcept>
 #include <string>
 #include <sstream>
-
+#include <cmath>
 
 // using Point3 = GeoVox::util::Point3;
 
-namespace GeoVox::util{
-	template <int dim=3>
+namespace gv::util{
+	template <int dim=3, typename T=double>
 	class Box{
 	public:
 		Box() {}
 
-		Box(const Point<dim> &vertex1, const Point<dim> &vertex2){
-			_low = el_min(vertex1, vertex2);
-			_high = el_max(vertex1, vertex2);
+		Box(const Point<dim,T> &vertex1, const Point<dim,T> &vertex2){
+			_low = elmin(vertex1, vertex2);
+			_high = elmax(vertex1, vertex2);
 			
 			if (!(_low<_high)){
 				throw std::invalid_argument("Box: low<high");
@@ -42,14 +41,14 @@ namespace GeoVox::util{
 		//////////////////////////
 		/////// ATTRIBUTES ///////
 		//////////////////////////
-		inline Point<dim> low() const {return _low;}
-		inline Point<dim> high() const {return _high;}
-		inline Point<dim> center() const {return 0.5*(_low+_high);}
-		inline Point<dim> sidelength() const {return _high-_low;}
+		inline Point<dim,T> low() const {return _low;}
+		inline Point<dim,T> high() const {return _high;}
+		inline Point<dim,T> center() const {return 0.5*(_low+_high);}
+		inline Point<dim,T> sidelength() const {return _high-_low;}
 
 		///Get i-th vertex in vtk pixel/voxel order.
-		Point<dim> operator[](const int idx) const {
-			Point<dim> vertex;
+		Point<dim,T> operator[](const int idx) const {
+			Point<dim,T> vertex;
 			int p = idx;
 			int r = 0;
 			for (int i=0; i<dim; i++){
@@ -61,9 +60,9 @@ namespace GeoVox::util{
 			return vertex;
 		}
 
-		void setlow(const Point<dim> &newlow){
-			Point<dim> _newlow = el_min(newlow, _high);
-			Point<dim> _newhigh = el_max(newlow, _high);
+		void setlow(const Point<dim,T> &newlow){
+			Point<dim,T> _newlow = el_min(newlow, _high);
+			Point<dim,T> _newhigh = el_max(newlow, _high);
 			if (_newlow < _newhigh){
 				_low = _newlow;
 				_high = _newhigh;
@@ -72,9 +71,9 @@ namespace GeoVox::util{
 			}
 		}
 
-		void sethigh(const Point<dim> &newhigh){
-			Point<dim> _newlow = el_min(newhigh, _high);
-			Point<dim> _newhigh = el_max(newhigh, _high);
+		void sethigh(const Point<dim,T> &newhigh){
+			Point<dim,T> _newlow = el_min(newhigh, _high);
+			Point<dim,T> _newhigh = el_max(newhigh, _high);
 			if (_newlow < _newhigh){
 				_low = _newlow;
 				_high = _newhigh;
@@ -84,7 +83,7 @@ namespace GeoVox::util{
 		}
 
 		///Get i-th vertex in vtk quad/hexahedron order.
-		Point<dim> hexvertex(const int idx) const{
+		Point<dim,T> hexvertex(const int idx) const{
 			switch (idx){
 			case 2: return operator[](3);
 			case 3: return operator[](2);
@@ -99,9 +98,9 @@ namespace GeoVox::util{
 		/////// CONTAINMENT AND INTERSECTION //////////
 		///////////////////////////////////////////////
 		///Check if point is in the closed box.
-		inline bool contains(const Point<dim> &point) const {return _low<=point and point<=_high;}
+		inline bool contains(const Point<dim,T> &point) const {return _low<=point and point<=_high;}
 		///Check if point is in the open box.
-		inline bool contains_strict(const Point<dim> &point) const {return _low<point and point<_high;}
+		inline bool contains_strict(const Point<dim,T> &point) const {return _low<point and point<_high;}
 		///Check if this box contains the other.
 		inline bool contains(const Box<dim> &other) const {return _low<=other.low() and other.high()<=_high;}
 		///Check if this box intersects the other.
@@ -113,7 +112,7 @@ namespace GeoVox::util{
 			return false;
 		}
 		///Find a location of the supporting hyperplane with the given direction. This maximizes dot(x,direction) over all points x in the box.
-		Point<dim> support(const Point<dim> &direction) const{
+		Point<dim,T> support(const Point<dim,T> &direction) const{
 			double maxdot = direction.dot(operator[](0));
 			int maxind = 0;
 
@@ -132,32 +131,32 @@ namespace GeoVox::util{
 		///////////////////////////////////////////////
 		////////// SHIFTING AND SCALING ///////////////
 		///////////////////////////////////////////////
-		Box<dim>* operator+=(const Point<dim> &shift){
+		Box<dim>* operator+=(const Point<dim,T> &shift){
 			_low+=shift;
 			_high+=shift;
 			return this;
 		}
-		Box<dim> operator+(const Point<dim> &shift) const{
+		Box<dim> operator+(const Point<dim,T> &shift) const{
 			return Box(_low+shift, _high+shift);
 		}
-		Box<dim>* operator-=(const Point<dim> &shift){
+		Box<dim>* operator-=(const Point<dim,T> &shift){
 			_low-=shift;
 			_high-=shift;
 			return this;
 		}
-		Box<dim> operator-(const Point<dim> &shift) const{
+		Box<dim> operator-(const Point<dim,T> &shift) const{
 			return Box(_low-shift, _high-shift);
 		}
 
 		///Scale box towards center.
 		Box<dim>* operator*=(const double& scale){
-			Point<dim> _center = center();
+			Point<dim,T> _center = center();
 			_low = _center + scale*(_low-_center);
 			_high = _center + scale*(_high-_center);
 			return this;
 		}
 		Box<dim> operator*(const double& scale) const{
-			Point<dim> _center = center();
+			Point<dim,T> _center = center();
 			return Box(_center+scale*(_low-_center), _center+scale*(_high-_center));
 		}
 		inline Box<dim>* operator/=(const double& scale){return operator*=(1.0/scale);}
@@ -165,8 +164,8 @@ namespace GeoVox::util{
 
 		///Enlarge this box so that it contains the other.
 		Box<dim>* combine(const Box<dim>& other){
-			Point<dim> _newlow = el_min(_low, other.low());
-			Point<dim> _newhigh = el_max(_high, other.high());
+			Point<dim,T> _newlow = el_min(_low, other.low());
+			Point<dim,T> _newhigh = el_max(_high, other.high());
 			_low = _newlow;
 			_high = _newhigh;
 			return this;
@@ -181,8 +180,8 @@ namespace GeoVox::util{
 		}
 
 	private:
-		Point<dim> _low;
-		Point<dim> _high;
+		Point<dim,T> _low;
+		Point<dim,T> _high;
 	};
 
 	//LHS scalar multiplication

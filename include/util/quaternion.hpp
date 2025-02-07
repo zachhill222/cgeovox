@@ -1,18 +1,17 @@
-#ifndef QUATERNION_H
-#define QUATERNION_H
+#pragma once
 
 #include "util/point.hpp"
 #include "ostream"
 #include <cmath>
 
 
-namespace GeoVox::util{
+namespace gv::util{
 	class Quaternion{
 	public:
 		//// INITIALIZERS
-		Quaternion(): _q0(1), _qv(Point3(0,0,0)) {}
-		Quaternion(const double q0, const double q1, const double q2, const double q3): _q0(q0), _qv(Point3(q1,q2,q3)) {}
-		Quaternion(const double q0, const Point3 qv): _q0(q0), _qv(Point3(qv[0], qv[1], qv[2])) {}
+		Quaternion(): _q0(1), _qv(Point3 {0,0,0}) {}
+		Quaternion(const double q0, const double q1, const double q2, const double q3): _q0(q0), _qv(Point3 {q1,q2,q3} ) {}
+		Quaternion(const double q0, const Point3 qv): _q0(q0), _qv(Point3 {qv[0], qv[1], qv[2]}) {}
 
 		//// ATTRIBUTES
 		double operator[](int idx) const;
@@ -116,14 +115,14 @@ namespace GeoVox::util{
 		return Quaternion(_q0-other.q0(), _qv-other.qv());
 	}
 	Quaternion* Quaternion::operator*=(const Quaternion& other){
-		double Q0 = _q0*other.q0() - _qv.dot(other.qv());
-		_qv = _q0*other.qv() + other.q0()*_qv + _qv.cross(other.qv());
+		double Q0 = _q0*other.q0() - dot(_qv,other.qv());
+		_qv = _q0*other.qv() + other.q0()*_qv + cross(_qv,other.qv());
 		_q0 = Q0;
 		return this;
 	}
 	Quaternion Quaternion::operator*(const Quaternion& other) const{
-		double Q0 = _q0*other.q0() - _qv.dot(other.qv());
-		Point3  QV = _q0*other.qv() + other.q0()*_qv + _qv.cross(other.qv());
+		double Q0 = _q0*other.q0() - dot(_qv,other.qv());
+		Point3  QV = _q0*other.qv() + other.q0()*_qv + cross(_qv,other.qv());
 		return Quaternion(Q0, QV);
 	}
 	Quaternion* Quaternion::operator/=(const Quaternion& other){
@@ -156,5 +155,3 @@ namespace GeoVox::util{
 	}
 }
 
-
-#endif
