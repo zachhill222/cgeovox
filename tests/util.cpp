@@ -2,6 +2,7 @@
 #include "util/box.hpp"
 #include "util/quaternion.hpp"
 #include "util/octree.hpp"
+#include "util/polytope.hpp"
 
 #include <iostream>
 #include <random>
@@ -13,6 +14,8 @@ void test_point()
 	gv::util::Point p2(2.1*p1);
 	p1+=p2;
 	std::cout << (p1-p2).normalized() << std::endl;
+	p1=1.000000001*p2;
+	std::cout << p1 << " == " << p2 << " is " << (p1==p2) << std::endl;
 }
 
 void test_box()
@@ -55,10 +58,10 @@ void test_quaternion()
 
 void test_octree(size_t N)
 {
-	const int dim=2;
+	const int dim=4;
 
 	using Point_t = gv::util::Point<dim,double>;
-	gv::util::Box bbox(Point_t {0,0,0}, Point_t {1,1,1});
+	gv::util::Box bbox(Point_t {0,0,0,0}, Point_t {1,1,1,1});
 
 	//set up octree
 	gv::util::PointOctree<dim,double,32> octree(bbox);
@@ -82,8 +85,8 @@ void test_octree(size_t N)
     	}
 
     	// std::cout << i << ": " << point;
-    	// point_list.push_back(point);
-    	octree.insert(point);
+    	point_list.push_back(point);
+    	octree.push_back(point);
     	// std::cout << std::endl;
     	// std::cout << " | " << octree[i] << std::endl;
     }
@@ -93,7 +96,7 @@ void test_octree(size_t N)
     //find points in octree
     for (size_t i=0; i<N; i++)
     {
-    	// std::cout << octree.find(point_list[i]) << std::endl;
+    	std::cout << octree.find(point_list[i]) << std::endl;
     }
 
 }
@@ -101,7 +104,7 @@ void test_octree(size_t N)
 
 int main(int argc, char* argv[])
 {
-	// test_point();
+	test_point();
 	// test_box();
 	// test_quaternion();
 	test_octree(atoi(argv[1]));

@@ -18,6 +18,7 @@ namespace gv::util {
 	class Point {
 	public:
 		Point () {}
+		~Point() {}
 		Point (std::initializer_list<T> init) {
 			int i=0;
 			for (T coord : init){
@@ -33,6 +34,14 @@ namespace gv::util {
 
 		T& operator[](const int idx) {return _data[idx];}
 		const T&  operator[](const int idx) const {return _data[idx];}
+		Point<dim,T>& operator=(const Point<dim,T> &other)
+		{
+			if (this!=&other)
+			{
+				for (int i=0; i<dim; i++) {_data[i]=other[i];}
+			}
+			return *this;
+		}
 		T squaredNorm() const;
 		Point<dim,T> normalized() const;
 
@@ -279,6 +288,8 @@ namespace gv::util {
 		T scale = std::sqrt(this->squaredNorm());
 		return (1.0/scale) * (*this);
 	}
+
+
 
 
 }

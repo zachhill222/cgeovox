@@ -1,5 +1,4 @@
-#ifndef OCTREE_VISUALIZE_H
-#define OCTREE_VISUALIZE_H
+#pragma once
 
 #include "mesh/mesh.hpp"
 #include "mesh/nodes.hpp"
@@ -68,6 +67,3 @@ namespace GeoVox::util{
 		elemMarkers.push_back(octree->size());
 	}
 }
-
-
-#endif

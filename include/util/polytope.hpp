@@ -24,8 +24,8 @@ namespace gv::util{
 
 		Polytope(std::initializer_list<Point<dim>> list) : _points(list) {}
 
-		Point<dim> operator[](int idx) const;
-		Point<dim>& operator[](int idx);
+		Point<dim,double> operator[](int idx) const;
+		Point<dim,double>& operator[](int idx);
 
 		int len() const;
 
@@ -47,14 +47,14 @@ namespace gv::util{
 	class Simplex : public Polytope<dim> {
 	public:
 		Simplex(): Polytope<dim>(dim+1) {
-			this->_points.push_back(Point<dim>()); //default constructor is all zeros
+			this->_points.push_back(Point<dim,double>()); //default constructor is all zeros
 			for (long unsigned int i=1; i<dim+1; i++){
-				this->_points.push_back(Point<dim>());
+				this->_points.push_back(Point<dim,double>());
 				this->_points[i][i-1] = 1.0;
 			}
 		}
 
-		Simplex(std::initializer_list<Point<dim>> list): Polytope<dim>(list) {}
+		Simplex(std::initializer_list<Point<dim,double>> list): Polytope<dim>(list) {}
 
 		Simplex(const Simplex<dim>& other): Polytope<dim>(dim+1){
 			for (int i=0; i<other.len(); i++){
