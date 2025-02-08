@@ -41,9 +41,9 @@ void test_box()
 
 void test_quaternion()
 {
-	gv::util::Quaternion p(1,2,0,0);
+	gv::util::Quaternion<double> p(1,2,0,0);
 	
-	gv::util::Quaternion q;
+	gv::util::Quaternion<double> q;
 	gv::util::Point3 axis {0,0,1};
 	q.setrotation(3.1415926/2,axis);
 

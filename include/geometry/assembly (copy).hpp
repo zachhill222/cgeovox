@@ -1,4 +1,6 @@
-#pragma once
+#ifndef ASSEMBLY_H
+#define ASSEMBLY_H
+
 
 
 #include "constants.hpp"
@@ -100,3 +102,5 @@ namespace GeoVox::geometry{
 
 
 }
+
+#endif

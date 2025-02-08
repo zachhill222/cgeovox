@@ -53,19 +53,21 @@ namespace gv::util {
 
 	///Scalar maximum.
 	template <typename T=double>
-	T max(const T &left, const T &right)
-	{
-		return (left > right) ? left : right;
-	}
+	T max(const T &left, const T &right) {return (left > right) ? left : right;}
 
 
 	///Scalar minimum.
 	template <typename T=double>
-	T min(const T &left, const T &right)
-	{
-		return (left < right) ? left : right;
-	}
+	T min(const T &left, const T &right) {return (left < right) ? left : right;}
 
+
+	///Scalar absolute value.
+	template <typename T=double>
+	T abs(const T &val) {return (val < 0) ? -val : val;}
+
+	///convenient sign function
+	template <typename T=double>
+	T sgn(const T& x) {return (x < 0) ? -1 : 1;}
 
 	///Point addition.
 	template <int dim=3, typename T=double>
@@ -262,6 +264,38 @@ namespace gv::util {
 	}
 
 
+	///Element-wise absolute value
+	template <int dim=3, typename T=double>
+	Point<dim,T> abs(const Point<dim,T> &point)
+	{
+		Point<dim,T> result;
+		for (int i=0; i<dim; i++) {result[i] = abs(point[i]);}
+		return result;
+	}
+
+
+	///Maximum element.
+	template <int dim=3, typename T=double>
+	T max(const Point<dim,T> &point)
+	{
+		T result = point[0];
+		for (int i=1; i<dim; i++) {result = max(result,point[i]);}
+		return result;
+	}
+
+
+	///Minimum element.
+	template <int dim=3, typename T=double>
+	T min(const Point<dim,T> &point)
+	{
+		T result = point[0];
+		for (int i=1; i<dim; i++) {result = min(result,point[i]);}
+		return result;
+	}
+
+
+
+
 	///Print to ostream.
 	template <int dim=3, typename T=double>
 	std::ostream& operator<<(std::ostream& os, const Point<dim,T> &point)
@@ -281,6 +315,26 @@ namespace gv::util {
 	}
 
 
+	///L2-norm
+	template <int dim=3, typename T=double>
+	T norm2(const Point<dim,T> &point) {return std::sqrt(point.normSquared());}
+
+
+	///L1-norm
+	template <int dim=3, typename T=double>
+	T norm1(const Point<dim,T> &point)
+	{
+		T result = 0;
+		for (int i=0; i<dim; i++) {result+=abs(point[i]);}
+		return result;
+	}
+
+
+	///L-infinity norm
+	template <int dim=3, typename T=double>
+	T norminf(const Point<dim,T> &point) {return max(abs(point));}
+
+
 	///Normalize (without modification)
 	template <int dim, typename T>
 	Point<dim,T> Point<dim,T>::normalized() const
@@ -288,8 +342,6 @@ namespace gv::util {
 		T scale = std::sqrt(this->squaredNorm());
 		return (1.0/scale) * (*this);
 	}
-
-
 
 
 }

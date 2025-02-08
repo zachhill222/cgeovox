@@ -1,6 +1,8 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "mesh/octree_mesh.hpp"
+#include "geometry/particles.hpp"
+
 
 #include <iostream>
 #include <random>
@@ -37,19 +39,19 @@ void test_octree_mesh(size_t N)
     	std::cout << "node " << i << std::endl;
     	octmesh.get_support(i);
     }
-    
-
 
     std::cout << "saving mesh\n";
     octmesh.save("octmesh.vtk");
-
-
 }
 
 
 int main(int argc, char* argv[])
-{
-	test_octree_mesh(atoi(argv[1]));
+{	
+	int N = 10;
+	if (argc>1) {N=atoi(argv[1]);}
+
+	// test_octree_mesh(N);
+
 
 	return 0;
 }

@@ -1,168 +1,197 @@
-#ifndef SUPERELLIPSOID_H
-#define SUPERELLIPSOID_H
+#pragma once
 
 #include "util/point.hpp"
 #include "util/quaternion.hpp"
-#include "util/box.hpp"
-#include "util/polytope.hpp"
-#include "solvers/neldermead.hpp"
 
-#include <functional>
 #include <cmath>
 
 
+namespace gv::geometry{
+	template <typename T=double>
+	using Point_t = gv::util::Point<3,T>;
 
-using Point3 = GeoVox::util::Point3;
-using Quaternion = GeoVox::util::Quaternion;
-using Box = GeoVox::util::Box;
-using Polytope3 = GeoVox::util::Polytope3;
+	template <typename T=double>
+	using Quat_t = gv::util::Quaternion<T>;
 
-typedef double (*NelderMeadFun_t)(GeoVox::util::Point<2>, GeoVox::util::Point<3>);
-
-namespace GeoVox::geometry{
-
-	class SuperEllipsoid{
+	//base shape for particles. includes rotatable prism bounding box.
+	template <typename T=double>
+	class Prism
+	{
 	public:
-		SuperEllipsoid(): _r(Point3(1,1,1)), _eps1(1), _eps2(1), _center(Point3(0,0,0)), _Q(Quaternion(1,0,0,0)) {
-			_POWERS[0] = 1.0;
-			_POWERS[1] = 1.0;
-			_POWERS[2] = 1.0;
+		Prism() {}
+		Prism(const Point_t<T> &radii, const Point_t<T> &center, const Quat_t<T> quaternion = Quat_t<T> {1,0,0,0}) : _quaternion(quaternion), _center(center), _radii(radii) {}
 
-			_INVPOWERS[0] = 1.0;
-			_INVPOWERS[1] = 1.0;
+		//return point in local normalized coordinates
+		inline Point_t<T> tolocal(const Point_t<T> &point) const {return (_quaternion.rotate(point-_center))/_radii;}
+
+		//convert point in local normalized coordinates to global coordinates
+		inline Point_t<T> toglobal(const Point_t<T> &point) const {return _quaternion.conj().rotate(point*_radii)+_center;}
+
+		//check if point in global coordinates is in the bounding box
+		inline bool is_in_bbox(const Point_t<T> &point) const {return gv::util::norminf<3,T>(tolocal(point)) <= 1;}
+
+		//evaluate level set function at specified point in global coordinates
+		inline double eval_level_set(const Point_t<T> &point) const {return _eval_level_set(tolocal(point));}
+
+		//check if point is inside particle
+		bool contains(const Point_t<T> &point) const
+		{
+			Point_t<T> localpoint = tolocal(point);
+			if (gv::util::norminf<3,T>(localpoint) <= 1) {return _eval_level_set(localpoint) <= 1;}
+			return false;
 		}
-		
-		SuperEllipsoid(const Point3& r, const double& eps1, const double& eps2, const Point3& center, const Quaternion Q): _r(r), _eps1(eps1), _eps2(eps2), _center(center), _Q(Q) {
-			_POWERS[0] = 1.0/eps1;
-			_POWERS[1] = 1.0/eps2;
-			_POWERS[2] = eps2/eps1;
 
-			_INVPOWERS[0] = 1.0/(2.0-eps1);
-			_INVPOWERS[1] = 1.0/(2.0-eps2);
+		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
+		virtual Point_t<T> support(const Point_t<T> &direction) const
+		{
+			Point_t<T> rotated_direction = _quaternion.rotate(direction);
+			Point_t<T> localpoint {1,1,1};
+			for (int i=0; i<3; i++)
+				{
+					if (direction[i]<0)
+					localpoint[i] = -1;
+				}
+			return toglobal(localpoint);
 		}
 
-		//copy
-		SuperEllipsoid copy() const;
+	protected:
+		//quaternion to rotate from global coordinate system to particle coordinate system
+		Quat_t<T> _quaternion;
 
-		//get attributes
-		Point3 center() const;
-		Point3 radius() const;
-		double eps1() const;
-		double eps2() const;
-		Quaternion quaternion() const;
+		//origin of particle coordinate system
+		Point_t<T> _center;
 
-		//bounds
-		Box axis_alligned_bbox() const;
-		Polytope3 bbox() const;
+		//major radii in particle coordinate system
+		Point_t<T> _radii;
 
-		//shifting
-		SuperEllipsoid* operator+=(const Point3& other);
-		SuperEllipsoid  operator+(const Point3& other) const;
-
-		//rotating
-		SuperEllipsoid* operator*=(const Quaternion& other);
-		SuperEllipsoid  operator*(const Quaternion& other) const;
-
-		//scaling
-		SuperEllipsoid* operator*=(const double& other);
-		SuperEllipsoid  operator*(const double& other) const;
-
-		//comparison
-		bool operator==(const SuperEllipsoid& other) const;
-		inline bool operator!=(const SuperEllipsoid& other) const {return !(operator==(other));}
-
-		//coordinate system changes
-		Point3 tolocal(const Point3& point) const;
-		Point3 toglobal(const Point3& point) const;
-		
-		//print
-		void print(std::ostream &stream) const;
-
-		//level set evaluation
-		double levelval(const Point3& point) const;
-		bool contains(const Point3& point) const;
+		//evaluate level set function at specified point in normalized local coordinates
+		virtual double _eval_level_set(const Point_t<T> &localpoint) const {return gv::util::norminf<3,T>(localpoint);}
+	};
 
 
-		//convex support (point of tangency for a supporting hyperplane with normal unit vector direction)
-		Point3 support(const Point3& direction) const;
+	//ellipsoid class
+	template <typename T=double>
+	class Ellipsoid : public Prism<T>
+	{
+	public:
+		Ellipsoid() : Prism<T>() {}
+		Ellipsoid(const Point_t<T> &radii, const Point_t<T> &center, const Quat_t<T> quaternion = Quat_t<T> {1,0,0,0}) : Prism<T>(radii, center, quaternion) {}
 
-		//get closest point on surface to given point
-		Point3 closest_point(const Point3& point) const;
+		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
+		virtual Point_t<T> support(const Point_t<T> &direction) const
+		{
+			Point_t<T> rotated_direction = this->_quaternion.rotate(direction);
+			Point_t<T> localpoint = rotated_direction.normalized();
+			return toglobal(localpoint);
+		}
 
-		//parametric coordinats: -pi/2 <= eta <= pi/2 and -pi <= omega <= pi SEE: http://www.cs.bilkent.edu.tr/~gudukbay/cs465/super_quadrics.pdf
-		Point3 parametric(const double eta, const double omega) const; //get point from parametric coordinates
-		Point3 normal_parametric(const double eta, const double omega) const; //get normal vector from parametric coordinates
+	protected:
+		virtual double _eval_level_set(const Point_t<T> &localpoint) const {return localpoint.normSquared();}
+	};
 
-		double neldermeadfun(GeoVox::util::Point<2> coords,  GeoVox::util::Point<3> localpoint) const;
-		
-		// int id;
-		// double vol;
-	private:
-		Point3 _r;
-		double _eps1;
-		double _eps2;
-		Point3 _center;
-		Quaternion _Q;
-		double _POWERS[3];
-		double _INVPOWERS[2];
+
+	//right-circular cyllinder class. height axis parallel to z-axis in local coordinates.
+	template <typename T=double>
+	class Cylinder : public Prism<T>
+	{
+	public:
+		Cylinder() : Prism<T>() {}
+		Cylinder(const Point_t<T> &radii, const Point_t<T> &center, const Quat_t<T> quaternion = Quat_t<T> {1,0,0,0}) : Prism<T>(radii, center, quaternion) {}
+
+		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
+		virtual Point_t<T> support(const Point_t<T> &direction) const
+		{
+			Point_t<T> rotated_direction = this->_quaternion.rotate(direction);
+			Point_t<T> localpoint {0,0,1};
+			if (rotated_direction[2] < 0) {localpoint[2] = -1;}
+			
+			T R = std::sqrt(rotated_direction[0]*rotated_direction[0] + rotated_direction[1]*rotated_direction[1]);
+			if (R>0)
+			{
+				localpoint[0]/=R;
+				localpoint[1]/=R;
+			}
+
+			return toglobal(localpoint);
+		}
+
+	protected:
+		virtual double _eval_level_set(const Point_t<T> &localpoint) const {return gv::util::max(localpoint[0]*localpoint[0]+localpoint[1]*localpoint[1], gv::util::abs(localpoint[2]));}
+	};
+
+
+	//super-ellipsoid class.
+	template <typename T=double>
+	class SuperEllipsoid : public Prism<T>
+	{
+	public:
+		SuperEllipsoid() : Prism<T>() {}
+		SuperEllipsoid(const Point_t<T> &radii, T eps[2], const Point_t<T> &center, const Quat_t<T> quaternion = Quat_t<T> {1,0,0,0}) : \
+					Prism<T>(radii, center, quaternion), _eps(eps), _powers({1.0/eps[0], 1.0/eps[1], eps[2]/eps[1]}), _invpowers({1.0/(2.0-eps[0]), 1.0/(2.0-eps[1])}) {}
+
+		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
+		virtual Point_t<T> support(const Point_t<T> &direction) const
+		{
+			Point_t<T> rotated_direction = this->_quaternion.rotate(direction);
+			//get omega
+			T x = sgn(rotated_direction[0])*std::pow(gv::util::abs(rotated_direction[0]), _invpowers[1]);
+			T y = sgn(rotated_direction[1])*std::pow(gv::util::abs(rotated_direction[1]), _invpowers[1]);
+			T omega = std::atan2(y, x); //in [-pi,pi]
+
+			//get eta
+			x = std::pow(gv::util::abs(rotated_direction[0]), _invpowers[0]);
+			y = sgn(rotated_direction[2]) * std::pow( gv::util::abs( rotated_direction[2]*cos_pow(omega,2.0-_eps[1]) ) , _invpowers[0]);
+
+			T eta = atan2(y, x); //in [-pi/2,pi/2] because x >= 0
+
+			//get normal in global coordinates
+			Point_t<T> localpoint = parametric(eta, omega);
+			
+			return toglobal(localpoint);
+		}
+
+	protected:
+		//signed cos(theta)^eps
+		static const T cos_pow(const T theta, const T eps)
+		{
+			T C = cos(theta);
+			return sgn(C)*std::pow(gv::util::abs(C), eps);
+		}
+		//signed sin(theta)^eps
+		static const T sin_pow(const T theta, const T eps)
+		{
+			T S = sin(theta);
+			return sgn(S)*std::pow(gv::util::abs(S), eps);
+		}
+
+
+		//shape parameters
+		const T _eps[2] {1,1};
+
+		//common exponents
+		const T _powers[3] {1,1,1};
+		const T _invpowers[2] {1,1};
+
+		//evaluate level set function
+		virtual double _eval_level_set(const Point_t<T> &localpoint) const
+		{
+			T a = std::pow(localpoint[0]*localpoint[0], _powers[1]) + std::pow(localpoint[1]*localpoint[1], _powers[1]);
+			return std::pow(a, _powers[2]) + std::pow(localpoint[2]*localpoint[2], _powers[0]);
+		}
+
+		//get point in local coordinates from the parametric representation of the particle surface
+		Point_t<T> _parametric(const T eta, const T omega) const{
+			//compute sines and cosines
+			T C_eta = cos_pow(eta, _eps[0]);
+			T S_eta = sin_pow(eta, _eps[0]);
+			T C_omega = cos_pow(omega, _eps[1]);
+			T S_omega = sin_pow(omega, _eps[1]);
+
+			Point_t<T> localpoint = Point_t<T> {C_eta*C_omega, C_eta*S_omega, S_eta};
+			return localpoint;
+		}
 	};
 
 
 
-
-
-	class Sphere{
-	public:
-		Sphere(): _r(1), _center(Point3(0,0,0)) {
-			_1r2 = 1.0/(_r*_r);
-		}
-		
-		Sphere(const double r, const Point3& center): _r(r), _center(center) {
-			_1r2 = 1.0/(_r*_r);
-		}
-
-		//copy
-		Sphere copy() const;
-
-		//get center
-		Point3 center() const;
-
-		//shifting
-		Sphere* operator+=(const Point3& other);
-		Sphere  operator+(const Point3& other) const;
-
-		//rotating
-		Sphere* operator*=(const Quaternion& other);
-		Sphere  operator*(const Quaternion& other) const;
-
-		//scaling
-		Sphere* operator*=(const double& other);
-		Sphere  operator*(const double& other) const;
-
-		//coordinate system changes
-		Point3 tolocal(const Point3& point) const;
-		Point3 toglobal(const Point3& point) const;
-		
-		//print
-		void print(std::ostream &stream) const;
-
-		//level set evaluation
-		double levelval(const Point3& point) const;
-
-		//convex support (point of tangency for a supporting hyperplane with normal unit vector direction)
-		Point3 support(const Point3& direction) const;
-
-	private:
-		double _r, _1r2;
-		Point3 _center;
-	};
-
-
-	double cos_pow(const double theta, const double eps);
-	double sin_pow(const double theta, const double eps);
 }
-
-
-
-
-#endif

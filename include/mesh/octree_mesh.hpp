@@ -5,7 +5,7 @@
 #include "util/octree.hpp"
 #include "mesh/linear_elements.hpp"
 
-#include <armadillo>
+// #include <armadillo>
 
 #include <sstream>
 #include <iostream>
@@ -156,7 +156,7 @@ namespace gv::mesh
 
 
 		///Assemble mass and stiffness matrices.
-		void make_matrices( arma::SpMat<T> &M, arma::SpMat<T> &A) const;
+		// void make_matrices( arma::SpMat<T> &M, arma::SpMat<T> &A) const;
 		
 
 
@@ -354,7 +354,7 @@ namespace gv::mesh
 		template <typename T, typename Node>
 		void OctreeMesh<T,Node>::vtkprint(std::ostream &stream) const
 		{
-			size_t nElements = nElements();
+			size_t nElems = nElements();
 			std::stringstream buffer;
 
 			//HEADER
@@ -371,23 +371,23 @@ namespace gv::mesh
 			buffer.str("");
 
 			//ELEMENTS
-			buffer << "CELLS " << nElements << " " << 9*nElements << "\n";
+			buffer << "CELLS " << nElems << " " << 9*nElems << "\n";
 			print(root, buffer);
 			buffer << "\n";
 			stream << buffer.rdbuf();
 			buffer.str("");
 
 			//VTK IDs
-			buffer << "CELL_TYPES " << nElements << "\n";
-			for (size_t i=0; i<nElements; i++) {buffer << "11\n";}
+			buffer << "CELL_TYPES " << nElems << "\n";
+			for (size_t i=0; i<nElems; i++) {buffer << "11\n";}
 			stream << buffer.rdbuf();
 			buffer.str("");
 
 			// //TEMPORARY DATA
-			// buffer << "CELL_DATA " << nElements << std::endl;
+			// buffer << "CELL_DATA " << nElems << std::endl;
 			// buffer << "SCALARS elemMarkers integer\n";
 			// buffer << "LOOKUP_TABLE default\n";
-			// for (size_t i=0; i<nElements; i++){
+			// for (size_t i=0; i<nElems; i++){
 			// 	buffer << i << "\n";
 			// }
 			// buffer << "\n";
@@ -411,7 +411,7 @@ namespace gv::mesh
 
 
 		template <typename T, typename Node>
-		std::vector<Voxel<T>> OctreeMesh::get_support(const size_t &idx) const
+		std::vector<Voxel<T>> OctreeMesh<T,Node>::get_support(const size_t &idx) const
 		{
 			//get nodes
 			std::vector<const Node*> support_nodes = find_all(idx, basis_function_depth[idx]);
