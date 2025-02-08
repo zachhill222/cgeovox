@@ -3,7 +3,9 @@
 #include "util/box.hpp"
 #include "util/point.hpp"
 #include "util/octree.hpp"
-// #include "mesh/linear_elements.hpp"
+#include "mesh/linear_elements.hpp"
+
+#include <armadillo>
 
 #include <sstream>
 #include <iostream>
@@ -11,77 +13,212 @@
 
 namespace gv::mesh
 {
-	///Basic octree class, can be used in d=2 or d=3 (and possibly others). A octree that will be used should inherit from this class and define the member function is_data_valid().
-	template <typename T>
+	template <typename T=double>
+	using Point_t = gv::util::Point<3,T>;
+
+	template <typename T=double>
+	struct VoxelNode
+	{
+		//structure information
+		static const int n_children = 8;
+		static const int n_points = 8;
+
+		//nodes
+		size_t point_idx[n_points];
+		
+		//tree structure
+		VoxelNode<T>* children[n_children] {NULL};
+		const VoxelNode<T>* parent = NULL;
+
+		bool is_divided = false;
+		int depth = 0;
+
+		//mesh information
+		bool in_domain = true;
+
+		//construction and destruction
+		VoxelNode(const VoxelNode<T>* parent, int depth) : parent(parent), depth(depth) {}
+		~VoxelNode()
+		{
+			for (int i=0; i<n_children; i++)
+			{
+				if (children[i]!=NULL) {delete children[i];}
+			}
+		}
+	};
+
+	//Mesh with hierarchical basis
+	template <typename T=double, typename Node=VoxelNode<T>>
 	class OctreeMesh
 	{
 	protected:
-		static const int n_children = 8;
-		static const int n_points = 8;
-		struct Node
-		{
-			int depth = 0;
-			size_t* point_idx = NULL;
-			Node* children[n_children] {NULL};
-			const Node* parent = NULL;
-			bool in_domain = true;
-			bool is_divided = false;
-			Node(const Node* parent, int depth) : depth(depth), parent(parent) {point_idx = new size_t[n_points];}
-			~Node()
-			{
-				if (point_idx!=NULL){delete[] point_idx;}
-				if (children[0]!=NULL)
-				{
-					for (int i=0; i<n_children; i++)
-					{
-						delete children[i];
-					}
-				}
-			}
-		};
-
-
+		//root node, encloses entire mesh.
 		Node* root = NULL;
 
-		///vector for storing data in a contiguous array.
-		// std::vector<gv::util::Point<3,T>> _points;
+		//storage for mesh nodes (points)
 		gv::util::PointOctree<3,T,32> _points;
 
+		//storage for tracking the hierarchy level of each basis function
+		std::vector<int> basis_function_depth;
+
 		///check if a node (voxel) contains a particular point
-		bool is_in_node(const Node* node, const gv::util::Point<3,T> &point) const
+		inline bool is_in_node(const Node* node, const Point_t<T> &point) const {return _points[node->point_idx[0]]<=point and point<=_points[node->point_idx[7]];}
+
+		///helper function to find all nodes at the specified depth that contain _points[idx].
+		void recursive_find_all(const Node* node, const size_t &idx, const int &depth, std::vector<const Node*> &nodelist) const;
+
+		///find all nodes at the specified depth that contain _points[idx].
+		std::vector<const Node*> find_all(const size_t &idx, const int &depth) const;
+
+		//divide specified node at its center
+		void divide_node(Node* node);
+		
+		//print element structure in vtk format: <number of nodes> <node numbers ...>
+		void print(Node* node, std::stringstream &ss) const;
+
+		///helper function to get first leaf node that contains/encloses the specified point. intended to be used on interior points.
+		Node* getnode( Node* node, const Point_t<T> &point );
+
+		///helper function to get first node at specified depth that contains/encloses the specified point. inteded to be used on interior points.
+		Node* getnode( Node* node, const Point_t<T> &point, int depth );
+
+		///get first leaf node that contains/encloses the specified point. intended to be used on interior points.
+		Node* getnode( const Point_t<T> &point )
 		{
-			return _points[node->point_idx[0]]<=point and point<=_points[node->point_idx[7]];
+			if (is_in_node(root,point)) {return getnode(root, point);}
+			return NULL;
 		}
 
-		//FIND NODES
-		bool recursive_find(Node const* node, const gv::util::Point<3,T> &point, size_t &idx) const
+		///get first leaf node that contains/encloses the specified point. intended to be used on interior points.
+		const Node* getnode( const Point_t<T> &point ) const
 		{
-			for (size_t j=0; j<n_points; j++)
+			if (is_in_node(root,point)) {return getnode(root, point);}
+			return NULL;
+		}
+
+
+		///get first node at specified depth that contains/encloses the specified point. intended to be used on interior points.
+		Node* getnode( const Point_t<T> &point, int depth )
+		{
+			if (is_in_node(root,point)) {return getnode(root, point, depth);}
+			return NULL;
+		}
+
+		///get first node at specified depth that contains/encloses the specified point. intended to be used on interior points.
+		const Node* getnode( const Point_t<T> &point, int depth ) const
+		{
+			if (is_in_node(root,point)) {return getnode( root, point, depth);}
+			return NULL;
+		}
+
+
+		///helper function to count the number of leaves (elements)
+		size_t recursive_count_elements( const Node* node) const;
+
+	public:
+		OctreeMesh() : _points(Point_t<T> {0,0,0}, Point_t<T> {1,1,1}) {root = new Node(NULL, 0);} 
+		OctreeMesh(const gv::util::Box<3,T> &bbox) : _points(bbox)
+		{
+			root = new Node(NULL, 0);
+			for (int j=0; j<root->n_points; j++)
 			{
-				if (point==_points[node->point_idx[j]])
-				{
-					idx = node->point_idx[j];
-					return true;
-				}
+				_points.push_back(bbox[j]);
+				root->point_idx[j] = (size_t) j;
+				basis_function_depth.push_back(0);
+			}
+		}
+		~OctreeMesh() {delete root;}
+
+		///access mesh nodes
+		inline const Point_t<T>& operator[](const size_t &idx) const {return _points[idx];}
+		
+		///access number of mesh nodes
+		inline size_t nNodes() const {return _points.size();}
+
+		///reserve space for nodes before dividing
+		inline void reserve(size_t size){_points.reserve(size);}
+
+		///split voxel at its center
+		void divide(const Point_t<T> point)
+		{
+			Node* node = getnode(point);
+			if (node!=NULL)
+			{
+				divide_node(node);
+			}
+		}
+
+		///count number of voxels
+		inline size_t nElements() const {return recursive_count_elements(root);}
+
+		///Get voxel element support for a basis function. Note that the voxels use pointers to the elements of _points[].
+		std::vector<Voxel<T>> get_support(const size_t &idx) const; //TODO: remove explicit call to Voxel<T> when adding other types of element support.
+
+
+		///Assemble mass and stiffness matrices.
+		void make_matrices( arma::SpMat<T> &M, arma::SpMat<T> &A) const;
+		
+
+
+		///print to ostream in vtk format
+		void vtkprint(std::ostream &stream) const;
+
+		///save mesh to file
+		void save(const std::string filename) const
+		{
+			std::ofstream meshfile(filename);
+
+			if (not meshfile.is_open()){
+				std::cout << "Couldn't write to " << filename << std::endl;
+				meshfile.close();
+				return;
 			}
 
+			vtkprint(meshfile);
+			meshfile.close();
+		}
+	};
 
-			for (int i=0; i<n_children; i++)
+
+	////////////////////////////////////////////////////////////////////////////
+	//////// IMPLEMENTATION OF OctMesh METHODS /////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////
+	template <typename T, typename Node>
+	void OctreeMesh<T,Node>::recursive_find_all(const Node* node, const size_t &idx, const int &depth, std::vector<const Node*> &nodelist) const
+		{
+			if (node->depth == depth)
 			{
-				if (node->children[i]!=NULL)
+				for (int j=0; j<node->n_points; j++)
 				{
-					if (is_in_node(node->children[i], point))
+					if (node->point_idx[j] == idx)
 					{
-						return recursive_find(node->children[i], point, idx);
+						nodelist.push_back(node);
+						return;
 					}
 				}
 			}
-
-			return false;
+			else if (node->depth < depth and node->is_divided)
+			{
+				for (int i=0; i<node->n_children; i++)
+				{
+					if (is_in_node(node->children[i], _points[idx])) {recursive_find_all(node->children[i], idx, depth, nodelist);}	
+				}
+			}
 		}
 
-		//DIVISION
-		void divide_node(Node* node, const gv::util::Point<3,T> &center)
+
+		template <typename T, typename Node>
+		std::vector<const Node*> OctreeMesh<T,Node>::find_all(const size_t &idx, const int &depth) const
+		{
+			std::vector<const Node*> result;
+			result.reserve(8);
+			recursive_find_all(root, idx, depth, result);
+			return result;
+		}
+
+
+		template <typename T, typename Node>
+		void OctreeMesh<T,Node>::divide_node(Node* node)
 		{
 			//check if division is allowed
 			if (node==NULL){return;}
@@ -90,24 +227,22 @@ namespace gv::mesh
 
 
 			//check if desired center is in the interior of the voxel
-			if (not (_points[node->point_idx[0]]<center and center < _points[node->point_idx[7]])) {return;}
+			Point_t<T> center = 0.5 * (_points[node->point_idx[0]] + _points[node->point_idx[7]]);
 
 			//add center to list of points
 			size_t center_point_idx = _points.size();
 			_points.push_back(center);
-			// std::cout << _points.size() << "/" << _points.capacity() << std::endl;
+			basis_function_depth.push_back(node->depth+1);
 			
 			//make children and pass data
-			for (int i=0; i<n_children; i++)
+			for (int i=0; i<node->n_children; i++)
 			{
 				node->children[i] = new Node(node, node->depth+1);
-				// std::cout << "created child " << i << " at depth " << node->children[i]->depth << " with parent " << node << std::endl;
 
 				//assign node indices to children
 				gv::util::Box<3,T> bbox(_points[node->point_idx[i]], center);
-				for (int j=0; j<n_points; j++)
+				for (int j=0; j<node->n_points; j++)
 				{
-					// std::cout << "\tadding point " << bbox[j] << " at vertex " << j << std::endl;
 					if (bbox[j]==center)
 					{
 						node->children[i]->point_idx[j] = center_point_idx;
@@ -115,27 +250,22 @@ namespace gv::mesh
 					else
 					{
 						size_t idx;
-						// if (recursive_find(root, bbox[j], idx))
 						if (_points.find(bbox[j], idx))
 						{
-							// std::cout << "\tpoint exists at index " << idx << std::endl;
 							//point exists
 							node->children[i]->point_idx[j] = idx;
 						}
 						else
 						{
 							//create point
-							gv::util::Point<3,T> new_point = bbox[j];
+							Point_t<T> new_point = bbox[j];
 							size_t new_point_idx = _points.size();
-							// std::cout << "\tnew point at index " << new_point_idx << std::endl;
 
 							_points.push_back(new_point);
-							// std::cout << _points.size() << "/" << _points.capacity() << std::endl;
+							basis_function_depth.push_back(node->depth+1);
 
 
 							node->children[i]->point_idx[j] = new_point_idx;
-
-							
 						}
 					}
 				}
@@ -144,26 +274,28 @@ namespace gv::mesh
 				node->is_divided = true;
 			}
 		}
-		
 
 
-		//PRINT
-		void print(Node* node, std::stringstream &ss) const
+
+		template <typename T, typename Node>
+		void OctreeMesh<T,Node>::print(Node* node, std::stringstream &ss) const
 		{
 			if ((not node->is_divided) and node->in_domain)
 			{
-				ss << n_points;
-				for (size_t j=0; j<n_points; j++) {ss << " " << node->point_idx[j];}
+				ss << node->n_points;
+				for (size_t j=0; j<node->n_points; j++) {ss << " " << node->point_idx[j];}
 				ss << "\n";
 			}
 			else
 			{
-				for (int i=0; i<n_children; i++){print(node->children[i], ss);}
+				for (int i=0; i<node->n_children; i++){print(node->children[i], ss);}
 			}
 		}
 
-		//TREE TRAVERSAL
-		Node* getnode( Node* node, const gv::util::Point<3,T> &point )
+
+
+		template <typename T, typename Node>
+		Node* OctreeMesh<T,Node>::getnode( Node* node, const Point_t<T> &point )
 		{
 			if (not node->is_divided)
 			{
@@ -172,7 +304,7 @@ namespace gv::mesh
 			}
 			else
 			{
-				for (int i=0; i<n_children; i++)
+				for (int i=0; i<node->n_children; i++)
 				{
 					if (is_in_node(node->children[i],point)) {return getnode(node->children[i], point);}
 				}
@@ -181,26 +313,35 @@ namespace gv::mesh
 			return NULL;
 		}
 
-		Node* getnode( const gv::util::Point<3,T> &point )
+
+		template <typename T, typename Node>
+		Node* OctreeMesh<T,Node>::getnode( Node* node, const Point_t<T> &point, int depth )
 		{
-			if (is_in_node(root,point)) {return getnode(root, point);}
+			if (not node->is_divided)
+			{
+				//in a leaf node
+				if (node->depth > depth) {return NULL;}
+				if (is_in_node(node,point) and node->depth==depth) {return node;}
+			}
+			else
+			{
+				for (int i=0; i<node->n_children; i++)
+				{
+					if (is_in_node(node->children[i],point)) {return getnode(node->children[i], point);}
+				}
+			}
 			return NULL;
 		}
 
-		const Node* getnode( const gv::util::Point<3,T> &point ) const
-		{
-			if (is_in_node(root,point)) {return getnode(root, point);}
-			return NULL;
-		}
 
-
-		size_t recursive_count_elements( const Node* node) const
+		template <typename T, typename Node>
+		size_t OctreeMesh<T,Node>::recursive_count_elements( const Node* node) const
 		{
 			if (not node->is_divided) {return (size_t) node->in_domain;} //only count voxels that are in the domain
 			else
 			{
 				size_t result = 0;
-				for (int i=0; i<n_children; i++)
+				for (int i=0; i<node->n_children; i++)
 				{
 					result += recursive_count_elements(node->children[i]);
 				}
@@ -208,68 +349,12 @@ namespace gv::mesh
 			}
 		}
 
-	public:
-		OctreeMesh() : _points(gv::util::Point<3,T> {0,0,0}, gv::util::Point<3,T> {1,1,1}) {root = new Node(NULL, 0);} 
-		OctreeMesh(const gv::util::Box<3,T> &bbox) : _points(bbox)
+
+
+		template <typename T, typename Node>
+		void OctreeMesh<T,Node>::vtkprint(std::ostream &stream) const
 		{
-			root = new Node(NULL, 0);
-			for (int j=0; j<n_points; j++)
-			{
-				_points.push_back(bbox[j]);
-				root->point_idx[j] = (size_t) j;
-			}
-		}
-		~OctreeMesh() {delete root;}
-
-		
-		///return index of point in the mesh.
-		size_t find(const gv::util::Point<3,T> &point) const
-		{
-			size_t idx;
-			if (recursive_find(root, point, idx)) {return idx;}
-			return (size_t)(-1);
-		}
-
-		inline gv::util::Point<3,T> operator[](const size_t &idx) const {return _points[idx];}
-		inline size_t size() const {return _points.size();}
-		inline void reserve(size_t size){_points.reserve(size);}
-		void clear()
-		{
-			_points.clear();
-			for (int i=0; i<n_children; i++){delete root->children[i];}
-		}
-
-
-		///split voxel at its center
-		void divide_center(const gv::util::Point<3,T> point)
-		{
-			Node* node = getnode(point);
-			if (node!=NULL)
-			{
-				//split voxel at its center
-				gv::util::Point<3,T> center = 0.5*(_points[node->point_idx[0]] + _points[node->point_idx[7]]);
-				divide_node(node, center);
-			}
-		}
-
-		///split voxel at the specified point
-		void divide(const gv::util::Point<3,T> point)
-		{
-			Node* node = getnode(point);
-			if (node!=NULL)
-			{
-				divide_node(node, point);
-			}
-		}
-
-
-		///count number of voxels
-		size_t count_elements() const {return recursive_count_elements(root);}
-
-		///print to ostream in vtk format
-		void vtkprint(std::ostream &stream) const
-		{
-			size_t nElements = count_elements();
+			size_t nElements = nElements();
 			std::stringstream buffer;
 
 			//HEADER
@@ -298,12 +383,24 @@ namespace gv::mesh
 			stream << buffer.rdbuf();
 			buffer.str("");
 
+			// //TEMPORARY DATA
+			// buffer << "CELL_DATA " << nElements << std::endl;
+			// buffer << "SCALARS elemMarkers integer\n";
+			// buffer << "LOOKUP_TABLE default\n";
+			// for (size_t i=0; i<nElements; i++){
+			// 	buffer << i << "\n";
+			// }
+			// buffer << "\n";
+
+			// stream << buffer.rdbuf();
+			// buffer.str("");
+
 			//TEMPORARY DATA
-			buffer << "CELL_DATA " << nElements << std::endl;
-			buffer << "SCALARS elemMarkers integer\n";
+			buffer << "POINT_DATA " << _points.size() << std::endl;
+			buffer << "SCALARS basis_level integer\n";
 			buffer << "LOOKUP_TABLE default\n";
-			for (size_t i=0; i<nElements; i++){
-				buffer << i << "\n";
+			for (size_t i=0; i<_points.size(); i++){
+				buffer << basis_function_depth[i] << "\n";
 			}
 			buffer << "\n";
 
@@ -312,20 +409,42 @@ namespace gv::mesh
 		}
 
 
-		///save mesh to file
-		void save(const std::string filename) const
+
+		template <typename T, typename Node>
+		std::vector<Voxel<T>> OctreeMesh::get_support(const size_t &idx) const
 		{
-			std::ofstream meshfile(filename);
+			//get nodes
+			std::vector<const Node*> support_nodes = find_all(idx, basis_function_depth[idx]);
 
-			if (not meshfile.is_open()){
-				std::cout << "Couldn't write to " << filename << std::endl;
-				meshfile.close();
-				return;
+
+			std::vector<Voxel<T>> result;
+			result.reserve(support_nodes.size());
+
+			for (size_t i=0; i<support_nodes.size(); i++)
+			{
+				const Node* node = support_nodes[i];
+				Voxel<T> voxel {
+							&_points[node->point_idx[0]],\
+							&_points[node->point_idx[1]],\
+							&_points[node->point_idx[2]],\
+							&_points[node->point_idx[3]],\
+							&_points[node->point_idx[4]],\
+							&_points[node->point_idx[5]],\
+							&_points[node->point_idx[6]],\
+							&_points[node->point_idx[7]]\
+						};
+
+				result.push_back(voxel);
+				std::cout << i << ": ";
+				result[i].print();
 			}
-
-			vtkprint(meshfile);
-			meshfile.close();
+			return result;
 		}
-	};
 
+
+		// template <typename T, typename Node>
+		// void OctreeMesh<T,Node>::make_matrices( arma::SpMat<T> &M, arma::SpMat<T> &A) const
+		// {
+		// 	arma::umat locations(2,)
+		// }
 }

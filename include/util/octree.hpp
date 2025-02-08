@@ -268,7 +268,7 @@ namespace gv::util{
 
 		void print() const {print(root,0);}
 
-		inline data_t operator[](const size_t &idx) const {return _data[idx];}
+		inline const data_t& operator[](const size_t &idx) const {return _data[idx];}
 		inline size_t size() const {return _data.size();}
 		inline size_t capacity() const {return _data.capacity();}
 		inline void reserve(size_t size){_data.reserve(size);}

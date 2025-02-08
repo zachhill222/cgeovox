@@ -29,16 +29,20 @@ void test_octree_mesh(size_t N)
     		point[j] = dis(gen);
     	}
 
-    	// std::cout << i << " (started) " << point << std::endl;
-
-    	octmesh.divide_center(point);
-    	// octmesh.divide(point);
-
-    	// std::cout << i << " (finished) " << point << " size= " << octmesh.size() << std::endl;
+    	octmesh.divide(point);
     }
+
+    for (size_t i=0; i<octmesh.nNodes(); i++)
+    {
+    	std::cout << "node " << i << std::endl;
+    	octmesh.get_support(i);
+    }
+    
+
 
     std::cout << "saving mesh\n";
     octmesh.save("octmesh.vtk");
+
 
 }
 

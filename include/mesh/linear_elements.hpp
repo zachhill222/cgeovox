@@ -27,14 +27,22 @@ namespace gv::mesh{
 	template <size_t n_vertex, typename T=double>
 	class Element{
 	protected:
-		gv::util::Point<3,T>* _vertices[n_vertex] {NULL}; //vertex locations in real space, use polynomial mapping from reference cell.
+		std::vector<const gv::util::Point<3,T>*> _vertices; //vertex locations in real space, use polynomial mapping from reference cell.
 
 	public:
 		Element() {}
-		Element(const std::initializer_list<gv::util::Point<3,T>*> &list) : _vertices(list){}
+		Element(const std::initializer_list<const gv::util::Point<3,T>*> &list) : _vertices(list){}
 
-		inline gv::util::Point<3,T>* operator[](int idx){return _vertices[idx];}
 		inline const gv::util::Point<3,T>* operator[](int idx) const {return _vertices[idx];}
+
+		void print() const
+		{
+			for (size_t i=0; i<_vertices.size(); i++)
+			{
+				std::cout << *this->_vertices[i] << " ";
+			}
+			std::cout << std::endl;
+		}
 	};
 
 
@@ -42,7 +50,7 @@ namespace gv::mesh{
 	class Voxel : public Element<8,T>{
 	public:
 		Voxel() : Element<8,T>() {}
-		Voxel(const std::initializer_list<gv::util::Point<3,T>*> list) : Element<8,T>(list) {}
+		Voxel(const std::initializer_list<const gv::util::Point<3,T>*> list) : Element<8,T>(list) {}
 
 		static const int vtkID = 11;
 
@@ -69,6 +77,61 @@ namespace gv::mesh{
 				break;
 			}
 		}
+
+		T eval_basis(const int &idx, const gv::util::Point<3,T> &point) const
+		{
+			T eta;
+			T result = 0.125;
+			for (int i=0; i<3; i++)
+			{	
+				//get coordinate in reference interval [-1,1]
+				eta = 2.0*point[i]-(*this->_vertices[7] + *this->_vertices[0]);
+				eta/= *this->_vertices[7] - *this->_vertices[0];
+
+				if (*this->_vertices[idx][i] == *this->_vertices[0][i])
+				{
+					//node is on 'low' (negative) side of voxel. use 1-eta.
+					result *= 1-eta;
+				}
+				else
+				{
+					//node is on 'high' (positive) side of voxel. use 1+eta.
+					result *= 1+eta;
+				}
+			}
+			return result;
+		}
+
+
+		gv::util::Point<3,T> eval_basis_grad(const int &idx, const gv::util::Point<3,T> &point) const
+		{
+			T eta;
+			gv::util::Point<3,T> result {0.125, 0.125, 0.125};
+
+			for (int i=0; i<3; i++)
+			{	
+				//get coordinate in reference interval [-1,1]
+				eta = 2.0*point[i]-(*this->_vertices[7] + *this->_vertices[0]);
+				eta/= *this->_vertices[7] - *this->_vertices[0];
+
+				if (*this->_vertices[idx][i] == *this->_vertices[0][i])
+				{
+					//node is on 'low' (negative) side of voxel. use 1-eta.
+					result[i] *= -1;
+					result[(i+1)%3] *= 1-eta;
+					result[(i+2)%3] *= 1-eta;
+				}
+				else
+				{
+					//node is on 'high' (positive) side of voxel. use 1+eta.
+					// result[i] *= 1;
+					result[(i+1)%3] *= 1+eta;
+					result[(i+2)%3] *= 1+eta;
+				}
+			}
+
+			return result/( *this->_vertices[7] - *this->_vertices[0]); //chain rule
+		}
 	};
 
 
@@ -76,7 +139,7 @@ namespace gv::mesh{
 	class Hexahedron : public Element<8,T>{
 	public:
 		Hexahedron() : Element<8,T>() {}
-		Hexahedron(const std::initializer_list<gv::util::Point<3,T>*> list) : Element<8,T>(list) {}
+		Hexahedron(const std::initializer_list<const gv::util::Point<3,T>*> list) : Element<8,T>(list) {}
 
 		static const int vtkID = 12;
 		Quad<T> getface(const int face) const
@@ -108,7 +171,7 @@ namespace gv::mesh{
 	template <typename T=double>
 	class Pixel : public Element<4,T>{
 		Pixel() : Element<4,T>() {}
-		Pixel(const std::initializer_list<gv::util::Point<3,T>*> list) : Element<8,T>(list) {}
+		Pixel(const std::initializer_list<const gv::util::Point<3,T>*> list) : Element<8,T>(list) {}
 		Pixel(const Pixel<T>* other)
 		{
 			for (int i=0; i<4; i++) {this->_vertices[i] = other[i];}
@@ -127,7 +190,7 @@ namespace gv::mesh{
 	template <typename T=double>
 	class Quad : public Element<4,T>{
 		Quad() : Element<4,T>() {}
-		Quad(const std::initializer_list<gv::util::Point<3,T>*> list) : Element<4,T>(list) {}
+		Quad(const std::initializer_list<const gv::util::Point<3,T>*> list) : Element<4,T>(list) {}
 		Quad(const Quad<T>* other)
 		{
 			for (int i=0; i<4; i++) {this->_vertices[i] = other[i];}
