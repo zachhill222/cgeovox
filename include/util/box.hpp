@@ -113,12 +113,12 @@ namespace gv::util{
 		}
 		///Find a location of the supporting hyperplane with the given direction. This maximizes dot(x,direction) over all points x in the box.
 		Point<dim,T> support(const Point<dim,T> &direction) const{
-			double maxdot = direction.dot(operator[](0));
+			T maxdot = dot(direction, (*this)[0]);
 			int maxind = 0;
 
-			double tempdot;
+			T tempdot;
 			for (int i=1; i<std::pow(2,dim); i++){
-				tempdot = direction.dot(operator[](i));
+				tempdot = dot(direction, (*this)[i]);
 				if (tempdot > maxdot){
 					maxdot = tempdot;
 					maxind = i;
@@ -164,8 +164,8 @@ namespace gv::util{
 
 		///Enlarge this box so that it contains the other.
 		Box<dim>* combine(const Box<dim>& other){
-			Point<dim,T> _newlow = el_min(_low, other.low());
-			Point<dim,T> _newhigh = el_max(_high, other.high());
+			Point<dim,T> _newlow = elmin(_low, other.low());
+			Point<dim,T> _newhigh = elmax(_high, other.high());
 			_low = _newlow;
 			_high = _newhigh;
 			return this;

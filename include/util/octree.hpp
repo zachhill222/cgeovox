@@ -234,9 +234,11 @@ namespace gv::util{
 
 	
 	public:
-		BasicOctree() {root = new Node(NULL, new Box);}
+		BasicOctree() {root = new Node(NULL, Point<dim,T>{0,0,0}, Point<dim,T> {1,1,1}); }
 		BasicOctree(const Box<dim,T> &bbox) {root = new Node(NULL, bbox.low(), bbox.high());}
 		~BasicOctree() {delete root;}
+
+		Box<dim,T> bbox() const {return root->bbox;}
 
 		///return index of data.
 		size_t find(const data_t &val) const
@@ -289,7 +291,7 @@ namespace gv::util{
 		PointOctree() : BasicOctree<Point<dim,T>, dim, false, n_data, T>() {}
 		PointOctree(const Box<dim,T> &bbox) : BasicOctree<Point<dim,T>, dim, false, n_data, T>(bbox) {}
 	private:
-		virtual bool is_data_valid(Box<dim,T> const &box, Point<dim,T> const &data) const {return box.contains(data);} 
+		bool is_data_valid(Box<dim,T> const &box, Point<dim,T> const &data) const override {return box.contains(data);} 
 	};
 }
 

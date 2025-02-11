@@ -2,6 +2,7 @@
 
 #include "util/point.hpp"
 #include "util/quaternion.hpp"
+#include "util/box.hpp"
 
 #include <cmath>
 
@@ -31,7 +32,33 @@ namespace gv::geometry{
 		inline bool is_in_bbox(const Point_t<T> &point) const {return gv::util::norminf<3,T>(tolocal(point)) <= 1;}
 
 		//evaluate level set function at specified point in global coordinates
-		inline double eval_level_set(const Point_t<T> &point) const {return _eval_level_set(tolocal(point));}
+		inline T eval_level_set(const Point_t<T> &point) const {return _eval_level_set(tolocal(point));}
+
+		//get center
+		inline Point_t<T> center() const {return _center;}
+
+		//get radii
+		inline Point_t<T> radii() const {return _radii;}
+
+		//get quaternion
+		inline Quat_t<T> quaternion() const {return _quaternion;}
+
+		//get smallest axis-alligned bounding box
+		gv::util::Box<3,T> bbox() const
+		{
+			Point_t<T> low, high;
+			for (int i=0; i<3; i++)
+			{
+				Point_t<T> direction {0,0,0};
+				
+				direction[i] = -1;
+				low[i] = support(direction)[i];
+				
+				direction[i] = 1;
+				high[i] = support(direction)[i];
+			}
+			return gv::util::Box {low, high};
+		}
 
 		//check if point is inside particle
 		bool contains(const Point_t<T> &point) const
@@ -40,6 +67,7 @@ namespace gv::geometry{
 			if (gv::util::norminf<3,T>(localpoint) <= 1) {return _eval_level_set(localpoint) <= 1;}
 			return false;
 		}
+
 
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		virtual Point_t<T> support(const Point_t<T> &direction) const
@@ -53,6 +81,7 @@ namespace gv::geometry{
 				}
 			return toglobal(localpoint);
 		}
+
 
 	protected:
 		//quaternion to rotate from global coordinate system to particle coordinate system
@@ -78,15 +107,15 @@ namespace gv::geometry{
 		Ellipsoid(const Point_t<T> &radii, const Point_t<T> &center, const Quat_t<T> quaternion = Quat_t<T> {1,0,0,0}) : Prism<T>(radii, center, quaternion) {}
 
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
-		virtual Point_t<T> support(const Point_t<T> &direction) const
+		Point_t<T> support(const Point_t<T> &direction) const override
 		{
 			Point_t<T> rotated_direction = this->_quaternion.rotate(direction);
 			Point_t<T> localpoint = rotated_direction.normalized();
-			return toglobal(localpoint);
+			return this->toglobal(localpoint);
 		}
 
 	protected:
-		virtual double _eval_level_set(const Point_t<T> &localpoint) const {return localpoint.normSquared();}
+		T _eval_level_set(const Point_t<T> &localpoint) const override {return localpoint.squaredNorm();}
 	};
 
 
@@ -99,7 +128,7 @@ namespace gv::geometry{
 		Cylinder(const Point_t<T> &radii, const Point_t<T> &center, const Quat_t<T> quaternion = Quat_t<T> {1,0,0,0}) : Prism<T>(radii, center, quaternion) {}
 
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
-		virtual Point_t<T> support(const Point_t<T> &direction) const
+		Point_t<T> support(const Point_t<T> &direction) const override
 		{
 			Point_t<T> rotated_direction = this->_quaternion.rotate(direction);
 			Point_t<T> localpoint {0,0,1};
@@ -112,11 +141,11 @@ namespace gv::geometry{
 				localpoint[1]/=R;
 			}
 
-			return toglobal(localpoint);
+			return this->toglobal(localpoint);
 		}
 
 	protected:
-		virtual double _eval_level_set(const Point_t<T> &localpoint) const {return gv::util::max(localpoint[0]*localpoint[0]+localpoint[1]*localpoint[1], gv::util::abs(localpoint[2]));}
+		T _eval_level_set(const Point_t<T> &localpoint) const override{return gv::util::max(localpoint[0]*localpoint[0]+localpoint[1]*localpoint[1], gv::util::abs(localpoint[2]));}
 	};
 
 
@@ -127,53 +156,55 @@ namespace gv::geometry{
 	public:
 		SuperEllipsoid() : Prism<T>() {}
 		SuperEllipsoid(const Point_t<T> &radii, T eps[2], const Point_t<T> &center, const Quat_t<T> quaternion = Quat_t<T> {1,0,0,0}) : \
-					Prism<T>(radii, center, quaternion), _eps(eps), _powers({1.0/eps[0], 1.0/eps[1], eps[2]/eps[1]}), _invpowers({1.0/(2.0-eps[0]), 1.0/(2.0-eps[1])}) {}
+					Prism<T>(radii, center, quaternion), _eps {eps[0], eps[1]}, _powers {1.0/eps[0], 1.0/eps[1], eps[0]/eps[1]}, _invpowers {1.0/(2.0-eps[0]), 1.0/(2.0-eps[1])} {}
 
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
-		virtual Point_t<T> support(const Point_t<T> &direction) const
+		Point_t<T> support(const Point_t<T> &direction) const override
 		{
 			Point_t<T> rotated_direction = this->_quaternion.rotate(direction);
 			//get omega
-			T x = sgn(rotated_direction[0])*std::pow(gv::util::abs(rotated_direction[0]), _invpowers[1]);
-			T y = sgn(rotated_direction[1])*std::pow(gv::util::abs(rotated_direction[1]), _invpowers[1]);
+			T x = gv::util::sgn(rotated_direction[0])*std::pow(gv::util::abs(rotated_direction[0]), _invpowers[1]);
+			T y = gv::util::sgn(rotated_direction[1])*std::pow(gv::util::abs(rotated_direction[1]), _invpowers[1]);
 			T omega = std::atan2(y, x); //in [-pi,pi]
 
 			//get eta
 			x = std::pow(gv::util::abs(rotated_direction[0]), _invpowers[0]);
-			y = sgn(rotated_direction[2]) * std::pow( gv::util::abs( rotated_direction[2]*cos_pow(omega,2.0-_eps[1]) ) , _invpowers[0]);
+			y = gv::util::sgn(rotated_direction[2]) * std::pow( gv::util::abs( rotated_direction[2]*cos_pow(omega,2.0-_eps[1]) ) , _invpowers[0]);
 
 			T eta = atan2(y, x); //in [-pi/2,pi/2] because x >= 0
 
 			//get normal in global coordinates
-			Point_t<T> localpoint = parametric(eta, omega);
+			Point_t<T> localpoint = _parametric(eta, omega);
 			
-			return toglobal(localpoint);
+			return this->toglobal(localpoint);
 		}
+
+		inline T eps(const int idx) const {return _eps[idx];}
 
 	protected:
 		//signed cos(theta)^eps
 		static const T cos_pow(const T theta, const T eps)
 		{
 			T C = cos(theta);
-			return sgn(C)*std::pow(gv::util::abs(C), eps);
+			return gv::util::sgn(C)*std::pow(gv::util::abs(C), eps);
 		}
 		//signed sin(theta)^eps
 		static const T sin_pow(const T theta, const T eps)
 		{
 			T S = sin(theta);
-			return sgn(S)*std::pow(gv::util::abs(S), eps);
+			return gv::util::sgn(S)*std::pow(gv::util::abs(S), eps);
 		}
 
 
 		//shape parameters
-		const T _eps[2] {1,1};
+		T _eps[2] {1,1};
 
 		//common exponents
-		const T _powers[3] {1,1,1};
-		const T _invpowers[2] {1,1};
+		T _powers[3] {1,1,1};
+		T _invpowers[2] {1,1};
 
 		//evaluate level set function
-		virtual double _eval_level_set(const Point_t<T> &localpoint) const
+		virtual T _eval_level_set(const Point_t<T> &localpoint) const
 		{
 			T a = std::pow(localpoint[0]*localpoint[0], _powers[1]) + std::pow(localpoint[1]*localpoint[1], _powers[1]);
 			return std::pow(a, _powers[2]) + std::pow(localpoint[2]*localpoint[2], _powers[0]);
@@ -193,5 +224,27 @@ namespace gv::geometry{
 	};
 
 
+	//check equality of two particles. needed for octrees.
+	template <typename T>
+	bool operator==(const Prism<T> &left, const Prism<T> &right)
+	{
+		return left.center()==right.center() and left.radii()==right.radii() and left.quaternion()==right.quaternion();
+	}
+
+	template <typename T>
+	bool operator==(const Ellipsoid<T> &left, const Ellipsoid<T> &right)
+	{
+		return left.center()==right.center() and left.radii()==right.radii() and left.quaternion()==right.quaternion();
+	}
+
+	template <typename T>
+	bool operator==(const SuperEllipsoid<T> &left, const SuperEllipsoid<T> &right)
+	{
+		if (left.center()==right.center() and left.radii()==right.radii() and left.quaternion()==right.quaternion())
+		{
+			return left.eps(0)==right.eps(0) and left.eps(1)==right.eps(1);
+		}
+		return false;
+	}
 
 }
