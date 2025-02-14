@@ -14,8 +14,9 @@ void test_point()
 	gv::util::Point p2(2.1*p1);
 	p1+=p2;
 	std::cout << (p1-p2).normalized() << std::endl;
-	p1=1.000000001*p2;
+	p1=1.001*p2;
 	std::cout << p1 << " == " << p2 << " is " << (p1==p2) << std::endl;
+	std::cout << "-p1: " << (-p1) << std::endl;
 }
 
 void test_box()
@@ -36,6 +37,8 @@ void test_box()
 	for (int i=0; i<std::pow(2,dim); i++){
 		std::cout << box.hexvertex(i) << std::endl;
 	}
+
+	std::cout << "center= " << box.center() << std::endl;
 }
 
 
@@ -104,10 +107,10 @@ void test_octree(size_t N)
 
 int main(int argc, char* argv[])
 {
-	test_point();
-	// test_box();
+	// test_point();
+	test_box();
 	// test_quaternion();
-	test_octree(atoi(argv[1]));
+	// test_octree(atoi(argv[1]));
 
 	return 0;
 }

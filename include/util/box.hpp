@@ -7,8 +7,6 @@
 #include <sstream>
 #include <cmath>
 
-// using Point3 = GeoVox::util::Point3;
-
 namespace gv::util{
 	template <int dim=3, typename T=double>
 	class Box{
@@ -111,6 +109,7 @@ namespace gv::util{
 			}
 			return false;
 		}
+
 		///Find a location of the supporting hyperplane with the given direction. This maximizes dot(x,direction) over all points x in the box.
 		Point<dim,T> support(const Point<dim,T> &direction) const{
 			T maxdot = dot(direction, (*this)[0]);

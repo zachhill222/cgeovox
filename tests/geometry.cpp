@@ -20,21 +20,28 @@ void test_particles(double x, double y, double z)
 
 
 	gv::geometry::Prism P1(radius, center, quaternion);
-	gv::geometry::Ellipsoid P2(1.73*radius, {2,2,2}, {1,0,0,0});
+	double eps[2] {1,1};
+	gv::geometry::SuperEllipsoid P2(1.73*radius, eps, {2,2,2}, {1,0,0,0});
 
 	Point point {x,y,z};
 	std::cout << "P1 contains " << point << "? " << P1.contains(point) << std::endl;
 	std::cout << "P2 contains " << point << "? " << P2.contains(point) << std::endl;
-	std::cout << "P1 intersects P2 ? " << gv::geometry::collides_GJK(P1,P2) << std::endl;
+	std::cout << "P1 intersects P2 ? " << gv::geometry::collides_GJK(P1.bbox(),P2) << std::endl;
 	std::cout << "P2 intersects P1 ? " << gv::geometry::collides_GJK(P2,P1) << std::endl;
+	bool flag = P2==P2;
+	std::cout << "P2==P2 ? " << flag << std::endl;
 }
 
 
 void test_geometry(std::string filename, size_t N[3])
 {
 	using PARTICLE = gv::geometry::SuperEllipsoid<double>;
+
+	std::cout << "load assembly\n";
 	gv::geometry::Assembly<PARTICLE, double> assembly(filename, "-rrr-eps-xyz-q");
-	assembly.save_geometry("Geometry.dat", N);
+	
+	std::cout << "save solid\n";
+	assembly.save_solid("Geometry.vtk", N);
 }
 
 

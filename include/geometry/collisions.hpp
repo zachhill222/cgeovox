@@ -8,10 +8,10 @@
 #define MAX_GJK_ITERATIONS 16
 
 template <typename T>
-using Point_t = gv::util::Point<3,T>;
+using Point3_t = gv::util::Point<3,T>;
 
 template <typename T>
-using Polytope_t = gv::util::Polytope<3,T>;
+using Polytope3_t = gv::util::Polytope<3,T>;
 
 template <typename T>
 using Plane_t = gv::util::Plane<T>;
@@ -33,25 +33,26 @@ namespace gv::geometry{
 
 //SUPPORT FUNCTION IN MINKOWSKI DIFFERENCE
 template<class SA, class SB, typename T=double>
-Point_t<T> support(const SA& S1, const SB& S2, const Point_t<T>& direction){
+Point3_t<T> support(const SA& S1, const SB& S2, const Point3_t<T>& direction)
+{
 	return S1.support(direction) - S2.support(-direction);
 }
 
 //LINE CASE
 template <typename T=double>
-bool lineCase(Polytope_t<T>& simplex, Point_t<T>& direction);
+bool lineCase(Polytope3_t<T>& simplex, Point3_t<T>& direction);
 
 //TRIANGLE CASE
 template <typename T=double>
-bool triangleCase(Polytope_t<T>& simplex, Point_t<T>& direction);
+bool triangleCase(Polytope3_t<T>& simplex, Point3_t<T>& direction);
 
 //FULL SIMPLEX (TETRAHEDRON) CASE
 template <typename T=double>
-bool tetraCase(Polytope_t<T>& simplex, Point_t<T>& direction);
+bool tetraCase(Polytope3_t<T>& simplex, Point3_t<T>& direction);
 
 //WRAPPER FUNCTION FOR SPECIAL CASES
 template <typename T=double>
-bool doSimplex(Polytope_t<T>& simplex, Point_t<T>& direction);
+bool doSimplex(Polytope3_t<T>& simplex, Point3_t<T>& direction);
 
 
 
@@ -59,13 +60,10 @@ bool doSimplex(Polytope_t<T>& simplex, Point_t<T>& direction);
 template<class SA, class SB, typename T=double> 
 bool collides_GJK(const SA& S1, const SB& S2)
 {
-	Point_t<T> A, direction;
+	Point3_t<T> direction = S1.center() - S2.center();
+	Point3_t<T> A = support(S1,S2,direction);
 	
-	// direction = Point_t<T>(-1,-1,-1);
-	direction = S1.center() - S2.center();
-	A = {support(S1,S2,direction)};
-	
-	Polytope_t<T> simplex = Polytope_t<T>({A});
+	Polytope3_t<T> simplex {A};
 	direction = -simplex[0];
 
 	//MAIN LOOP
@@ -79,8 +77,8 @@ bool collides_GJK(const SA& S1, const SB& S2)
 		simplex.push_back(A);
 
 		// std::cout << "\n====================\niteration= " << i << "\tdirection= ";
-		// direction.print(std::cout);
-		// std::cout << "A.dot(direction)= " << A.dot(direction) << std::endl;
+		// std::cout << direction << std::endl;
+		// std::cout << "A.dot(direction)= " << gv::util::dot(A,direction) << std::endl;
 		// simplex.print(std::cout);
 
 
@@ -99,13 +97,13 @@ bool collides_GJK(const SA& S1, const SB& S2)
 
 //LINE CASE IMPLEMENTATION
 template <typename T>
-bool lineCase(Polytope_t<T>& simplex, Point_t<T>& direction)
+bool lineCase(Polytope3_t<T>& simplex, Point3_t<T>& direction)
 {
-	Point_t<T> &A = simplex[1]; //most recent point
-	Point_t<T> &B = simplex[0];
+	Point3_t<T> &A = simplex[1]; //most recent point
+	Point3_t<T> &B = simplex[0];
 
-	Point_t<T> AO = -A;
-	Point_t<T> AB = B-A;
+	Point3_t<T> AO = -A;
+	Point3_t<T> AB = B-A;
 	
 	double DOT;
 
@@ -120,13 +118,13 @@ bool lineCase(Polytope_t<T>& simplex, Point_t<T>& direction)
 		{
 			return true;
 		}
-		// simplex = Polytope_t<T>({B, A}); //no change to simplex
+		// simplex = Polytope3_t<T>({B, A}); //no change to simplex
 	}
 	else
 	{
 		// std::cout << "AO\n";
 		direction = AO;
-		simplex = Polytope_t<T>({A});
+		simplex = Polytope3_t<T>({A});
 	}
 	return false;
 }
@@ -134,18 +132,18 @@ bool lineCase(Polytope_t<T>& simplex, Point_t<T>& direction)
 
 //TRIANGLE CASE IMPLEMENTATION
 template <typename T>
-bool triangleCase(Polytope_t<T>& simplex, Point_t<T>& direction){
-	Point_t<T> &A = simplex[2]; //most recent point
-	Point_t<T> &B = simplex[1];
-	Point_t<T> &C = simplex[0];
+bool triangleCase(Polytope3_t<T>& simplex, Point3_t<T>& direction){
+	Point3_t<T> &A = simplex[2]; //most recent point
+	Point3_t<T> &B = simplex[1];
+	Point3_t<T> &C = simplex[0];
 
-	Point_t<T> AO  = -A;
-	Point_t<T> AB  = B-A;
-	Point_t<T> AC  = C-A;
+	Point3_t<T> AO  = -A;
+	Point3_t<T> AB  = B-A;
+	Point3_t<T> AC  = C-A;
 
-	Point_t<T> ABC_normal = gv::util::cross(AB,AC); //normal to triangle
-	Point_t<T> AB_normal  = gv::util::cross(AB,ABC_normal); //away from triangle, normal to edge AB, in triangle plane
-	Point_t<T> AC_normal  = gv::util::cross(ABC_normal,AC); //away from triangle, normal to edge AB, in triangle plane
+	Point3_t<T> ABC_normal = gv::util::cross(AB,AC); //normal to triangle
+	Point3_t<T> AB_normal  = gv::util::cross(AB,ABC_normal); //away from triangle, normal to edge AB, in triangle plane
+	Point3_t<T> AC_normal  = gv::util::cross(ABC_normal,AC); //away from triangle, normal to edge AB, in triangle plane
 
 	double DOT;
 
@@ -155,7 +153,7 @@ bool triangleCase(Polytope_t<T>& simplex, Point_t<T>& direction){
 		if (DOT>0.0)
 		{
 			direction = gv::util::cross(AC, gv::util::cross(AO,AC));
-			simplex = Polytope_t<T>({C,A});
+			simplex = Polytope3_t<T>({C,A});
 			// std::cout << "REGION 1\n";
 		}
 		else{
@@ -163,13 +161,13 @@ bool triangleCase(Polytope_t<T>& simplex, Point_t<T>& direction){
 			if (DOT>0.0)
 			{ //STAR
 				direction = gv::util::cross(AB, gv::util::cross(AO,AB));
-				simplex = Polytope_t<T>({B, A});
+				simplex = Polytope3_t<T>({B, A});
 				// std::cout << "REGION 3-\n";
 			}
 			else
 			{
 				direction = AO;
-				simplex = Polytope_t<T>({A});
+				simplex = Polytope3_t<T>({A});
 				// std::cout << "REGION 2-\n";
 			}
 		}
@@ -181,13 +179,13 @@ bool triangleCase(Polytope_t<T>& simplex, Point_t<T>& direction){
 			if (DOT>0.0)
 			{ //STAR
 				direction = gv::util::cross(AB, gv::util::cross(AO,AB));
-				simplex = Polytope_t<T>({B,A});
+				simplex = Polytope3_t<T>({B,A});
 				// std::cout << "REGION 3+\n";
 			}
 			else
 			{
 				direction = AO;
-				simplex = Polytope_t<T>({A});
+				simplex = Polytope3_t<T>({A});
 				// std::cout << "REGION 2+\n";
 			}
 		}
@@ -199,13 +197,13 @@ bool triangleCase(Polytope_t<T>& simplex, Point_t<T>& direction){
 			if (DOT>GJK_DBL_TOL )
 			{
 				direction = ABC_normal;
-				// simplex = Polytope_t<T>({C,B,A}); //no change to simplex
+				// simplex = Polytope3_t<T>({C,B,A}); //no change to simplex
 				// std::cout << "REGION 4\n";
 			}
 			else if (DOT<-GJK_DBL_TOL)
 			{
 				direction = -ABC_normal;
-				simplex = Polytope_t<T>({B, C, A}); //orientation matters
+				simplex = Polytope3_t<T>({B, C, A}); //orientation matters
 				// std::cout << "REGION 5\n";
 			}
 			else {return true;}
@@ -218,14 +216,14 @@ bool triangleCase(Polytope_t<T>& simplex, Point_t<T>& direction){
 
 //FULL SIMPLEX (TETRAHEDRON) CASE IMPLEMENTATION
 template <typename T>
-bool tetraCase(Polytope_t<T>& simplex, Point_t<T>& direction)
+bool tetraCase(Polytope3_t<T>& simplex, Point3_t<T>& direction)
 {
-	Point_t<T> &A = simplex[3]; //most recent point
-	Point_t<T> &B = simplex[2];
-	Point_t<T> &C = simplex[1];
-	Point_t<T> &D = simplex[0];
+	Point3_t<T> &A = simplex[3]; //most recent point
+	Point3_t<T> &B = simplex[2];
+	Point3_t<T> &C = simplex[1];
+	Point3_t<T> &D = simplex[0];
 
-	Point_t<T> O = Point_t<T> {0,0,0};
+	Point3_t<T> O = Point3_t<T> {0,0,0};
 
 	Plane_t<T> P;
 	T abc, adc, abd;
@@ -256,17 +254,17 @@ bool tetraCase(Polytope_t<T>& simplex, Point_t<T>& direction)
 	if (abc_dist == min_dist)
 	{
 		// std::cout << "Plane BCA\n";
-		simplex = Polytope_t<T>({B, C, A});
+		simplex = Polytope3_t<T>({B, C, A});
 	}
 	else if(adc_dist == min_dist)
 	{
 		// std::cout << "Plane CDA\n";
-		simplex = Polytope_t<T>({C, D, A});
+		simplex = Polytope3_t<T>({C, D, A});
 	}
 	else
 	{
 		// std::cout << "Plane DBA\n";
-		simplex = Polytope_t<T>({D, B, A});
+		simplex = Polytope3_t<T>({D, B, A});
 	}
 	
 
@@ -277,7 +275,7 @@ bool tetraCase(Polytope_t<T>& simplex, Point_t<T>& direction)
 
 //WRAPPER IMPLEMENATION
 template <typename T>
-bool doSimplex(Polytope_t<T>& simplex, Point_t<T>& direction)
+bool doSimplex(Polytope3_t<T>& simplex, Point3_t<T>& direction)
 {
 	//simplex must contain between 2 and 4 points initially
 	//simplex and direction will both be updated for the next iteration

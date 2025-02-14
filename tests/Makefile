@@ -5,8 +5,8 @@ SRC        = $(wildcard *.cpp)
 OBJ        = $(SRC:.cpp=.o)
 TARGETS     = $(SRC:.cpp=)
 
-CC         = g++ -fopenmp
-CFLAGS     = -O2 -Wall
+CC         = g++ -fopenmp -g
+CFLAGS     = -Wall
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = #-lcgeovox
 

@@ -17,7 +17,7 @@
 #include <algorithm>
 
 namespace gv::geometry{
-	
+
 	//class for storing octrees efficiently
 	template <typename Particle_t, typename T=double>
 	class ParticleOctree : public gv::util::BasicOctree<Particle_t, 3, true, 8, T> {
@@ -60,7 +60,8 @@ namespace gv::geometry{
 		//save geometry to a text file as a rectangular prism of sampled points with the. voidspace=0, solidspace=1.
 		void save_geometry(const std::string filename, const gv::util::Box<3,T> &box, const size_t N[3]) const;
 		void save_geometry(const std::string filename, const size_t  N[3]) const {save_geometry(filename, this->_particles.bbox(), N);}
-
+		void save_solid(const std::string filename, const gv::util::Box<3,T> &box, const size_t N[3]) const;
+		void save_solid(const std::string filename, const size_t  N[3]) const {save_solid(filename, this->_particles.bbox(), N);}
 	private:
 		ParticleOctree<Particle_t,T> _particles;
 
@@ -74,6 +75,7 @@ namespace gv::geometry{
 	template <typename Particle_t, typename T>
 	void Assembly<Particle_t,T>::readfile(const std::string filename, const std::string columns)
 	{
+		std::cout << "reading " << filename << std::endl;
 		// COLUMN OPTIONS:
 		// -id (IDENTIFIER, int)
 		// -rrr (TRIPLE RADIUS, double[3])
@@ -192,7 +194,9 @@ namespace gv::geometry{
 		for (size_t i=0; i<temp_particles.size(); i++) {bbox.combine(temp_particles[i].bbox());}
 
 		//MAKE ParticleOctree
-		_particles = ParticleOctree<Particle_t,T> (bbox);
+		_particles.set_bbox(bbox);
+		_particles.reserve(temp_particles.size()+_particles.size());
+
 		for (size_t i=0; i<temp_particles.size(); i++)
 		{
 			_particles.push_back(temp_particles[i]);
@@ -224,18 +228,21 @@ namespace gv::geometry{
 
 
 		//DATA
-		Point_t<T> centroid = Point_t<T> {0,0,0};
+		Point_t<T> centroid {0,0,0};
+		Point_t<T> ijk {0,0,0};
+
 		Point_t<T> H = box.high()-box.low();
-		H[0]/=N[0];
-		H[1]/=N[1];
-		H[2]/=N[2];
+		H[0]/= (T) N[0];
+		H[1]/= (T) N[1];
+		H[2]/= (T) N[2];
 
 		for (long unsigned int  k=0; k<N[2]; k++){
-			centroid[2] = box.low()[2] + H[2]*(0.5+k);
+			ijk[2] = 0.5 + (T) k;
 			for (long unsigned int  j=0; j<N[1]; j++){
-				centroid[1] = box.low()[1] + H[1]*(0.5+j);
+				ijk[1] = 0.5 + (T) j;
 				for (long unsigned int  i=0; i<N[0]; i++){
-					centroid[0] = box.low()[0] + H[0]*(0.5+i);
+					ijk[0] = 0.5 + (T) i;
+					centroid = box.low() + H*ijk;
 					buffer << is_in_particle(centroid) << " "; //HYBGE NOTATION: FLUID=0, SOLID=1
 				}
 				buffer << std::endl;
@@ -249,6 +256,77 @@ namespace gv::geometry{
 
 		//////////////// CLOSE FILE ////////////////
 		geofile.close();
+	}
+
+
+	//save geometry to a .vtk file as a rectangular prism of sampled points with the. voidspace=0, solidspace=1.
+	template <typename Particle_t, typename T>
+	void Assembly<Particle_t,T>::save_solid(const std::string filename, const gv::util::Box<3,T> &box, const size_t N[3]) const
+	{
+		//////////////// OPEN FILE ////////////////
+		std::ofstream meshfile(filename);
+
+		if (not meshfile.is_open()){
+			std::cout << "Couldn't write to " << filename << std::endl;
+			meshfile.close();
+			return;
+		}
+
+
+		//COMPUTE SPACING
+		Point_t<T> centroid {0,0,0};
+		Point_t<T> ijk {0,0,0};
+
+		Point_t<T> H = box.high()-box.low();
+		H[0]/= (T) N[0];
+		H[1]/= (T) N[1];
+		H[2]/= (T) N[2];
+
+
+		//////////////// WRITE TO FILE ////////////////
+		std::stringstream buffer;
+
+		//HEADER
+		buffer << "# vtk DataFile Version 2.0\n";
+		buffer << "Mesh Data\n";
+		buffer << "ASCII\n\n";
+
+		//POINTS (CENTROIDS)
+		buffer << "DATASET STRUCTURED_POINTS\n";
+		buffer << "DIMENSIONS " << N[0]+1 << " " << N[1]+1 << " " << N[2]+1 << "\n";
+		buffer << "ORIGIN " << box.low() << "\n";
+		buffer << "SPACING " << H << "\n\n";
+
+		meshfile << buffer.rdbuf();
+		buffer.str("");
+
+
+		//POINT_MARKERS (CENTROIDS OF CELLS)
+		buffer << "CELL_DATA " << N[0]*N[1]*N[2] << "\n";
+		buffer << "SCALARS markers integer\n";
+		buffer << "LOOKUP_TABLE default\n";
+		for (long unsigned int  k=0; k<N[2]; k++)
+		{
+			ijk[2] = 0.5 + (T) k;
+			for (long unsigned int  j=0; j<N[1]; j++)
+			{
+				ijk[1] = 0.5 + (T) j;
+				for (long unsigned int  i=0; i<N[0]; i++)
+				{
+					ijk[0] = 0.5 + (T) i;
+					centroid = box.low() + H*ijk;
+					buffer << is_in_particle(centroid) << " ";
+				}
+			}
+			buffer << "\n";
+		}
+		buffer << "\n";
+		
+		meshfile << buffer.rdbuf();
+		buffer.str("");
+
+		//////////////// CLOSE FILE ////////////////
+		meshfile.close();
 	}
 
 }

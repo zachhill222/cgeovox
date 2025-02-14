@@ -19,29 +19,21 @@ namespace gv::util {
 	public:
 		Point () {}
 		~Point() {}
-		Point (std::initializer_list<T> init) {
+		Point (std::initializer_list<T> init)
+		{
 			int i=0;
 			for (T coord : init){
 				_data[i] = coord;
 				i++;
 			}
 		}
-		Point (const Point &other) {
-			for (int i=0; i<dim; i++){
-				_data[i] = other[i];
-			}
+		Point (const Point &other)
+		{
+			for (int i=0; i<dim; i++) {_data[i] = other[i];}
 		}
 
 		T& operator[](const int idx) {return _data[idx];}
 		const T&  operator[](const int idx) const {return _data[idx];}
-		Point<dim,T>& operator=(const Point<dim,T> &other)
-		{
-			if (this!=&other)
-			{
-				for (int i=0; i<dim; i++) {_data[i]=other[i];}
-			}
-			return *this;
-		}
 		T squaredNorm() const;
 		Point<dim,T> normalized() const;
 
@@ -165,6 +157,15 @@ namespace gv::util {
 	}
 
 
+	///In-place component-wise multiplication.
+	template <int dim=3, typename T=double>
+	Point<dim, T>& operator*=(Point<dim,T> &left, const Point<dim,T> &right)
+	{
+		for (int i=0; i<dim; i++) {left[i]*=right[i];}
+		return left;
+	}
+
+
 	///Cross-product for dim=3
 	template <typename T=double>
 	Point<3, T> cross(const Point<3,T> &left, const Point<3,T> &right)
@@ -193,6 +194,14 @@ namespace gv::util {
 		Point<dim, T> result;
 		for (int i=0; i<dim; i++) {result[i] = left[i]/right[i];}
 		return result;
+	}
+
+	///In-place component-wise division.
+	template <int dim=3, typename T=double>
+	Point<dim, T>& operator/=(Point<dim,T> &left, const Point<dim,T> &right)
+	{
+		for (int i=0; i<dim; i++) {left[i]/=right[i];}
+		return left;
 	}
 
 

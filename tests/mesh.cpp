@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 	int N = 10;
 	if (argc>1) {N=atoi(argv[1]);}
 
-	// test_octree_mesh(N);
+	test_octree_mesh(N);
 
 
 	return 0;

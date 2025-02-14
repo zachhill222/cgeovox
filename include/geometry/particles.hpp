@@ -72,7 +72,7 @@ namespace gv::geometry{
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		virtual Point_t<T> support(const Point_t<T> &direction) const
 		{
-			Point_t<T> rotated_direction = _quaternion.rotate(direction);
+			Point_t<T> rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
 			Point_t<T> localpoint {1,1,1};
 			for (int i=0; i<3; i++)
 				{
@@ -109,7 +109,7 @@ namespace gv::geometry{
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t<T> support(const Point_t<T> &direction) const override
 		{
-			Point_t<T> rotated_direction = this->_quaternion.rotate(direction);
+			Point_t<T> rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
 			Point_t<T> localpoint = rotated_direction.normalized();
 			return this->toglobal(localpoint);
 		}
@@ -130,7 +130,7 @@ namespace gv::geometry{
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t<T> support(const Point_t<T> &direction) const override
 		{
-			Point_t<T> rotated_direction = this->_quaternion.rotate(direction);
+			Point_t<T> rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
 			Point_t<T> localpoint {0,0,1};
 			if (rotated_direction[2] < 0) {localpoint[2] = -1;}
 			
@@ -156,12 +156,12 @@ namespace gv::geometry{
 	public:
 		SuperEllipsoid() : Prism<T>() {}
 		SuperEllipsoid(const Point_t<T> &radii, T eps[2], const Point_t<T> &center, const Quat_t<T> quaternion = Quat_t<T> {1,0,0,0}) : \
-					Prism<T>(radii, center, quaternion), _eps {eps[0], eps[1]}, _powers {1.0/eps[0], 1.0/eps[1], eps[0]/eps[1]}, _invpowers {1.0/(2.0-eps[0]), 1.0/(2.0-eps[1])} {}
+					Prism<T>(radii, center, quaternion), _eps {eps[0], eps[1]}, _powers {1.0/eps[0], 1.0/eps[1], eps[1]/eps[0]}, _invpowers {1.0/(2.0-eps[0]), 1.0/(2.0-eps[1])} {}
 
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t<T> support(const Point_t<T> &direction) const override
 		{
-			Point_t<T> rotated_direction = this->_quaternion.rotate(direction);
+			Point_t<T> rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
 			//get omega
 			T x = gv::util::sgn(rotated_direction[0])*std::pow(gv::util::abs(rotated_direction[0]), _invpowers[1]);
 			T y = gv::util::sgn(rotated_direction[1])*std::pow(gv::util::abs(rotated_direction[1]), _invpowers[1]);

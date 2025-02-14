@@ -41,7 +41,7 @@ namespace gv::util{
 	public:
 		Simplex(): Polytope<dim,T>(dim+1) {
 			this->_points.push_back(Point<dim,T>()); //default constructor is all zeros
-			for (long unsigned int i=1; i<dim+1; i++){
+			for (int i=1; i<dim+1; i++){
 				this->_points.push_back(Point<dim,T>());
 				this->_points[i][i-1] = 1.0;
 			}
@@ -50,12 +50,6 @@ namespace gv::util{
 		Simplex(std::initializer_list<Point<dim,T>> list): Polytope<dim>(list) {}
 
 		Simplex(const Simplex<dim>& other): Polytope<dim>(dim+1){
-			for (int i=0; i<other.len(); i++){
-				this->_points.push_back(other[i]);
-			}
-		}
-
-		Simplex(const Polytope<dim>& other): Polytope<dim>(dim+1){
 			for (int i=0; i<other.len(); i++){
 				this->_points.push_back(other[i]);
 			}

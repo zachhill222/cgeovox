@@ -19,7 +19,7 @@ namespace gv::util{
 		struct Node
 		{
 			size_t cursor = 0; //cursor for inserting data. points to next data to insert.
-			// int traversal_index = 0; //cursor for tracking current progress of a tree traversal.
+			bool is_divided = false;
 			size_t* data_idx = NULL;
 			Node* children[n_children] {NULL};
 			const Node* parent = NULL;
@@ -48,11 +48,7 @@ namespace gv::util{
 		//DIVISION
 		void divide_multiple_data(Node* node)
 		{
-			//check if division is allowed
-			if (node==NULL){return;}
-			if (node->children[0]==NULL){return;}
-			if (node->data_idx==NULL){return;}
-
+			// std::cout << "octree: divide_multiple_data\n";
 			//find box center for constructing bounding boxes of children
 			Point<dim,T> _center = node->bbox.center();
 			
@@ -76,13 +72,6 @@ namespace gv::util{
 
 		void divide_single_data(Node* node)
 		{
-
-			//check if division is allowed
-			if (node==NULL){return;}
-			if (node->children[0]!=NULL){return;}
-
-			// std::cout << "--- DIVIDE ---\n";
-
 			//find box center for constructing bounding boxes of children
 			Point<dim,T> _center = node->bbox.center();
 			
@@ -116,12 +105,20 @@ namespace gv::util{
 
 		void divide(Node* node)
 		{
+			//check if division is allowed
+			if (node==NULL){return;}
+			if (node->is_divided){return;}
+
+			//call appropriate division based on data
 			if(multiple_data){divide_multiple_data(node);}
 			else{divide_single_data(node);}
 
 			//free memory
 			delete[] node->data_idx;
 			node->data_idx = NULL;
+
+			//set node to divided
+			node->is_divided = true;
 		}
 
 		
@@ -129,7 +126,7 @@ namespace gv::util{
 		bool recursive_insert(Node* node, const size_t &idx)
 		{
 			//check if current node is divided
-			if (node->children[0]==NULL)
+			if (not node->is_divided)
 			{
 				//node is not divided
 				//check if current node has room for more data
@@ -146,17 +143,20 @@ namespace gv::util{
 					divide(node);
 				}
 			}
-			
-			//node is divided and data has not been inserted
-			for (int i=0; i<n_children; i++)
+			else
 			{
-				if (is_data_valid(node->children[i]->bbox, _data[idx]))
+				//node is divided and data has not been inserted
+				for (int i=0; i<n_children; i++)
 				{
-					// std::cout << "recurse to child " << i << " ";
-					bool success = recursive_insert(node->children[i], idx);
-					if (success and !multiple_data) {return true;}
+					if (is_data_valid(node->children[i]->bbox, _data[idx]))
+					{
+						// std::cout << "recurse to child " << i << " ";
+						bool success = recursive_insert(node->children[i], idx);
+						if (success and !multiple_data) {return true;}
+					}
 				}
 			}
+			
 
 			return false;
 		}
@@ -165,11 +165,14 @@ namespace gv::util{
 		//FIND NODES
 		bool recursive_find(Node const* node, const data_t &val, size_t &idx) const
 		{
+			// std::cout << "octree: recursive_find at node " << node << std::endl;
 			if (node->children[0]==NULL)
 			{
+				// std::cout << "node has " << node->cursor << " data indices" << std::endl;
 				//not divided
 				for (size_t j=0; j<node->cursor; j++)
 				{
+					// std::cout << "octree: recursive_find: compare data " << j << std::endl;
 					if (val==_data[node->data_idx[j]])
 					{
 						idx = node->data_idx[j];
@@ -238,6 +241,29 @@ namespace gv::util{
 		BasicOctree(const Box<dim,T> &bbox) {root = new Node(NULL, bbox.low(), bbox.high());}
 		~BasicOctree() {delete root;}
 
+		size_t root_cursor() const {return root->cursor;}
+
+		void set_bbox(const Box<dim,T> &bbox)
+		{
+			// std::cout << "octree: set_bbox\n";
+			
+			//delete current tree
+			delete root;
+
+			//initialize new tree
+			root = new Node(NULL, bbox.low(), bbox.high());
+
+			//copy temporary data and clear current data
+			std::vector<data_t> old_data_copy = _data;
+			_data.clear();
+
+			//reconstruct tree from copied data
+			for (size_t i=0; i<old_data_copy.size(); i++)
+			{
+				push_back(old_data_copy[i]);
+			}
+		}
+
 		Box<dim,T> bbox() const {return root->bbox;}
 
 		///return index of data.
@@ -256,12 +282,15 @@ namespace gv::util{
 
 		bool contains(const data_t &val) const
 		{
+			// std::cout << "octree: contains\n";
 			size_t idx;
 			return recursive_find(root, val, idx);
 		}
 
 		void push_back(const data_t &val)
 		{
+			// std::cout << "octree: push_back\n";
+			// std::cout << "root cursor: " << root->cursor << std::endl;
 			if (contains(val)) {return;}
 			_data.push_back(val);
 			size_t idx = _data.size()-1;
