@@ -3,7 +3,7 @@
 #include <iostream>
 #include <initializer_list>
 #include <cmath>
-
+#include <limits>
 
 namespace gv::util {
 	//typedefs
@@ -237,20 +237,30 @@ namespace gv::util {
 		return true;
 	}
 
+	///Scalar approximately equal
+	template <typename T=double>
+	bool approxEqual(const T &left, const T &right)
+	{
+		T absmax = gv::util::max( gv::util::abs(left), gv::util::abs(right) );
+		T delta = gv::util::abs(left-right);
+		return  delta <= std::numeric_limits<T>::epsilon() * 2 * absmax;
+	}
+
 	///Point equal to comparison.
 	template <int dim=3, typename T=double>
 	bool operator==(const Point<dim,T> &left, const Point<dim,T> &right)
 	{
-		for (int i=0; i<dim; i++) { if (left[i]!=right[i]){return false;} }
-		return true;
+		T M = 128 * gv::util::max(norminf(left), norminf(right));
+		T D = norminf(left-right);
+
+		return D <= std::numeric_limits<T>::epsilon() * M;
 	}
 
 	///Point not equal to comparison.
 	template <int dim=3, typename T=double>
 	bool operator!=(const Point<dim,T> &left, const Point<dim,T> &right)
 	{
-		for (int i=0; i<dim; i++) { if (left[i]!=right[i]){return true;} }
-		return false;
+		return !operator==(left,right);
 	}
 
 	///Element-wise maximum.

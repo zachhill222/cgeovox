@@ -4,6 +4,8 @@
 #include "util/octree.hpp"
 #include "util/polytope.hpp"
 
+#include "mesh/mesh.hpp"
+
 #include <iostream>
 #include <random>
 #include <vector>
@@ -61,7 +63,7 @@ void test_quaternion()
 
 void test_octree(size_t N)
 {
-	const int dim=4;
+	const int dim=3;
 
 	using Point_t = gv::util::Point<dim,double>;
 	gv::util::Box bbox(Point_t {0,0,0,0}, Point_t {1,1,1,1});
@@ -84,7 +86,7 @@ void test_octree(size_t N)
     {
     	Point_t point;
     	for (int j=0; j<dim; j++){
-    		point[j] = dis(gen);
+    		point[j] = std::pow(dis(gen),3);
     	}
 
     	// std::cout << i << ": " << point;
@@ -102,15 +104,19 @@ void test_octree(size_t N)
     	std::cout << octree.find(point_list[i]) << std::endl;
     }
 
+
+    //save octree structure
+    gv::mesh::view_octree_vtk(octree, "OctreeStructure.vtk");
+
 }
 
 
 int main(int argc, char* argv[])
 {
 	// test_point();
-	test_box();
+	// test_box();
 	// test_quaternion();
-	// test_octree(atoi(argv[1]));
+	test_octree(atoi(argv[1]));
 
 	return 0;
 }

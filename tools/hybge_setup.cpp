@@ -214,7 +214,7 @@ int main(int argc, char *argv[]){
 
 	//make geometry file
 	std::string geometry_file = geovox_opts.dir+"Geometry.dat";
-	GeoVox::geometry::Assembly A(geovox_opts.assembly_file, "-rrr-eps-xyz-q");
+	GeoVox::geometry::Assembly A(geovox_opts.assembly_file, "-id-rrr-eps-v-xyz-q-l");
 	A.divide(5); //create octree for faster sampling of points
 	GeoVox::util::Box domain = (1-geovox_opts.trim) * A.box;
 	long unsigned int N[3] {geovox_opts.N, geovox_opts.N, geovox_opts.N};

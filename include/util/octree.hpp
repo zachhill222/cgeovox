@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "util/point.hpp"
 #include "util/box.hpp"
 
@@ -9,13 +8,15 @@
 
 
 namespace gv::util{
-	
 	///Basic octree class, can be used in d=2 or d=3 (and possibly others). A octree that will be used should inherit from this class and define the member function is_data_valid().
-	template <typename data_t, int dim=3, bool multiple_data=false, size_t n_data=8, typename T=double>
+	template <typename data_t, int dim=3, bool multiple_data=false, size_t n_data=8>
 	class BasicOctree
 	{
-	protected:
+	public:
+		static const int dimension = dim;
 		static const int n_children = std::pow(2,dim);
+	
+	protected:
 		struct Node
 		{
 			size_t cursor = 0; //cursor for inserting data. points to next data to insert.
@@ -23,8 +24,8 @@ namespace gv::util{
 			size_t* data_idx = NULL;
 			Node* children[n_children] {NULL};
 			const Node* parent = NULL;
-			const Box<dim,T> bbox;
-			Node(const Node* parent, const Point<dim,T> &v1, const Point<dim,T> &v2) : parent(parent), bbox(Box<dim,T>(v1,v2)) {data_idx = new size_t[n_data];}
+			const Box<dim> bbox;
+			Node(const Node* parent, const Point<dim,double> &v1, const Point<dim,double> &v2) : parent(parent), bbox(Box<dim>(v1,v2)) {data_idx = new size_t[n_data];}
 			~Node()
 			{
 				if (data_idx!=NULL){delete[] data_idx;}
@@ -39,8 +40,9 @@ namespace gv::util{
 		};
 
 		///member function for determining where to put data.
-		virtual bool is_data_valid(Box<dim,T> const &box, const data_t &data) const {return false;}
+		virtual bool is_data_valid(Box<dim> const &box, const data_t &data) const {return false;}
 		Node* root = NULL;
+		std::vector<const Node*> _nodelist;
 
 		///vector for storing data in a contiguous array.
 		std::vector<data_t> _data;
@@ -50,7 +52,7 @@ namespace gv::util{
 		{
 			// std::cout << "octree: divide_multiple_data\n";
 			//find box center for constructing bounding boxes of children
-			Point<dim,T> _center = node->bbox.center();
+			Point<dim,double> _center = node->bbox.center();
 			
 			//make children and pass data
 			for (int i=0; i<n_children; i++)
@@ -73,7 +75,7 @@ namespace gv::util{
 		void divide_single_data(Node* node)
 		{
 			//find box center for constructing bounding boxes of children
-			Point<dim,T> _center = node->bbox.center();
+			Point<dim,double> _center = node->bbox.center();
 			
 			//initialize array for ensuring only one copy of any data is passed
 			bool data_passed[node->cursor] {false};
@@ -86,13 +88,11 @@ namespace gv::util{
 				for (size_t j=0; j<node->cursor; j++)
 				{	
 					if (data_passed[j]){continue;} //this data was already passed
-					// std::cout << "check data " << j << " with child " << i << std::endl;
 
 					//check if data can be passed to child.
 					if (is_data_valid(node->children[i]->bbox, _data[node->data_idx[j]]))
 					{
 						//insert data
-						// std::cout << "move data " << j << " to child " << i << " at index " << node->children[i]->cursor << std::endl;
 						data_passed[j] = true;
 						node->children[i]->data_idx[node->children[i]->cursor] = node->data_idx[j];
 						node->children[i]->cursor += 1;
@@ -119,6 +119,12 @@ namespace gv::util{
 
 			//set node to divided
 			node->is_divided = true;
+
+			//append children to list of nodes
+			for (int i=0; i<n_children; i++)
+			{
+				_nodelist.push_back(node->children[i]);
+			}
 		}
 
 		
@@ -141,6 +147,7 @@ namespace gv::util{
 				{
 					//node must divide
 					divide(node);
+					recursive_insert(node, idx);
 				}
 			}
 			else
@@ -211,7 +218,7 @@ namespace gv::util{
 		}
 
 		//TREE TRAVERSAL
-		const Node* getnode( const Node* node, const Point<dim,T> &point ) const
+		const Node* getnode( const Node* node, const Point<dim,double> &point ) const
 		{
 			if (node->children[0]==NULL)
 			{
@@ -229,7 +236,7 @@ namespace gv::util{
 			return NULL;
 		}
 
-		const Node* getnode( const Point<dim,T> &point ) const
+		const Node* getnode( const Point<dim,double> &point ) const
 		{
 			if (root->bbox.contains(point)) {return getnode(root, point);}
 			return NULL;
@@ -237,16 +244,24 @@ namespace gv::util{
 
 	
 	public:
-		BasicOctree() {root = new Node(NULL, Point<dim,T>{0,0,0}, Point<dim,T> {1,1,1}); }
-		BasicOctree(const Box<dim,T> &bbox) {root = new Node(NULL, bbox.low(), bbox.high());}
+		BasicOctree() 
+		{
+			root = new Node(NULL, Point<dim,double>{0,0,0}, Point<dim,double> {1,1,1});
+			_nodelist.push_back(root);
+		}
+
+		BasicOctree(const Box<dim> &bbox)
+		{
+			root = new Node(NULL, bbox.low(), bbox.high());
+			_nodelist.push_back(root);
+		}
+
 		~BasicOctree() {delete root;}
 
 		size_t root_cursor() const {return root->cursor;}
 
-		void set_bbox(const Box<dim,T> &bbox)
+		void set_bbox(const Box<dim> &bbox)
 		{
-			// std::cout << "octree: set_bbox\n";
-			
 			//delete current tree
 			delete root;
 
@@ -264,7 +279,18 @@ namespace gv::util{
 			}
 		}
 
-		Box<dim,T> bbox() const {return root->bbox;}
+		Box<dim> bbox() const {return root->bbox;}
+		Box<dim> bbox(const size_t idx) const {return _nodelist[idx]->bbox;}
+		int nData(const size_t idx) const
+		{
+			const Node* node = _nodelist[idx];
+			if (node->is_divided) {return 0;}
+			return node->cursor;
+		}
+		bool isLeaf(const size_t idx) const {return not _nodelist[idx]->is_divided;}
+
+		///return number of nodes (not just leaf nodes);
+		size_t nNodes() const {return _nodelist.size();}
 
 		///return index of data.
 		size_t find(const data_t &val) const
@@ -282,15 +308,12 @@ namespace gv::util{
 
 		bool contains(const data_t &val) const
 		{
-			// std::cout << "octree: contains\n";
 			size_t idx;
 			return recursive_find(root, val, idx);
 		}
 
 		void push_back(const data_t &val)
 		{
-			// std::cout << "octree: push_back\n";
-			// std::cout << "root cursor: " << root->cursor << std::endl;
 			if (contains(val)) {return;}
 			_data.push_back(val);
 			size_t idx = _data.size()-1;
@@ -308,19 +331,17 @@ namespace gv::util{
 			_data.clear();
 			for (int i=0; i<n_children; i++){delete root->children[i];}
 		}
-
-
 	};
 
 	///Octree for points in space.
-	template <int dim=3, typename T=double, size_t n_data=4>
-	class PointOctree : public BasicOctree<Point<dim,T>, dim, false, n_data, T>
+	template <int dim=3, typename T=double, size_t n_data=32>
+	class PointOctree : public BasicOctree<Point<dim,double>, dim, false, n_data>
 	{
 	public:
-		PointOctree() : BasicOctree<Point<dim,T>, dim, false, n_data, T>() {}
-		PointOctree(const Box<dim,T> &bbox) : BasicOctree<Point<dim,T>, dim, false, n_data, T>(bbox) {}
+		PointOctree() : BasicOctree<Point<dim,double>, dim, false, n_data>() {}
+		PointOctree(const Box<dim> &bbox) : BasicOctree<Point<dim,double>, dim, false, n_data>(bbox) {}
 	private:
-		bool is_data_valid(Box<dim,T> const &box, Point<dim,T> const &data) const override {return box.contains(data);} 
+		bool is_data_valid(Box<dim> const &box, Point<dim,double> const &data) const override {return box.contains(data);}
 	};
 }
 

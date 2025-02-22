@@ -8,6 +8,7 @@
 #include "geometry/particles.hpp"
 #include "geometry/collisions.hpp"
 
+#include "mesh/mesh.hpp" //for viewing octree structure
 
 
 #include <fstream>
@@ -19,14 +20,14 @@
 namespace gv::geometry{
 
 	//class for storing octrees efficiently
-	template <typename Particle_t, typename T=double>
-	class ParticleOctree : public gv::util::BasicOctree<Particle_t, 3, true, 8, T> {
+	template <typename Particle_t, size_t n_data=8>
+	class ParticleOctree : public gv::util::BasicOctree<Particle_t, 3, true, n_data> {
 	public:
-		ParticleOctree() : gv::util::BasicOctree<Particle_t, 3, true, 8, T>() {}
-		ParticleOctree(const gv::util::Box<3,T> &bbox) : gv::util::BasicOctree<Particle_t, 3, true, 8, T>(bbox) {}
+		ParticleOctree() : gv::util::BasicOctree<Particle_t, 3, true, n_data>() {}
+		ParticleOctree(const gv::util::Box<3> &bbox) : gv::util::BasicOctree<Particle_t, 3, true, n_data>(bbox) {}
 
 		//check if a point is in any particle
-		bool is_in_particle(const Point_t<T> &point) const
+		bool is_in_particle(const gv::util::Point<3,double> &point) const
 		{
 			const auto* node = this->getnode(point);
 			for (size_t i=0; i<node->cursor; i++)
@@ -37,14 +38,14 @@ namespace gv::geometry{
 		}
 
 	private:
-		bool is_data_valid(gv::util::Box<3,T> const &box, Particle_t const &P) const override {return gv::geometry::collides_GJK(box,P);}
+		bool is_data_valid(gv::util::Box<3> const &box, Particle_t const &P) const override {return gv::geometry::collides_GJK(box,P);}
 	};
 
 
 	
 
 	//class for interacting with ParticleOctree
-	template <typename Particle_t, typename T=double>
+	template <typename Particle_t, size_t n_data=8>
 	class Assembly
 	{
 	public:
@@ -52,19 +53,24 @@ namespace gv::geometry{
 		Assembly(const std::string filename, const std::string columns) {readfile(filename, columns);}
 
 		//check if a point is in any particle
-		bool is_in_particle(const Point_t<T> &point) const {return _particles.is_in_particle(point);}
+		bool is_in_particle(const gv::util::Point<3,double> &point) const {return _particles.is_in_particle(point);}
 
 		//read particles from file with specified format. TODO: read format from start of file.
 		void readfile(const std::string filename, const std::string columns);
 
-		//save geometry to a text file as a rectangular prism of sampled points with the. voidspace=0, solidspace=1.
-		void save_geometry(const std::string filename, const gv::util::Box<3,T> &box, const size_t N[3]) const;
-		void save_geometry(const std::string filename, const size_t  N[3]) const {save_geometry(filename, this->_particles.bbox(), N);}
-		void save_solid(const std::string filename, const gv::util::Box<3,T> &box, const size_t N[3]) const;
-		void save_solid(const std::string filename, const size_t  N[3]) const {save_solid(filename, this->_particles.bbox(), N);}
-	private:
-		ParticleOctree<Particle_t,T> _particles;
+		//get bounding box
+		gv::util::Box<3> bbox() const {return _particles.bbox();}
 
+		//save geometry to a text file as a rectangular prism of sampled points with the. voidspace=0, solidspace=1.
+		void save_geometry(const std::string filename, const gv::util::Box<3> &box, const size_t N[3]) const;
+		void save_geometry(const std::string filename, const size_t  N[3]) const {save_geometry(filename, this->_particles.bbox(), N);}
+		void save_solid(const std::string filename, const gv::util::Box<3> &box, const size_t N[3]) const;
+		void save_solid(const std::string filename, const size_t  N[3]) const {save_solid(filename, this->_particles.bbox(), N);}
+
+		//view octree structure of _particles octree
+		void view_octree_vtk(const std::string filename="octree_structure.vtk") const {gv::mesh::view_octree_vtk(_particles, filename);}
+	private:
+		ParticleOctree<Particle_t, n_data> _particles;
 	};
 
 
@@ -72,8 +78,8 @@ namespace gv::geometry{
 
 
 	//add particles from a file to the current assembly. TODO: split into smaller functions.
-	template <typename Particle_t, typename T>
-	void Assembly<Particle_t,T>::readfile(const std::string filename, const std::string columns)
+	template <typename Particle_t, size_t n_data>
+	void Assembly<Particle_t, n_data>::readfile(const std::string filename, const std::string columns)
 	{
 		std::cout << "reading " << filename << std::endl;
 		// COLUMN OPTIONS:
@@ -181,7 +187,7 @@ namespace gv::geometry{
 					}
 				}
 
-				Particle_t P(gv::util::Point<3,T> {rx,ry,rz}, eps, gv::util::Point<3,T> {x,y,z}, gv::util::Quaternion<T>(qw,-qx,-qy,-qz));
+				Particle_t P(gv::util::Point<3,double> {rx,ry,rz}, eps, gv::util::Point<3,double> {x,y,z}, gv::util::Quaternion<double>(qw,-qx,-qy,-qz));
 				temp_particles.push_back(P);
 			}
 		}
@@ -190,7 +196,7 @@ namespace gv::geometry{
 		for (size_t i=0; i<_particles.size(); i++) {temp_particles.push_back(_particles[i]);}
 
 		//GET BOUNDING BOX SIZE
-		gv::util::Box<3,T> bbox = temp_particles[0].bbox();
+		gv::util::Box<3> bbox = temp_particles[0].bbox();
 		for (size_t i=0; i<temp_particles.size(); i++) {bbox.combine(temp_particles[i].bbox());}
 
 		//MAKE ParticleOctree
@@ -205,8 +211,8 @@ namespace gv::geometry{
 
 
 	//save geometry to a text file as a rectangular prism of sampled points with the. voidspace=0, solidspace=1.
-	template <typename Particle_t, typename T>
-	void Assembly<Particle_t,T>::save_geometry(const std::string filename, const gv::util::Box<3,T> &box, const size_t N[3]) const
+	template <typename Particle_t, size_t n_data>
+	void Assembly<Particle_t, n_data>::save_geometry(const std::string filename, const gv::util::Box<3> &box, const size_t N[3]) const
 	{
 		//////////////// OPEN FILE ////////////////
 		std::ofstream geofile(filename);
@@ -228,20 +234,20 @@ namespace gv::geometry{
 
 
 		//DATA
-		Point_t<T> centroid {0,0,0};
-		Point_t<T> ijk {0,0,0};
+		gv::util::Point<3,double> centroid {0,0,0};
+		gv::util::Point<3,double> ijk {0,0,0};
 
-		Point_t<T> H = box.high()-box.low();
-		H[0]/= (T) N[0];
-		H[1]/= (T) N[1];
-		H[2]/= (T) N[2];
+		gv::util::Point<3,double> H = box.high()-box.low();
+		H[0]/= (double) N[0];
+		H[1]/= (double) N[1];
+		H[2]/= (double) N[2];
 
 		for (long unsigned int  k=0; k<N[2]; k++){
-			ijk[2] = 0.5 + (T) k;
+			ijk[2] = 0.5 + (double) k;
 			for (long unsigned int  j=0; j<N[1]; j++){
-				ijk[1] = 0.5 + (T) j;
+				ijk[1] = 0.5 + (double) j;
 				for (long unsigned int  i=0; i<N[0]; i++){
-					ijk[0] = 0.5 + (T) i;
+					ijk[0] = 0.5 + (double) i;
 					centroid = box.low() + H*ijk;
 					buffer << is_in_particle(centroid) << " "; //HYBGE NOTATION: FLUID=0, SOLID=1
 				}
@@ -260,8 +266,8 @@ namespace gv::geometry{
 
 
 	//save geometry to a .vtk file as a rectangular prism of sampled points with the. voidspace=0, solidspace=1.
-	template <typename Particle_t, typename T>
-	void Assembly<Particle_t,T>::save_solid(const std::string filename, const gv::util::Box<3,T> &box, const size_t N[3]) const
+	template <typename Particle_t, size_t n_data>
+	void Assembly<Particle_t, n_data>::save_solid(const std::string filename, const gv::util::Box<3> &box, const size_t N[3]) const
 	{
 		//////////////// OPEN FILE ////////////////
 		std::ofstream meshfile(filename);
@@ -274,13 +280,13 @@ namespace gv::geometry{
 
 
 		//COMPUTE SPACING
-		Point_t<T> centroid {0,0,0};
-		Point_t<T> ijk {0,0,0};
+		gv::util::Point<3,double> centroid {0,0,0};
+		gv::util::Point<3,double> ijk {0,0,0};
 
-		Point_t<T> H = box.high()-box.low();
-		H[0]/= (T) N[0];
-		H[1]/= (T) N[1];
-		H[2]/= (T) N[2];
+		gv::util::Point<3,double> H = box.high()-box.low();
+		H[0]/= (double) N[0];
+		H[1]/= (double) N[1];
+		H[2]/= (double) N[2];
 
 
 		//////////////// WRITE TO FILE ////////////////
@@ -307,13 +313,13 @@ namespace gv::geometry{
 		buffer << "LOOKUP_TABLE default\n";
 		for (long unsigned int  k=0; k<N[2]; k++)
 		{
-			ijk[2] = 0.5 + (T) k;
+			ijk[2] = 0.5 + (double) k;
 			for (long unsigned int  j=0; j<N[1]; j++)
 			{
-				ijk[1] = 0.5 + (T) j;
+				ijk[1] = 0.5 + (double) j;
 				for (long unsigned int  i=0; i<N[0]; i++)
 				{
-					ijk[0] = 0.5 + (T) i;
+					ijk[0] = 0.5 + (double) i;
 					centroid = box.low() + H*ijk;
 					buffer << is_in_particle(centroid) << " ";
 				}

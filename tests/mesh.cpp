@@ -10,18 +10,18 @@
 
 void test_octree_mesh(size_t N)
 {
-	using Point_t = gv::util::Point<3,float>;
-	gv::util::Box bbox(Point_t {0,0,0}, Point_t {1,1,1});
+	using Point_t = gv::util::Point<3,double>;
+	gv::util::Box<3> bbox(Point_t {0,0,0}, Point_t {1,1,1});
 
 	//set up octree mesh
-	gv::mesh::OctreeMesh<float> octmesh(bbox);
+	gv::mesh::OctreeMesh octmesh(bbox);
 	octmesh.reserve(5*N);
 
 	
 	//set up random number generator
 	// std::random_device rd;  // Will be used to obtain a seed for the random number engine
     std::mt19937 gen(0); // Standard mersenne_twister_engine seeded with rd()
-    std::uniform_real_distribution<float> dis(0.0, 1.0);
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
 
     //divide mesh
     for (size_t i=0; i<N; i++)
