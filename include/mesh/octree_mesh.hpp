@@ -395,17 +395,17 @@ namespace gv::mesh
 			// stream << buffer.rdbuf();
 			// buffer.str("");
 
-			//TEMPORARY DATA
-			buffer << "POINT_DATA " << _points.size() << std::endl;
-			buffer << "SCALARS basis_level integer\n";
-			buffer << "LOOKUP_TABLE default\n";
-			for (size_t i=0; i<_points.size(); i++){
-				buffer << basis_function_depth[i] << "\n";
-			}
-			buffer << "\n";
+			// //TEMPORARY DATA
+			// buffer << "POINT_DATA " << _points.size() << std::endl;
+			// buffer << "SCALARS basis_level integer\n";
+			// buffer << "LOOKUP_TABLE default\n";
+			// for (size_t i=0; i<_points.size(); i++){
+			// 	buffer << basis_function_depth[i] << "\n";
+			// }
+			// buffer << "\n";
 
-			stream << buffer.rdbuf();
-			buffer.str("");
+			// stream << buffer.rdbuf();
+			// buffer.str("");
 		}
 
 
@@ -447,4 +447,11 @@ namespace gv::mesh
 		// {
 		// 	arma::umat locations(2,)
 		// }
+
+	///convert a generic octree data structure into a mesh to view its structure
+	template <typename Octree_t>
+	void view_octree_as_vtk(const Octree_t &octree, const std::string outfile="octree_structure.vtk")
+	{
+		
+	}
 }
