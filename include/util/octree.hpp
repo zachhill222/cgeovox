@@ -5,9 +5,46 @@
 
 #include <vector>
 #include <stdexcept>
-
+#include <limits>
 
 namespace gv::util{
+	//Data structure for generic octree nodes.
+	template <typename data_t, int dim=3, size_t n_data=8>
+	struct _OctreeNode
+	{
+		//tree logic
+		static const int n_children = std::pow(2,dim);
+		bool is_divided = false;
+		const _OctreeNode<data_t, dim, n_data>* parent = NULL;
+		_OctreeNode<data_t, dim, n_data>* children[n_children] {NULL};
+
+		//geometry logic
+		const Box<dim> bbox;
+
+		//data logic
+		size_t cursor = 0;
+		size_t* data_idx = NULL; //don't default to data_idx[n_data] so that data in non-leaf nodes can be deleted.
+
+		//constructor
+		_OctreeNode(const _OctreeNode<data_t,dim,n_data>* parent, const Point<dim,double> &v1, const Point<dim,double> &v2) : parent(parent), bbox(Box<dim>(v1,v2))
+		{
+			data_idx = new size_t[n_data];
+		}
+
+		//destructor
+		~_OctreeNode()
+		{
+			if (data_idx!=NULL) {delete[] data_idx;}
+			if (is_divided)
+			{
+				for (int i=0; i<n_children; i++) {delete children[i];}
+			}
+		}
+	};
+
+
+
+
 	///Basic octree class, can be used in d=2 or d=3 (and possibly others). A octree that will be used should inherit from this class and define the member function is_data_valid().
 	template <typename data_t, int dim=3, bool multiple_data=false, size_t n_data=8>
 	class BasicOctree
@@ -17,40 +54,23 @@ namespace gv::util{
 		static const int n_children = std::pow(2,dim);
 	
 	protected:
-		struct Node
-		{
-			size_t cursor = 0; //cursor for inserting data. points to next data to insert.
-			bool is_divided = false;
-			size_t* data_idx = NULL;
-			Node* children[n_children] {NULL};
-			const Node* parent = NULL;
-			const Box<dim> bbox;
-			Node(const Node* parent, const Point<dim,double> &v1, const Point<dim,double> &v2) : parent(parent), bbox(Box<dim>(v1,v2)) {data_idx = new size_t[n_data];}
-			~Node()
-			{
-				if (data_idx!=NULL){delete[] data_idx;}
-				if (children[0]!=NULL)
-				{
-					for (int i=0; i<n_children; i++)
-					{
-						delete children[i];
-					}
-				}
-			}
-		};
+		//convenient reference to the type of nodes in this octree.
+		typedef _OctreeNode<data_t,dim,n_data> Node;
 
-		///member function for determining where to put data.
-		virtual bool is_data_valid(Box<dim> const &box, const data_t &data) const {return false;}
+		//tree logic
 		Node* root = NULL;
-		std::vector<const Node*> _nodelist;
-
-		///vector for storing data in a contiguous array.
+		std::vector<const Node*> _nodelist; //this may be bad. using it as a method to go through all nodes. TODO: implement a Node* next_node(Node*) method.
+		
+		//data
 		std::vector<data_t> _data;
 
+
+		///member function for determining where to put data. Must be overridden by implemented octree classes.
+		virtual bool is_data_valid(const Box<dim> &box, const data_t &data) const {return false;}
+		
 		//DIVISION
 		void divide_multiple_data(Node* node)
 		{
-			// std::cout << "octree: divide_multiple_data\n";
 			//find box center for constructing bounding boxes of children
 			Point<dim,double> _center = node->bbox.center();
 			
@@ -99,8 +119,6 @@ namespace gv::util{
 					}
 				}
 			}
-
-			
 		}
 
 		void divide(Node* node)
@@ -120,7 +138,7 @@ namespace gv::util{
 			//set node to divided
 			node->is_divided = true;
 
-			//append children to list of nodes
+			//append children to list of nodes. TODO: delete when Node* next_node(Node*) is implemented.
 			for (int i=0; i<n_children; i++)
 			{
 				_nodelist.push_back(node->children[i]);
@@ -147,7 +165,7 @@ namespace gv::util{
 				{
 					//node must divide
 					divide(node);
-					recursive_insert(node, idx);
+					return recursive_insert(node, idx);
 				}
 			}
 			else
@@ -163,8 +181,7 @@ namespace gv::util{
 					}
 				}
 			}
-			
-
+			//data could not be inserted
 			return false;
 		}
 
@@ -258,8 +275,9 @@ namespace gv::util{
 
 		~BasicOctree() {delete root;}
 
-		size_t root_cursor() const {return root->cursor;}
+		// size_t root_cursor() const {return root->cursor;}
 
+		///method to re-size scope of the octree. usefull when the domain of the data is unknown a-priori, but this copies data and re-constructs the octree (it is slow if the octree is large).
 		void set_bbox(const Box<dim> &bbox)
 		{
 			//delete current tree
@@ -279,8 +297,10 @@ namespace gv::util{
 			}
 		}
 
+		//methods to get bounding boxes of nodes and entire tree.
 		Box<dim> bbox() const {return root->bbox;}
 		Box<dim> bbox(const size_t idx) const {return _nodelist[idx]->bbox;}
+		
 		int nData(const size_t idx) const
 		{
 			const Node* node = _nodelist[idx];
@@ -292,6 +312,8 @@ namespace gv::util{
 		///return number of nodes (not just leaf nodes);
 		size_t nNodes() const {return _nodelist.size();}
 
+
+		//DATA LOGIC AND CONTROL
 		///return index of data.
 		size_t find(const data_t &val) const
 		{
@@ -300,11 +322,7 @@ namespace gv::util{
 			return (size_t) (-1);
 		}
 
-		bool find(const data_t &val, size_t &idx) const
-		{
-			return recursive_find(root, val, idx);
-		}
-
+		bool find(const data_t &val, size_t &idx) const {return recursive_find(root, val, idx);}
 
 		bool contains(const data_t &val) const
 		{
@@ -333,6 +351,9 @@ namespace gv::util{
 		}
 	};
 
+
+
+
 	///Octree for points in space.
 	template <int dim=3, typename T=double, size_t n_data=32>
 	class PointOctree : public BasicOctree<Point<dim,double>, dim, false, n_data>
@@ -340,8 +361,52 @@ namespace gv::util{
 	public:
 		PointOctree() : BasicOctree<Point<dim,double>, dim, false, n_data>() {}
 		PointOctree(const Box<dim> &bbox) : BasicOctree<Point<dim,double>, dim, false, n_data>(bbox) {}
+
+		// size_t closest_point(const Point<dim,double> &point) const
+		// {
+
+		// }
+
 	private:
-		bool is_data_valid(Box<dim> const &box, Point<dim,double> const &data) const override {return box.contains(data);}
+		bool is_data_valid(const Box<dim> &box, const Point<dim,double> &data) const override {return box.contains(data);}
+
+		// double dist_squared(const Node* node, const Point<dim,double> &point) const
+		// {
+		// 	if (not node->is_divided)
+		// 	{
+		// 		double dist = std::numeric_limits<double>::max();
+		// 		for (size_t j=0; j<node->cursor; j++)
+		// 		{
+		// 			double temp_dist = (point - _data[node->data_idx[j]]).normSquared();
+		// 			dist = gv::util::min(dist, temp_dist);
+		// 		}
+		// 		return dist;
+		// 	}
+		// 	return gv::util::dist_squared(node->bbox, point);
+		// }
+
+		// size_t recursive_closest_point(const Node* node, const Point<dim,double> &point) const
+		// {
+		// 	if (not node->is_divided and node->cursor>0)
+		// 	{
+		// 		size_t idx = 0;
+		// 		double dist = (point-_data[node->data_idx[0]]).normSquared();
+		// 		for (size_t j=1; j<node->cursor; j++)
+		// 		{
+		// 			double temp_dist = (point-_data[node->data_idx[j]]).normSquared();
+		// 			if (temp_dist<dist)
+		// 			{
+		// 				dist = temp_dist;
+		// 				idx = j;
+		// 			}
+		// 		}
+		// 		return node->data_idx[idx];
+		// 	}
+		// 	else
+		// 	{
+				
+		// 	}
+		// }
 	};
 }
 

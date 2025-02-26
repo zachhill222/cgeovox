@@ -10,10 +10,10 @@ void test_geometry(std::string filename, size_t N[3])
 	gv::geometry::Assembly<gv::geometry::SuperEllipsoid, 8> assembly(filename, "-rrr-eps-xyz-q");
 	
 	std::cout << "save solid\n";
-	assembly.save_solid("Geometry.vtk", 0.9*assembly.bbox(), N);
+	assembly.save_solid("outfiles/assembly_Geometry.vtk", 0.9*assembly.bbox(), N);
 
 	std::cout << "save octree structure\n";
-	assembly.view_octree_vtk("OctreeStructure.vtk");
+	assembly.view_octree_vtk("outfiles/assembly_OctreeStructure.vtk");
 }
 
 

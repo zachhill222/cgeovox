@@ -193,6 +193,24 @@ namespace gv::util{
 		Point<dim,double> _high = box.center() + scale*(box.high() - box.center());
 		return Box<dim> {_low, _high};
 	}
+
+	//Distance to box
+	template <int dim>
+	double distance_squared(const Box<dim> &box, const Point<dim,double> &point)
+	{
+		if (box.contains(point)) {return 0;}
+
+		//get supporting point for tangent plane
+		Point<dim,double> normal = (point - box.center()).normalized();
+		Point<dim,double> support_point = box.support(normal);
+
+		//get point in supporting plane closest to specified point
+		Point<dim,double> closest = point - dot(point,normal)*normal;
+
+		//return distance squared to specified point
+		if (box.contains(closest)) {return (closest-point).normSquared();}
+		return (support_point-point).normSquared();
+	}
 }
 
 

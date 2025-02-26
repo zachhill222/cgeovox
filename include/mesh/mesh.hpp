@@ -17,7 +17,7 @@ namespace gv::mesh
 	private:
 		gv::util::PointOctree<3,double,32> _nodes;
 		std::vector<size_t> _elem2node;
-
+		
 	public:
 		Mesh() {}
 		

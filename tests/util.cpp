@@ -106,7 +106,7 @@ void test_octree(size_t N)
 
 
     //save octree structure
-    gv::mesh::view_octree_vtk(octree, "OctreeStructure.vtk");
+    gv::mesh::view_octree_vtk(octree, "outfiles/util_OctreeStructure.vtk");
 
 }
 
