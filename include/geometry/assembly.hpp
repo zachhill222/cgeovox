@@ -280,7 +280,7 @@ namespace gv::geometry{
 
 
 		//COMPUTE SPACING
-		gv::util::Point<3,double> centroid {0,0,0};
+		gv::util::Point<3,double> sample_point {0,0,0};
 		gv::util::Point<3,double> ijk {0,0,0};
 
 		gv::util::Point<3,double> H = box.high()-box.low();
@@ -307,10 +307,10 @@ namespace gv::geometry{
 		buffer.str("");
 
 
-		//POINT_MARKERS (CENTROIDS OF CELLS)
+		//CELL_MARKERS (CENTROIDS OF CELLS)
 		buffer << "CELL_DATA " << N[0]*N[1]*N[2] << "\n";
-		buffer << "SCALARS markers integer\n";
-		buffer << "LOOKUP_TABLE default\n";
+		buffer << "SCALARS cellMarkers integer\n";
+		buffer << "LOOKUP_TABLE solid\n";
 		for (long unsigned int  k=0; k<N[2]; k++)
 		{
 			ijk[2] = 0.5 + (double) k;
@@ -320,16 +320,49 @@ namespace gv::geometry{
 				for (long unsigned int  i=0; i<N[0]; i++)
 				{
 					ijk[0] = 0.5 + (double) i;
-					centroid = box.low() + H*ijk;
-					buffer << is_in_particle(centroid) << " ";
+					sample_point = box.low() + H*ijk;
+					buffer << is_in_particle(sample_point) << " ";
 				}
 			}
 			buffer << "\n";
 		}
 		buffer << "\n";
-		
 		meshfile << buffer.rdbuf();
 		buffer.str("");
+
+
+		//POINT_MARKERS (VERTICES OF CELLS)
+		buffer << "POINT_DATA " << (N[0]+1)*(N[1]+1)*(N[2]+1) << "\n";
+		buffer << "SCALARS pointMarkers integer\n";
+		buffer << "LOOKUP_TABLE solid\n";
+		for (long unsigned int  k=0; k<=N[2]; k++)
+		{
+			ijk[2] = (double) k;
+			for (long unsigned int  j=0; j<=N[1]; j++)
+			{
+				ijk[1] = (double) j;
+				for (long unsigned int  i=0; i<=N[0]; i++)
+				{
+					ijk[0] = (double) i;
+					sample_point = box.low() + H*ijk;
+					buffer << is_in_particle(sample_point) << " ";
+				}
+			}
+			buffer << "\n";
+		}
+		buffer << "\n";
+		meshfile << buffer.rdbuf();
+		buffer.str("");
+
+
+		//LOOKUP TABLE
+		buffer << "LOOKUP_TABLE solid 2\n";
+		buffer << "0.5 0.5 0.5 0\n"; //solid
+		buffer << "0.5 0.5 0.5 1\n"; //void
+		buffer << "\n";
+		meshfile << buffer.rdbuf();
+		buffer.str("");
+
 
 		//////////////// CLOSE FILE ////////////////
 		meshfile.close();
