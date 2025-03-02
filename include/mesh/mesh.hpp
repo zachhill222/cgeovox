@@ -2,7 +2,6 @@
 
 #include "util/octree.hpp"
 #include "util/point.hpp"
-#include "util/box.hpp"
 
 #include <vector>
 #include <algorithm>
@@ -11,34 +10,44 @@
 #include <iostream>
 #include <fstream>
 
+#include <omp.h>
+#include <armadillo>
+
 namespace gv::mesh
 {
 	//mesh for one element type
-	template <size_t nodes_per_element=8>
+	template <typename Element_t>
 	class Mesh{
-	private:
+	protected:
+		//sincle reference element
+		static const Element_t referenceElement;
+
 		gv::util::PointOctree<3,double,32> _nodes;
 		std::vector<size_t> _elem2node;
 		std::vector<size_t> _node2elem_start_idx; //each node belongs to an unknown number of elements. track where node2element begins for each node.
 		std::vector<size_t> _node2elem;
+		std::vector<std::vector<size_t>> _boundary; //assign which nodes belong to the boundary. allow for multiple boundaries.
+
+	protected:
+
+		//convert a pair of local node indices to a linear index. used for creating mass and stiffness matrices.
+		static size_t _ij2lin(const size_t i, const size_t j) {return referenceElement.nNodes*i + j;}
 
 	public:
 		Mesh() {}
-
-		//vtkID for element type
-		int vtkID = 11; //voxel default
 		
+		///// MESH MANIPULATION
 		//get global node numbers for a particular element
-		void get_element(const size_t idx, size_t (&element)[nodes_per_element]) const
+		void get_element(const size_t idx, size_t (&element)[referenceElement.nNodes]) const
 		{
-			size_t start = idx*nodes_per_element;
-			for (size_t i=0; i<nodes_per_element; i++) {element[i] = _elem2node[start+i];}
+			size_t start = idx*referenceElement.nNodes;
+			for (size_t i=0; i<referenceElement.nNodes; i++) {element[i] = _elem2node[start+i];}
 		}
 
 		//add a single element
-		void add_element(const gv::util::Point<3,double> (&element)[nodes_per_element])
+		void add_element(const gv::util::Point<3,double> (&element)[referenceElement.nNodes])
 		{
-			for (size_t i=0; i<nodes_per_element; i++)
+			for (size_t i=0; i<referenceElement.nNodes; i++)
 			{
 				_nodes.push_back(element[i]);
 				size_t global_idx = _nodes.find(element[i]);
@@ -46,15 +55,23 @@ namespace gv::mesh
 			}
 		}
 
+		//add node to a boundary
+		void add_to_boundary(const size_t node_idx, const size_t boundary_idx = 0) {_boundary[boundary_idx].push_back(node_idx);}
+		size_t create_new_boundary()
+		{
+			_boundary.push_back(std::vector<size_t> {});
+			return _boundary.size()-1;
+		}
+
 		//reserve space for _elem2node
-		void reserve(size_t nNewElems) {_elem2node.reserve(_elem2node.size()+nodes_per_element*nNewElems);}
+		void reserve(size_t nNewElems) {_elem2node.reserve(_elem2node.size()+referenceElement.nNodes*nNewElems);}
 
 		//convenient size functions
-		size_t nElems() const {return _elem2node.size()/nodes_per_element;}
+		size_t nElems() const {return _elem2node.size()/referenceElement.nNodes;}
 		size_t nNodes() const {return _nodes.size();}
 
 		//convenient access functions
-		size_t elem2node(size_t elem, size_t localnode) const {return _elem2node[elem*nodes_per_element+localnode];}
+		size_t elem2node(size_t elem, size_t localnode) const {return _elem2node[elem*referenceElement.nNodes+localnode];}
 		size_t local_nElem(size_t node) const
 		{
 			if (node==nNodes()-1) {return _node2elem.size()-_node2elem_start_idx[node];}
@@ -75,7 +92,7 @@ namespace gv::mesh
 			std::vector<size_t> node_count(nNodes(), 0);
 			for (size_t el=0; el<nElems(); el++)
 			{
-				for (size_t i=0; i<nodes_per_element; i++)
+				for (size_t i=0; i<referenceElement.nNodes; i++)
 				{
 					size_t node = elem2node(el,i);
 					node_count[node] += 1;
@@ -96,7 +113,7 @@ namespace gv::mesh
 			std::fill(node_count.begin(), node_count.end(), 0); //use node_count for tracking current index for each node
 			for (size_t el=0; el<nElems(); el++)
 			{
-				for (size_t i=0; i<nodes_per_element; i++)
+				for (size_t i=0; i<referenceElement.nNodes; i++)
 				{
 					size_t node = elem2node(el,i);
 					size_t idx = _node2elem_start_idx[node] + node_count[node];
@@ -109,6 +126,8 @@ namespace gv::mesh
 		//set bounds for nodes
 		void set_bbox(const gv::util::Box<3> &bbox) {_nodes.set_bbox(bbox);}
 
+
+		////// MESH OUTPUTS
 		//print mesh structure to ostream
 		void vtkprint(std::ostream &stream) const
 		{
@@ -128,13 +147,13 @@ namespace gv::mesh
 			buffer.str("");
 
 			//ELEMENTS
-			buffer << "CELLS " << nElems() << " " << (1+nodes_per_element)*nElems() << "\n";
+			buffer << "CELLS " << nElems() << " " << (1+referenceElement.nNodes)*nElems() << "\n";
 			for (size_t i=0; i<nElems(); i++)
 			{
-				buffer << nodes_per_element << " ";
-				for (size_t j=0; j<nodes_per_element; j++)
+				buffer << referenceElement.nNodes << " ";
+				for (size_t j=0; j<referenceElement.nNodes; j++)
 				{
-					buffer << _elem2node[nodes_per_element*i + j] << " ";
+					buffer << _elem2node[referenceElement.nNodes*i + j] << " ";
 				}
 				buffer << "\n";
 			}
@@ -144,7 +163,7 @@ namespace gv::mesh
 
 			//VTK IDs
 			buffer << "CELL_TYPES " << nElems() << "\n";
-			for (size_t i=0; i<nElems(); i++) {buffer << vtkID << " ";}
+			for (size_t i=0; i<nElems(); i++) {buffer << referenceElement.vtkID << " ";}
 			buffer << "\n\n";
 			stream << buffer.rdbuf();
 			buffer.str("");
@@ -157,7 +176,7 @@ namespace gv::mesh
 			for (size_t el=0; el<nElems(); el++)
 			{
 				std::cout << "element " << el << "\t: ";
-				for (size_t n=0; n<nodes_per_element; n++)
+				for (size_t n=0; n<referenceElement.nNodes; n++)
 				{
 					std::cout << elem2node(el,n) << " ";
 				}
@@ -176,94 +195,65 @@ namespace gv::mesh
 				std::cout << std::endl;
 			}
 		}
+
+		//////MASS MATRIX
+		void makeMassMatrix(arma::sp_mat &massMat) const;
 	};
 
 
-	///function for viewing octree structure, only works in 3 dimensions
-	template <typename Octree_t>
-	void view_octree_vtk(const Octree_t &octree, const std::string filename="octree_structure.vtk")
-	{	
-		const int n_children = octree.n_children;
-		const size_t nElems = octree.nNodes();
+	template<typename Element_t>
+	void Mesh<Element_t>::makeMassMatrix(arma::sp_mat &massMat) const
+	{
+		//set up index tracking to allow parallel looping over elements when computing integrals
+		arma::umat locations(2,referenceElement.nNodes*referenceElement.nNodes*nElems());
+		arma::vec values(referenceElement.nNodes*referenceElement.nNodes*nElems());
 
-		//initialize mesh
-		gv::mesh::Mesh<n_children> octree_mesh;
-		octree_mesh.set_bbox(octree.bbox());
-		octree_mesh.reserve(nElems);
-
-		octree_mesh.vtkID = 11; //VTK_VOXEL
-
-		//create an element for each node
-		for (size_t idx=0; idx<nElems; idx++)
+		//integrate over each element
+		#pragma omp parallel
+		for (size_t el=0; el<nElems(); el++)
 		{
-			if (not octree.isLeaf(idx)) {continue;}
+			//set parameters for this element
+			gv::util::Point<3,double> H = _nodes[elem2node(el,7)] - _nodes[elem2node(el,0)]; //size of voxel
+			size_t start = el*referenceElement.nNodes*referenceElement.nNodes; //start of this element's block in locations and values.
 
-			//make element
-			gv::util::Point<3,double> element[8];
-			gv::util::Box<3> box = octree.bbox(idx);
-
-
-			for (int j=0; j<8; j++)
+			//compute contributions to mass matrix
+			for (size_t i=0; i<8; i++)
 			{
-				element[j] = box[j];
+				//global node number for local node i
+				size_t global_i = elem2node(el,i);
+
+				//diagonal (i,i) entry
+				values.at(start + _ij2lin(i,i)) = referenceElement.integrate_mass(i,i,H);
+				locations.at(0,start + _ij2lin(i,i)) = global_i;
+				locations.at(1,start + _ij2lin(i,i)) = global_i;
+
+				//off-diagonal entries
+				for (size_t j=i+1; j<8; j++)
+				{
+					//global node number for local node j
+					size_t global_j = elem2node(el,j);
+
+					//get value
+					double val = referenceElement.integrate_mass(i,j,H);
+					
+					//store location 1
+					values[_ij2lin(i,j)] = val;
+					locations.at(0,start + _ij2lin(i,j)) = global_i;
+					locations.at(1,start + _ij2lin(i,j)) = global_j;
+
+					//store location 2
+					values[_ij2lin(j,i)] = val;
+					locations.at(0,start + _ij2lin(j,i)) = global_j;
+					locations.at(1,start + _ij2lin(j,i)) = global_i;
+				}
 			}
-
-			//add element to mesh
-			octree_mesh.add_element(element);
 		}
 
-		////// PRINT MESH STRUCTURE TO CONSOLE
-		// octree_mesh.compute_connectivity();
-		// octree_mesh.print_connectivity();
-		//////////////////////////////////////
-
-		//print mesh to file
-		std::ofstream meshfile(filename);
-
-		if (not meshfile.is_open()){
-			std::cout << "Couldn't write to " << filename << std::endl;
-			meshfile.close();
-			return;
-		}
-
-		octree_mesh.vtkprint(meshfile);
-
-		//print number of data in each node to meshfile
-		std::stringstream buffer;
-
-		buffer << "CELL_DATA " << octree_mesh.nElems() << std::endl;
-		buffer << "SCALARS nData integer\n";
-		buffer << "LOOKUP_TABLE default\n";
-		for (size_t i=0; i<octree_mesh.nElems(); i++)
-		{
-			buffer << octree.nData(i) << "\n";
-		}
-		buffer << "\n";
-		meshfile << buffer.rdbuf();
-		buffer.str("");
-		
-		// buffer << "SCALARS elementID integer\n";
-		// buffer << "LOOKUP_TABLE default\n";
-		// for (size_t i=0; i<octree_mesh.nElems(); i++)
-		// {
-		// 	buffer << i << "\n";
-		// }
-		// buffer << "\n";
-		// meshfile << buffer.rdbuf();
-		// buffer.str("");
-
-		// buffer << "POINT_DATA " << octree_mesh.nNodes() << std::endl;
-		// buffer << "SCALARS nodeID integer\n";
-		// buffer << "LOOKUP_TABLE default\n";
-		// for (size_t i=0; i<octree_mesh.nNodes(); i++)
-		// {
-		// 	buffer << i << "\n";
-		// }
-		// buffer << "\n";
-		// meshfile << buffer.rdbuf();
-		// buffer.str("");
-
-		//close file
-		meshfile.close();
+		//construct matrix
+		massMat = arma::sp_mat(true, locations, values, nNodes(), nNodes(), true, false);
 	}
+
+
+
+	
 }

@@ -1,8 +1,6 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "mesh/octree_mesh.hpp"
-#include "geometry/particles.hpp"
-
 
 #include <iostream>
 #include <random>
@@ -32,12 +30,6 @@ void test_octree_mesh(size_t N)
     	}
 
     	octmesh.divide(point);
-    }
-
-    for (size_t i=0; i<octmesh.nNodes(); i++)
-    {
-    	std::cout << "node " << i << std::endl;
-    	octmesh.get_support(i);
     }
 
     std::cout << "saving mesh\n";

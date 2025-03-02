@@ -3,7 +3,6 @@
 #include "util/box.hpp"
 #include "util/point.hpp"
 #include "util/octree.hpp"
-#include "mesh/linear_elements.hpp"
 
 #include <sstream>
 #include <iostream>
@@ -146,7 +145,7 @@ namespace gv::mesh
 		inline size_t nElements() const {return recursive_count_elements(root);}
 
 		///Get voxel element support for a basis function. Note that the voxels use pointers to the elements of _points[].
-		std::vector<Voxel> get_support(const size_t &idx) const; //TODO: remove explicit call to Voxel when adding other types of element support.
+		// std::vector<Node> get_support(const size_t &idx) const; //TODO: remove explicit call to Voxel when adding other types of element support.
 
 		///print to ostream in vtk format
 		void vtkprint(std::ostream &stream) const;
@@ -371,62 +370,5 @@ namespace gv::mesh
 		buffer << "\n\n";
 		stream << buffer.rdbuf();
 		buffer.str("");
-
-		// //TEMPORARY DATA
-		// buffer << "CELL_DATA " << nElems << std::endl;
-		// buffer << "SCALARS elemMarkers integer\n";
-		// buffer << "LOOKUP_TABLE default\n";
-		// for (size_t i=0; i<nElems; i++){
-		// 	buffer << i << "\n";
-		// }
-		// buffer << "\n";
-
-		// stream << buffer.rdbuf();
-		// buffer.str("");
-
-		// //TEMPORARY DATA
-		// buffer << "POINT_DATA " << _points.size() << std::endl;
-		// buffer << "SCALARS basis_level integer\n";
-		// buffer << "LOOKUP_TABLE default\n";
-		// for (size_t i=0; i<_points.size(); i++){
-		// 	buffer << basis_function_depth[i] << "\n";
-		// }
-		// buffer << "\n";
-
-		// stream << buffer.rdbuf();
-		// buffer.str("");
-	}
-
-
-
-	template <typename Node>
-	std::vector<Voxel> OctreeMesh<Node>::get_support(const size_t &idx) const
-	{
-		//get nodes
-		std::vector<const Node*> support_nodes = find_all(idx, basis_function_depth[idx]);
-
-
-		std::vector<Voxel> result;
-		result.reserve(support_nodes.size());
-
-		for (size_t i=0; i<support_nodes.size(); i++)
-		{
-			const Node* node = support_nodes[i];
-			Voxel voxel {
-						&_points[node->point_idx[0]],\
-						&_points[node->point_idx[1]],\
-						&_points[node->point_idx[2]],\
-						&_points[node->point_idx[3]],\
-						&_points[node->point_idx[4]],\
-						&_points[node->point_idx[5]],\
-						&_points[node->point_idx[6]],\
-						&_points[node->point_idx[7]]\
-					};
-
-			result.push_back(voxel);
-			std::cout << i << ": ";
-			result[i].print();
-		}
-		return result;
 	}
 }

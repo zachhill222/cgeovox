@@ -8,7 +8,7 @@
 #include "geometry/particles.hpp"
 #include "geometry/collisions.hpp"
 
-#include "mesh/mesh.hpp" //for viewing octree structure
+#include "util/view_octree.hpp" //for viewing octree structure
 
 
 #include <fstream>
@@ -68,7 +68,7 @@ namespace gv::geometry{
 		void save_solid(const std::string filename, const size_t  N[3]) const {save_solid(filename, this->_particles.bbox(), N);}
 
 		//view octree structure of _particles octree
-		void view_octree_vtk(const std::string filename="octree_structure.vtk") const {gv::mesh::view_octree_vtk(_particles, filename);}
+		void view_octree_vtk(const std::string filename="octree_structure.vtk") const {gv::util::view_octree_vtk(_particles, filename);}
 	private:
 		ParticleOctree<Particle_t, n_data> _particles;
 	};

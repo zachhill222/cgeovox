@@ -4,7 +4,7 @@
 #include "util/octree.hpp"
 #include "util/polytope.hpp"
 
-#include "mesh/mesh.hpp"
+#include "util/view_octree.hpp"
 
 #include <iostream>
 #include <random>
@@ -106,7 +106,7 @@ void test_octree(size_t N)
 
 
     //save octree structure
-    gv::mesh::view_octree_vtk(octree, "outfiles/util_OctreeStructure.vtk");
+    gv::util::view_octree_vtk(octree, "outfiles/util_OctreeStructure.vtk");
 
 }
 
