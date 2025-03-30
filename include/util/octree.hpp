@@ -190,7 +190,19 @@ namespace gv::util{
 		bool recursive_find(Node const* node, const data_t &val, size_t &idx) const
 		{
 			// std::cout << "octree: recursive_find at node " << node << std::endl;
-			if (node->children[0]==NULL)
+			if (node->is_divided)
+			{
+				for (int i=0; i<n_children; i++)
+				{
+					if (is_data_valid(node->children[i]->bbox, val))
+					{
+						if (recursive_find(node->children[i], val, idx)) {return true;}
+					}
+				}
+				return false;
+			}
+
+			else
 			{
 				// std::cout << "node has " << node->cursor << " data indices" << std::endl;
 				//not divided
@@ -204,17 +216,6 @@ namespace gv::util{
 					}
 				}
 			}
-			else
-			{
-				for (int i=0; i<n_children; i++)
-				{
-					if (is_data_valid(node->children[i]->bbox, val))
-					{
-						if (recursive_find(node->children[i], val, idx)) {return true;}
-					}
-				}
-			}
-
 			return false;
 		}
 
@@ -278,6 +279,8 @@ namespace gv::util{
 		// size_t root_cursor() const {return root->cursor;}
 
 		///method to re-size scope of the octree. usefull when the domain of the data is unknown a-priori, but this copies data and re-constructs the octree (it is slow if the octree is large).
+		void set_bbox(const Point<dim,double> &low, const Point<dim,double> &high) {set_bbox(Box<dim>(low,high));}
+
 		void set_bbox(const Box<dim> &bbox)
 		{
 			//delete current tree
@@ -332,6 +335,11 @@ namespace gv::util{
 
 		void push_back(const data_t &val)
 		{
+			if (not is_data_valid(root->bbox, val))
+			{
+				throw std::invalid_argument("data is outside octree bounding box. resize with set_bbox().");
+			}
+
 			if (contains(val)) {return;}
 			_data.push_back(val);
 			size_t idx = _data.size()-1;

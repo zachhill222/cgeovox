@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <stdexcept>
 
 #include <sstream>
 #include <iostream>
@@ -29,7 +30,6 @@ namespace gv::mesh
 		std::vector<std::vector<size_t>> _boundary; //assign which nodes belong to the boundary. allow for multiple boundaries.
 
 	protected:
-
 		//convert a pair of local node indices to a linear index. used for creating mass and stiffness matrices.
 		static size_t _ij2lin(const size_t i, const size_t j) {return referenceElement.nNodes*i + j;}
 
@@ -50,7 +50,11 @@ namespace gv::mesh
 			for (size_t i=0; i<referenceElement.nNodes; i++)
 			{
 				_nodes.push_back(element[i]);
-				size_t global_idx = _nodes.find(element[i]);
+				
+				size_t global_idx;
+				bool success = _nodes.find(element[i], global_idx);
+				if (!success) {throw std::runtime_error("ERROR: can't find node while adding element to mesh. Possibly need to set the bbox for the _nodes octree.");}
+
 				_elem2node.push_back(global_idx);
 			}
 		}
@@ -194,6 +198,24 @@ namespace gv::mesh
 				}
 				std::cout << std::endl;
 			}
+		}
+
+		//save mesh to file
+		void saveas(std::string filename) const
+		{
+			//////////////// OPEN FILE ////////////////
+			std::ofstream meshfile(filename);
+
+			if (not meshfile.is_open()){
+				std::cout << "Couldn't write to " << filename << std::endl;
+				meshfile.close();
+				return;
+			}
+
+			//print mesh to file
+			vtkprint(meshfile);
+
+			meshfile.close();
 		}
 
 		//////MASS MATRIX

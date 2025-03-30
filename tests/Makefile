@@ -6,7 +6,7 @@ OBJ        = $(SRC:.cpp=.o)
 TARGETS     = $(SRC:.cpp=)
 
 CC         = g++ -fopenmp -g
-CFLAGS     = -Wall
+CFLAGS     = -Wall -O2
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = #-lcgeovox
 

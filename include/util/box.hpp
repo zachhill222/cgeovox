@@ -91,6 +91,9 @@ namespace gv::util{
 			}
 		}
 
+		///Get i-th vertex in vtk pixel/voxel order.
+		Point<dim> voxelvertex(const int idx) const {return operator[](idx);}
+
 
 		///////////////////////////////////////////////
 		/////// CONTAINMENT AND INTERSECTION //////////

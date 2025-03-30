@@ -66,7 +66,7 @@ void test_octree(size_t N)
 	const int dim=3;
 
 	using Point_t = gv::util::Point<dim,double>;
-	gv::util::Box bbox(Point_t {0,0,0,0}, Point_t {1,1,1,1});
+	gv::util::Box bbox(Point_t {0,0,0}, Point_t {1,1,1});
 
 	//set up octree
 	gv::util::PointOctree<dim,double,32> octree(bbox);

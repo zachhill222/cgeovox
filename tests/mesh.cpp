@@ -1,6 +1,8 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
+
 #include "mesh/octree_mesh.hpp"
+#include "mesh/Q1.hpp"
 
 #include <iostream>
 #include <random>
@@ -36,14 +38,22 @@ void test_octree_mesh(size_t N)
     octmesh.save("octmesh.vtk");
 }
 
+void test_Q1_mesh(size_t N)
+{
+	size_t nVoxels[3] {N, N, N};
+	gv::mesh::VoxelMeshQ1 mesh(gv::util::Point<3,double> {1,2,3}, nVoxels);
+	// std::cout << "mesh test_volume: " << mesh.test_volume() << std::endl;
+	mesh.saveas("./outfiles/test_mesh.vtk");
+}
+
 
 int main(int argc, char* argv[])
 {	
 	int N = 10;
 	if (argc>1) {N=atoi(argv[1]);}
 
-	test_octree_mesh(N);
-
+	// test_octree_mesh(N);
+	test_Q1_mesh(N);
 
 	return 0;
 }

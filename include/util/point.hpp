@@ -252,8 +252,14 @@ namespace gv::util {
 	{
 		T M = 128 * gv::util::max(norminf(left), norminf(right));
 		T D = norminf(left-right);
-
 		return D <= std::numeric_limits<T>::epsilon() * M;
+		
+
+		// for (int i=0; i<dim; i++)
+		// {
+		// 	if (left[i] != right[i]) {return false;}
+		// }
+		// return true;
 	}
 
 	///Point not equal to comparison.

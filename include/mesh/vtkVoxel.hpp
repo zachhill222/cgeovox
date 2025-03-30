@@ -2,12 +2,17 @@
 
 #include "util/point.hpp"
 
+#include <armadillo>
+
 namespace gv::mesh{
 	class Voxel {
 	public:
 		Voxel() {}
 		static const int vtkID = 11;
 		static const size_t nNodes = 8;
+
+		//pointers to node locations
+		gv::util::Point<3,double>* nodes[8];
 
 		//get signs for basis functions. All bases are the product of three functions of the form 0.5*(1+C*x) where C is stored below.
 		static constexpr const int _basis_signs[24] {
@@ -51,5 +56,33 @@ namespace gv::mesh{
 			}
 			return value;
 		}
+
+		// //get jacobian matrix
+		// arma::dmat jacobian(const gv::util::Point<3,double> &point) const
+		// {
+		// 	gv::util::Point<3,double> rows[3];
+		// 	for (int i=0; i<8; i++) //basis function
+		// 	{
+		// 		gv::util::Point<3,double> grad = eval_grad_basis(point);
+		// 		for (j=0; j<3; j++) //rows
+		// 		{
+		// 			row[j] += nodes[i][j] * grad;
+		// 		}
+		// 	}
+
+		// 	arma::dmat result(3,3, arma::fill:zeros);
+		// 	result.row(0) = rows[0];
+		// 	result.row(1) = rows[1];
+		// 	result.row(2) = rows[2];
+
+		// 	return result;
+		// }
+
+		// //get jacobian determinant
+		// arma::dmat jacobian_det(const gv::util::Point<3,double> &point) const
+		// {
+		// 	// return gv::util::abs(arma::det(jacobian(point)));
+		// 	return arma::det(jacobian(point));
+		// }
 	};
 }
