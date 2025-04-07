@@ -250,16 +250,12 @@ namespace gv::util {
 	template <int dim=3, typename T=double>
 	bool operator==(const Point<dim,T> &left, const Point<dim,T> &right)
 	{
-		T M = 128 * gv::util::max(norminf(left), norminf(right));
-		T D = norminf(left-right);
-		return D <= std::numeric_limits<T>::epsilon() * M;
-		
-
-		// for (int i=0; i<dim; i++)
-		// {
-		// 	if (left[i] != right[i]) {return false;}
-		// }
-		// return true;
+		for (int i=0; i<dim; i++)
+		{
+			// if (left[i] != right[i]) {return false;}
+			if (not approxEqual(left[i], right[i])) {return false;}
+		}
+		return true;
 	}
 
 	///Point not equal to comparison.
@@ -357,7 +353,7 @@ namespace gv::util {
 
 	///L-infinity norm
 	template <int dim=3, typename T=double>
-	T norminf(const Point<dim,T> &point) {return max(abs(point));}
+	T norminfty(const Point<dim,T> &point) {return max(abs(point));}
 
 
 	///Normalize (without modification)

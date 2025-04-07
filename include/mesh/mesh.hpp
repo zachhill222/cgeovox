@@ -36,6 +36,8 @@ namespace gv::mesh
 	public:
 		Mesh() {}
 		
+		std::vector<int> elem_marker;
+
 		///// MESH MANIPULATION
 		//get global node numbers for a particular element
 		void get_element(const size_t idx, size_t (&element)[referenceElement.nNodes]) const
@@ -44,7 +46,7 @@ namespace gv::mesh
 			for (size_t i=0; i<referenceElement.nNodes; i++) {element[i] = _elem2node[start+i];}
 		}
 
-		//add a single element
+		//add a single element and nodes
 		void add_element(const gv::util::Point<3,double> (&element)[referenceElement.nNodes])
 		{
 			for (size_t i=0; i<referenceElement.nNodes; i++)
@@ -59,6 +61,27 @@ namespace gv::mesh
 			}
 		}
 
+		//add a single element with known nodes
+		void add_element(const size_t (&element)[referenceElement.nNodes])
+		{
+			for (size_t i=0; i<referenceElement.nNodes; i++)
+			{
+				_elem2node.push_back(element[i]);
+			}
+		}
+
+		//add a single node. used if nodes are known before constructing mesh avoid error in doubles arithmetic for small mesh sizes.
+		void add_node(const gv::util::Point<3,double> &node)
+		{
+			_nodes.push_back(node);
+		}
+
+		//get index for a node
+		size_t node_idx(const gv::util::Point<3,double> &node) const
+		{
+			return _nodes.find(node);
+		}
+
 		//add node to a boundary
 		void add_to_boundary(const size_t node_idx, const size_t boundary_idx = 0) {_boundary[boundary_idx].push_back(node_idx);}
 		size_t create_new_boundary()
@@ -68,7 +91,10 @@ namespace gv::mesh
 		}
 
 		//reserve space for _elem2node
-		void reserve(size_t nNewElems) {_elem2node.reserve(_elem2node.size()+referenceElement.nNodes*nNewElems);}
+		void reserve(size_t nNewElems)
+		{
+			_elem2node.reserve(_elem2node.size()+referenceElement.nNodes*nNewElems);
+		}
 
 		//convenient size functions
 		size_t nElems() const {return _elem2node.size()/referenceElement.nNodes;}
@@ -127,6 +153,51 @@ namespace gv::mesh
 			}
 		}
 
+
+		//get mesh sub-domain
+		void get_subdomain(const int mkr, Mesh<Element_t> &out_mesh)
+		{
+			//TODO: make external and internal boundaries?
+
+			//check that all elements are marked
+			if (elem_marker.size() != nElems())
+			{
+				throw std::runtime_error("Not all elements of the original mesh are marked.");
+			}
+
+			//count number of elements
+			size_t n_elems_out = 0;
+			for (size_t el=0; el<nElems(); el++)
+			{
+				if (elem_marker[el]==mkr) {n_elems_out+=1;}
+			}
+
+			if (n_elems_out==0) {return;}
+
+
+			//ensure bounding box for out_mesh is sufficiently large (_nodes octree)
+			out_mesh.set_bbox(this->_nodes.bbox());
+
+			//add elements
+			for (size_t el=0; el<nElems(); el++)
+			{
+				if (elem_marker[el] == mkr)
+				{
+					//construct new element
+					gv::util::Point<3,double> new_elem[referenceElement.nNodes];
+					for (size_t i=0; i<referenceElement.nNodes; i++)
+					{
+						new_elem[i] = this->_nodes[this->elem2node(el,i)];
+					}
+
+					//add new element to out_mesh
+					out_mesh.add_element(new_elem);
+					out_mesh.elem_marker.push_back(mkr);
+				}
+			}
+		}
+
+
 		//set bounds for nodes
 		void set_bbox(const gv::util::Box<3> &bbox) {_nodes.set_bbox(bbox);}
 
@@ -169,6 +240,18 @@ namespace gv::mesh
 			buffer << "CELL_TYPES " << nElems() << "\n";
 			for (size_t i=0; i<nElems(); i++) {buffer << referenceElement.vtkID << " ";}
 			buffer << "\n\n";
+			stream << buffer.rdbuf();
+			buffer.str("");
+
+			//ELEMENT MARKERS
+			if (elem_marker.size() == nElems())
+			{
+				buffer << "CELL_DATA " << nElems() << "\n";
+				buffer << "SCALARS elem_marker integer\n";
+				buffer << "LOOKUP_TABLE default\n";
+				for (size_t el=0; el<nElems(); el++) {buffer << elem_marker[el] << " ";}
+				buffer << "\n\n";
+			}
 			stream << buffer.rdbuf();
 			buffer.str("");
 		}

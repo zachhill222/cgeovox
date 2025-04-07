@@ -22,7 +22,7 @@ namespace gv::geometry{
 		inline gv::util::Point<3,double> toglobal(const gv::util::Point<3,double> &point) const {return _quaternion.conj().rotate(point*_radii)+_center;}
 
 		//check if point in global coordinates is in the bounding box
-		inline bool is_in_bbox(const gv::util::Point<3,double> &point) const {return gv::util::norminf<3,double>(tolocal(point)) <= 1;}
+		inline bool is_in_bbox(const gv::util::Point<3,double> &point) const {return gv::util::norminfty<3,double>(tolocal(point)) <= 1;}
 
 		//evaluate level set function at specified point in global coordinates
 		inline double eval_level_set(const gv::util::Point<3,double> &point) const {return _eval_level_set(tolocal(point));}
@@ -57,7 +57,7 @@ namespace gv::geometry{
 		bool contains(const gv::util::Point<3,double> &point) const
 		{
 			gv::util::Point<3,double> localpoint = tolocal(point);
-			if (gv::util::norminf<3,double>(localpoint) <= 1) {return _eval_level_set(localpoint) <= 1;}
+			if (gv::util::norminfty<3,double>(localpoint) <= 1) {return _eval_level_set(localpoint) <= 1;}
 			return false;
 		}
 
@@ -87,7 +87,7 @@ namespace gv::geometry{
 		gv::util::Point<3,double> _radii;
 
 		//evaluate level set function at specified point in normalized local coordinates
-		virtual double _eval_level_set(const gv::util::Point<3,double> &localpoint) const {return gv::util::norminf<3,double>(localpoint);}
+		virtual double _eval_level_set(const gv::util::Point<3,double> &localpoint) const {return gv::util::norminfty<3,double>(localpoint);}
 	};
 
 

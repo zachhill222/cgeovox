@@ -9,7 +9,7 @@
 #include "geometry/collisions.hpp"
 
 #include "util/view_octree.hpp" //for viewing octree structure
-
+#include "mesh/Q1.hpp" //unstructured voxel mesh
 
 #include <fstream>
 #include <iostream>
@@ -53,7 +53,11 @@ namespace gv::geometry{
 		Assembly(const std::string filename, const std::string columns) {readfile(filename, columns);}
 
 		//check if a point is in any particle
-		bool is_in_particle(const gv::util::Point<3,double> &point) const {return _particles.is_in_particle(point);}
+		bool is_in_particle(const gv::util::Point<3,double> &point) const
+		{	
+			if (not _particles.bbox().contains(point)) {return false;}
+			return _particles.is_in_particle(point);
+		}
 
 		//read particles from file with specified format. TODO: read format from start of file.
 		void readfile(const std::string filename, const std::string columns);
@@ -69,6 +73,11 @@ namespace gv::geometry{
 
 		//view octree structure of _particles octree
 		void view_octree_vtk(const std::string filename="octree_structure.vtk") const {gv::util::view_octree_vtk(_particles, filename);}
+
+		//create unstructured voxel mesh of the entire region. mark elements with 0 for void, 1 for solid, and 2 for interface
+		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const gv::util::Box<3> &box, const size_t N[3]) const;
+		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const size_t N[3]) const {create_voxel_mesh_Q1(out_mesh, this->_particles.bbox(), N);}
+
 	private:
 		ParticleOctree<Particle_t, n_data> _particles;
 	};
@@ -368,4 +377,88 @@ namespace gv::geometry{
 		meshfile.close();
 	}
 
+
+	//construct an unstructured voxel mesh of the region
+	template <typename Particle_t, size_t n_data>
+	void Assembly<Particle_t, n_data>::create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const gv::util::Box<3> &box, const size_t N[3]) const
+	{
+		out_mesh.set_bbox(1.0625*box);
+		out_mesh.reserve(N[0]*N[1]*N[2]);
+
+		//COMPUTE SPACING
+		gv::util::Point<3,double> sample_point {0,0,0};
+		gv::util::Point<3,double> ijk {0,0,0};
+		gv::util::Point<3,double> origin = box.low();
+		gv::util::Point<3,double> H = box.high()-box.low();
+		H[0]/= (double) N[0];
+		H[1]/= (double) N[1];
+		H[2]/= (double) N[2];
+
+
+		//CONSTRUCT POINTS
+		for (long unsigned int  k=0; k<=N[2]; k++)
+		{
+			ijk[2] = (double) k;
+			for (long unsigned int  j=0; j<=N[1]; j++)
+			{
+				ijk[1] = (double) j;
+				for (long unsigned int  i=0; i<=N[0]; i++)
+				{
+					ijk[0] = (double) i;
+					out_mesh.add_node(origin + H*ijk);
+				}
+			}
+		}
+
+
+		//CONSTRUCT ELEMENTS
+		for (long unsigned int  k=0; k<N[2]; k++)
+		{
+			ijk[2] = (double) k;
+			for (long unsigned int  j=0; j<N[1]; j++)
+			{
+				ijk[1] = (double) j;
+				for (long unsigned int  i=0; i<N[0]; i++)
+				{
+					ijk[0] = (double) i;
+					// std::cout << "start element" << std::endl;
+
+					//create element
+					size_t new_elem[8];
+					gv::util::Box<3> element_box(origin+H*ijk,origin+H*ijk+H);
+					for (int n=0; n<8; n++)
+						{
+							new_elem[n] = out_mesh.node_idx(element_box.voxelvertex(n));
+							if (new_elem[n] == (size_t) -1)
+							{
+								std::cout << "element (" << i << ", " << j << ", " << k << "): " << n << ": " << element_box.voxelvertex(n) << std::endl;
+								
+							}
+						}
+
+
+
+					//count number of verticies contained in particles
+					// std::cout << "count vertices" << std::endl;
+					int n_vert = 0;
+					for (int n=0; n<8; n++)
+					{
+						// std::cout << n << ": " << new_elem[n] << std::endl;
+						if (this->is_in_particle(element_box[n])) {n_vert += 1;}
+					}
+
+					//add element to mesh
+					// std::cout << "add element" << std::endl;
+					out_mesh.add_element(new_elem);
+
+					// std::cout << "mark element" << std::endl;
+					if (n_vert==0) {out_mesh.elem_marker.push_back(0);}
+					else if (n_vert==8) {out_mesh.elem_marker.push_back(1);}
+					else {out_mesh.elem_marker.push_back(2);}
+
+					// std::cout << "element (" << i << ", " << j << ", " << k << "): " << n_vert << std::endl; 
+				}
+			}
+		}
+	}
 }
