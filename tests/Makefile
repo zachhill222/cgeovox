@@ -8,7 +8,7 @@ TARGETS     = $(SRC:.cpp=)
 CC         = g++ -fopenmp -g
 CFLAGS     = -Wall -O2
 LDFLAGS    = -L$(LIB_DIR)
-LDLIBS     = #-lcgeovox
+LDLIBS     = -larmadillo #-lcgeovox
 
 
 .PHONY: all
@@ -17,7 +17,7 @@ all: $(TARGETS)
 
 # LINK
 $(TARGETS) : % : %.o $(OBJ)
-	$(CC) $< -o $@
+	$(CC) $< -o $@ $(LDLIBS)
 
 # COMPILE
 %.o: %.cpp

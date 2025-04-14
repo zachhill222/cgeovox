@@ -50,7 +50,7 @@ namespace gv::geometry{
 				direction[i] = 1;
 				high[i] = support(direction)[i];
 			}
-			return gv::util::Box {low, high};
+			return gv::util::Box<3> {low, high};
 		}
 
 		//check if point is inside particle

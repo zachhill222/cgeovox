@@ -12,8 +12,8 @@
 
 void test_point()
 {
-	gv::util::Point p1 {1.0,2.0,3.0};
-	gv::util::Point p2(2.1*p1);
+	gv::util::Point<3,double> p1 {1.0,2.0,3.0};
+	gv::util::Point<3,double> p2(2.1*p1);
 	p1+=p2;
 	std::cout << (p1-p2).normalized() << std::endl;
 	p1=1.001*p2;
@@ -26,15 +26,18 @@ void test_box()
 	const int dim=3;
 
 	//define bounds
-	gv::util::Point<dim> low;
-	gv::util::Point<dim> high;
+	gv::util::Point<dim,double> low;
+	gv::util::Point<dim,double> high;
 	for (int i=0; i<dim; i++){
-		low[i] = 0.0;
+		low[i]  = -1.0;
 		high[i] = 1.0;
 	}
 
+
 	gv::util::Box<dim> box(low,high);
-	box *= 0.1;
+	// std::cout << "box:\n" << box.tostr() << std::endl;
+
+	// box *= 0.1;
 	std::cout << box.tostr() << std::endl;
 	for (int i=0; i<std::pow(2,dim); i++){
 		std::cout << box.hexvertex(i) << std::endl;
@@ -66,7 +69,7 @@ void test_octree(size_t N)
 	const int dim=3;
 
 	using Point_t = gv::util::Point<dim,double>;
-	gv::util::Box bbox(Point_t {0,0,0}, Point_t {1,1,1});
+	gv::util::Box<dim> bbox(Point_t {0,0,0}, Point_t {1,1,1});
 
 	//set up octree
 	gv::util::PointOctree<dim,double,32> octree(bbox);
@@ -114,9 +117,9 @@ void test_octree(size_t N)
 int main(int argc, char* argv[])
 {
 	// test_point();
-	// test_box();
+	test_box();
 	// test_quaternion();
-	test_octree(atoi(argv[1]));
+	// test_octree(atoi(argv[1]));
 
 	return 0;
 }

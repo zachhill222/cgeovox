@@ -292,6 +292,7 @@ namespace gv::util{
 			//copy temporary data and clear current data
 			std::vector<data_t> old_data_copy = _data;
 			_data.clear();
+			_data.reserve(old_data_copy.capacity());
 
 			//reconstruct tree from copied data
 			for (size_t i=0; i<old_data_copy.size(); i++)
@@ -341,6 +342,7 @@ namespace gv::util{
 			}
 
 			if (contains(val)) {return;}
+			if (_data.capacity() == _data.size()) {_data.reserve(2*_data.size());}
 			_data.push_back(val);
 			size_t idx = _data.size()-1;
 			recursive_insert(root, idx);

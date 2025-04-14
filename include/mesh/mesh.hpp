@@ -35,6 +35,16 @@ namespace gv::mesh
 
 	public:
 		Mesh() {}
+
+		void clear()
+		{
+			_nodes.clear();
+			_elem2node.clear();
+			_node2elem_start_idx.clear();
+			_node2elem.clear();
+			_boundary.clear();
+			elem_marker.clear();
+		}
 		
 		std::vector<int> elem_marker;
 
@@ -302,12 +312,12 @@ namespace gv::mesh
 		}
 
 		//////MASS MATRIX
-		void makeMassMatrix(arma::sp_mat &massMat) const;
+		void make_mass_matrix(arma::sp_mat &massMat) const;
 	};
 
 
 	template<typename Element_t>
-	void Mesh<Element_t>::makeMassMatrix(arma::sp_mat &massMat) const
+	void Mesh<Element_t>::make_mass_matrix(arma::sp_mat &massMat) const
 	{
 		//set up index tracking to allow parallel looping over elements when computing integrals
 		arma::umat locations(2,referenceElement.nNodes*referenceElement.nNodes*nElems());
@@ -317,44 +327,65 @@ namespace gv::mesh
 		#pragma omp parallel
 		for (size_t el=0; el<nElems(); el++)
 		{
+			//construct logical element
+			Element_t local_element;
+			for (size_t n_idx=0; n_idx<referenceElement.nNodes; n_idx++)
+			{
+				local_element.nodes[n_idx] = &(_nodes[elem2node(el,n_idx)]);
+			}
+
 			//set parameters for this element
-			gv::util::Point<3,double> H = _nodes[elem2node(el,7)] - _nodes[elem2node(el,0)]; //size of voxel
 			size_t start = el*referenceElement.nNodes*referenceElement.nNodes; //start of this element's block in locations and values.
 
 			//compute contributions to mass matrix
-			for (size_t i=0; i<8; i++)
+			for (size_t i=0; i<referenceElement.nNodes; i++)
 			{
+				// std::cout << "element: " << el << std::endl;
+
+
 				//global node number for local node i
 				size_t global_i = elem2node(el,i);
 
 				//diagonal (i,i) entry
-				values.at(start + _ij2lin(i,i)) = referenceElement.integrate_mass(i,i,H);
+				double val = local_element.integrate_mass(i,i);
+				// std::cout << "\tval= " << val << std::endl;
+
+				values.at(start + _ij2lin(i,i)) = val;
 				locations.at(0,start + _ij2lin(i,i)) = global_i;
 				locations.at(1,start + _ij2lin(i,i)) = global_i;
 
+				// std::cout << "\tnode i: " << i << " (local) " << global_i << " (global)" << std::endl;
+				// std::cout << "\t\tlinear index (i,i): " << start + _ij2lin(i,i) << std::endl;
+
 				//off-diagonal entries
-				for (size_t j=i+1; j<8; j++)
+				for (size_t j=i+1; j<referenceElement.nNodes; j++)
 				{
 					//global node number for local node j
 					size_t global_j = elem2node(el,j);
+					// std::cout << "\tnode j: " << j << " (local) " << global_j << " (global)" << std::endl;
 
 					//get value
-					double val = referenceElement.integrate_mass(i,j,H);
-					
+					double val = local_element.integrate_mass(i,j);
+					// std::cout << "\tval= " << val << std::endl;
+
 					//store location 1
-					values[_ij2lin(i,j)] = val;
+					values[start + _ij2lin(i,j)] = val;
 					locations.at(0,start + _ij2lin(i,j)) = global_i;
 					locations.at(1,start + _ij2lin(i,j)) = global_j;
+					// std::cout << "\t\tlinear index (i,j): " << start + _ij2lin(i,j) << std::endl;
 
 					//store location 2
-					values[_ij2lin(j,i)] = val;
+					values[start + _ij2lin(j,i)] = val;
 					locations.at(0,start + _ij2lin(j,i)) = global_j;
 					locations.at(1,start + _ij2lin(j,i)) = global_i;
+					// std::cout << "\t\tlinear index (j,i): " << start + _ij2lin(j,i) << std::endl;
 				}
 			}
 		}
 
 		//construct matrix
+		// locations.save(arma::csv_name("locations.csv"));
+		// values.save(arma::csv_name("values.csv"));
 		massMat = arma::sp_mat(true, locations, values, nNodes(), nNodes(), true, false);
 	}
 
