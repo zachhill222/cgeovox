@@ -42,6 +42,31 @@ namespace gv::geometry{
 	};
 
 
+
+	//struct for meshing options
+	struct AssemblyMeshOptions
+	{
+		bool include_void = true;
+		bool include_solid = true;
+		bool include_interface = true;
+		//the void region is the set of voxels with no vertex contained in a particle
+		//the solid region is the set of voxels with all 8 vertices contained in some particle
+		//the interface region is the set of voxels with at least one (but not all) vertex contained in some particle
+
+
+		bool check_centroid = false;
+		//if check_centroid=true, then the interface region is split into two sub-regions
+		//interface_void: the set of all voxels that are in the interface but whos centroid is in the void region
+		//interface_solid: the set of all voxels that are in the interface but whos centroid is in the solid region
+		//do not set this to "true" if you are only meshing the interface
+
+		int void_marker = 0;
+		int solid_marker = 1;
+		int interface_marker = 2;
+
+		size_t N[3] {32, 32, 32};
+		double scale = 1.0; //TODO: implement functionality to scale/change length units.
+	};
 	
 
 	//class for interacting with ParticleOctree
@@ -75,8 +100,8 @@ namespace gv::geometry{
 		void view_octree_vtk(const std::string filename="octree_structure.vtk") const {gv::util::view_octree_vtk(_particles, filename);}
 
 		//create unstructured voxel mesh of the entire region. mark elements with 0 for void, 1 for solid, and 2 for interface
-		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const gv::util::Box<3> &box, const size_t N[3]) const;
-		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const size_t N[3]) const {create_voxel_mesh_Q1(out_mesh, this->_particles.bbox(), N);}
+		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const gv::util::Box<3> &box, const AssemblyMeshOptions &opts) const;
+		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const AssemblyMeshOptions &opts) const {create_voxel_mesh_Q1(out_mesh, this->_particles.bbox(), opts);}
 
 	private:
 		ParticleOctree<Particle_t, n_data> _particles;
@@ -380,28 +405,28 @@ namespace gv::geometry{
 
 	//construct an unstructured voxel mesh of the region
 	template <typename Particle_t, size_t n_data>
-	void Assembly<Particle_t, n_data>::create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const gv::util::Box<3> &box, const size_t N[3]) const
+	void Assembly<Particle_t, n_data>::create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const gv::util::Box<3> &box, const AssemblyMeshOptions &opts) const
 	{
 		out_mesh.set_bbox(box);
-		out_mesh.reserve(N[0]*N[1]*N[2]);
+		out_mesh.reserve(opts.N[0]*opts.N[1]*opts.N[2]);
 
 		//COMPUTE SPACING
 		gv::util::Point<3,double> ijk {0,0,0};
 		gv::util::Point<3,double> ones {1,1,1};
 		gv::util::Point<3,double> origin = box.low();
 		gv::util::Point<3,double> H = box.high()-box.low();
-		H[0]/= (double) N[0];
-		H[1]/= (double) N[1];
-		H[2]/= (double) N[2];
+		H[0]/= (double) opts.N[0];
+		H[1]/= (double) opts.N[1];
+		H[2]/= (double) opts.N[2];
 
 		//CONSTRUCT ELEMENTS
-		for (long unsigned int  k=0; k<N[2]; k++)
+		for (size_t  k=0; k<opts.N[2]; k++)
 		{
 			ijk[2] = (double) k;
-			for (long unsigned int  j=0; j<N[1]; j++)
+			for (size_t  j=0; j<opts.N[1]; j++)
 			{
 				ijk[1] = (double) j;
-				for (long unsigned int  i=0; i<N[0]; i++)
+				for (size_t  i=0; i<opts.N[0]; i++)
 				{
 					ijk[0] = (double) i;
 
@@ -414,19 +439,61 @@ namespace gv::geometry{
 						new_elem[n] = element_box.voxelvertex(n);
 					}
 
-					//count number of verticies contained in particles
+
+					//get number of vertices contained in particles
 					int n_vert = 0;
 					for (int n=0; n<8; n++)
 					{
 						if (this->is_in_particle(element_box[n])) {n_vert += 1;}
 					}
 
-					//add element to mesh
-					out_mesh.add_element(new_elem);
 
-					if (n_vert==0) {out_mesh.elem_marker.push_back(0);}
-					else if (n_vert==8) {out_mesh.elem_marker.push_back(1);}
-					else {out_mesh.elem_marker.push_back(2);}
+					//add element to mesh
+					switch (n_vert)
+					{
+					case 0:
+						if (opts.include_void)
+						{
+							out_mesh.add_element(new_elem);
+							out_mesh.elem_marker.push_back(opts.void_marker);
+						}
+						break;
+
+					case 8:
+						if (opts.include_solid)
+						{
+							out_mesh.add_element(new_elem);
+							out_mesh.elem_marker.push_back(opts.solid_marker);
+						}
+						break;
+
+					default:
+						if (opts.include_interface)
+						{
+							//check centroid if needed
+							if (opts.check_centroid)
+							{	
+								gv::util::Point<3,double> centroid = 0.5*(new_elem[0]+new_elem[7]);
+								bool is_solid = this->is_in_particle(centroid);
+								if (is_solid and opts.include_solid)
+								{
+									out_mesh.add_element(new_elem);
+									out_mesh.elem_marker.push_back(opts.interface_marker);
+								}
+								else if ((!is_solid) and opts.include_void)
+								{
+									out_mesh.add_element(new_elem);
+									out_mesh.elem_marker.push_back(opts.interface_marker);
+								}
+							}
+							else
+							{
+								out_mesh.add_element(new_elem);
+								out_mesh.elem_marker.push_back(opts.interface_marker);
+							}
+						}
+						break;
+					}
 				}
 			}
 		}

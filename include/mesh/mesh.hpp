@@ -92,6 +92,9 @@ namespace gv::mesh
 			return _nodes.find(node);
 		}
 
+		//get node location
+		gv::util::Point<3,double> nodes(size_t const &idx) const {return _nodes[idx];}
+
 		//add node to a boundary
 		void add_to_boundary(const size_t node_idx, const size_t boundary_idx = 0) {_boundary[boundary_idx].push_back(node_idx);}
 		size_t create_new_boundary()
@@ -313,6 +316,7 @@ namespace gv::mesh
 
 		//////MASS MATRIX
 		void make_mass_matrix(arma::sp_mat &massMat) const;
+		void make_stiffness_matrix(arma::sp_mat &stiffMat) const;
 	};
 
 
@@ -387,6 +391,80 @@ namespace gv::mesh
 		// locations.save(arma::csv_name("locations.csv"));
 		// values.save(arma::csv_name("values.csv"));
 		massMat = arma::sp_mat(true, locations, values, nNodes(), nNodes(), true, false);
+	}
+
+
+	template<typename Element_t>
+	void Mesh<Element_t>::make_stiffness_matrix(arma::sp_mat &stiffMat) const
+	{
+		//set up index tracking to allow parallel looping over elements when computing integrals
+		arma::umat locations(2,referenceElement.nNodes*referenceElement.nNodes*nElems());
+		arma::vec values(referenceElement.nNodes*referenceElement.nNodes*nElems());
+
+		//integrate over each element
+		#pragma omp parallel
+		for (size_t el=0; el<nElems(); el++)
+		{
+			//construct logical element
+			Element_t local_element;
+			for (size_t n_idx=0; n_idx<referenceElement.nNodes; n_idx++)
+			{
+				local_element.nodes[n_idx] = &(_nodes[elem2node(el,n_idx)]);
+			}
+
+			//set parameters for this element
+			size_t start = el*referenceElement.nNodes*referenceElement.nNodes; //start of this element's block in locations and values.
+
+			//compute contributions to mass matrix
+			for (size_t i=0; i<referenceElement.nNodes; i++)
+			{
+				// std::cout << "element: " << el << std::endl;
+
+
+				//global node number for local node i
+				size_t global_i = elem2node(el,i);
+
+				//diagonal (i,i) entry
+				double val = local_element.integrate_stiff(i,i);
+				// std::cout << "\tval= " << val << std::endl;
+
+				values.at(start + _ij2lin(i,i)) = val;
+				locations.at(0,start + _ij2lin(i,i)) = global_i;
+				locations.at(1,start + _ij2lin(i,i)) = global_i;
+
+				// std::cout << "\tnode i: " << i << " (local) " << global_i << " (global)" << std::endl;
+				// std::cout << "\t\tlinear index (i,i): " << start + _ij2lin(i,i) << std::endl;
+
+				//off-diagonal entries
+				for (size_t j=i+1; j<referenceElement.nNodes; j++)
+				{
+					//global node number for local node j
+					size_t global_j = elem2node(el,j);
+					// std::cout << "\tnode j: " << j << " (local) " << global_j << " (global)" << std::endl;
+
+					//get value
+					double val = local_element.integrate_stiff(i,j);
+					// std::cout << "\tval= " << val << std::endl;
+
+					//store location 1
+					values[start + _ij2lin(i,j)] = val;
+					locations.at(0,start + _ij2lin(i,j)) = global_i;
+					locations.at(1,start + _ij2lin(i,j)) = global_j;
+					// std::cout << "\t\tlinear index (i,j): " << start + _ij2lin(i,j) << std::endl;
+
+					//store location 2
+					values[start + _ij2lin(j,i)] = val;
+					locations.at(0,start + _ij2lin(j,i)) = global_j;
+					locations.at(1,start + _ij2lin(j,i)) = global_i;
+					// std::cout << "\t\tlinear index (j,i): " << start + _ij2lin(j,i) << std::endl;
+				}
+			}
+		}
+
+		//construct matrix
+		// locations.save(arma::csv_name("locations.csv"));
+		// values.save(arma::csv_name("values.csv"));
+		stiffMat = arma::sp_mat(true, locations, values, nNodes(), nNodes(), true, false);
 	}
 
 

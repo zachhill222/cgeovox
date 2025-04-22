@@ -59,28 +59,36 @@ namespace gv::mesh{
 		{
 			gv::util::Point<3,double> H = *(nodes[7]) - *(nodes[0]);
 			double jac = 0.125 * H[0] * H[1] * H[2];
-			// double jac = 0.125; //testing
-
-			//loop through quadrature points
-			// double value = 0.0;
-			// for (int i=0; i<4; i++)
-			// {
-			// 	H[0] = gauss_quad_4_location[i];
-			// 	for (int j=0; j<4; j++)
-			// 	{
-			// 		H[1] = gauss_quad_4_location[j];
-			// 		for (int k=0; k<4; k++)
-			// 		{
-			// 			H[2] = gauss_quad_4_location[k];
-			// 			value += eval_basis(basis1,H)*eval_basis(basis2,H);
-			// 		}
-			// 	}
-			// }
-
-			double value = 0.037037037037037035; // 1/27
+			double value = 0.037037037037037037; // 1/27
 			for (int axis=0; axis<3; axis++)
 			{
 				if (basis_sign(basis1,axis)==basis_sign(basis2,axis)) {value *= 2.0;}
+			}
+
+			return value*jac;
+		}
+
+		//evaluate integral of product of two basis functions over element with size H
+		double integrate_stiff(const size_t basis1, const size_t basis2) const
+		{
+			gv::util::Point<3,double> H = *(nodes[7]) - *(nodes[0]);
+			double jac = 0.25 * H[0] * H[1] * H[2]; //jacobian is constant. an extra 2 was factored out of the integral.
+			double value = 0.0;
+			for (int k=0; k<3; k++) //dot product loop
+			{
+				//portion of dot product from the k-th component of the gradient dot product
+				double weight = basis_sign(basis1,k) * basis_sign(basis2,k) / (H[k]*H[k]);
+
+				//compute portion of dot product from the non-k-th components
+				double int_mn = 0.1111111111111111111; //1/9
+				for (int j=0; j<3; j++)
+				{
+					if (j==k) {continue;} //j=k component was taken care of during initialization
+					if (basis_sign(basis1,j)==basis_sign(basis2,j)) {int_mn *= 2;}
+				}
+
+				//increment integral
+				value += weight*int_mn;
 			}
 
 			return value*jac;

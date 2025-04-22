@@ -26,50 +26,59 @@ void test_mesh(std::string filename, size_t N[3])
 
 	std::cout << "create unstructured voxel mesh\n";
 	gv::mesh::VoxelMeshQ1 mesh;
-	arma::sp_mat mass_mat;
-	assembly.create_voxel_mesh_Q1(mesh, mesh_box, N);
-	
-	std::cout << "extract solid region\n";
-	gv::mesh::VoxelMeshQ1 solid_mesh;
-	mesh.get_subdomain(1, solid_mesh);
 
-	std::cout << "make mass matrix\n";
-	std::cout << "\tnNodes= " << solid_mesh.nNodes() << std::endl;
-	std::cout << "\tnElem= "  << solid_mesh.nElems() << std::endl;
-	
-	solid_mesh.make_mass_matrix(mass_mat);
-	arma::vec ones(solid_mesh.nNodes(), arma::fill::ones);
-	double approx_total_volume = arma::dot(ones, mass_mat*ones);
+	gv::geometry::AssemblyMeshOptions opts;
+	opts.include_void = false;
+	opts.include_interface = true;
+	opts.include_solid = false;
+	opts.check_centroid = true;
+	opts.N[0]=N[0];
+	opts.N[1]=N[1];
+	opts.N[2]=N[2];
+
+	assembly.create_voxel_mesh_Q1(mesh, mesh_box, opts);
+	std::cout << "\tnNodes= " << mesh.nNodes() << std::endl;
+	std::cout << "\tnElem= "  << mesh.nElems() << std::endl;
+
+
+	std::cout << "\nmake mass matrix\n";
+	arma::sp_mat spmat;
+	mesh.make_mass_matrix(spmat);
+	arma::vec ones(mesh.nNodes(), arma::fill::ones);
+	double approx_total_volume = arma::dot(ones, spmat*ones);
 	std::cout << "\t1*M*1= " << approx_total_volume << std::endl;
-	std::cout << "\tn_nonzero= " << mass_mat.n_nonzero << std::endl;
+	std::cout << "\tn_nonzero= " << spmat.n_nonzero << std::endl;
 
-	if (solid_mesh.nNodes() < 100)
+	if (mesh.nNodes() < 100)
 	{
-		std::cout << "\nmass_matrix:\n";
-		arma::mat dense(27*mass_mat);
-		// dense.print();
+		arma::mat dense(spmat);
 		dense.save( arma::csv_name("mass_matrix.csv"));
 	}
 
 
-	std::cout << "save solid_mesh\n";
-	solid_mesh.saveas("outfiles/assembly_voxel_mesh.vtk");
+	std::cout << "\nmake stiffness matrix\n";
+	mesh.make_stiffness_matrix(spmat);
+	
+	//create vector of x_1 locations at each degree of freedom
+	arma::vec x(mesh.nNodes());
+	for (size_t i=0; i<mesh.nNodes(); i++)
+	{
+		x[i] = mesh.nodes(i)[1];
+	}
 
-	// std::cout << "create and save solid region\n";
-	// gv::mesh::VoxelMeshQ1 solid_mesh;
-	// mesh.get_subdomain(1, solid_mesh);
+	approx_total_volume = arma::dot(x, spmat*x);
+	std::cout << "\tx*M*x= " << approx_total_volume << std::endl;
+	std::cout << "\tn_nonzero= " << spmat.n_nonzero << std::endl;
 
-	// // solid_mesh.saveas("outfiles/assembly_solid.vtk");
+	if (mesh.nNodes() < 100)
+	{
+		arma::mat dense(spmat);
+		dense.save( arma::csv_name("stiff_matrix.csv"));
+	}
 
-	// std::cout << "create and save void region\n";
-	// gv::mesh::VoxelMeshQ1 void_mesh;
-	// mesh.get_subdomain(0, void_mesh);
-	// // void_mesh.saveas("outfiles/assembly_void.vtk");
 
-	// std::cout << "create and save interface region\n";
-	// gv::mesh::VoxelMeshQ1 interface_mesh;
-	// mesh.get_subdomain(2, interface_mesh);
-	// interface_mesh.saveas("outfiles/assembly_interface.vtk");
+	std::cout << "save mesh\n";
+	mesh.saveas("outfiles/assembly_voxel_mesh.vtk");
 }
 
 
