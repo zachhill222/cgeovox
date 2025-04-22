@@ -12,7 +12,7 @@
 #include <fstream>
 
 #include <omp.h>
-#include <armadillo>
+#include <eigen3/Eigen/SparseCore>
 
 namespace gv::mesh
 {
@@ -315,17 +315,23 @@ namespace gv::mesh
 		}
 
 		//////MASS MATRIX
-		void make_mass_matrix(arma::sp_mat &massMat) const;
-		void make_stiffness_matrix(arma::sp_mat &stiffMat) const;
+		void make_mass_matrix(Eigen::SparseMatrix<double> &massMat) const;
+		void make_stiffness_matrix(Eigen::SparseMatrix<double> &stiffMat) const;
+
+		// void make_mass_matrix(arma::sp_mat &massMat) const;
+		// void make_stiffness_matrix(arma::sp_mat &stiffMat) const;
 	};
 
 
 	template<typename Element_t>
-	void Mesh<Element_t>::make_mass_matrix(arma::sp_mat &massMat) const
+	// void Mesh<Element_t>::make_mass_matrix(arma::sp_mat &massMat) const
+	void Mesh<Element_t>::make_mass_matrix(Eigen::SparseMatrix<double> &massMat) const
 	{
 		//set up index tracking to allow parallel looping over elements when computing integrals
-		arma::umat locations(2,referenceElement.nNodes*referenceElement.nNodes*nElems());
-		arma::vec values(referenceElement.nNodes*referenceElement.nNodes*nElems());
+		typedef Eigen::Triplet<double> T;
+		std::vector<T> triplets;
+		triplets.resize(referenceElement.nNodes*referenceElement.nNodes*nElems()); //may be slow. initializes Eigen::Triplets with default constructor.
+
 
 		//integrate over each element
 		#pragma omp parallel
@@ -344,62 +350,44 @@ namespace gv::mesh
 			//compute contributions to mass matrix
 			for (size_t i=0; i<referenceElement.nNodes; i++)
 			{
-				// std::cout << "element: " << el << std::endl;
-
-
 				//global node number for local node i
 				size_t global_i = elem2node(el,i);
 
 				//diagonal (i,i) entry
 				double val = local_element.integrate_mass(i,i);
-				// std::cout << "\tval= " << val << std::endl;
 
-				values.at(start + _ij2lin(i,i)) = val;
-				locations.at(0,start + _ij2lin(i,i)) = global_i;
-				locations.at(1,start + _ij2lin(i,i)) = global_i;
-
-				// std::cout << "\tnode i: " << i << " (local) " << global_i << " (global)" << std::endl;
-				// std::cout << "\t\tlinear index (i,i): " << start + _ij2lin(i,i) << std::endl;
+				//record location index and value
+				triplets[start + _ij2lin(i,i)] = T(global_i, global_i, val);
 
 				//off-diagonal entries
 				for (size_t j=i+1; j<referenceElement.nNodes; j++)
 				{
 					//global node number for local node j
 					size_t global_j = elem2node(el,j);
-					// std::cout << "\tnode j: " << j << " (local) " << global_j << " (global)" << std::endl;
 
 					//get value
 					double val = local_element.integrate_mass(i,j);
-					// std::cout << "\tval= " << val << std::endl;
 
-					//store location 1
-					values[start + _ij2lin(i,j)] = val;
-					locations.at(0,start + _ij2lin(i,j)) = global_i;
-					locations.at(1,start + _ij2lin(i,j)) = global_j;
-					// std::cout << "\t\tlinear index (i,j): " << start + _ij2lin(i,j) << std::endl;
-
-					//store location 2
-					values[start + _ij2lin(j,i)] = val;
-					locations.at(0,start + _ij2lin(j,i)) = global_j;
-					locations.at(1,start + _ij2lin(j,i)) = global_i;
-					// std::cout << "\t\tlinear index (j,i): " << start + _ij2lin(j,i) << std::endl;
+					//record location index and values
+					triplets[start + _ij2lin(i,j)] = T(global_i, global_j, val);
+					triplets[start + _ij2lin(j,i)] = T(global_j, global_i, val);
 				}
 			}
 		}
 
 		//construct matrix
-		// locations.save(arma::csv_name("locations.csv"));
-		// values.save(arma::csv_name("values.csv"));
-		massMat = arma::sp_mat(true, locations, values, nNodes(), nNodes(), true, false);
+		massMat = Eigen::SparseMatrix<double>(nNodes(),nNodes());
+		massMat.setFromTriplets(triplets.begin(), triplets.end());
 	}
 
 
 	template<typename Element_t>
-	void Mesh<Element_t>::make_stiffness_matrix(arma::sp_mat &stiffMat) const
+	void Mesh<Element_t>::make_stiffness_matrix(Eigen::SparseMatrix<double> &stiffMat) const
 	{
 		//set up index tracking to allow parallel looping over elements when computing integrals
-		arma::umat locations(2,referenceElement.nNodes*referenceElement.nNodes*nElems());
-		arma::vec values(referenceElement.nNodes*referenceElement.nNodes*nElems());
+		typedef Eigen::Triplet<double> T;
+		std::vector<T> triplets;
+		triplets.resize(referenceElement.nNodes*referenceElement.nNodes*nElems()); //may be slow. initializes Eigen::Triplets with default constructor.
 
 		//integrate over each element
 		#pragma omp parallel
@@ -418,53 +406,34 @@ namespace gv::mesh
 			//compute contributions to mass matrix
 			for (size_t i=0; i<referenceElement.nNodes; i++)
 			{
-				// std::cout << "element: " << el << std::endl;
-
-
 				//global node number for local node i
 				size_t global_i = elem2node(el,i);
 
 				//diagonal (i,i) entry
 				double val = local_element.integrate_stiff(i,i);
-				// std::cout << "\tval= " << val << std::endl;
 
-				values.at(start + _ij2lin(i,i)) = val;
-				locations.at(0,start + _ij2lin(i,i)) = global_i;
-				locations.at(1,start + _ij2lin(i,i)) = global_i;
-
-				// std::cout << "\tnode i: " << i << " (local) " << global_i << " (global)" << std::endl;
-				// std::cout << "\t\tlinear index (i,i): " << start + _ij2lin(i,i) << std::endl;
+				//store location index and value
+				triplets[start + _ij2lin(i,i)] = T(global_i, global_i, val);
 
 				//off-diagonal entries
 				for (size_t j=i+1; j<referenceElement.nNodes; j++)
 				{
 					//global node number for local node j
 					size_t global_j = elem2node(el,j);
-					// std::cout << "\tnode j: " << j << " (local) " << global_j << " (global)" << std::endl;
 
 					//get value
 					double val = local_element.integrate_stiff(i,j);
-					// std::cout << "\tval= " << val << std::endl;
 
-					//store location 1
-					values[start + _ij2lin(i,j)] = val;
-					locations.at(0,start + _ij2lin(i,j)) = global_i;
-					locations.at(1,start + _ij2lin(i,j)) = global_j;
-					// std::cout << "\t\tlinear index (i,j): " << start + _ij2lin(i,j) << std::endl;
-
-					//store location 2
-					values[start + _ij2lin(j,i)] = val;
-					locations.at(0,start + _ij2lin(j,i)) = global_j;
-					locations.at(1,start + _ij2lin(j,i)) = global_i;
-					// std::cout << "\t\tlinear index (j,i): " << start + _ij2lin(j,i) << std::endl;
+					//record location index and values
+					triplets[start + _ij2lin(i,j)] = T(global_i, global_j, val);
+					triplets[start + _ij2lin(j,i)] = T(global_j, global_i, val);
 				}
 			}
 		}
 
 		//construct matrix
-		// locations.save(arma::csv_name("locations.csv"));
-		// values.save(arma::csv_name("values.csv"));
-		stiffMat = arma::sp_mat(true, locations, values, nNodes(), nNodes(), true, false);
+		stiffMat = Eigen::SparseMatrix<double>(nNodes(),nNodes());
+		stiffMat.setFromTriplets(triplets.begin(), triplets.end());
 	}
 
 

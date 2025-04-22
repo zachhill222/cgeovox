@@ -2,7 +2,9 @@
 #include "mesh/mesh.hpp"
 #include "mesh/Q1.hpp"
 
-#include <armadillo>
+// #include <armadillo>
+#include <eigen3/Eigen/SparseCore>
+#include <eigen3/Eigen/Core>
 #include <iostream>
 
 
@@ -29,12 +31,12 @@ void test_mesh(std::string filename, size_t N[3])
 
 	gv::geometry::AssemblyMeshOptions opts;
 	opts.include_void = false;
-	opts.include_interface = true;
-	opts.include_solid = false;
+	opts.include_interface = false;
+	opts.include_solid = true;
 	opts.check_centroid = true;
-	opts.N[0]=N[0];
-	opts.N[1]=N[1];
-	opts.N[2]=N[2];
+	opts.N[0] = N[0];
+	opts.N[1] = N[1];
+	opts.N[2] = N[2];
 
 	assembly.create_voxel_mesh_Q1(mesh, mesh_box, opts);
 	std::cout << "\tnNodes= " << mesh.nNodes() << std::endl;
@@ -42,40 +44,29 @@ void test_mesh(std::string filename, size_t N[3])
 
 
 	std::cout << "\nmake mass matrix\n";
-	arma::sp_mat spmat;
+
+	Eigen::SparseMatrix<double> spmat;
 	mesh.make_mass_matrix(spmat);
-	arma::vec ones(mesh.nNodes(), arma::fill::ones);
-	double approx_total_volume = arma::dot(ones, spmat*ones);
+
+	Eigen::VectorXd ones(mesh.nNodes());
+	ones.fill(1.0);
+	double approx_total_volume = ones.dot(spmat*ones);
+	
 	std::cout << "\t1*M*1= " << approx_total_volume << std::endl;
-	std::cout << "\tn_nonzero= " << spmat.n_nonzero << std::endl;
-
-	if (mesh.nNodes() < 100)
-	{
-		arma::mat dense(spmat);
-		dense.save( arma::csv_name("mass_matrix.csv"));
-	}
-
+	std::cout << "\tn_nonzero= " << spmat.nonZeros() << std::endl;
 
 	std::cout << "\nmake stiffness matrix\n";
 	mesh.make_stiffness_matrix(spmat);
 	
 	//create vector of x_1 locations at each degree of freedom
-	arma::vec x(mesh.nNodes());
+	Eigen::VectorXd x(mesh.nNodes());
 	for (size_t i=0; i<mesh.nNodes(); i++)
 	{
 		x[i] = mesh.nodes(i)[1];
 	}
 
-	approx_total_volume = arma::dot(x, spmat*x);
+	approx_total_volume = x.dot(spmat*x);
 	std::cout << "\tx*M*x= " << approx_total_volume << std::endl;
-	std::cout << "\tn_nonzero= " << spmat.n_nonzero << std::endl;
-
-	if (mesh.nNodes() < 100)
-	{
-		arma::mat dense(spmat);
-		dense.save( arma::csv_name("stiff_matrix.csv"));
-	}
-
 
 	std::cout << "save mesh\n";
 	mesh.saveas("outfiles/assembly_voxel_mesh.vtk");
