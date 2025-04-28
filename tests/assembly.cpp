@@ -3,8 +3,8 @@
 #include "mesh/Q1.hpp"
 
 // #include <armadillo>
-#include <eigen3/Eigen/SparseCore>
-#include <eigen3/Eigen/Core>
+#include <Eigen/SparseCore>
+#include <Eigen/Core>
 #include <iostream>
 
 

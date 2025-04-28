@@ -56,76 +56,27 @@ namespace gv::mesh
 			}
 		}
 
-		//create (isotropic) mass and stiffness matrices.
-		// void makeMassMatrix(arma::sp_mat &massMat) const;
-		// void makeStifMatrix(arma::sp_mat &stifMat) const;
-		// void makeMassStifMatrix(arma::sp_mat &massMat, arma::sp_mat &stifMat) const;
-
-		double test_volume() const;
-	};
-
-
-	// void VoxelMeshQ1::makeMassMatrix(arma::sp_mat &massMat) const
-	// {
-	// 	//set up index tracking to allow parallel looping over elements when computing integrals
-	// 	arma::umat locations(2,64*nElems());
-	// 	arma::vec values(64*nElems());
-
-	// 	//integrate over each element
-	// 	#pragma omp parallel
-	// 	for (size_t el=0; el<nElems(); el++)
-	// 	{
-	// 		//set parameters for this element
-	// 		gv::util::Point<3,double> H = _nodes[elem2node(el,7)] - _nodes[elem2node(el,0)]; //size of voxel
-	// 		size_t start = el*64; //start of this element's block in locations and values.
-
-	// 		//compute contributions to mass matrix
-	// 		for (size_t i=0; i<8; i++)
-	// 		{
-	// 			//global node number for local node i
-	// 			size_t global_i = elem2node(el,i);
-
-	// 			//diagonal (i,i) entry
-	// 			values.at(start + _ij2lin(i,i)) = referenceElement.integrate_mass(i,i,H);
-	// 			locations.at(0,start + _ij2lin(i,i)) = global_i;
-	// 			locations.at(1,start + _ij2lin(i,i)) = global_i;
-
-	// 			//off-diagonal entries
-	// 			for (size_t j=i+1; j<8; j++)
-	// 			{
-	// 				//global node number for local node j
-	// 				size_t global_j = elem2node(el,j);
-
-	// 				//get value
-	// 				double val = referenceElement.integrate_mass(i,j,H);
-					
-	// 				//store location 1
-	// 				values[_ij2lin(i,j)] = val;
-	// 				locations.at(0,start + _ij2lin(i,j)) = global_i;
-	// 				locations.at(1,start + _ij2lin(i,j)) = global_j;
-
-	// 				//store location 2
-	// 				values[_ij2lin(j,i)] = val;
-	// 				locations.at(0,start + _ij2lin(j,i)) = global_j;
-	// 				locations.at(1,start + _ij2lin(j,i)) = global_i;
-	// 			}
-	// 		}
-	// 	}
-
-	// 	//construct matrix
-	// 	massMat = arma::sp_mat(true, locations, values, nNodes(), nNodes(), true, false);
-	// }
-
-	double VoxelMeshQ1::test_volume() const
-	{
-		double volume = 0;
-		for (size_t el=0; el<nElems(); el++)
+		//construct exterior boundary
+		void make_boundary(const int mkr=-1)
 		{
-			std::cout << "element " << el << "/" << nElems() << ": ";
-			std::cout << _nodes[elem2node(el,7)] - _nodes[elem2node(el,0)] << std::endl;
-			// gv::util::Point<3,double> H = _nodes[_elem2node[el]][6] - _nodes[_elem2node[el]][0];
-			// volume += H[0]*H[1]*H[2];
+			//set up new boundary
+			size_t boundary_idx = this->_boundary.size();
+			this->create_new_boundary();
+
+			//construct boundary			
+			if (mkr==-1) //get boundary of entire mesh
+			{
+				//loop through all nodes
+				//in a Q1 voxel mesh, nodes are on the boundary if they belong to fewer than 8 elements
+
+				for (size_t n_idx=0; n_idx<this->nNodes(); n_idx++)
+				{
+					if (this->local_nElem(n_idx) < 8)
+					{
+						this->_boundary[boundary_idx].push_back(n_idx);
+					}
+				}
+			}
 		}
-		return volume;
-	}
+	};
 }

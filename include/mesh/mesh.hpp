@@ -12,7 +12,7 @@
 #include <fstream>
 
 #include <omp.h>
-#include <eigen3/Eigen/SparseCore>
+#include <Eigen/SparseCore>
 
 namespace gv::mesh
 {
@@ -102,6 +102,9 @@ namespace gv::mesh
 			_boundary.push_back(std::vector<size_t> {});
 			return _boundary.size()-1;
 		}
+
+		//get boundary
+		const std::vector<size_t>& boundary(size_t idx=0) const {return _boundary[idx];}
 
 		//reserve space for _elem2node
 		void reserve(size_t nNewElems)
@@ -297,7 +300,7 @@ namespace gv::mesh
 		}
 
 		//save mesh to file
-		void saveas(std::string filename) const
+		void save_as(std::string filename) const
 		{
 			//////////////// OPEN FILE ////////////////
 			std::ofstream meshfile(filename);
@@ -314,18 +317,52 @@ namespace gv::mesh
 			meshfile.close();
 		}
 
-		//////MASS MATRIX
-		void make_mass_matrix(Eigen::SparseMatrix<double> &massMat) const;
-		void make_stiffness_matrix(Eigen::SparseMatrix<double> &stiffMat) const;
+		//append data to mesh
+		template<typename Array_t>
+		void _append_node_scalar_data(const std::string filename, const Array_t &data, const std::string data_description, const bool make_header=true) const
+		{
+			//////////////// OPEN FILE ////////////////
+			std::ofstream meshfile(filename, std::ios::app);
 
-		// void make_mass_matrix(arma::sp_mat &massMat) const;
-		// void make_stiffness_matrix(arma::sp_mat &stiffMat) const;
+			if (not meshfile.is_open()){
+				std::cout << "Couldn't write to " << filename << std::endl;
+				meshfile.close();
+				return;
+			}
+
+			//append data
+			std::stringstream buffer;
+
+			if (make_header)
+			{
+				buffer << "POINT_DATA " << nNodes() << "\n";
+			}
+			
+			buffer << "SCALARS " << data_description << " float\n";
+			buffer << "LOOKUP_TABLE default\n";
+			for (size_t i=0; i<nNodes(); i++) {buffer << data[i] << " ";}
+			buffer << "\n\n";
+			meshfile << buffer.rdbuf();
+			buffer.str("");
+
+			//////////////// CLOSE FILE /////////////
+			meshfile.close();
+		}
+
+		//////MASS MATRIX
+		template<int Format_t>
+		void make_mass_matrix(Eigen::SparseMatrix<double, Format_t> &massMat) const;
+		template<int Format_t>
+		void make_stiffness_matrix(Eigen::SparseMatrix<double, Format_t> &stiffMat) const;
+
+		template<int Format1_t, int Format2_t>
+		void make_integrating_matrices(Eigen::SparseMatrix<double, Format1_t> &massMat, Eigen::SparseMatrix<double, Format2_t> &stiffMat) const;
 	};
 
 
 	template<typename Element_t>
-	// void Mesh<Element_t>::make_mass_matrix(arma::sp_mat &massMat) const
-	void Mesh<Element_t>::make_mass_matrix(Eigen::SparseMatrix<double> &massMat) const
+	template<int Format_t>
+	void Mesh<Element_t>::make_mass_matrix(Eigen::SparseMatrix<double, Format_t> &massMat) const
 	{
 		//set up index tracking to allow parallel looping over elements when computing integrals
 		typedef Eigen::Triplet<double> T;
@@ -366,7 +403,7 @@ namespace gv::mesh
 					size_t global_j = elem2node(el,j);
 
 					//get value
-					double val = local_element.integrate_mass(i,j);
+					val = local_element.integrate_mass(i,j);
 
 					//record location index and values
 					triplets[start + _ij2lin(i,j)] = T(global_i, global_j, val);
@@ -376,13 +413,15 @@ namespace gv::mesh
 		}
 
 		//construct matrix
-		massMat = Eigen::SparseMatrix<double>(nNodes(),nNodes());
+		massMat.setZero();
+		massMat.resize(nNodes(),nNodes());
 		massMat.setFromTriplets(triplets.begin(), triplets.end());
 	}
 
 
 	template<typename Element_t>
-	void Mesh<Element_t>::make_stiffness_matrix(Eigen::SparseMatrix<double> &stiffMat) const
+	template<int Format_t>
+	void Mesh<Element_t>::make_stiffness_matrix(Eigen::SparseMatrix<double, Format_t> &stiffMat) const
 	{
 		//set up index tracking to allow parallel looping over elements when computing integrals
 		typedef Eigen::Triplet<double> T;
@@ -422,7 +461,7 @@ namespace gv::mesh
 					size_t global_j = elem2node(el,j);
 
 					//get value
-					double val = local_element.integrate_stiff(i,j);
+					val = local_element.integrate_stiff(i,j);
 
 					//record location index and values
 					triplets[start + _ij2lin(i,j)] = T(global_i, global_j, val);
@@ -432,8 +471,80 @@ namespace gv::mesh
 		}
 
 		//construct matrix
-		stiffMat = Eigen::SparseMatrix<double>(nNodes(),nNodes());
+		stiffMat.setZero();
+		stiffMat.resize(nNodes(),nNodes());
 		stiffMat.setFromTriplets(triplets.begin(), triplets.end());
+	}
+
+
+	template<typename Element_t>
+	template<int Format1_t, int Format2_t>
+	void Mesh<Element_t>::make_integrating_matrices(Eigen::SparseMatrix<double,Format1_t> &massMat, Eigen::SparseMatrix<double,Format2_t> &stiffMat) const
+	{
+		//set up index tracking to allow parallel looping over elements when computing integrals
+		typedef Eigen::Triplet<double> T;
+		std::vector<T> triplets_m, triplets_s;
+		triplets_m.resize(referenceElement.nNodes*referenceElement.nNodes*nElems()); //may be slow. initializes Eigen::Triplets with default constructor.
+		triplets_s.resize(referenceElement.nNodes*referenceElement.nNodes*nElems()); //may be slow. initializes Eigen::Triplets with default constructor.
+
+
+		//integrate over each element
+		#pragma omp parallel
+		for (size_t el=0; el<nElems(); el++)
+		{
+			//construct logical element
+			Element_t local_element;
+			for (size_t n_idx=0; n_idx<referenceElement.nNodes; n_idx++)
+			{
+				local_element.nodes[n_idx] = &(_nodes[elem2node(el,n_idx)]);
+			}
+
+			//set parameters for this element
+			size_t start = el*referenceElement.nNodes*referenceElement.nNodes; //start of this element's block in locations and values.
+
+			//compute contributions to mass matrix
+			for (size_t i=0; i<referenceElement.nNodes; i++)
+			{
+				//global node number for local node i
+				size_t global_i = elem2node(el,i);
+
+				//diagonal (i,i) entry
+				double val_m = local_element.integrate_mass(i,i);
+				double val_s = local_element.integrate_stiff(i,i);
+
+				//record location index and value
+				triplets_m[start + _ij2lin(i,i)] = T(global_i, global_i, val_m);
+				triplets_s[start + _ij2lin(i,i)] = T(global_i, global_i, val_s);
+
+				//off-diagonal entries
+				for (size_t j=i+1; j<referenceElement.nNodes; j++)
+				{
+					//global node number for local node j
+					size_t global_j = elem2node(el,j);
+
+					//get value
+					val_m = local_element.integrate_mass(i,j);
+					val_s = local_element.integrate_stiff(i,i);
+
+					//record location index and values
+					triplets_m[start + _ij2lin(i,j)] = T(global_i, global_j, val_m);
+					triplets_m[start + _ij2lin(j,i)] = T(global_j, global_i, val_m);
+
+					triplets_s[start + _ij2lin(i,j)] = T(global_i, global_j, val_s);
+					triplets_s[start + _ij2lin(j,i)] = T(global_j, global_i, val_s);
+				}
+			}
+		}
+
+		//construct mass matrix
+		massMat.setZero();
+		massMat.resize(nNodes(),nNodes());
+		massMat.setFromTriplets(triplets_m.begin(), triplets_m.end());
+
+		//construct stiffness matrix
+		stiffMat.setZero();
+		stiffMat.resize(nNodes(),nNodes());
+		stiffMat.setFromTriplets(triplets_s.begin(), triplets_s.end());
 	}
 
 

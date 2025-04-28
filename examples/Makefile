@@ -1,4 +1,4 @@
-INC_DIR    = -I../include -I/usr/include/eigen3
+INC_DIR    = -I/usr/include/eigen3 -I../include
 LIB_DIR    = 
 
 SRC        = $(wildcard *.cpp)
@@ -17,7 +17,7 @@ all: $(TARGETS)
 
 # LINK
 $(TARGETS) : % : %.o $(OBJ)
-	$(CC) $< -o $@
+	$(CC) $< -o $@ 
 
 # COMPILE
 %.o: %.cpp
@@ -30,6 +30,7 @@ clean:
 
 .PHONY: print
 print:
+	@echo INC_DIR:= $(INC_DIR)
 	@echo SOURCES:= $(SRC)
 	@echo OBJECTS:= $(OBJ)
 	@echo TARGETS:= $(TARGETS)

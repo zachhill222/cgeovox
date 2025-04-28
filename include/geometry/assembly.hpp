@@ -115,7 +115,6 @@ namespace gv::geometry{
 	template <typename Particle_t, size_t n_data>
 	void Assembly<Particle_t, n_data>::readfile(const std::string filename, const std::string columns)
 	{
-		std::cout << "reading " << filename << std::endl;
 		// COLUMN OPTIONS:
 		// -id (IDENTIFIER, int)
 		// -rrr (TRIPLE RADIUS, double[3])
@@ -231,7 +230,7 @@ namespace gv::geometry{
 
 		//GET BOUNDING BOX SIZE
 		gv::util::Box<3> bbox = temp_particles[0].bbox();
-		for (size_t i=0; i<temp_particles.size(); i++) {bbox.combine(temp_particles[i].bbox());}
+		for (size_t i=1; i<temp_particles.size(); i++) {bbox.combine(temp_particles[i].bbox());}
 
 		//MAKE ParticleOctree
 		_particles.set_bbox(bbox);

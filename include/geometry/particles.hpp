@@ -14,7 +14,7 @@ namespace gv::geometry{
 	public:
 		Prism() {}
 		Prism(const gv::util::Point<3,double> &radii, const gv::util::Point<3,double> &center, const gv::util::Quaternion<double> quaternion = gv::util::Quaternion<double> {1,0,0,0}) : _quaternion(quaternion), _center(center), _radii(radii) {}
-
+		Prism(const gv::util::Point<3,double> &radii, double eps[2], const gv::util::Point<3,double> &center, const gv::util::Quaternion<double> quaternion = gv::util::Quaternion<double> {1,0,0,0}) : _quaternion(quaternion), _center(center), _radii(radii) {}
 		//return point in local normalized coordinates
 		inline gv::util::Point<3,double> tolocal(const gv::util::Point<3,double> &point) const {return (_quaternion.rotate(point-_center))/_radii;}
 
@@ -50,6 +50,7 @@ namespace gv::geometry{
 				direction[i] = 1;
 				high[i] = support(direction)[i];
 			}
+			std::cout << (gv::util::Box<3> {low, high}).tostr();
 			return gv::util::Box<3> {low, high};
 		}
 
