@@ -106,6 +106,10 @@ namespace gv::mesh
 		///append data to mesh file
 		template<typename Array_t>
 		void _append_node_scalar_data(const std::string filename, const Array_t &data, const std::string data_description, const bool make_header=true) const;
+
+		///append data to mesh file
+		template<typename Array_t>
+		void _append_element_scalar_data(const std::string filename, const Array_t &data, const std::string data_description, const bool make_header=true) const;
 	};
 
 
@@ -337,17 +341,17 @@ void HomoMesh<Element_t>::vtkprint(std::ostream &stream) const
 	stream << buffer.rdbuf();
 	buffer.str("");
 
-	//ELEMENT MARKERS
-	if (elem_marker.size() == nElems())
-	{
-		buffer << "CELL_DATA " << nElems() << "\n";
-		buffer << "SCALARS elem_marker integer\n";
-		buffer << "LOOKUP_TABLE default\n";
-		for (size_t el=0; el<nElems(); el++) {buffer << elem_marker[el] << " ";}
-		buffer << "\n\n";
-	}
-	stream << buffer.rdbuf();
-	buffer.str("");
+	// //ELEMENT MARKERS
+	// if (elem_marker.size() == nElems())
+	// {
+	// 	buffer << "CELL_DATA " << nElems() << "\n";
+	// 	buffer << "SCALARS elem_marker integer\n";
+	// 	buffer << "LOOKUP_TABLE default\n";
+	// 	for (size_t el=0; el<nElems(); el++) {buffer << elem_marker[el] << " ";}
+	// 	buffer << "\n\n";
+	// }
+	// stream << buffer.rdbuf();
+	// buffer.str("");
 }
 
 
@@ -395,6 +399,40 @@ void HomoMesh<Element_t>::_append_node_scalar_data(const std::string filename, c
 	buffer << "SCALARS " << data_description << " float\n";
 	buffer << "LOOKUP_TABLE default\n";
 	for (size_t i=0; i<nNodes(); i++) {buffer << data[i] << " ";}
+	buffer << "\n\n";
+	meshfile << buffer.rdbuf();
+	buffer.str("");
+
+	//////////////// CLOSE FILE /////////////
+	meshfile.close();
+}
+
+
+//append data to mesh. set make_header to false if previous data of the same type (e.g. scalar element data) has been previously added to the file.
+template <typename Element_t>
+template <typename Array_t>
+void HomoMesh<Element_t>::_append_element_scalar_data(const std::string filename, const Array_t &data, const std::string data_description, const bool make_header) const
+{
+	//////////////// OPEN FILE ////////////////
+	std::ofstream meshfile(filename, std::ios::app);
+
+	if (not meshfile.is_open()){
+		std::cout << "Couldn't write to " << filename << std::endl;
+		meshfile.close();
+		return;
+	}
+
+	//append data
+	std::stringstream buffer;
+
+	if (make_header)
+	{
+		buffer << "CELL_DATA " << nElems() << "\n";
+	}
+	
+	buffer << "SCALARS " << data_description << " float\n";
+	buffer << "LOOKUP_TABLE default\n";
+	for (size_t i=0; i<nElems(); i++) {buffer << data[i] << " ";}
 	buffer << "\n\n";
 	meshfile << buffer.rdbuf();
 	buffer.str("");

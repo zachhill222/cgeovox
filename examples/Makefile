@@ -6,7 +6,7 @@ OBJ        = $(SRC:.cpp=.o)
 TARGETS     = $(SRC:.cpp=)
 
 CC         = g++ -fopenmp -g
-CFLAGS     = -Wall -O2 -fPIC
+CFLAGS     = -Wall -O3 # -fPIC
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
 

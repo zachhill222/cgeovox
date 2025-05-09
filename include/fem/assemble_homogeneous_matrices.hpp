@@ -10,25 +10,11 @@
 
 namespace gv::fem
 {
-	///consturct mass integrating matrix
-	template <typename Mesh_t, int Format_t>
-	void make_mass_matrix(const Mesh_t &mesh, Eigen::SparseMatrix<double, Format_t> &massMat);
-	
-	///construct stiffness integrating matrix
-	template <typename Mesh_t, int Format_t>
-	void make_stiffness_matrix(const Mesh_t &mesh, Eigen::SparseMatrix<double, Format_t> &stiffMat);
-
-	///construct mass and stiffness integrating matrices
-	template <typename Mesh_t, int Format1_t, int Format2_t>
-	void make_integrating_matrices(const Mesh_t &mesh, Eigen::SparseMatrix<double, Format1_t> &massMat, Eigen::SparseMatrix<double, Format2_t> &stiffMat);
-
 	///convert (i,j) index pair to a linear index
 	template <size_t nodes_per_element>
 	inline size_t _ij2lin(const size_t i, const size_t j) {return nodes_per_element*i + j;}
 
-
-
-	//// IMPLEMENTATION
+	
 	///construct mass integrating matrix
 	template <typename Mesh_t, int Format_t>
 	void make_mass_matrix(const Mesh_t &mesh, Eigen::SparseMatrix<double, Format_t> &massMat)
