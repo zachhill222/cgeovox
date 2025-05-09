@@ -334,18 +334,24 @@ namespace gv::util{
 			return recursive_find(root, val, idx);
 		}
 
-		void push_back(const data_t &val)
+		int push_back(const data_t &val)
 		{
+			//return 1 on succesful add
+			//return 0 if data is already contained
+			//return -1 if data is not valid (i.e., outside of bounding box)
+
 			if (not is_data_valid(root->bbox, val))
 			{
 				throw std::invalid_argument("data is outside octree bounding box. resize with set_bbox().");
+				return -1;
 			}
 
-			if (contains(val)) {return;}
+			if (contains(val)) {return 0;}
 			if (_data.capacity() == _data.size()) {_data.reserve(2*_data.size());}
 			_data.push_back(val);
 			size_t idx = _data.size()-1;
 			recursive_insert(root, idx);
+			return 1;
 		}
 
 		void print() const {print(root,0);}

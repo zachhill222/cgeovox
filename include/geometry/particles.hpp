@@ -50,7 +50,7 @@ namespace gv::geometry{
 				direction[i] = 1;
 				high[i] = support(direction)[i];
 			}
-			std::cout << (gv::util::Box<3> {low, high}).tostr();
+			// std::cout << (gv::util::Box<3> {low, high}).tostr();
 			return gv::util::Box<3> {low, high};
 		}
 

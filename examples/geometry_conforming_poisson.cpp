@@ -10,6 +10,7 @@
 
 #include "mesh/Q1.hpp"
 
+#include "fem/spmatrix_util.hpp"
 
 #include <ctime>
 #include <iostream>
@@ -73,7 +74,7 @@ int main(int argc, char* argv[])
 	//construct connectivity
 	std::cout << "construct mesh connectivity (node2elem): " << std::flush;
 	start = std::time(nullptr);
-	mesh.compute_connectivity();
+	mesh.compute_node2elem();
 	end = std::time(nullptr);
 	std::cout << std::difftime(end,start) << " seconds\n";
 
@@ -95,48 +96,48 @@ int main(int argc, char* argv[])
 	std::cout << std::difftime(end,start) << " seconds\n";
 	std::cout << "\tnnz= " << M.nonZeros() << " (" << 100.0*M.nonZeros()/(mesh.nNodes()*mesh.nNodes()) << "%)\n";
 
-	//set up RHS
-	Eigen::VectorXd RHS(mesh.nNodes());
-	RHS.fill(0.0);
 
-	// double vol = RHS.dot(M*RHS);
-	// double scalar_rhs = 100.0/vol;
-	// RHS.fill(scalar_rhs);
-	// RHS  = M*RHS;
+	//verify integrating matrices volume measurements
+	// Eigen::VectorXd vec(mesh.nNodes());
+	// vec.fill(1.0);
+	// std::cout << "\tvolume from mass: 1*M*1= " <<  vec.dot(M*vec) << std::endl;
+	
+	// for (size_t i=0; i<mesh.nNodes(); i++)
+	// {
+	// 	// vec[i] = mesh.nodes(i)[0];
+	// 	vec[i] = (mesh.nodes(i)[0]+mesh.nodes(i)[1]+mesh.nodes(i)[2])/sqrt(3.0);
+	// }
+	// std::cout << "\tvolume from stiff: x*A*x= " << vec.dot(A*vec) << std::endl;
 
 
 	//apply boundary conditions
 	std::cout << "apply boundary conditions: " << std::flush;
 	start = std::time(nullptr);
+
+	// gv::fem::save_as_bmp(A, "beforeBC.bmp");
+	gv::fem::set_dirichlet_BC(A, mesh.boundary(0));
+	// gv::fem::save_as_bmp(A, "afterBC.bmp");
+
+	Eigen::VectorXd RHS(mesh.nNodes());
+	RHS.fill(100.0);
+	RHS = M*RHS;
 	for (size_t i=0; i<mesh.boundary(0).size(); i++)
 	{
 		size_t node_idx = mesh.boundary(0)[i];
-		if (mesh.nodes(node_idx)[0]==1.0)
-		{
-			RHS[node_idx] = 1.0;
-		}
-		else
-		{
-			RHS[node_idx] = 0.0;
-		}
+		
+		if (mesh.nodes(node_idx)[1] == -1.0) {RHS[node_idx] = 0.0;}
+		else {RHS[node_idx] = 0.0;}
 
-		// RHS[node_idx] = 0.0;
-		A.row(node_idx) *= 0.0;
-		A.coeffRef(node_idx,node_idx) = 1.0;
+		// std::cout << A.row(node_idx) << std::endl;
 	}
-	// RHS[1320] = 0.0;
-	// A.row(1320) *= 0.0;
-	// A.coeffRef(1320,1320) = 1.0;
-	A.makeCompressed();
 
 	end = std::time(nullptr);
 	std::cout << std::difftime(end,start) << " seconds\n";
 
 
 	//solve problem
-	std::cout << "solve Poisson problem: " << std::flush;
 	Eigen::SparseMatrix<double, Eigen::ColMajor> LHS = A;
-	LHS.makeCompressed();
+	std::cout << "solve Poisson problem (LHS nnz= " << LHS.nonZeros() << ") : " << std::flush;
 
 	start = std::time(nullptr);
 	Eigen::VectorXd u(mesh.nNodes());
@@ -146,17 +147,21 @@ int main(int argc, char* argv[])
 	// Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
 	// Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::IncompleteLUT<double>> solver;
 	solver.compute(LHS);
+	// u = solver.solveWithGuess(RHS,RHS); //iterative solvers need to satisfy the BC with the initial guess
+	u = solver.solve(RHS);
 
 	// Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 	// solver.analyzePattern(LHS);
 	// solver.factorize(LHS);
-
-	u = solver.solveWithGuess(RHS,RHS);
+	// u = solver.solve(RHS);
 
 	end = std::time(nullptr);
 	std::cout << std::difftime(end,start) << " seconds\n";
 	std::cout << "\tnIter= " << solver.iterations() << "\test. err= " << solver.error() << "\n"; //only for iterative solvers
 
+	//compute residual norm
+	Eigen::VectorXd residual = LHS*u - RHS;
+	std::cout << "residual 2-norm: " << residual.norm() << std::endl;
 
 	//save solution
 	std::cout << "save solution: " << std::flush;

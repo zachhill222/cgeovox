@@ -69,7 +69,7 @@ void test_mesh(std::string filename, size_t N[3])
 	std::cout << "\tx*M*x= " << approx_total_volume << std::endl;
 
 	std::cout << "save mesh\n";
-	mesh.saveas("outfiles/assembly_voxel_mesh.vtk");
+	mesh.save_as("outfiles/assembly_voxel_mesh.vtk");
 }
 
 

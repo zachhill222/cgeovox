@@ -1,4 +1,4 @@
-INC_DIR    = -I/usr/include/eigen3 -I../include
+INC_DIR    = -I../include -I/usr/include/eigen3 #-I/usr/include/x86_64-linux-gnu/qt5
 LIB_DIR    = 
 
 SRC        = $(wildcard *.cpp)
@@ -6,7 +6,7 @@ OBJ        = $(SRC:.cpp=.o)
 TARGETS     = $(SRC:.cpp=)
 
 CC         = g++ -fopenmp -g
-CFLAGS     = -Wall -O2
+CFLAGS     = -Wall -O2 -fPIC
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
 
@@ -17,7 +17,7 @@ all: $(TARGETS)
 
 # LINK
 $(TARGETS) : % : %.o $(OBJ)
-	$(CC) $< -o $@ 
+	$(CC) $< -o $@ #-lQt5Gui -lQt5Core
 
 # COMPILE
 %.o: %.cpp
