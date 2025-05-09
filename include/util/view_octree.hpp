@@ -3,7 +3,7 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
 
-#include "mesh/mesh.hpp"
+#include "mesh/homo_mesh.hpp"
 #include "mesh/vtkVoxel.hpp"
 
 
@@ -16,7 +16,7 @@ namespace gv::util
 		const size_t nElems = octree.nNodes();
 
 		//initialize mesh
-		gv::mesh::Mesh<gv::mesh::Voxel> octree_mesh;
+		gv::mesh::HomoMesh<gv::mesh::Voxel> octree_mesh;
 		octree_mesh.set_bbox(octree.bbox());
 		octree_mesh.reserve(nElems);
 

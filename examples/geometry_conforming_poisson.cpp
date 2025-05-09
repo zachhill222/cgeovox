@@ -6,11 +6,10 @@
 #include "geometry/assembly.hpp"
 #include "geometry/particles.hpp"
 
-#include "util/Point.hpp"
-
 #include "mesh/Q1.hpp"
 
 #include "fem/spmatrix_util.hpp"
+#include "fem/assemble_homogeneous_matrices.hpp"
 
 #include <ctime>
 #include <iostream>
@@ -46,7 +45,8 @@ int main(int argc, char* argv[])
 
 	//read geometry
 	std::cout << "construct assembly: " << std::flush;
-	using Particle_t = gv::geometry::Prism;
+	// using Particle_t = gv::geometry::Prism;
+	using Particle_t = gv::geometry::SuperEllipsoid;
 	start = std::time(nullptr);
 	gv::geometry::Assembly<Particle_t> assembly(file, read_flags);
 	end = std::time(nullptr);
@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 	start = std::time(nullptr);
 	Eigen::SparseMatrix<double, Eigen::RowMajor> A;
 	Eigen::SparseMatrix<double, Eigen::ColMajor> M;
-	mesh.make_integrating_matrices(M, A);
+	gv::fem::make_integrating_matrices(mesh, M, A);
 	end = std::time(nullptr);
 	std::cout << std::difftime(end,start) << " seconds\n";
 	std::cout << "\tnnz= " << M.nonZeros() << " (" << 100.0*M.nonZeros()/(mesh.nNodes()*mesh.nNodes()) << "%)\n";

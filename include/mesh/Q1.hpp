@@ -3,7 +3,7 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
 
-#include "mesh/mesh.hpp"
+#include "mesh/homo_mesh.hpp"
 #include "mesh/vtkVoxel.hpp"
 
 #include <vector>
@@ -14,21 +14,16 @@
 #include <fstream>
 
 #include <omp.h>
-#include <armadillo>
 
 namespace gv::mesh
 {
 	//voxels embedded in 3D with piecewise d-linear shape functions.
-	class VoxelMeshQ1 : public Mesh<gv::mesh::Voxel> {
-	private:
-		//reference element to handle integration
-		// static const gv::mesh::Voxel referenceElement;
-
+	class VoxelMeshQ1 : public HomoMesh<gv::mesh::Voxel> {
 	public:
-		VoxelMeshQ1() : Mesh<gv::mesh::Voxel>() {}
-		
+		VoxelMeshQ1() : HomoMesh<gv::mesh::Voxel>() {}
+
 		//mesh a box region uniformly
-		VoxelMeshQ1(gv::util::Point<3,double> length, size_t N[3]) : Mesh<gv::mesh::Voxel>()
+		VoxelMeshQ1(gv::util::Point<3,double> length, size_t N[3]) : HomoMesh<gv::mesh::Voxel>()
 		{
 			_nodes.set_bbox(gv::util::Point<3,double> {0,0,0}, length);
 			reserve(N[0]*N[1]*N[2]);

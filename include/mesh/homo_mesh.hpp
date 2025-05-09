@@ -4,7 +4,7 @@
 #include "util/point.hpp"
 
 #include <vector>
-#include <algorithm>
+// #include <algorithm>
 #include <stdexcept>
 
 #include <sstream>
@@ -12,29 +12,27 @@
 #include <fstream>
 
 #include <omp.h>
-#include <Eigen/SparseCore>
 
 namespace gv::mesh
 {
 	/// CLASS DEFINITION: mesh for a single element type
 	template <typename Element_t>
-	class Mesh{
+	class HomoMesh{
 	protected:
-		//sincle reference element
-		static const Element_t referenceElement;
-
 		gv::util::PointOctree<3,double,32> _nodes;
 		std::vector<size_t> _elem2node;
 		std::vector<size_t> _node2elem_start_idx; //each node belongs to an unknown number of elements. track where node2element begins for each node.
 		std::vector<size_t> _node2elem;
 		std::vector<std::vector<size_t>> _boundary; //assign which nodes belong to the boundary. allow for multiple boundaries.
 
-	protected:
-		//convert a pair of local node indices to a linear index. used for creating mass and stiffness matrices.
-		static size_t _ij2lin(const size_t i, const size_t j) {return referenceElement.nNodes*i + j;}
-
 	public:
-		Mesh() {}
+		HomoMesh() {}
+
+		///type of element
+		static const bool isHomogeneous = true;
+		static const Element_t referenceElement;
+		Element_t new_element() const {Element_t element; return element;}
+
 
 		///array for storing element markers (e.g., use for marking properties or sub-domains).
 		std::vector<int> elem_marker;
@@ -94,7 +92,7 @@ namespace gv::mesh
 		void compute_node2elem();
 
 		///mesh sub-domain and put into out_mesh
-		void mesh_subdomain(const int mkr, Mesh<Element_t> &out_mesh) const;
+		void mesh_subdomain(const int mkr, HomoMesh<Element_t> &out_mesh) const;
 
 		///print mesh structure to ostream
 		void vtkprint(std::ostream &stream) const;
@@ -108,18 +106,6 @@ namespace gv::mesh
 		///append data to mesh file
 		template<typename Array_t>
 		void _append_node_scalar_data(const std::string filename, const Array_t &data, const std::string data_description, const bool make_header=true) const;
-
-		///consturct mass integrating matrix
-		template<int Format_t>
-		void make_mass_matrix(Eigen::SparseMatrix<double, Format_t> &massMat) const;
-		
-		///construct stiffness integrating matrix
-		template<int Format_t>
-		void make_stiffness_matrix(Eigen::SparseMatrix<double, Format_t> &stiffMat) const;
-
-		///construct mass and stiffness integrating matrices
-		template<int Format1_t, int Format2_t>
-		void make_integrating_matrices(Eigen::SparseMatrix<double, Format1_t> &massMat, Eigen::SparseMatrix<double, Format2_t> &stiffMat) const;
 	};
 
 
@@ -127,7 +113,7 @@ namespace gv::mesh
 
 ///clear current mesh
 template <typename Element_t>
-void Mesh<Element_t>::clear()
+void HomoMesh<Element_t>::clear()
 {
 	_nodes.clear();
 	_elem2node.clear();
@@ -140,7 +126,7 @@ void Mesh<Element_t>::clear()
 
 ///copy node global indices for element "idx" into array "element"
 template <typename Element_t>
-void Mesh<Element_t>::get_element(const size_t idx, size_t (&element)[referenceElement.nNodes]) const
+void HomoMesh<Element_t>::get_element(const size_t idx, size_t (&element)[referenceElement.nNodes]) const
 {
 	size_t start = idx*referenceElement.nNodes;
 	for (size_t i=0; i<referenceElement.nNodes; i++) {element[i] = _elem2node[start+i];}
@@ -149,7 +135,7 @@ void Mesh<Element_t>::get_element(const size_t idx, size_t (&element)[referenceE
 
 ///add a single element via its node phycial locations. new nodes are added to _nodes if needed.
 template <typename Element_t>
-void Mesh<Element_t>::add_element(const gv::util::Point<3,double> (&element)[referenceElement.nNodes])
+void HomoMesh<Element_t>::add_element(const gv::util::Point<3,double> (&element)[referenceElement.nNodes])
 {
 	for (size_t i=0; i<referenceElement.nNodes; i++)
 	{
@@ -166,7 +152,7 @@ void Mesh<Element_t>::add_element(const gv::util::Point<3,double> (&element)[ref
 
 ///add a single element via its global node indices in _nodes. each node must have previously been added to _nodes and index tracked externally.
 template <typename Element_t>
-void Mesh<Element_t>::add_element(const size_t (&element)[referenceElement.nNodes])
+void HomoMesh<Element_t>::add_element(const size_t (&element)[referenceElement.nNodes])
 {
 	for (size_t i=0; i<referenceElement.nNodes; i++)
 	{
@@ -177,7 +163,7 @@ void Mesh<Element_t>::add_element(const size_t (&element)[referenceElement.nNode
 
 ///get number of elements that contain a specified node
 template <typename Element_t>
-size_t Mesh<Element_t>::local_nElem(size_t node) const
+size_t HomoMesh<Element_t>::local_nElem(size_t node) const
 {
 	if (node==nNodes()-1) {return _node2elem.size()-_node2elem_start_idx[node];}
 	return _node2elem_start_idx[node+1]-_node2elem_start_idx[node];
@@ -186,7 +172,7 @@ size_t Mesh<Element_t>::local_nElem(size_t node) const
 
 ///get global element index for the n-th ("localelem") local element that contains the specified node. use local_nElem to get the total number of local elements first.
 template <typename Element_t>
-size_t Mesh<Element_t>::node2elem(size_t node, size_t localelem) const
+size_t HomoMesh<Element_t>::node2elem(size_t node, size_t localelem) const
 {
 	//return max size_t as an error
 	if (localelem >= local_nElem(node)) {return (size_t) -1;}
@@ -196,7 +182,7 @@ size_t Mesh<Element_t>::node2elem(size_t node, size_t localelem) const
 
 ///compute mesh connectivity (node2elem)
 template <typename Element_t>
-void Mesh<Element_t>::compute_node2elem()
+void HomoMesh<Element_t>::compute_node2elem()
 {
 	//compute number of elements for each node
 	std::vector<size_t> node_count(nNodes(), 0);
@@ -236,7 +222,7 @@ void Mesh<Element_t>::compute_node2elem()
 
 ///mesh sub-domain and put into out_mesh
 template <typename Element_t>
-void Mesh<Element_t>::mesh_subdomain(const int mkr, Mesh<Element_t> &out_mesh) const
+void HomoMesh<Element_t>::mesh_subdomain(const int mkr, HomoMesh<Element_t> &out_mesh) const
 {
 	//TODO: make external and internal boundaries?
 
@@ -282,7 +268,7 @@ void Mesh<Element_t>::mesh_subdomain(const int mkr, Mesh<Element_t> &out_mesh) c
 
 ///print mesh connectivity for error checking
 template <typename Element_t>
-void Mesh<Element_t>::print_connectivity() const
+void HomoMesh<Element_t>::print_connectivity() const
 {
 	std::cout << "ELEMENT2NODE:\n";
 	for (size_t el=0; el<nElems(); el++)
@@ -311,7 +297,7 @@ void Mesh<Element_t>::print_connectivity() const
 
 ///print mesh structure in vtk format (any ostream)
 template <typename Element_t>
-void Mesh<Element_t>::vtkprint(std::ostream &stream) const
+void HomoMesh<Element_t>::vtkprint(std::ostream &stream) const
 {
 	//write to buffer and flush buffer to the stream
 	std::stringstream buffer;
@@ -367,7 +353,7 @@ void Mesh<Element_t>::vtkprint(std::ostream &stream) const
 
 //save mesh to file (vtk format)
 template <typename Element_t>
-void Mesh<Element_t>::save_as(std::string filename) const
+void HomoMesh<Element_t>::save_as(std::string filename) const
 {
 	//open and check file
 	std::ofstream meshfile(filename);
@@ -387,7 +373,7 @@ void Mesh<Element_t>::save_as(std::string filename) const
 //append data to mesh. set make_header to false if previous data of the same type (e.g. scalar node data) has been previously added to the file.
 template <typename Element_t>
 template <typename Array_t>
-void Mesh<Element_t>::_append_node_scalar_data(const std::string filename, const Array_t &data, const std::string data_description, const bool make_header) const
+void HomoMesh<Element_t>::_append_node_scalar_data(const std::string filename, const Array_t &data, const std::string data_description, const bool make_header) const
 {
 	//////////////// OPEN FILE ////////////////
 	std::ofstream meshfile(filename, std::ios::app);
@@ -418,195 +404,7 @@ void Mesh<Element_t>::_append_node_scalar_data(const std::string filename, const
 }
 
 
-///construct mass integrating matrix
-template<typename Element_t>
-template<int Format_t>
-void Mesh<Element_t>::make_mass_matrix(Eigen::SparseMatrix<double, Format_t> &massMat) const
-{
-	//set up index tracking to allow parallel looping over elements when computing integrals
-	typedef Eigen::Triplet<double> T;
-	std::vector<T> triplets;
-	triplets.resize(referenceElement.nNodes*referenceElement.nNodes*nElems()); //may be slow. initializes Eigen::Triplets with default constructor.
 
-
-	//integrate over each element
-	#pragma omp parallel
-	for (size_t el=0; el<nElems(); el++)
-	{
-		//construct logical element
-		Element_t local_element;
-		for (size_t n_idx=0; n_idx<referenceElement.nNodes; n_idx++)
-		{
-			local_element.nodes[n_idx] = &(_nodes[elem2node(el,n_idx)]);
-		}
-
-		//set parameters for this element
-		size_t start = el*referenceElement.nNodes*referenceElement.nNodes; //start of this element's block in locations and values.
-
-		//compute contributions to mass matrix
-		for (size_t i=0; i<referenceElement.nNodes; i++)
-		{
-			//global node number for local node i
-			size_t global_i = elem2node(el,i);
-
-			//diagonal (i,i) entry
-			double val = local_element.integrate_mass(i,i);
-
-			//record location index and value
-			triplets[start + _ij2lin(i,i)] = T(global_i, global_i, val);
-
-			//off-diagonal entries
-			for (size_t j=i+1; j<referenceElement.nNodes; j++)
-			{
-				//global node number for local node j
-				size_t global_j = elem2node(el,j);
-
-				//get value
-				val = local_element.integrate_mass(i,j);
-
-				//record location index and values
-				triplets[start + _ij2lin(i,j)] = T(global_i, global_j, val);
-				triplets[start + _ij2lin(j,i)] = T(global_j, global_i, val);
-			}
-		}
-	}
-
-	//construct matrix
-	massMat.setZero();
-	massMat.resize(nNodes(),nNodes());
-	massMat.setFromTriplets(triplets.begin(), triplets.end());
-}
-
-
-///construct stiffness integrating matrix
-template<typename Element_t>
-template<int Format_t>
-void Mesh<Element_t>::make_stiffness_matrix(Eigen::SparseMatrix<double, Format_t> &stiffMat) const
-{
-	//set up index tracking to allow parallel looping over elements when computing integrals
-	typedef Eigen::Triplet<double> T;
-	std::vector<T> triplets;
-	triplets.resize(referenceElement.nNodes*referenceElement.nNodes*nElems()); //may be slow. initializes Eigen::Triplets with default constructor.
-
-	//integrate over each element
-	#pragma omp parallel
-	for (size_t el=0; el<nElems(); el++)
-	{
-		//construct logical element
-		Element_t local_element;
-		for (size_t n_idx=0; n_idx<referenceElement.nNodes; n_idx++)
-		{
-			local_element.nodes[n_idx] = &(_nodes[elem2node(el,n_idx)]);
-		}
-
-		//set parameters for this element
-		size_t start = el*referenceElement.nNodes*referenceElement.nNodes; //start of this element's block in locations and values.
-
-		//compute contributions to mass matrix
-		for (size_t i=0; i<referenceElement.nNodes; i++)
-		{
-			//global node number for local node i
-			size_t global_i = elem2node(el,i);
-
-			//diagonal (i,i) entry
-			double val = local_element.integrate_stiff(i,i);
-
-			//store location index and value
-			triplets[start + _ij2lin(i,i)] = T(global_i, global_i, val);
-
-			//off-diagonal entries
-			for (size_t j=i+1; j<referenceElement.nNodes; j++)
-			{
-				//global node number for local node j
-				size_t global_j = elem2node(el,j);
-
-				//get value
-				val = local_element.integrate_stiff(i,j);
-
-				//record location index and values
-				triplets[start + _ij2lin(i,j)] = T(global_i, global_j, val);
-				triplets[start + _ij2lin(j,i)] = T(global_j, global_i, val);
-			}
-		}
-	}
-
-	//construct matrix
-	stiffMat.setZero();
-	stiffMat.resize(nNodes(),nNodes());
-	stiffMat.setFromTriplets(triplets.begin(), triplets.end());
-}
-
-
-///construct mass and stiffness integrating matrices
-template<typename Element_t>
-template<int Format1_t, int Format2_t>
-void Mesh<Element_t>::make_integrating_matrices(Eigen::SparseMatrix<double,Format1_t> &massMat, Eigen::SparseMatrix<double,Format2_t> &stiffMat) const
-{
-	//set up index tracking to allow parallel looping over elements when computing integrals
-	typedef Eigen::Triplet<double> T;
-	std::vector<T> triplets_m, triplets_s;
-	triplets_m.resize(referenceElement.nNodes*referenceElement.nNodes*nElems()); //may be slow. initializes Eigen::Triplets with default constructor.
-	triplets_s.resize(referenceElement.nNodes*referenceElement.nNodes*nElems()); //may be slow. initializes Eigen::Triplets with default constructor.
-
-
-	//integrate over each element
-	#pragma omp parallel
-	for (size_t el=0; el<nElems(); el++)
-	{
-		//construct logical element
-		Element_t local_element;
-		for (size_t n_idx=0; n_idx<referenceElement.nNodes; n_idx++)
-		{
-			local_element.nodes[n_idx] = &(_nodes[elem2node(el,n_idx)]);
-		}
-
-		//set parameters for this element
-		size_t start = el*referenceElement.nNodes*referenceElement.nNodes; //start of this element's block in locations and values.
-
-		//compute contributions to mass matrix
-		for (size_t i=0; i<referenceElement.nNodes; i++)
-		{
-			//global node number for local node i
-			size_t global_i = elem2node(el,i);
-
-			//diagonal (i,i) entry
-			double val_m = local_element.integrate_mass(i,i);
-			double val_s = local_element.integrate_stiff(i,i);
-
-			//record location index and value
-			triplets_m[start + _ij2lin(i,i)] = T(global_i, global_i, val_m);
-			triplets_s[start + _ij2lin(i,i)] = T(global_i, global_i, val_s);
-
-			//off-diagonal entries
-			for (size_t j=i+1; j<referenceElement.nNodes; j++)
-			{
-				//global node number for local node j
-				size_t global_j = elem2node(el,j);
-
-				//get value
-				val_m = local_element.integrate_mass(i,j);
-				val_s = local_element.integrate_stiff(i,j);
-
-				//record location index and values
-				triplets_m[start + _ij2lin(i,j)] = T(global_i, global_j, val_m);
-				triplets_m[start + _ij2lin(j,i)] = T(global_j, global_i, val_m);
-
-				triplets_s[start + _ij2lin(i,j)] = T(global_i, global_j, val_s);
-				triplets_s[start + _ij2lin(j,i)] = T(global_j, global_i, val_s);
-			}
-		}
-	}
-
-	//construct mass matrix
-	massMat.setZero();
-	massMat.resize(nNodes(),nNodes());
-	massMat.setFromTriplets(triplets_m.begin(), triplets_m.end());
-
-	//construct stiffness matrix
-	stiffMat.setZero();
-	stiffMat.resize(nNodes(),nNodes());
-	stiffMat.setFromTriplets(triplets_s.begin(), triplets_s.end());
-}
 
 }
 
