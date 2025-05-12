@@ -25,10 +25,7 @@ namespace gv::mesh
 
 		bool is_divided = false;
 		int depth = 0;
-
-		//mesh information
-		bool in_domain = true;
-
+		
 		//construction and destruction
 		VoxelNode(const VoxelNode* parent, int depth) : parent(parent), depth(depth) {}
 		~VoxelNode()
@@ -44,6 +41,8 @@ namespace gv::mesh
 	class OctreeMesh
 	{
 	protected:
+		typedef gv::util::Point<3,double> Point_t;
+
 		//root node, encloses entire mesh.
 		VoxelNode* root = NULL;
 
@@ -54,7 +53,7 @@ namespace gv::mesh
 		std::vector<int> basis_function_depth;
 
 		///check if a node (voxel) contains a particular point
-		inline bool is_in_node(const VoxelNode* node, const gv::util::Point<3,double> &point) const {return _points[node->point_idx[0]]<=point and point<=_points[node->point_idx[7]];}
+		inline bool is_in_node(const VoxelNode* node, const Point_t &point) const {return _points[node->point_idx[0]]<=point and point<=_points[node->point_idx[7]];}
 
 		///helper function to find all nodes at the specified depth that contain _points[idx].
 		void recursive_find_all(const VoxelNode* node, const size_t &idx, const int &depth, std::vector<const VoxelNode*> &nodelist) const;
@@ -69,20 +68,20 @@ namespace gv::mesh
 		void print(VoxelNode* node, std::stringstream &ss) const;
 
 		///helper function to get first leaf node that contains/encloses the specified point. intended to be used on interior points.
-		VoxelNode* getnode( VoxelNode* node, const gv::util::Point<3,double> &point );
+		VoxelNode* getnode( VoxelNode* node, const Point_t &point );
 
 		///helper function to get first node at specified depth that contains/encloses the specified point. inteded to be used on interior points.
-		VoxelNode* getnode( VoxelNode* node, const gv::util::Point<3,double> &point, int depth );
+		VoxelNode* getnode( VoxelNode* node, const Point_t &point, int depth );
 
 		///get first leaf node that contains/encloses the specified point. intended to be used on interior points.
-		VoxelNode* getnode( const gv::util::Point<3,double> &point )
+		VoxelNode* getnode( const Point_t &point )
 		{
 			if (is_in_node(root,point)) {return getnode(root, point);}
 			return NULL;
 		}
 
 		///get first leaf node that contains/encloses the specified point. intended to be used on interior points.
-		const VoxelNode* getnode( const gv::util::Point<3,double> &point ) const
+		const VoxelNode* getnode( const Point_t &point ) const
 		{
 			if (is_in_node(root,point)) {return getnode(root, point);}
 			return NULL;
@@ -90,14 +89,14 @@ namespace gv::mesh
 
 
 		///get first node at specified depth that contains/encloses the specified point. intended to be used on interior points.
-		VoxelNode* getnode( const gv::util::Point<3,double> &point, int depth )
+		VoxelNode* getnode( const Point_t &point, int depth )
 		{
 			if (is_in_node(root,point)) {return getnode(root, point, depth);}
 			return NULL;
 		}
 
 		///get first node at specified depth that contains/encloses the specified point. intended to be used on interior points.
-		const VoxelNode* getnode( const gv::util::Point<3,double> &point, int depth ) const
+		const VoxelNode* getnode( const Point_t &point, int depth ) const
 		{
 			if (is_in_node(root,point)) {return getnode( root, point, depth);}
 			return NULL;
@@ -108,7 +107,7 @@ namespace gv::mesh
 		size_t recursive_count_elements( const VoxelNode* node) const;
 
 	public:
-		OctreeMesh() : _points(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,1,1}) {root = new VoxelNode(NULL, 0);} 
+		OctreeMesh() : _points(Point_t {0,0,0}, Point_t {1,1,1}) {root = new VoxelNode(NULL, 0);} 
 		OctreeMesh(const gv::util::Box<3> &bbox) : _points(bbox)
 		{
 			root = new VoxelNode(NULL, 0);
@@ -122,7 +121,7 @@ namespace gv::mesh
 		~OctreeMesh() {delete root;}
 
 		///access mesh nodes
-		inline const gv::util::Point<3,double>& operator[](const size_t &idx) const {return _points[idx];}
+		inline const Point_t& operator[](const size_t &idx) const {return _points[idx];}
 		
 		///access number of mesh nodes
 		inline size_t nNodes() const {return _points.size();}
@@ -131,7 +130,7 @@ namespace gv::mesh
 		inline void reserve(size_t size){_points.reserve(size);}
 
 		///split voxel at its center
-		void divide(const gv::util::Point<3,double> point)
+		void divide(const Point_t point)
 		{
 			VoxelNode* node = getnode(point);
 			if (node!=NULL)
@@ -210,7 +209,7 @@ namespace gv::mesh
 
 
 		//check if desired center is in the interior of the voxel
-		gv::util::Point<3,double> center = 0.5 * (_points[node->point_idx[0]] + _points[node->point_idx[7]]);
+		Point_t center = 0.5 * (_points[node->point_idx[0]] + _points[node->point_idx[7]]);
 
 		//add center to list of points
 		size_t center_point_idx = _points.size();
@@ -241,7 +240,7 @@ namespace gv::mesh
 					else
 					{
 						//create point
-						gv::util::Point<3,double> new_point = bbox[j];
+						Point_t new_point = bbox[j];
 						size_t new_point_idx = _points.size();
 
 						_points.push_back(new_point);
@@ -275,7 +274,7 @@ namespace gv::mesh
 	}
 
 
-	VoxelNode* OctreeMesh::getnode( VoxelNode* node, const gv::util::Point<3,double> &point )
+	VoxelNode* OctreeMesh::getnode( VoxelNode* node, const Point_t &point )
 	{
 		if (not node->is_divided)
 		{
@@ -293,7 +292,7 @@ namespace gv::mesh
 		return NULL;
 	}
 
-	VoxelNode* OctreeMesh::getnode( VoxelNode* node, const gv::util::Point<3,double> &point, int depth )
+	VoxelNode* OctreeMesh::getnode( VoxelNode* node, const Point_t &point, int depth )
 	{
 		if (not node->is_divided)
 		{
