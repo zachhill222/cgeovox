@@ -42,32 +42,6 @@ void test_mesh(std::string filename, size_t N[3])
 	std::cout << "\tnNodes= " << mesh.nNodes() << std::endl;
 	std::cout << "\tnElem= "  << mesh.nElems() << std::endl;
 
-
-	std::cout << "\nmake mass matrix\n";
-
-	Eigen::SparseMatrix<double> spmat;
-	mesh.make_mass_matrix(spmat);
-
-	Eigen::VectorXd ones(mesh.nNodes());
-	ones.fill(1.0);
-	double approx_total_volume = ones.dot(spmat*ones);
-	
-	std::cout << "\t1*M*1= " << approx_total_volume << std::endl;
-	std::cout << "\tn_nonzero= " << spmat.nonZeros() << std::endl;
-
-	std::cout << "\nmake stiffness matrix\n";
-	mesh.make_stiffness_matrix(spmat);
-	
-	//create vector of x_1 locations at each degree of freedom
-	Eigen::VectorXd x(mesh.nNodes());
-	for (size_t i=0; i<mesh.nNodes(); i++)
-	{
-		x[i] = mesh.nodes(i)[1];
-	}
-
-	approx_total_volume = x.dot(spmat*x);
-	std::cout << "\tx*M*x= " << approx_total_volume << std::endl;
-
 	std::cout << "save mesh\n";
 	mesh.save_as("outfiles/assembly_voxel_mesh.vtk");
 }

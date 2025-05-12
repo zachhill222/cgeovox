@@ -17,7 +17,8 @@ namespace gv::mesh
 {
 	/// CLASS DEFINITION: mesh for a single element type
 	template <typename Element_t>
-	class HomoMesh{
+	class HomoMesh
+	{
 	protected:
 		gv::util::PointOctree<3,double,32> _nodes;
 		std::vector<size_t> _elem2node;

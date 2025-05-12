@@ -7,7 +7,6 @@
 #include "mesh/vtkVoxel.hpp"
 
 #include <vector>
-#include <algorithm>
 
 #include <sstream>
 #include <iostream>

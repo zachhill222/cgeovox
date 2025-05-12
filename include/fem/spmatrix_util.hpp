@@ -18,7 +18,7 @@ namespace gv::fem
 		mat.makeCompressed();
 
 		//loop through rows and zero them out
-		// #pragma omp parallel
+		#pragma omp parallel
 		for (size_t n_idx=0; n_idx<nodes.size(); n_idx++)
 		{
 			//get start of row storage

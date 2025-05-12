@@ -1,5 +1,7 @@
 #pragma once
 
+#include "util/octree_util.hpp"
+
 #include "util/point.hpp"
 #include "util/box.hpp"
 
@@ -7,7 +9,8 @@
 #include <stdexcept>
 #include <limits>
 
-namespace gv::util{
+namespace gv::util
+{
 	//Data structure for generic octree nodes.
 	template <typename data_t, int dim=3, size_t n_data=8>
 	struct _OctreeNode
