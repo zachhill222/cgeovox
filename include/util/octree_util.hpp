@@ -12,13 +12,13 @@ namespace gv::util
 	// node 1 is hidden
 	// 
 	// i=0: 0,2,4,6 (x=-1)
-	// i=1: 1,3,5,7 (x=1)
+	// i=1: 1,3,5,7 (x= 1)
 	// 
 	// j=0: 0,1,4,5 (y=-1)
-	// j=1: 2,3,6,7 (y=1)
+	// j=1: 2,3,6,7 (y= 1)
 	//
 	// k=0: 0,1,2,3 (z=-1)
-	// k=1: 4,5,6,7 (z=1)
+	// k=1: 4,5,6,7 (z= 1)
 	//
 	//		2------3
 	//		|\      \
@@ -41,10 +41,13 @@ namespace gv::util
 
 		///store depth of the node in octree
 		int depth = 0;
+
 		///store path in octree to the node
 		std::array<std::array<bool,dim>, max_depth> path;
+
 		///cartesian index of the node at its finest level. each index is between 0 and 2^dim-1
 		size_t idx[dim] {0};
+		
 		///global node number
 		///each possible node at each level of the octree can be listed. this function returns a unique index for each distinct node
 		///there are L_n=(2^n)^dim possible nodes on level n

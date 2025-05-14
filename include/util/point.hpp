@@ -18,7 +18,7 @@ namespace gv::util {
 	class Point {
 	public:
 		Point () {}
-		~Point() {}
+
 		Point (std::initializer_list<T> init)
 		{
 			int i=0;
@@ -27,9 +27,15 @@ namespace gv::util {
 				i++;
 			}
 		}
+	
 		Point (const Point &other)
 		{
 			for (int i=0; i<dim; i++) {_data[i] = other[i];}
+		}
+
+		Point (const T val)
+		{
+			for (int i=0; i<dim; i++) {_data[i] = val;}
 		}
 
 		T& operator[](const int idx) {return _data[idx];}

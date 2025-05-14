@@ -1,0 +1,95 @@
+#pragma once
+
+//These classes are helper classes to implement the CHARMS
+//(Conforming, Hierarchical, Adaptive Refinement Methods)
+//method for finite elements.
+//Paper: "CHARMS: A Simple Framework for Adaptive Simulation" (2002)
+//Authors: Eitan Grinspun, Petr Krysl, Peter Schroder
+
+#include <vector>
+#include <cassert>
+
+#include "util/box.hpp"
+#include "util/point.hpp"
+
+namespace gv::fem
+{
+	///Data type to store elements in an octree structure
+	template<int dim>
+	class CharmsElement
+	{
+		std::vector<size_t> basis_a; //basis functions on coarser levels
+		std::vector<size_t> basis_s; //basis functions on same level
+		gv::util::Box<dim>  bbox;    //bounding box for element used for sorting in the octree
+
+		//method to test if the element contains a given point. overwrite if using elements where the point-set
+		//of the element is not the same as its bounding box (e.g. tets or iso-parametric quads)
+		virtual bool contains(const gv::util::Point<dim,double>& point)  {return bbox.contains(point);}
+
+		//method to test if the element intersects a bounding box (used in is_data_valid method for octree)
+		virtual bool intersects(const gv::util::Box<dim> &box)  {return bbox.insersects(box);}
+
+
+	}
+
+	///Octree structure for elements
+	template<typename Element_t, int dim, size_t n_data=16>
+	class CharmsElementOctree : public BasicOctree<Element_t, dim, true, n_data>
+	{
+	public:
+		CharmsElementOctree() : BasicOctree<Element_t, dim, true, n_data>() {}
+		CharmsElementOctree(const gv::util::Box<dim> &bbox) : BasicOctree<Element_t, dim, true, n_data>(bbox) {}
+
+	private:
+		bool is_data_valid(const gv::util::Box<dim> &box, const Element_t& data) const override  {return data.intersects(box);}
+	}
+
+
+	///Basis function class for CHARMS method
+	template<typename ActiveElements_t>
+	class CharmsBasisFun
+	{
+	private:
+		const ActiveElements_t& active_element_list;
+
+	public:
+		CharmsBasisFun(const ActiveElements_t& elements) : active_element_list(elements) {}
+
+		std::vector<size_t> support; //elements which intersect the support of this basis function, on same level only
+		std::vector<int> local_node_number; //which local basis function this function corresponds to on each element
+		int depth;
+
+		///evaluate the basis function at the specified point
+		double evaluate(const gv::util::Point<dim,double>& point) const
+		{
+			assert(support.size()>0);
+
+			for (size_t k=0; k<support.size(); k++)
+			{
+				//return result on first element that work. basis functions must be continuous.
+				if (active_element_list[support[k]].contains(point))
+				{
+					return active_element_list[support[k]].evaluate(point, local_node_number[k]);
+				}
+			}
+			return 0.0;
+		};
+
+		///evaluate the gradient of the basis function at the specified point
+		gv::util::Point<dim,double> gradient(const gv::util::Point<dim,double>& point) const
+		{
+			assert(support.size()>0);
+
+			for (size_t k=0; k<support.size(); k++)
+			{
+				//return result on first element that work. gradients are not necessarily continuous.
+				//this method should only be called for points that are interior to a support element.
+				if (active_element_list[support[k]].contains(point))
+				{
+					return active_element_list[support[k]].gradient(point, local_node_number[k]);
+				}
+			}
+			return gv::util::Point<dim,double>(); //default constructor is all zeros
+		}
+	};
+}

@@ -2,8 +2,6 @@
 
 #include "util/point.hpp"
 
-#include <armadillo>
-
 namespace gv::mesh{
 	class Voxel {
 	public:

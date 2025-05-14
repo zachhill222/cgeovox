@@ -10,8 +10,12 @@
 namespace gv::util{
 	template <int dim=3>
 	class Box{
+	private:
+		Point<dim,double> _low;
+		Point<dim,double> _high;
+
 	public:
-		Box() {}
+		Box() _low(-1.0), _high(1.0) {}
 
 		Box(const Point<dim> &vertex1, const Point<dim> &vertex2){
 			_low = elmin(vertex1, vertex2);
@@ -183,9 +187,7 @@ namespace gv::util{
 			return ss.str();
 		}
 
-	private:
-		Point<dim,double> _low;
-		Point<dim,double> _high;
+	
 	};
 
 	//LHS scalar multiplication

@@ -1,10 +1,9 @@
 #pragma once
 
-#include "util/octree.hpp"
+#include "util/point_octree.hpp"
 #include "util/point.hpp"
 
 #include <vector>
-// #include <algorithm>
 #include <stdexcept>
 
 #include <sstream>
@@ -20,7 +19,7 @@ namespace gv::mesh
 	class HomoMesh
 	{
 	protected:
-		gv::util::PointOctree<3,double,32> _nodes;
+		gv::util::PointOctree<3,32> _nodes;
 		std::vector<size_t> _elem2node;
 		std::vector<size_t> _node2elem_start_idx; //each node belongs to an unknown number of elements. track where node2element begins for each node.
 		std::vector<size_t> _node2elem;
