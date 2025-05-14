@@ -38,7 +38,7 @@ void test_box()
 	// std::cout << "box:\n" << box.tostr() << std::endl;
 
 	// box *= 0.1;
-	std::cout << box.tostr() << std::endl;
+	std::cout << box << std::endl;
 	for (int i=0; i<std::pow(2,dim); i++){
 		std::cout << box.hexvertex(i) << std::endl;
 	}
@@ -52,7 +52,7 @@ void test_quaternion()
 	gv::util::Quaternion<double> p(1,2,0,0);
 	
 	gv::util::Quaternion<double> q;
-	gv::util::Point3 axis {0,0,1};
+	gv::util::Point3d axis {0,0,1};
 	q.setrotation(3.1415926/2,axis);
 
 	std::cout << "p= " << p << std::endl;
@@ -72,7 +72,7 @@ void test_octree(size_t N)
 	gv::util::Box<dim> bbox(Point_t {0,0,0}, Point_t {1,1,1});
 
 	//set up octree
-	gv::util::PointOctree<dim,double,32> octree(bbox);
+	gv::util::PointOctree<dim,32> octree(bbox);
 	octree.reserve(N);
 
 	//set up standard vector

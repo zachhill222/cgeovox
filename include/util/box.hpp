@@ -6,8 +6,15 @@
 #include <string>
 #include <sstream>
 #include <cmath>
+#include <iostream>
 
 namespace gv::util{
+	template <int dim>
+	class Box;
+
+	using Box3d = Box<3>;
+
+
 	template <int dim=3>
 	class Box{
 	private:
@@ -15,7 +22,7 @@ namespace gv::util{
 		Point<dim,double> _high;
 
 	public:
-		Box() _low(-1.0), _high(1.0) {}
+		Box() : _low(Point<dim,double>(-1.0)), _high(Point<dim,double>(1.0)) {}
 
 		Box(const Point<dim> &vertex1, const Point<dim> &vertex2){
 			_low = elmin(vertex1, vertex2);
@@ -38,6 +45,8 @@ namespace gv::util{
 			_low = other.low();
 			_high = other.high();
 		}
+
+		Box(const double low, const double high) : _low(Point<dim,double>(low)), _high(Point<dim,double>(high)) {} //Box<3>(-1,1) is [-1,1]^3
 
 
 		//////////////////////////
@@ -179,7 +188,7 @@ namespace gv::util{
 			return this;
 		}
 
-		std::string tostr() const{
+		std::string str() const{
 			std::stringstream ss;
 			for (int i=0; i<std::pow(2,dim); i++){
 				ss << i << ": " << operator[](i) << "\n";
@@ -215,6 +224,13 @@ namespace gv::util{
 		//return distance squared to specified point
 		if (box.contains(closest)) {return (closest-point).normSquared();}
 		return (support_point-point).normSquared();
+	}
+
+	//print to stream
+	template<int dim>
+	std::ostream& operator<<(std::ostream& os, const Box<dim>& box)
+	{
+		return os << "(" << box.low() << ") to (" << box.high() << ")";
 	}
 }
 

@@ -35,7 +35,7 @@ namespace gv::fem
 		{
 			Point_t local_coord     = (point-bbox.center())/bbox.sidelength();
 			Point_t basis_fun_coefs = reference_box.voxelvertex(local_node);
-
+			
 			double value = 0.125;
 			for (int k=0; k<dim; k++)  {value *= (1.0+basis_fun_coefs[k]*local_coord[k]);}
 			return value;

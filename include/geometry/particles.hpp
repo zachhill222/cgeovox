@@ -70,7 +70,7 @@ namespace gv::geometry{
 			gv::util::Point<3,double> localpoint {1,1,1};
 			for (int i=0; i<3; i++)
 				{
-					if (direction[i]<0)
+					if (rotated_direction[i]<0)
 					localpoint[i] = -1;
 				}
 			return toglobal(localpoint);

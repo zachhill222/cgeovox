@@ -1,0 +1,12 @@
+{
+	"folders":
+	[
+		{
+			"follow_symlinks": true,
+			"path": "include",
+			"folder_exclude_patterns": ["tests", "examples"],
+			"file_include_patterns": ["*.hpp", "*.cpp", "*.h", "*.c"],
+			"index_include_patterns": ["*.hpp", ".cpp", "*.h", "*.c", "*.vtk", "*.backup"]
+		}
+	]
+}

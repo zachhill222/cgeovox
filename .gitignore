@@ -4,3 +4,6 @@
 # Compiled Object files
 *.o
 *.obj
+
+# Sublime workspace
+*.sublime-workspace

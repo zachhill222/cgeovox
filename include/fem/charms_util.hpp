@@ -11,6 +11,8 @@
 
 #include <vector>
 #include <set>
+#include <algorithm>
+// #include <iterator>
 #include <cassert>
 
 #include "util/box.hpp"
@@ -18,54 +20,40 @@
 
 namespace gv::fem
 {
-	template<int dim>
-	int bool2number(const bool child[dim])
-	{
-		sibling_number = (int) child[dim-1];
-		for (int k=dim-1; k>=0; k--)
-		{
-			sibling_number += ((int) child[k]) + 2*sibling_number;
-		}
-		return sibling_number;
-	}
-
-
 	///Data type to store elements in an octree structure.
 	template<int dim>
 	class CharmsElement
 	{
 	public:
-		CharmsElement(const gv::util::Box<dim>& bbox) : parent(nullptr), depth(0), ID(0), bbox(bbox)
+		CharmsElement(const gv::util::Box<dim>& bbox) : parent(nullptr), depth(0), bbox(bbox), total_descendents(0) {}
+
+		CharmsElement(CharmsElement<dim>* parent, const int sibling_number) :
+			parent(parent),
+			depth(parent->depth+1),
+			sibling_number(sibling_number), 
+			bbox(parent->bbox.center(), parent->bbox[sibling_number])
 		{
-			for (int k=0; k<dim; k++) {idx[k]=0;}
-			
-			total_descendents = 0;
-			index = 0;
+			assert(parent!=nullptr);
+			assert(!parent->is_divided);
+			assert(sibling_number>-1);
+
+			//add parent basis functions to ancestor list
+			std::merge(parent->basis_a.begin(), parent->basis_a.end(),
+				parent->basis_s.begin(), parent->basis_s.end(),
+				std::inserter(this->basis_a, this->basis_a.begin()));
 		}
 
-		CharmsElement(const CharmsElement* parent, const bool child[dim]) : parent(parent), depth(parent->depth+1) {}
-		// {
-		// 	//set child number
-		// 	sibling_number = bool2number(child);
+		~CharmsElement()
+		{
+			if (is_divided)
+			{
+				for (int k=0; k<max_children; k++) {delete children[k];}
+			}
 
-		// 	//set idx
-		// 	for (int k=0; k<dim; k++)
-		// 	{
-		// 		idx[k] = 2*(parent->idx[k]) + (size_t) child[k];
-		// 	}
+			if (parent!=nullptr) {parent->increment_descendents(-max_children);}
 
-		// 	//set ID
-		// 	ID = (std::pow(2,dim*depth)-1)/(std::pow(2,dim)-1);
-
-		// 	//update parent
-		// 	parent->is_divided = false;
-
-
-		// 	//add parent basis functions to ancestor list
-		// 	std::merge(std::begin(parent->basis_a), std::end(parent->basis_a),
-		// 		std::begin(parent->basis_s), std::end(parent->basis_s),
-		// 		std::back_inserter(this->basis_a))
-		// }
+			delete this;
+		}
 
 		//basis function tracking.
 		std::set<size_t> basis_a; //basis functions on coarser levels
@@ -75,48 +63,30 @@ namespace gv::fem
 		virtual bool contains(const gv::util::Point<dim,double>& point)  {return bbox.contains(point);}
 
 		//method to test if the element intersects a bounding box (used in is_data_valid method for octree)
-		virtual bool intersects(const gv::util::Box<dim> &box)  {return bbox.insersects(box);}
+		virtual bool intersects(const gv::util::Box<dim> &box)  {return bbox.intersects(box);}
 
 		//tree structure
-		static const uint max_children = std::pow(2,dim);
-		CharmsElement* children[max_children] {nullptr};
-		const CharmsElement* parent;
-		const uint depth; //root is depth 0
+		static const int max_children = std::pow(2,dim);
+		CharmsElement<dim>* children[max_children] {nullptr};
+		CharmsElement<dim>* parent;
+		const int depth;
 		bool is_divided = false;
 		int sibling_number = -1;
-		size_t idx[dim];
 		gv::util::Box<dim> bbox; //extent of the element
-		size_t GlobalID; //each possible element has a unique ID. this is independent of the order of refinement.
 
 		//tree traversal logic
-		size_t total_descendents;
-		size_t index;
-	}
+		size_t total_descendents = 0;
 
-	//debug
-	template<int dim>
-	std::ostream& operator<<(std::ostream& os, const CharmsElement<dim>& elem)
-	{
-		std::string padding = "";
-		for (int k=0; k<depth; k++)
+		//increment total number of descendents
+		void increment_descendents(const int incr)
 		{
-			padding += "  ";
-			os      << "--";
+			total_descendents += incr;
+			assert(total_descendents>=0);
+			if (parent!=nullptr) {parent->increment_descendents(incr);}
 		}
+	};
 
 
-		os << padding << "|ID= " << elem.ID << "\n";
-		
-		os << padding << "|idx= ";
-		for (int k=0; k<dim; k++) {os << idx[k] << " ";}
-		os << padding << "\n";
-		
-		os << padding << "|depth= " << elem.depth << "\n";
-		os << padding << "|sibling_number= " << elem.sibling_number << "\n";
-		os << padding << "|is_divided= " << elem.is_divided << "\n";
-		os << padding << "basis_a= " << elem.basis_a << "\n";
-		os << padding << "basis_s= " << elem.basis_s << "\n";
-	}
 
 
 
@@ -128,99 +98,146 @@ namespace gv::fem
 	class CharmsActiveElements
 	{
 	public:
-		CharmsElementOctree() : root(gv::util::Box<dim>(gv::util::Point<dim,double>(0.0), gv::util::Point<dim,double>(1.0))) {}
-		CharmsElementOctree(const gv::util::Box<dim> &bbox) : root(bbox) {}
+		CharmsActiveElements() : root(new Element_t(gv::util::Box<dim>(0.0, 1.0))) {}
+		CharmsActiveElements(const gv::util::Box<dim>& bbox) : root(new Element_t(bbox)) {}
 
 		const gv::util::Box<dim>& bbox() const {return root->bbox;}
-	private:
-		const CharmsElement* root;
+		std::ostream& str(std::ostream& os) const {return recursive_str(os, root);}
+		void refine_at(const gv::util::Point<dim,double>& point) {divide(get_leaf(point));}
 
-		//setting the flag on each element is useful (e.g. tree traversal)
-		void set_all_flags(const int flag) const {recursive_set_all_flags(flag, root);}
-		void recursive_set_all_flags(const int flag, CharmsElement* elem) const
+	private:
+		using Element_t = CharmsElement<dim>;
+		Element_t* root;
+
+		//division
+		void divide(Element_t* elem)
 		{
 			assert(elem!=nullptr);
-			elem->flag = flag;
+			assert(!elem->is_divided);
+			for (int k=0; k<elem->max_children; k++)  {elem->children[k] = new Element_t(elem, k);}
+			
+			elem->increment_descendents(elem->max_children);
+			elem->is_divided = true;
+		}
 
+		//access elements
+		Element_t* get_leaf(const gv::util::Point<dim,double>& point)
+		{
+			return recursive_get_leaf(point, root);
+		}
+
+		Element_t* recursive_get_leaf(const gv::util::Point<dim,double>& point, Element_t* elem)
+		{
+			assert(elem->bbox.contains(point));
 			if (elem->is_divided)
 			{
 				for (int k=0; k<elem->max_children; k++)
 				{
-					recursive_set_all_flags(flag, elem->children[k]);
+					if (elem->children[k]->bbox.contains(point)) {return recursive_get_leaf(point, elem->children[k]);}
 				}
 			}
+			return elem;
 		}
 
-		//increment total number of descendents
-		void increment_descendents(const int incr, CharmsElement* elem) const
+		//print and debug
+		std::ostream& recursive_str(std::ostream& os, Element_t* elem) const
 		{
 			assert(elem!=nullptr);
-			assert(elem->total_descendents>=-incr);
-
-			elem->total_descendents += incr;
-			if (elem->parent!=nullptr) {increment_descendents(incr, elem->parent);}
+			os << *elem;
+			if (elem->is_divided)
+			{
+				for (int k=0; k<elem->max_children; k++)  {recursive_str(os, elem->children[k]);}
+			}
+			return os;
 		}
-
-		//get element by linear index
-		CharmsElement* operator[](const size_t idx)
-		{
-			assert(idx<root->total_descendents);
-			return recursive_find_element(idx, root, 0);
-		}
-		CharmsElement* recursive_find_element(const size_t idx, CharmsElement* elem, size_t accumulator)
-		{
-			assert(elem!=nullptr);
-			if (elem->index == idx) {return elem;}
-			for ()
-		}
-	}
+	};
 
 
 	///Basis function class for CHARMS method
-	template<typename ActiveElements_t>
-	class CharmsBasisFun
+	// template <int dim>
+	// class CharmsBasisFun
+	// {
+	// private:
+	// 	const ActiveElements_t& active_element_list;
+
+	// public:
+	// 	CharmsBasisFun(const ActiveElements_t& elements) : active_element_list(elements) {}
+
+	// 	std::vector<size_t> support; //elements which intersect the support of this basis function, on same level only
+	// 	std::vector<int> local_node_number; //which local basis function this function corresponds to on each element
+	// 	int depth;
+
+	// 	///evaluate the basis function at the specified point
+	// 	double evaluate(const gv::util::Point<dim,double>& point) const
+	// 	{
+	// 		assert(support.size()>0);
+
+	// 		for (size_t k=0; k<support.size(); k++)
+	// 		{
+	// 			//return result on first element that work. basis functions must be continuous.
+	// 			if (active_element_list[support[k]].contains(point))
+	// 			{
+	// 				return active_element_list[support[k]].evaluate(point, local_node_number[k]);
+	// 			}
+	// 		}
+	// 		return 0.0;
+	// 	};
+
+	// 	///evaluate the gradient of the basis function at the specified point
+	// 	gv::util::Point<dim,double> gradient(const gv::util::Point<dim,double>& point) const
+	// 	{
+	// 		assert(support.size()>0);
+
+	// 		for (size_t k=0; k<support.size(); k++)
+	// 		{
+	// 			//return result on first element that work. gradients are not necessarily continuous.
+	// 			//this method should only be called for points that are interior to a support element.
+	// 			if (active_element_list[support[k]].contains(point))
+	// 			{
+	// 				return active_element_list[support[k]].gradient(point, local_node_number[k]);
+	// 			}
+	// 		}
+	// 		return gv::util::Point<dim,double>(); //default constructor is all zeros
+	// 	}
+	// };
+
+
+
+
+	//debug
+	template <typename T>
+	std::ostream& operator<<(std::ostream& os, const std::set<T>& s)
 	{
-	private:
-		const ActiveElements_t& active_element_list;
+		os << "{";
+		bool o{};
+		for (const auto&e : s)
+			os << (o ? ", " : (o=1, " ")) << e;
+		return os << " } [" << s.size() << "]";
+	}
 
-	public:
-		CharmsBasisFun(const ActiveElements_t& elements) : active_element_list(elements) {}
-
-		std::vector<size_t> support; //elements which intersect the support of this basis function, on same level only
-		std::vector<int> local_node_number; //which local basis function this function corresponds to on each element
-		int depth;
-
-		///evaluate the basis function at the specified point
-		double evaluate(const gv::util::Point<dim,double>& point) const
+	template<int dim>
+	std::ostream& operator<<(std::ostream& os, const CharmsElement<dim>& elem)
+	{
+		std::string pad = "";
+		for (int k=0; k<elem.depth; k++)
 		{
-			assert(support.size()>0);
-
-			for (size_t k=0; k<support.size(); k++)
-			{
-				//return result on first element that work. basis functions must be continuous.
-				if (active_element_list[support[k]].contains(point))
-				{
-					return active_element_list[support[k]].evaluate(point, local_node_number[k]);
-				}
-			}
-			return 0.0;
-		};
-
-		///evaluate the gradient of the basis function at the specified point
-		gv::util::Point<dim,double> gradient(const gv::util::Point<dim,double>& point) const
-		{
-			assert(support.size()>0);
-
-			for (size_t k=0; k<support.size(); k++)
-			{
-				//return result on first element that work. gradients are not necessarily continuous.
-				//this method should only be called for points that are interior to a support element.
-				if (active_element_list[support[k]].contains(point))
-				{
-					return active_element_list[support[k]].gradient(point, local_node_number[k]);
-				}
-			}
-			return gv::util::Point<dim,double>(); //default constructor is all zeros
+			pad += "    ";
+			os  << "----";
 		}
-	};
+		
+		os << "|depth= " << elem.depth << "\n";
+		os << pad << "|total_descendents= " << elem.total_descendents << "\n";
+		os << pad << "|sibling_number= " << elem.sibling_number << "\n";
+		os << pad << "|bbox= " << elem.bbox << "\n";
+		os << pad << "|is_divided= " << elem.is_divided << "\n";
+		os << pad << "|basis_a= " << elem.basis_a << "\n";
+		os << pad << "|basis_s= " << elem.basis_s << "\n";
+		return os << "\n";
+	}
+
+	template<int dim>
+	std::ostream& operator<<(std::ostream& os, const CharmsActiveElements<dim>& elem_octree)
+	{
+		return elem_octree.str(os);
+	}
 }

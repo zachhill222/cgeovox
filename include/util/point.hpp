@@ -9,7 +9,7 @@ namespace gv::util {
 	//typedefs
 	template <int dim, typename T>
 	class Point;
-	using Point3 = Point<3,double>;
+	using Point3d = Point<3,double>;
 
 	///Class for points in space.
 	/** Points are partially ordered by using the positive quadrant/octant cone. The data type T must be totally ordered, for example double or float.
