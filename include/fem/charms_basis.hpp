@@ -9,7 +9,7 @@
 //Authors: Eitan Grinspun, Petr Krysl, Peter Schroder
 
 
-#include "util/points.hpp"
+#include "util/point.hpp"
 #include "util/box.hpp"
 #include "util/octree.hpp"
 
@@ -95,7 +95,7 @@ namespace gv::fem
 		///track natural support elements and local node numbers. the depth of these elements and the current basis function
 		///in the hierarchy are equal. This basis function corresponds to a local node number on each element, which must be tracked.
 		std::vector<const Element_t*> support;
-		std::vector<const size_t> local_node_numbers;
+		std::vector<size_t> local_node_numbers;
 	};
 
 
