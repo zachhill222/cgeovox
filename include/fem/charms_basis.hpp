@@ -8,7 +8,6 @@
 //Paper: "CHARMS: A Simple Framework for Adaptive Simulation" (2002)
 //Authors: Eitan Grinspun, Petr Krysl, Peter Schroder
 
-
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "util/octree.hpp"
@@ -25,15 +24,15 @@ namespace gv::fem
 	public:
 		using Point_t = gv::util::Point<dim,double>;
 
-		CharmsBasisFun(const Point_t& coord, const int depth) : v_coord(coord), depth(depth) {}
+		CharmsBasisFun(const Point_t& coord, const int depth) : coord(coord), depth(depth) {}
 		
-		const Point_t v_coord; //coordinate of vertex associated with this basis function
+		const Point_t coord; //coordinate of vertex associated with this basis function
 		const int depth; //depth that this basis function occurs at in the mesh (i.e., refinement level)
 
 		//logic for determining if two basis functions are equal. There can only be one basis function at any vertex.
 		//templated to avoid re-implementing it in every class that inherits from this one.
 		template<typename Basis_t>
-		bool operator==(const Basis_t& other) const {return v_coord==other.v_coord;}
+		bool operator==(const Basis_t& other) const {return coord==other.coord;}
 
 		///evaluation shortcut. the following methods must exist:
 		///bool Element_t::contains(const gv::util::Point<dim,double>&) const 

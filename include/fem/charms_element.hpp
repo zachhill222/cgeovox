@@ -70,9 +70,9 @@ namespace gv::fem
 	class CharmsElementOctree : public gv::util::BasicOctree<Element_t, dim, true, 16>
 	{
 	public:
-		CharmsElementOctree() : gv::util::BasicOctree<Element_t, dim, true, 16>() {}
+		CharmsElementOctree() : gv::util::BasicOctree<Element_t*, dim, true, 16>() {}
 		CharmsElementOctree(const gv::util::Box<dim>& bbox) : gv::util::BasicOctree<Element_t, dim, true, 16>(bbox) {}
 	private:
-		bool is_data_valid(const gv::util::Box<dim>& box, const Element_t& data) const override {return data.intersects(box);}
+		bool is_data_valid(const gv::util::Box<dim>& box, const Element_t& data) const override {return data->intersects(box);}
 	};
 }

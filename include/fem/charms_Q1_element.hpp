@@ -28,10 +28,11 @@ namespace gv::fem
 
 	class Q1_3D_element : public CharmsElement<3,8,8,Q1_3D_basis>
 	{
+	public:
 		using Basis_t = Q1_3D_basis;
 
-		Q1_3D_element(const Box_t& box) : CharmsElement<3,8,8>(), parent(nullptr), bbox(box) {} //for constructing the root element
-		Q1_3D_element(Q1_3D_element* const parent, int idx) : CharmsElement<3,8,8>(parent),
+		Q1_3D_element(const Box_t& box) : CharmsElement<3,8,8,Q1_3D_basis>(), parent(nullptr), bbox(box) {} //for constructing the root element
+		Q1_3D_element(Q1_3D_element* const parent, int idx) : CharmsElement<3,8,8,Q1_3D_basis>(parent),
 			parent(parent), bbox(parent->bbox.voxelvertex(idx), parent->bbox.center()) {}
 		~Q1_3D_element()
 		{
@@ -65,15 +66,15 @@ namespace gv::fem
 
 		void activate(Basis_t* basis)
 		{
-			assert(contains(basis.coord));
+			assert(contains(basis->coord));
 			assert(depth == basis->depth);
 
 			//find local node number
 			for (size_t n=0; n<n_nodes; n++)
 			{
-				if (basis->coord == bbox->voxelvertex(n))
+				if (basis->coord == bbox.voxelvertex(n))
 				{
-					basis.add_support_element(this,n);
+					basis->add_support_element(this,n);
 					basis_same.push_back(basis);
 					break;
 				}
@@ -114,26 +115,62 @@ namespace gv::fem
 		for (int i=0; i<n_children; i++) {children[i] = new Q1_3D_element(this, i);}
 	}
 
-	///print Q1 element
-	std::ostream& operator<<(std::ostream& os, const Q1_3D_element& elem)
+	
+
+
+	////////// Logic for handling all elements ///////////////
+	class CharmsQ1_3D_active_elements
 	{
-		std::string pad = "";
-		for (int k=0; k<elem.depth; k++)
-		{
-			pad += "    ";
-			os  << "----";
-		}
+	public:
 		
-		os << "|depth= " << elem.depth << "\n";
-		os << pad << "|is_divided= " << elem.is_divided << "\n";
-		os << pad << "|bbox= " << elem.bbox << "\n";
-
-		os << pad << "|global_nodes= [" << elem.global_nodes[0];
-		for (int i=1; i<elem.n_nodes; i++) {os << ", " << elem.global_nodes[i];}
-		os << "]\n";
-
-		os << pad << "|basis_a= " << elem.basis_a << "\n";
-		os << pad << "|basis_s= " << elem.basis_s << "\n";
-		return os << "\n";
 	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	///print Q1 element
+	// std::ostream& operator<<(std::ostream& os, const Q1_3D_element& elem)
+	// {
+	// 	std::string pad = "";
+	// 	for (int k=0; k<elem.depth; k++)
+	// 	{
+	// 		pad += "    ";
+	// 		os  << "----";
+	// 	}
+		
+	// 	os << "|depth= " << elem.depth << "\n";
+	// 	os << pad << "|is_divided= " << elem.is_divided << "\n";
+	// 	os << pad << "|bbox= " << elem.bbox << "\n";
+
+	// 	os << pad << "|global_nodes= [" << elem.global_nodes[0];
+	// 	for (int i=1; i<elem.n_nodes; i++) {os << ", " << elem.global_nodes[i];}
+	// 	os << "]\n";
+
+	// 	os << pad << "|basis_ancestor= " << elem.basis_ancestor << "\n";
+	// 	os << pad << "|basis_same= " << elem.basis_same << "\n";
+	// 	return os << "\n";
+	// }
 }

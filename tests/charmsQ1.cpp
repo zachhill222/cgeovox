@@ -1,22 +1,17 @@
 #include "util/point.hpp"
-#include "fem/charms_basis.hpp"
-#include "fem/charms_element.hpp"
+#include "fem/charms_Q1_mesh.hpp"
 #include <iostream>
 
 int main(int argc, char const *argv[])
 {
 	
-	// gv::fem::CharmsMesh<3> elements;
-	// elements.refine_at(elements.bbox().center());
-	// gv::util::Point<3,double> point(0.25);
-	// elements.refine_at(point);
-	// std::cout << elements;
+	gv::fem::CharmsQ1_3DMesh mesh;
+	mesh.divide(mesh.active_elements[0]);
+	mesh.divide(mesh.active_elements[1]);
+	mesh.divide(mesh.active_elements[2]);
+	mesh.divide(mesh.active_elements[8]);
 
-	// std::cout << "\n=============================\n";
-	// for (size_t k=0; k<elements.size(); k++)
-	// {
-	// 	std::cout << "\nidx= " << k << "\n" << elements[k] << std::endl;
-	// }
+	mesh.save_as("test_mesh.vtk");
 
 
 	return 0;
