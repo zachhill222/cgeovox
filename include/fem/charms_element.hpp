@@ -11,6 +11,7 @@
 #include "fem/charms_basis.hpp"
 #include "util/point.hpp"
 #include "util/box.hpp"
+#include "util/point_octree.hpp"
 
 #include <vector>
 #include <array>
@@ -20,17 +21,18 @@
 namespace gv::fem
 {	
 	////Base class. assuming that the basis is a lagrange type
-	template<int dim, int nodes_per_element, int max_children, typename Basis_t>
+	template<typename settings, typename Basis_List_t>
 	class CharmsElement
 	{
 	public:
 		using Point_t = gv::util::Point<dim,double>;
 		using Box_t = gv::util::Box<dim>;
+		using Vertex_List_t = gv::util::PointOctree<3>;
 
-
-		CharmsElement() : depth(0) {}
+		CharmsElement(const Vertex_List_t* vertices, const Basis_List_t* basis) : vertices(vertices), basis(basis), depth(0) {}
+		
 		template<typename Element_t> //Element_t must be a derived class
-		CharmsElement(const Element_t* const parent) : depth(1+parent->depth)
+		CharmsElement(const Element_t* const parent) : vertices(parent->vertices), basis(parent->basis), depth(1+parent->depth)
 		{
 
 			//pass basis functions from parent to this element
@@ -46,8 +48,12 @@ namespace gv::fem
 		}
 
 		//constant information
-		static const int n_nodes = nodes_per_element;
-		static const int n_children = max_children;
+		static const int n_vertices = settings.nodes_per_element;
+		static const int n_children = settings.max_children;
+		
+		const Vertex_List_t* vertices; //track and update vertex information
+		const Basis_List_t* basis;     //track and update basis function information
+		size_t vertex_idx[n_vertices]; //track mesh information for this element
 
 		//refinement level
 		const int depth;
@@ -56,8 +62,8 @@ namespace gv::fem
 		bool is_divided = false;
 
 		//basis function tracking. the two basis sets are always disjoint
-		std::vector<Basis_t*> basis_ancestor; //track basis functions in coarser levels that this element is contained in the support of
-		std::vector<Basis_t*> basis_same; //track the basis function on the same level that this element is in the natural support of
+		std::vector<size_t> basis_ancestor; //track basis functions in coarser levels that this element is contained in the support of
+		std::vector<size_t> basis_same; //track the basis function on the same level that this element is in the natural support of
 
 		//methods that must be overridden in each derived element class
 		virtual bool contains(const Point_t& location) const {return false;} //determine if the point is contained in this element

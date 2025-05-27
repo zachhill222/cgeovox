@@ -28,6 +28,7 @@ namespace gv::fem
 		
 		const Point_t coord; //coordinate of vertex associated with this basis function
 		const int depth; //depth that this basis function occurs at in the mesh (i.e., refinement level)
+		bool is_active = false; //create all possible basis functions when dividing elements. only act
 
 		//logic for determining if two basis functions are equal. There can only be one basis function at any vertex.
 		//templated to avoid re-implementing it in every class that inherits from this one.
