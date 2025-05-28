@@ -350,6 +350,15 @@ namespace gv::util
 			return 1;
 		}
 
+		int push_back(const Data_t &val, size_t& idx)
+		{
+			int flag = push_back(val);
+			if (flag == 1) {idx = size()-1;} //value was added to end of the container
+			else if (flag == 0) {idx = find(val);} //value was already in the container
+			else {idx = (size_t) -1;} //there was an error
+			return flag;
+		}
+
 		void print() const {print(root,0);}
 
 		inline const Data_t& operator[](const size_t &idx) const {return _data[idx];}

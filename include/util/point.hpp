@@ -28,9 +28,15 @@ namespace gv::util {
 			}
 		}
 	
-		Point (const Point &other)
+		Point (const Point<dim,T> &other)
 		{
 			for (int i=0; i<dim; i++) {_data[i] = other[i];}
+		}
+
+		template <typename U>
+		Point (const Point<dim,U> &other)
+		{
+			for (int i=0; i<dim; i++) {_data[i] = (T) other[i];}
 		}
 
 		Point (const T val)
