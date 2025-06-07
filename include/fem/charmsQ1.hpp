@@ -16,7 +16,6 @@
 #include <vector>
 #include <algorithm>
 #include <cassert>
-// #include <bits/stdc++.h> //shared pointers
 
 #include <sstream>
 #include <iostream>
@@ -132,11 +131,11 @@ namespace gv::fem
 				for (size_t i=0; i<octree_nodes[idx]->cursor; i++) //check which elements contain the specified coordinate
 				{
 					size_t elem_idx = octree_nodes[idx]->data_idx[i];
-					std::cout << "\telement " << elem_idx << " contains " << coord << " : " << _data[elem_idx].contains(coord) << std::endl;
+					// std::cout << "\telement " << elem_idx << " contains " << coord << " : " << _data[elem_idx].contains(coord) << std::endl;
 					if (_data[elem_idx].contains(coord)) {result.push_back(elem_idx);}
 				}
 			}
-			
+			// assert(result.size()>0); //if the coordinate is in the domain, then it is contained in at least one element
 			return result;
 		}
 	private:
@@ -182,11 +181,16 @@ namespace gv::fem
 		std::vector<size_t> get_basis_functions_with_coordinate(const gv::util::Point<3,double> &coord) const
 		{
 			std::vector<size_t> result;
-			const auto* octree_node = getnode(coord); //get node of octree that must contain any elements containing the specified coordinate
-			for (size_t i=0; i<octree_node->cursor; i++) //check which elements contain the specified coordinate
+			std::vector<const Node*> octree_nodes = getnodes(coord); //get nodes of octree that must contain any elements containing the specified coordinate
+			
+			for (size_t idx=0; idx<octree_nodes.size(); idx++)
 			{
-				size_t idx = octree_node->data_idx[i];
-				if (_data[idx].coord()==coord) {result.push_back(idx);}
+				for (size_t i=0; i<octree_nodes[idx]->cursor; i++) //check which elements contain the specified coordinate
+				{
+					size_t basis_idx = octree_nodes[idx]->data_idx[i];
+					// std::cout << "\telement " << basis_idx << " contains " << coord << " : " << _data[basis_idx].contains(coord) << std::endl;
+					if (_data[basis_idx].coord()==coord) {result.push_back(basis_idx);}
+				}
 			}
 			return result;
 		}
@@ -266,6 +270,9 @@ namespace gv::fem
 	//refine_element implementation. does not create new basis functions
 	void CharmsQ1Mesh::refine_element(const size_t elem_idx)
 	{
+
+		std::cout << "\n\n=== refine element: " << elem_idx << " ===" << std::endl;
+
 		assert(elem_idx<nElems()); //the element index must have a valid index
 		assert(!elements[elem_idx].is_refined); //the specified element must not have been previously refined
 
@@ -306,12 +313,16 @@ namespace gv::fem
 	//hierarchical basis refinement.
 	void CharmsQ1Mesh::refine_basis(const size_t basis_idx)
 	{
-		std::cout << "\nrefine: " << basis_idx << std::endl;
+		std::cout << "\n\n=== refine basis: " << basis_idx << " ===" << std::endl;
 
 		assert(basis[basis_idx].is_active); //only refine active basis functions?
 		assert(!basis[basis_idx].is_refined);
-		basis[basis_idx].is_active = true; //mark the basis function as active
+
+		//mark basis as refined
+		basis[basis_idx].is_active = true; //mark the basis function as active?
 		basis[basis_idx].is_refined = true;
+		
+		//subdivide support elements if necessary
 		for (size_t idx=0; idx<basis[basis_idx].support.size(); idx++) //refine support elements if needed
 		{
 			size_t elem_idx = basis[basis_idx].support[idx];
@@ -338,6 +349,17 @@ namespace gv::fem
 						BasisFunction_t fun(&vertices, v_idx, basis[basis_idx].depth+1); //depth is not strictly needed. used for comparing basis functions.
 						fun.is_active = true;
 
+						//check if basis function already exists
+						size_t existing_basis_idx = basis.find(fun);
+						if (existing_basis_idx < nBasis())
+						{
+							// TODO: make activation routine
+							std::cout << "\nbasis " << existing_basis_idx << " already exists" << std::endl;
+							assert(basis[existing_basis_idx].is_active); //keep until activation routine is made
+							continue;
+						}
+
+
 						std::cout << "\nnew basis index= " << nBasis() << std::endl;
 						std::cout << "basis coord= " << fun.coord() << std::endl;
 						std::cout << "basis depth= " << fun.depth << std::endl;
@@ -347,6 +369,7 @@ namespace gv::fem
 						for (size_t idx=0; idx<elem_list.size(); idx++)
 						{
 							size_t elem_idx = elem_list[idx];
+							std::cout << "\t\telem_idx= " << elem_idx << " depth= " << elements[elem_idx].depth << std::endl;
 							if (elements[elem_idx].depth==fun.depth) {fun.support.push_back(elem_idx);}
 						}
 
@@ -357,7 +380,19 @@ namespace gv::fem
 						std::cout << "support= [ ";
 						for (size_t idx=0; idx<fun.support.size(); idx++) {std::cout << fun.support[idx] << " ";}
 						std::cout << "]" << std::endl;
-					
+						
+						if (fun.support.size()==0) //the support should never be 0 here. do linear search. TODO: remove this.
+						{
+							for (size_t idx=0; idx<nElems(); idx++)
+							{
+								if (elements[idx].depth == fun.depth and elements[idx].contains(fun.coord())) {fun.support.push_back(idx);}
+							}
+							std::cout << "re-check support (linear search)\n";
+							std::cout << "support= [ ";
+							for (size_t idx=0; idx<fun.support.size(); idx++) {std::cout << fun.support[idx] << " ";}
+							std::cout << "]" << std::endl;
+						}
+
 						assert(fun.support.size()>1); //can only be 1 if fun.coord() is the corner of the coarsest mesh. this cannot happen in a hierarchical refinement.
 
 						//add basis function to list
@@ -482,13 +517,14 @@ namespace gv::fem
 
 
 
-		//MESH INFORMATION AT EACH VERTEX (#basis_total, #basis_active)
+		//MESH INFORMATION AT EACH VERTEX (#basis_total, active_basis_index, active_basis_depth)
 		buffer << "POINT_DATA " << nNodes() << "\n";
-		buffer << "FIELD mesh_vertex_info 2\n";
+		buffer << "FIELD mesh_vertex_info 3\n";
 
 		//loop through vertices to collect info
 		size_t basis_total_size[nNodes()] {0};
 		size_t active_basis_index[nNodes()] {0};
+		size_t active_basis_depth[nNodes()] {0};
 		for (size_t i=0; i<nNodes(); i++)
 		{
 			std::vector<size_t> basis_total = basis.get_basis_functions_with_coordinate(vertices[i]);
@@ -500,10 +536,15 @@ namespace gv::fem
 				{
 					count++;
 					active_basis_index[i] = basis_total[idx];
+					active_basis_depth[i] = basis[basis_total[idx]].depth;
 				}
 			}
 			assert(count<=1);
-			if (count==0) {active_basis_index[i] = (size_t) -1;}
+			if (count==0)
+			{
+				active_basis_index[i] = (size_t) -1;
+				active_basis_depth[i] = (size_t) -1;
+			}
 		}
 
 		//VERTEX TOTAL NUMBER OF CONSTRUCTED BASIS FUNCTIONS
@@ -513,11 +554,22 @@ namespace gv::fem
 		os << buffer.rdbuf();
 		buffer.str("");
 
-		//VERTEX TOTAL NUMBER OF CONSTRUCTED BASIS FUNCTIONS
+		//VERTEX ACTIVE BASIS INDEX
 		buffer << "active_basis_index 1 " << nNodes() << " integer\n";
 		for (size_t i=0; i<nNodes(); i++)
 		{
 			if (active_basis_index[i]<nBasis()) {buffer << active_basis_index[i] << " ";}
+			else {buffer << -1 << " ";}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//VERTEX ACTIVE BASIS DEPTH
+		buffer << "active_basis_depth 1 " << nNodes() << " integer\n";
+		for (size_t i=0; i<nNodes(); i++)
+		{
+			if (active_basis_depth[i]<nBasis()) {buffer << active_basis_depth[i] << " ";}
 			else {buffer << -1 << " ";}
 		}
 		buffer << "\n\n";

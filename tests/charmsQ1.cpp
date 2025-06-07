@@ -22,6 +22,7 @@ int main(int argc, char const *argv[])
 	mesh.refine_basis(32);
 	mesh.refine_basis(65);
 	mesh.refine_basis(11);
+	mesh.refine_basis(7);
 	// for (int k=0; k<2; k++) {mesh.refine_basis(mesh.nBasis()-1);}
 	std::cout << "refined mesh" << std::endl;
 

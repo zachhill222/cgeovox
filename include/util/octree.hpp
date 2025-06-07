@@ -18,15 +18,15 @@ namespace gv::util
 		//tree logic
 		static const int n_children = std::pow(2,dim);
 		bool is_divided = false;
-		const _OctreeNode<Data_t, dim, n_data>* parent = NULL;
-		_OctreeNode<Data_t, dim, n_data>* children[n_children] {NULL};
+		const _OctreeNode<Data_t, dim, n_data>* parent = nullptr;
+		_OctreeNode<Data_t, dim, n_data>* children[n_children] {nullptr};
 
 		//geometry logic
 		const Box<dim> bbox;
 
 		//data logic
 		size_t cursor = 0;
-		size_t* data_idx = NULL; //don't default to data_idx[n_data] so that data in non-leaf nodes can be deleted.
+		size_t* data_idx = nullptr; //don't default to data_idx[n_data] so that data in non-leaf nodes can be deleted.
 
 		//constructor
 		_OctreeNode(const _OctreeNode<Data_t,dim,n_data>* parent, const Point<dim,double> &v1, const Point<dim,double> &v2) : parent(parent), bbox(Box<dim>(v1,v2))
@@ -37,7 +37,7 @@ namespace gv::util
 		//destructor
 		~_OctreeNode()
 		{
-			if (data_idx!=NULL) {delete[] data_idx;}
+			if (data_idx!=nullptr) {delete[] data_idx;}
 			if (is_divided)
 			{
 				for (int i=0; i<n_children; i++) {delete children[i];}
@@ -61,7 +61,7 @@ namespace gv::util
 		typedef _OctreeNode<Data_t,dim,n_data> Node;
 
 		//tree logic
-		Node* root = NULL;
+		Node* root = nullptr;
 		std::vector<const Node*> _nodelist; //this may be bad. using it as a method to go through all nodes. TODO: implement a Node* next_node(Node*) method.
 		
 
@@ -127,7 +127,7 @@ namespace gv::util
 		void divide(Node* node)
 		{
 			//check if division is allowed
-			if (node==NULL){return;}
+			if (node==nullptr){return;}
 			if (node->is_divided){return;}
 
 			//call appropriate division based on data
@@ -136,7 +136,7 @@ namespace gv::util
 
 			//free memory
 			delete[] node->data_idx;
-			node->data_idx = NULL;
+			node->data_idx = nullptr;
 
 			//set node to divided
 			node->is_divided = true;
@@ -221,7 +221,7 @@ namespace gv::util
 		//PRINT
 		void print(Node* node, int depth) const
 		{
-			if (node->children[0]==NULL)
+			if (node->children[0]==nullptr)
 			{
 				for (int k=0; k<depth; k++){std::cout << " - ";}
 				for (size_t j=0; j<node->cursor; j++) {std::cout << node->data_idx[j] << " ";}
@@ -236,7 +236,7 @@ namespace gv::util
 		//TREE TRAVERSAL
 		const Node* getnode( const Node* node, const Point<dim,double> &point ) const
 		{
-			if (node->children[0]==NULL)
+			if (node->children[0]==nullptr)
 			{
 				//in a leaf node
 				if (node->bbox.contains(point)) {return node;}
@@ -249,19 +249,19 @@ namespace gv::util
 				}
 			}
 
-			return NULL;
+			return nullptr;
 		}
 
 		const Node* getnode( const Point<dim,double> &point ) const
 		{
 			if (root->bbox.contains(point)) {return getnode(root, point);}
-			return NULL;
+			return nullptr;
 		}
 
 		//get all leaves that contain the specified point
 		void getnodes(const Node* node, const Point<dim,double> &point, std::vector<const Node*> &result) const
 		{
-			if (node->children[0]==NULL)
+			if (node->children[0]==nullptr)
 			{
 				//in a leaf node
 				if (node->bbox.contains(point)) {result.push_back(node);}
@@ -285,13 +285,13 @@ namespace gv::util
 	public:
 		BasicOctree() 
 		{
-			root = new Node(NULL, Point<dim,double>{0,0,0}, Point<dim,double> {1,1,1});
+			root = new Node(nullptr, Point<dim,double>{0,0,0}, Point<dim,double> {1,1,1});
 			_nodelist.push_back(root);
 		}
 
 		BasicOctree(const Box<dim> &bbox)
 		{
-			root = new Node(NULL, bbox.low(), bbox.high());
+			root = new Node(nullptr, bbox.low(), bbox.high());
 			_nodelist.push_back(root);
 		}
 
@@ -306,7 +306,7 @@ namespace gv::util
 			delete root;
 
 			//initialize new tree
-			root = new Node(NULL, bbox.low(), bbox.high());
+			root = new Node(nullptr, bbox.low(), bbox.high());
 
 			//copy temporary data and clear current data
 			std::vector<Data_t> old_data_copy = _data;
