@@ -258,6 +258,29 @@ namespace gv::util
 			return NULL;
 		}
 
+		//get all leaves that contain the specified point
+		void getnodes(const Node* node, const Point<dim,double> &point, std::vector<const Node*> &result) const
+		{
+			if (node->children[0]==NULL)
+			{
+				//in a leaf node
+				if (node->bbox.contains(point)) {result.push_back(node);}
+			}
+			else
+			{
+				for (int i=0; i<n_children; i++)
+				{
+					if (node->children[i]->bbox.contains(point)) {getnodes(node->children[i], point, result);}
+				}
+			}
+		}
+
+		std::vector<const Node*> getnodes(const Point<dim,double> &point) const
+		{
+			std::vector<const Node*> result;
+			if (root->bbox.contains(point)) {getnodes(root, point, result);}
+			return result;
+		}
 	
 	public:
 		BasicOctree() 
@@ -362,6 +385,7 @@ namespace gv::util
 		void print() const {print(root,0);}
 
 		inline const Data_t& operator[](const size_t &idx) const {return _data[idx];}
+		inline Data_t& operator[](const size_t &idx) {return _data[idx];} //use with caution as changing the data could invalidate the octree struture
 		inline size_t size() const {return _data.size();}
 		inline size_t capacity() const {return _data.capacity();}
 		inline void reserve(size_t size){_data.reserve(size);}

@@ -27,6 +27,16 @@ namespace gv::util {
 				i++;
 			}
 		}
+
+		template <typename U>
+		Point (std::initializer_list<U> init)
+		{
+			int i=0;
+			for (U coord : init){
+				_data[i] = (T) coord;
+				i++;
+			}
+		}
 	
 		Point (const Point<dim,T> &other)
 		{
@@ -43,6 +53,8 @@ namespace gv::util {
 		{
 			for (int i=0; i<dim; i++) {_data[i] = val;}
 		}
+
+		
 
 		T& operator[](const int idx) {return _data[idx];}
 		const T&  operator[](const int idx) const {return _data[idx];}
