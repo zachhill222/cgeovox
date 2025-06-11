@@ -1,3 +1,4 @@
+#include "util/point_octree.hpp"
 #include "geometry/assembly.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/Q1.hpp"

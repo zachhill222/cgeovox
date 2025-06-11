@@ -117,10 +117,10 @@ namespace gv::fem
 	};
 
 	//OCTREE BASED STORAGE CONTAINER FOR A LIST OF ELEMENTS
-	class ElementQ1Octree : public gv::util::BasicOctree<ElementQ1, 3, false, 16>
+	class ElementQ1Octree : public gv::util::BasicOctree<ElementQ1, 3, true, 16>
 	{
 	public:
-		ElementQ1Octree(const gv::util::Box<3> &domain) : gv::util::BasicOctree<ElementQ1, 3, false, 16>(domain) {}
+		ElementQ1Octree(const gv::util::Box<3> &domain) : gv::util::BasicOctree<ElementQ1, 3, true, 16>(domain) {}
 		std::vector<size_t> get_elements_containing_coordinate(const gv::util::Point<3,double> &coord) const
 		{
 			std::vector<size_t> result;
@@ -314,6 +314,9 @@ namespace gv::fem
 	void CharmsQ1Mesh::refine_basis(const size_t basis_idx)
 	{
 		std::cout << "\n\n=== refine basis: " << basis_idx << " ===" << std::endl;
+		std::cout << "\tsupport= [ ";
+		for (size_t idx=0; idx<basis[basis_idx].support.size(); idx++) {std::cout << basis[basis_idx].support[idx] << " ";}
+		std::cout << "]" << std::endl;
 
 		assert(basis[basis_idx].is_active); //only refine active basis functions?
 		assert(!basis[basis_idx].is_refined);
@@ -381,17 +384,17 @@ namespace gv::fem
 						for (size_t idx=0; idx<fun.support.size(); idx++) {std::cout << fun.support[idx] << " ";}
 						std::cout << "]" << std::endl;
 						
-						if (fun.support.size()==0) //the support should never be 0 here. do linear search. TODO: remove this.
-						{
-							for (size_t idx=0; idx<nElems(); idx++)
-							{
-								if (elements[idx].depth == fun.depth and elements[idx].contains(fun.coord())) {fun.support.push_back(idx);}
-							}
-							std::cout << "re-check support (linear search)\n";
-							std::cout << "support= [ ";
-							for (size_t idx=0; idx<fun.support.size(); idx++) {std::cout << fun.support[idx] << " ";}
-							std::cout << "]" << std::endl;
-						}
+						// if (fun.support.size()==0) //the support should never be 0 here. do linear search. TODO: remove this.
+						// {
+						// 	for (size_t idx=0; idx<nElems(); idx++)
+						// 	{
+						// 		if (elements[idx].depth == fun.depth and elements[idx].contains(fun.coord())) {fun.support.push_back(idx);}
+						// 	}
+						// 	std::cout << "re-check support (linear search)\n";
+						// 	std::cout << "support= [ ";
+						// 	for (size_t idx=0; idx<fun.support.size(); idx++) {std::cout << fun.support[idx] << " ";}
+						// 	std::cout << "]" << std::endl;
+						// }
 
 						assert(fun.support.size()>1); //can only be 1 if fun.coord() is the corner of the coarsest mesh. this cannot happen in a hierarchical refinement.
 

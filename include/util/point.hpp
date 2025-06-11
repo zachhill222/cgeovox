@@ -6,11 +6,6 @@
 #include <limits>
 
 namespace gv::util {
-	//typedefs
-	template <int dim, typename T>
-	class Point;
-	using Point3d = Point<3,double>;
-
 	///Class for points in space.
 	/** Points are partially ordered by using the positive quadrant/octant cone. The data type T must be totally ordered, for example double or float.
 	 * Note that the initialization Point p {1,2,3} gives p the type Point<3,int> while the initialization Point p {1.0, 2.0, 3.0} give p the type Point<3,double>.*/
@@ -53,6 +48,17 @@ namespace gv::util {
 		{
 			for (int i=0; i<dim; i++) {_data[i] = val;}
 		}
+
+		//move assignment
+		// Point& operator=( Point&& other)
+		// {
+		// 	if (this != &other)
+		// 	{
+		// 		_data = other._data;
+		// 	}
+		// 	return *this;
+		// }
+
 
 		
 
@@ -345,7 +351,8 @@ namespace gv::util {
 	template <int dim=3, typename T=double>
 	std::ostream& operator<<(std::ostream& os, const Point<dim,T> &point)
 	{
-		for (int i = 0; i < dim; i++) {os << point[i] << " ";}
+		for (int i = 0; i < dim-1; i++) {os << point[i] << " ";}
+		os << point[dim-1]; //no trailing
 		return os;
 	}
 

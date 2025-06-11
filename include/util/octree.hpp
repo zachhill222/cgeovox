@@ -1,404 +1,446 @@
 #pragma once
 
-#include "util/octree_util.hpp"
+//standard octree implementation for organizing data in 2D and 3D space
+//each data type (Data_t) will require an octree container that inherits from the BasicOctree class (e.g., <Data_t>Octree)
+//each user implemented octree container will require a method with the signature: bool is_data_valid(const Box_t &bbox, const Data_t &val) for data insertion
+//if Data_t encloses a volume (e.g. a spherical particle), then is_data_valid(bbox,val) should test for intersection of bbox and val.
+//the data type must implement an equality comparison (e.g., bool operator==(const Data_t& other) const) only unique data (by this comparison) will be stored in the container
+
+//TODO:
+//	-implement data deletion
+//	-implement data sorting
 
 #include "util/point.hpp"
 #include "util/box.hpp"
+#include "util/octree_util.hpp" //inspector class (save octree structure as vtk, etc.)
+#include "compile_constants.hpp" //max octree depth
 
+#include <cassert>
 #include <vector>
-#include <stdexcept>
-#include <limits>
 
 namespace gv::util
 {
-	//Data structure for generic octree nodes.
-	template <typename Data_t, int dim=3, size_t n_data=8>
-	struct _OctreeNode
+	//class for the nodes of the octree
+	//this class stores indices to a primary vector where the data is stored
+	//data indices are only stored in leaf nodes and a single index may be stored in multiple nodes
+	//this is useful when Data_t encloses a region rather than being located at a single point and mostly irrelevant if the data is located at a point
+
+	template<typename Data_t, int dim=3, int n_data=8>
+	class OctreeNode
 	{
-		//tree logic
-		static const int n_children = std::pow(2,dim);
-		bool is_divided = false;
-		const _OctreeNode<Data_t, dim, n_data>* parent = nullptr;
-		_OctreeNode<Data_t, dim, n_data>* children[n_children] {nullptr};
+	public:
+		//common typedefs and constants
+		static constexpr int _dim = dim;
+		static constexpr int n_children = std::pow(2,dim);
+		using Node_t  = OctreeNode<Data_t,dim,n_data>;
+		using Point_t = gv::util::Point<dim,double>;
+		using Box_t   = gv::util::Box<dim>;
 
-		//geometry logic
-		const Box<dim> bbox;
+		//constructor for initializing root node
+		OctreeNode(const Box_t& bbox) :
+			data_idx(new size_t[n_data]), 
+			data_cursor(0), 
+			bbox(bbox), 
+			parent(nullptr), 
+			sibling_number(-1),
+			n_descendents(0),
+			depth(0) {}
 
-		//data logic
-		size_t cursor = 0;
-		size_t* data_idx = nullptr; //don't default to data_idx[n_data] so that data in non-leaf nodes can be deleted.
-
-		//constructor
-		_OctreeNode(const _OctreeNode<Data_t,dim,n_data>* parent, const Point<dim,double> &v1, const Point<dim,double> &v2) : parent(parent), bbox(Box<dim>(v1,v2))
-		{
-			data_idx = new size_t[n_data];
-		}
+		//constructor for initializing children nodes
+		OctreeNode(Node_t* const parent, const int sibling_number) :
+			data_idx(new size_t[n_data]), 
+			data_cursor(0), 
+			bbox(parent->bbox.voxelvertex(sibling_number), parent->bbox.center()), 
+			parent(parent), 
+			sibling_number(sibling_number),
+			n_descendents(0),
+			depth(parent->depth+1) {}
 
 		//destructor
-		~_OctreeNode()
+		~OctreeNode()  //REMARK: I don't think any class should inherit from this. otherwise this should be virtual.
 		{
 			if (data_idx!=nullptr) {delete[] data_idx;}
-			if (is_divided)
-			{
-				for (int i=0; i<n_children; i++) {delete children[i];}
-			}
+			if (children[0]!=nullptr) {for (int c_idx=0; c_idx<n_children; c_idx++) {delete children[c_idx];}}
 		}
+
+		//data storage
+		size_t* data_idx; //only store the pointer here so that it can be deleted when a node is divided
+		int  data_cursor = 0; //used to track where the next data index should be written (e.g., data_idx[data_cursor])
+
+		//geometry
+		const Box_t bbox; //portion of space that this node is responsible for
+
+		//tree information
+		Node_t* const parent;
+		Node_t* children[n_children] {nullptr};
+		int const sibling_number; //parent->children[this->sibling_number] == this
+		size_t n_descendents; //not used for now
+		int const depth;
 	};
 
+	//helpful functions to call on nodes
+	template<typename Data_t, int dim, int n_data>
+	bool is_divided(OctreeNode<Data_t,dim,n_data>* const node) {return node->children[0]!=nullptr;}
+
+	template<typename Data_t, int dim, int n_data>
+	void append_index(OctreeNode<Data_t,dim,n_data>* const node, const int idx)
+	{
+		//it is assumed that there is room
+		assert(node->data_cursor<n_data);
+		node->data_idx[node->data_cursor] = idx;
+		node->data_cursor += 1;
+	}
 
 
 
-	///Basic octree class, can be used in d=2 or d=3 (and possibly others). A octree that will be used should inherit from this class and define the member function is_data_valid().
-	template <typename Data_t, int dim=3, bool multiple_data=false, size_t n_data=8>
+
+
+	//octree container. handles division of nodes, insertion and retrieval of data, storage of data, etc.
+	template<typename Data_t, int dim=3, int n_data=8>
 	class BasicOctree
 	{
 	public:
-		static const int dimension = dim;
-		static const int n_children = std::pow(2,dim);
-	
+		//common typedefs and constants
+		static constexpr int _dim = dim;
+		static constexpr int n_children = std::pow(2,dim);
+		using Point_t = gv::util::Point<dim,double>;
+		using Box_t   = gv::util::Box<dim>;
 	protected:
-		//convenient reference to the type of nodes in this octree.
-		typedef _OctreeNode<Data_t,dim,n_data> Node;
-
-		//tree logic
-		Node* root = nullptr;
-		std::vector<const Node*> _nodelist; //this may be bad. using it as a method to go through all nodes. TODO: implement a Node* next_node(Node*) method.
-		
-
-		//data
-		std::vector<Data_t> _data;
-
-		///member function for determining where to put data. Must be overridden by implemented octree classes.
-		virtual bool is_data_valid(const Box<dim> &box, const Data_t &data) const {return false;}
-		
-		//DIVISION
-		void divide_multiple_data(Node* node)
-		{
-			//find box center for constructing bounding boxes of children
-			Point<dim,double> _center = node->bbox.center();
-			
-			//make children and pass data
-			for (int i=0; i<n_children; i++)
-			{
-				node->children[i] = new Node(node, node->bbox[i], _center);
-				//pass data indices to children
-				for (size_t j=0; j<node->cursor; j++)
-				{	
-					//check if data can be passed to child.
-					if (is_data_valid(node->children[i]->bbox, _data[node->data_idx[j]]))
-					{	
-						//insert data
-						node->children[i]->data_idx[node->children[i]->cursor] = node->data_idx[j];
-						node->children[i]->cursor += 1;
-					}
-				}
-			}
-		}
-
-		void divide_single_data(Node* node)
-		{
-			//find box center for constructing bounding boxes of children
-			Point<dim,double> _center = node->bbox.center();
-			
-			//initialize array for ensuring only one copy of any data is passed
-			bool data_passed[node->cursor] {false};
-
-			//make children and pass data
-			for (int i=0; i<n_children; i++)
-			{
-				node->children[i] = new Node(node, node->bbox[i], _center);
-				//pass data indices to children
-				for (size_t j=0; j<node->cursor; j++)
-				{	
-					if (data_passed[j]){continue;} //this data was already passed
-
-					//check if data can be passed to child.
-					if (is_data_valid(node->children[i]->bbox, _data[node->data_idx[j]]))
-					{
-						//insert data
-						data_passed[j] = true;
-						node->children[i]->data_idx[node->children[i]->cursor] = node->data_idx[j];
-						node->children[i]->cursor += 1;
-					}
-				}
-			}
-		}
-
-		void divide(Node* node)
-		{
-			//check if division is allowed
-			if (node==nullptr){return;}
-			if (node->is_divided){return;}
-
-			//call appropriate division based on data
-			if(multiple_data){divide_multiple_data(node);}
-			else{divide_single_data(node);}
-
-			//free memory
-			delete[] node->data_idx;
-			node->data_idx = nullptr;
-
-			//set node to divided
-			node->is_divided = true;
-
-			//append children to list of nodes. TODO: delete when Node* next_node(Node*) is implemented.
-			for (int i=0; i<n_children; i++)
-			{
-				_nodelist.push_back(node->children[i]);
-			}
-		}
-
-		
-		//INSERTION
-		bool recursive_insert(Node* node, const size_t &idx)
-		{
-			//check if current node is divided
-			if (not node->is_divided)
-			{
-				//node is not divided
-				//check if current node has room for more data
-				if (node->cursor < n_data)
-				{
-					node->data_idx[node->cursor] = idx;
-					node->cursor += 1;
-					return true;
-				}
-				else
-				{
-					//node must divide
-					divide(node);
-					return recursive_insert(node, idx);
-				}
-			}
-			else
-			{
-				//node is divided and data has not been inserted
-				for (int i=0; i<n_children; i++)
-				{
-					if (is_data_valid(node->children[i]->bbox, _data[idx]))
-					{
-						bool success = recursive_insert(node->children[i], idx);
-						if (success and !multiple_data) {return true;}
-					}
-				}
-			}
-			//data could not be inserted
-			return false;
-		}
-
-
-		//FIND NODES
-		bool recursive_find(Node const* node, const Data_t &val, size_t &idx) const
-		{
-			if (node->is_divided)
-			{
-				for (int i=0; i<n_children; i++)
-				{
-					if (is_data_valid(node->children[i]->bbox, val))
-					{
-						if (recursive_find(node->children[i], val, idx)) {return true;}
-					}
-				}
-				return false;
-			}
-
-			else
-			{
-				//not divided
-				for (size_t j=0; j<node->cursor; j++)
-				{
-					if (val==_data[node->data_idx[j]])
-					{
-						idx = node->data_idx[j];
-						return true;
-					}
-				}
-			}
-			return false;
-		}
-
-
-		//PRINT
-		void print(Node* node, int depth) const
-		{
-			if (node->children[0]==nullptr)
-			{
-				for (int k=0; k<depth; k++){std::cout << " - ";}
-				for (size_t j=0; j<node->cursor; j++) {std::cout << node->data_idx[j] << " ";}
-				std::cout << std::endl;
-			}
-			else
-			{
-				for (int i=0; i<n_children; i++){print(node->children[i], depth+1);}
-			}
-		}
-
-		//TREE TRAVERSAL
-		const Node* getnode( const Node* node, const Point<dim,double> &point ) const
-		{
-			if (node->children[0]==nullptr)
-			{
-				//in a leaf node
-				if (node->bbox.contains(point)) {return node;}
-			}
-			else
-			{
-				for (int i=0; i<n_children; i++)
-				{
-					if (node->children[i]->bbox.contains(point)) {return getnode(node->children[i], point);}
-				}
-			}
-
-			return nullptr;
-		}
-
-		const Node* getnode( const Point<dim,double> &point ) const
-		{
-			if (root->bbox.contains(point)) {return getnode(root, point);}
-			return nullptr;
-		}
-
-		//get all leaves that contain the specified point
-		void getnodes(const Node* node, const Point<dim,double> &point, std::vector<const Node*> &result) const
-		{
-			if (node->children[0]==nullptr)
-			{
-				//in a leaf node
-				if (node->bbox.contains(point)) {result.push_back(node);}
-			}
-			else
-			{
-				for (int i=0; i<n_children; i++)
-				{
-					if (node->children[i]->bbox.contains(point)) {getnodes(node->children[i], point, result);}
-				}
-			}
-		}
-
-		std::vector<const Node*> getnodes(const Point<dim,double> &point) const
-		{
-			std::vector<const Node*> result;
-			if (root->bbox.contains(point)) {getnodes(root, point, result);}
-			return result;
-		}
+		using Node_t  = OctreeNode<Data_t,dim,n_data>; //this should not be exposed to standard use, but it is useful for other containers
 	
+	private:
+		//data and tree structure
+		Node_t* root;
+		Data_t* _data;
+		size_t _data_cursor;
+		size_t _capacity;
+
 	public:
-		BasicOctree() 
+		//constructor if the bounding box and capacity are unknown
+		BasicOctree(const size_t capacity=64) :
+			_capacity(capacity)
 		{
-			root = new Node(nullptr, Point<dim,double>{0,0,0}, Point<dim,double> {1,1,1});
-			_nodelist.push_back(root);
+			root = new Node_t(bbox(Point_t{0}, Point_t{1})); //bbox = [0,1]^dim may be unsuitable for the problem
+			_data = new Data_t[_capacity];
+			_data_cursor = 0;
 		}
 
-		BasicOctree(const Box<dim> &bbox)
+		//use this constructor if possible. the bounding box should be known ahead of time to avoid re-creating the octree structure.
+		BasicOctree(const Box_t &bbox, const size_t capacity) :
+			_capacity(capacity)
 		{
-			root = new Node(nullptr, bbox.low(), bbox.high());
-			_nodelist.push_back(root);
+			root = new Node_t(bbox);
+			_data = new Data_t[_capacity];
+			_data_cursor = 0;
 		}
 
-		~BasicOctree() {delete root;}
-
-		///method to re-size scope of the octree. usefull when the domain of the data is unknown a-priori, but this copies data and re-constructs the octree (it is slow if the octree is large).
-		void set_bbox(const Point<dim,double> &low, const Point<dim,double> &high) {set_bbox(Box<dim>(low,high));}
-
-		void set_bbox(const Box<dim> &bbox)
+		//destructor
+		virtual ~BasicOctree()
 		{
-			//delete current tree
-			delete root;
-
-			//initialize new tree
-			root = new Node(nullptr, bbox.low(), bbox.high());
-
-			//copy temporary data and clear current data
-			std::vector<Data_t> old_data_copy = _data;
-			_data.clear();
-			_data.reserve(old_data_copy.capacity());
-
-			//reconstruct tree from copied data
-			for (size_t i=0; i<old_data_copy.size(); i++)
-			{
-				push_back(old_data_copy[i]);
-			}
+			if (root!=nullptr) {delete root;}
+			if (_data!=nullptr) {delete[] _data; _data_cursor=0;}
 		}
 
-		//methods to get bounding boxes of nodes and entire tree.
-		Box<dim> bbox() const {return root->bbox;}
-		Box<dim> bbox(const size_t idx) const {return _nodelist[idx]->bbox;}
+		//these are why we have an octree
+		size_t find(const Data_t &val) const; //find the index for some data. return (size_t) -1 if unsuccessful (most likely larger than _data.size())
+		bool contains(const Data_t &val) const; //check if some data is currently in the tree. wrapper around find().
 		
-		int nData(const size_t idx) const
-		{
-			const Node* node = _nodelist[idx];
-			if (node->is_divided) {return 0;}
-			return node->cursor;
-		}
-		bool isLeaf(const size_t idx) const {return not _nodelist[idx]->is_divided;}
+		//add data to the container
+		int push_back(const Data_t &val); //attempt to insert data. return 1 on success, 0 if the data was already contained, and -1 on failure
+		int push_back(const Data_t &val, size_t &idx); //same as push_back(const Data_t&) but puts the storage index into idx when flag=0 or 1
 
-		///return number of nodes (not just leaf nodes);
-		size_t nNodes() const {return _nodelist.size();}
+		//data memory information
+		inline size_t capacity() const {return _capacity;} //maximum number of elements
+		inline size_t size() const {return _data_cursor;} //current number of elements
+		void reserve(const size_t new_capacity); //re-size reserved space
+		void set_bbox(const Box_t &new_bbox); //re-create the octree using this bounding box. will trim data that return is_data_valid(new_bbox, data)==false
+		Box_t bbox() const {return root->bbox;} //get a copy of the bounding box
 
+		//data access by index
+		const Data_t& operator[](const size_t idx) const {return _data[idx];} //return const data with no bound check
+		Data_t& operator[](const size_t idx) {return _data[idx];} //return data with no bound check (octree can be invalidated if data is improperly modified after insertion)
+		const Data_t& at(const size_t idx) const {assert(idx<size()); return _data[idx];} //return const data with bound check
+		Data_t& at(const size_t idx) {assert(idx<size()); return _data[idx];} //return data with bound check (octree can be invalidated if data is improperly modified after insertion)
 
-		//DATA LOGIC AND CONTROL
-		///return index of data.
-		size_t find(const Data_t &val) const
-		{
-			size_t idx;
-			if (recursive_find(root, val, idx)) {return idx;}
-			return (size_t) (-1);
-		}
+		//get data associated with a region
+		std::vector<size_t> get_data_indices(const Box_t &box); //get all data indices from nodes that intersect the given bounding box. TODO: make const
 
-		bool find(const Data_t &val, size_t &idx) const {return recursive_find(root, val, idx);}
+	protected:
+		//this is also why we have an octree. useful for getting all data associated with some key. implement in data specific octree container.
+		Node_t* _get_node(const Point_t &coord); //get first leaf node that is contains with the specified coordinate
+		std::vector<Node_t*> _get_node(const Box_t &box); //get all leaf nodes that intersect the specified region
 
-		bool contains(const Data_t &val) const
-		{
-			size_t idx;
-			return recursive_find(root, val, idx);
-		}
+		//OVERWRITE THIS IN THE DATA SPECIFIC OCTREE CONTAINER
+		virtual bool is_data_valid(const Box_t &bbox, const Data_t &val) const {return false;} //check if data can be placed into a node with the specified bounding box
 
-		int push_back(const Data_t &val)
-		{
-			//return 1 on succesful add
-			//return 0 if data is already contained
-			//return -1 if data is not valid (i.e., outside of bounding box)
-
-			if (not is_data_valid(root->bbox, val))
-			{
-				throw std::invalid_argument("data is outside octree bounding box. resize with set_bbox().");
-				return -1;
-			}
-
-			if (contains(val)) {return 0;}
-			if (_data.capacity() == _data.size()) {_data.reserve(2*_data.size());}
-			_data.push_back(val);
-			size_t idx = _data.size()-1;
-			recursive_insert(root, idx);
-			return 1;
-		}
-
-		int push_back(const Data_t &val, size_t& idx)
-		{
-			int flag = push_back(val);
-			if (flag == 1) {idx = size()-1;} //value was added to end of the container
-			else if (flag == 0) {idx = find(val);} //value was already in the container
-			else {idx = (size_t) -1;} //there was an error
-			return flag;
-		}
-
-		void print() const {print(root,0);}
-
-		inline const Data_t& operator[](const size_t &idx) const {return _data[idx];}
-		inline Data_t& operator[](const size_t &idx) {return _data[idx];} //use with caution as changing the data could invalidate the octree struture
-		inline size_t size() const {return _data.size();}
-		inline size_t capacity() const {return _data.capacity();}
-		inline void reserve(size_t size){_data.reserve(size);}
-		void clear()
-		{
-			_data.clear();
-			for (int i=0; i<n_children; i++){delete root->children[i];}
-		}
+	private:
+		size_t recursive_find(Node_t* const node, const Data_t &val) const; //primary method for finding data
+		bool recursive_insert(Node_t* const node, const Data_t &val, const size_t idx); //primary method for inserting data into octree structure
+		Node_t* recursive_get_node(Node_t* const node, const Point_t &coord); //primary method for accessing nodes associated with a coordinate
+		void recursive_get_node(Node_t* const node, std::vector<Node_t*> &result, const Box_t &box); //primary method for getting leaf nodes intersecting a region
+		void divide(Node_t* const node); //divide a node into its children nodes
 	};
 
 
+	//////////////////////// BASIC OCTREE IMPLEMENTATION ////////////////////////
+	template<typename Data_t, int dim, int n_data>
+	size_t BasicOctree<Data_t,dim,n_data>::find(const Data_t &val) const
+	{	
+		if (!is_data_valid(root->bbox, val)) {return (size_t) -1;} //data is invalid so it is not in the octree.
+		return recursive_find(root, val);
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	bool BasicOctree<Data_t,dim,n_data>::contains(const Data_t &val) const {return find(val)!= (size_t) -1;}
+
+	template<typename Data_t, int dim, int n_data>
+	int BasicOctree<Data_t,dim,n_data>::push_back(const Data_t &val)
+	{
+		size_t idx;
+		return push_back(val, idx);
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	int BasicOctree<Data_t,dim,n_data>::push_back(const Data_t &val, size_t &idx)
+	{
+		if (size()>=capacity()) {reserve(2*_capacity);} //increase storage size if needed
+		assert(size()<capacity());
+
+		if (!is_data_valid(root->bbox,val)) {return -1;} //data can't be added
+
+		idx = find(val);
+		if (idx == (size_t) -1)
+		{
+			bool success = recursive_insert(root, val, _data_cursor);
+			if (success)
+			{
+				_data[_data_cursor] = val;
+				_data_cursor += 1;
+				return 1; //data was not contained and was successfully inserted
+			}
+			return -1; //data was not contained and could not be inserted
+		}
+		return 0; //data was already contained and did not need to be inserted
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	void BasicOctree<Data_t,dim,n_data>::reserve(const size_t new_capacity)
+	{
+		assert(new_capacity>=size()); //make sure that the new capacity has enough room for the current data
+		Data_t* _resized_data = new Data_t[new_capacity]; //reserve space
+		for (size_t idx=0; idx<size(); idx++) //copy old data into new array. the data is in the same order, so the octree structure does not change.
+		{
+			_resized_data[idx] = _data[idx];
+		}
+
+		//free the old array and re-point it to the new array
+		delete[] _data;
+		_data = _resized_data;
+		_capacity = new_capacity;
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	void BasicOctree<Data_t,dim,n_data>::set_bbox(const Box_t &new_bbox)
+	{
+		//prepare new data structure
+		Node_t* new_root = new Node_t(new_bbox);
+		Data_t* new_data = new Data_t[_capacity];
+		size_t  new_data_cursor = 0;
+
+		//loop through current data and try to add it to the new structure
+		for (size_t idx=0; idx<_data_cursor; idx++)
+		{
+			if (is_data_valid(new_bbox, _data[idx]))
+			{
+				assert(recursive_insert(new_root,_data[idx],new_data_cursor));
+				new_data[new_data_cursor] = Data_t(_data[idx]);
+				new_data_cursor += 1;
+			}
+		}
+
+		//delete old data structure and re-point it to new data structure
+		delete root;
+		root = new_root;
+
+		delete[] _data;
+		_data = new_data;
+		_data_cursor = new_data_cursor;
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	std::vector<size_t> BasicOctree<Data_t,dim,n_data>::get_data_indices(const Box_t &box)
+	{
+		std::vector<size_t> result;
+
+		bool used_indices[_capacity] {false};
+		std::vector<Node_t*> nodes = _get_node(box);
+		for (size_t n_idx=0; n_idx<nodes.size(); n_idx++)
+		{
+			Node_t* node = nodes[n_idx];
+			for (int d_idx=0; d_idx<node->data_cursor; d_idx++)
+			{
+				size_t idx = node->data_idx[d_idx];
+				if (!used_indices[idx] and is_data_valid(box, _data[idx]))
+				{
+					result.push_back(idx);
+					used_indices[idx] = true;
+				}
+			}
+		}
+
+		return result;
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	typename BasicOctree<Data_t,dim,n_data>::Node_t* BasicOctree<Data_t,dim,n_data>::_get_node(const Point_t &coord)
+	{
+		assert(root->bbox.contains(coord));
+		return recursive_get_node(root, coord);
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	std::vector<typename BasicOctree<Data_t,dim,n_data>::Node_t*> BasicOctree<Data_t,dim,n_data>::_get_node(const Box_t &box)
+	{
+		assert(root->bbox.intersects(box));
+		std::vector<Node_t*> result;
+		recursive_get_node(root, result, box);
+		return result;
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	size_t BasicOctree<Data_t,dim,n_data>::recursive_find(Node_t* const node, const Data_t &val) const
+	{
+		//it is assumed that is_data_valid(node,val) is true
+		assert(is_data_valid(node->bbox, val));
+
+		//recurse into first valid child
+		if (is_divided(node))
+		{
+			for (int c_idx=0; c_idx<n_children; c_idx++)
+			{
+				Node_t* child = node->children[c_idx]; //convenient reference
+				if (is_data_valid(child->bbox, val))
+				{   //only recursing into the first child node will still find the data because every leaf node in which the data is valid
+					//will store an index to the data
+					return recursive_find(child, val); 
+				}
+			}
+		}
+
+		//in valid leaf. loop through data.
+		for (int d_idx=0; d_idx<node->data_cursor; d_idx++)
+		{
+			size_t idx = node->data_idx[d_idx];
+			if (val==_data[idx]) {return idx;}
+		}
+
+		//data could not be found
+		return (size_t) -1;
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	bool BasicOctree<Data_t,dim,n_data>::recursive_insert(Node_t* const node, const Data_t &val, const size_t idx)
+	{
+		//insert data into ALL leaf nodes that are valid
+		//it is assumed that is_data_valid(node,val) is true
+		assert(is_data_valid(node->bbox,val));
+
+		//recurse into all valid children
+		if (is_divided(node))
+		{
+			bool success = true;
+			for (int c_idx=0; c_idx<n_children; c_idx++)
+			{
+				Node_t* child = node->children[c_idx];
+
+				//attempt to put data into all valid children
+				if (is_data_valid(child->bbox, val))
+				{
+					success = success and recursive_insert(child, val, idx); //data must be successfully added to all leaves
+				}
+			}
+			return success;
+		}
+
+		//in valid leaf node. store index to data if there is room
+		if (node->data_cursor < n_data) {append_index(node,idx); return true;}
+
+		//in valid leaf node, but it must divide
+		if (node->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
+		divide(node); //moves data, frees some memory, creates children. checks for a maximum tree depth.
+		return recursive_insert(node, val, idx); //re-run insertion here now that it is divided
+	}
 
 
-	
+	template<typename Data_t, int dim, int n_data>
+	typename BasicOctree<Data_t,dim,n_data>::Node_t* BasicOctree<Data_t,dim,n_data>::recursive_get_node(Node_t* const node, const Point_t &coord)
+	{
+		//it is assumed that we are in a valid node
+		assert(node->bbox.contains(coord));
+
+		//if divided, recurse into the first valid node
+		if (is_divided(node))
+		{
+			for (int c_idx=0; c_idx<n_children; c_idx++)
+			{
+				Node_t* child = node->children[c_idx];
+				if (child->bbox.contains(coord)) {return recursive_get_node(child, coord);}
+			}
+		}
+
+		//in valid leaf
+		return node;
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	void BasicOctree<Data_t,dim,n_data>::recursive_get_node(Node_t* const node, std::vector<Node_t*> &result, const Box_t &box)
+	{
+		//it is assumed that the current node intersect the specified box
+		assert(node->bbox.intersects(box));
+
+		//if divided, recurse into each valid node
+		if (is_divided(node))
+		{
+			for (int c_idx=0; c_idx<n_children; c_idx++)
+			{
+				Node_t* child = node->children[c_idx];
+				if (child->bbox.intersects(box)) {recursive_get_node(child, result, box);}
+			}
+			return;
+		}
+
+		//in valid leaf node
+		result.push_back(node);
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	void BasicOctree<Data_t,dim,n_data>::divide(Node_t* const node)
+	{
+		//it is assumed that the node is not divided already and that we will not violate the maximum tree depth
+		assert(!is_divided(node));
+		assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
+
+		//create children and copy valid data into children
+		for (int c_idx=0; c_idx<n_children; c_idx++)
+		{
+			Node_t* child = new Node_t(node, c_idx); //create child
+			node->children[c_idx] = child; //use child as a convenient reference locally
+			for (int d_idx=0; d_idx<node->data_cursor; d_idx++) //initialize data in child
+			{
+				size_t idx = node->data_idx[d_idx];
+				if (is_data_valid(child->bbox, _data[idx]))
+				{
+					append_index(child, idx);
+				}
+			}
+		}
+
+		//free memory at current node
+		if (node->data_idx!=nullptr)
+		{
+			delete[] node->data_idx;
+			node->data_idx=nullptr; //mark that this has been deleted to avoid double frees
+			node->data_cursor = 0;
+		}
+	}
 }
-
