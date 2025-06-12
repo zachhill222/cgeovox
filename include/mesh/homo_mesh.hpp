@@ -1,7 +1,8 @@
 #pragma once
 
-#include "util/point_octree.hpp"
 #include "util/point.hpp"
+#include "util/point_octree.hpp"
+#include "util/box.hpp"
 
 #include <vector>
 #include <stdexcept>
@@ -19,14 +20,19 @@ namespace gv::mesh
 	class HomoMesh
 	{
 	protected:
-		gv::util::PointOctree<3,32> _nodes;
+		//common typedefs
+		using Point_t = gv::util::Point<3,double>;
+		using Box_t   = gv::util::Box<3>;
+		using PointList_t = gv::util::PointOctree<3,32>;
+
+		PointList_t _nodes;
 		std::vector<size_t> _elem2node;
 		std::vector<size_t> _node2elem_start_idx; //each node belongs to an unknown number of elements. track where node2element begins for each node.
 		std::vector<size_t> _node2elem;
 		std::vector<std::vector<size_t>> _boundary; //assign which nodes belong to the boundary. allow for multiple boundaries.
 
 	public:
-		HomoMesh() {}
+		HomoMesh(const Box_t& bbox) : _nodes(bbox) {}
 
 		///type of element
 		static const bool isHomogeneous = true;
@@ -42,9 +48,6 @@ namespace gv::mesh
 
 		///reserve space for _elem2node
 		void reserve(size_t nNewElems)  {_elem2node.reserve(_elem2node.size()+referenceElement.nNodes*nNewElems);}
-
-		//set bounds for nodes
-		void set_bbox(const gv::util::Box<3> &bbox) {_nodes.set_bbox(bbox);}
 		
 		///copy node global indices for element "idx" into array "element"
 		void get_element(const size_t idx, size_t (&element)[referenceElement.nNodes]) const;

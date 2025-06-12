@@ -1,7 +1,7 @@
 #pragma once
 
-// #include "mesh/homo_mesh.hpp" //for writing vtk files
-// #include "mesh/vtkVoxel.hpp"
+#include "mesh/homo_mesh.hpp" //for writing vtk files
+#include "mesh/vtkVoxel.hpp"
 
 #include "util/octree.hpp"
 
@@ -11,51 +11,51 @@
 namespace gv::util
 {
 
-	//create a friend class to the base octree to avoid putting utility/debugging methods in the main class
-	template<typename Octree_t>
-	class OctreeInspector
-	{
-	public:
-		OctreeInspector(Octree_t& octree) : octree(octree) {}
+	// //create a friend class to the base octree to avoid putting utility/debugging methods in the main class
+	// template<typename Octree_t>
+	// class OctreeInspector
+	// {
+	// public:
+	// 	OctreeInspector(Octree_t& octree) : octree(octree) {}
 
-		void save_octree_structure(const std::string filename="octree_structure.vtk") const;
-		void print() const;
+	// 	void save_octree_structure(const std::string filename="octree_structure.vtk") const;
+	// 	void print() const;
 
-	private:
-		Octree_t& octree;
-	};
-
-
-	template<typename Octree_t>
-	void OctreeInspector<Octree_t>::print() const
-	{
-		//get all leaf nodes
-		std::vector<typename Octree_t::Node_t*> nodes = octree._get_node(octree.bbox());
-
-		//print data from all leaf nodes
-		for (size_t i=0; i<nodes.size(); i++)
-		{
-			if (nodes[i]->data_cursor==0) {continue;}
-
-			std::cout << "===== node " << i << " =====\n";
-			std::cout << "\tbbox= " << nodes[i]->bbox << "\n";
-			std::cout << "\tdepth= " << nodes[i]->depth << "\n";
-			std::cout << "\tdata: (" << nodes[i]->data_cursor << ")\n";
-			for (int j=0; j<nodes[i]->data_cursor; j++)
-			{
-				std::cout << "\t\tdata_idx[" << j <<"]= " << nodes[i]->data_idx[j];
-				std::cout << " (" << octree[nodes[i]->data_idx[j]] << ")\n";
-			}
-			std::cout << std::endl;
-		}
-	}
+	// private:
+	// 	Octree_t& octree;
+	// };
 
 
+	// template<typename Octree_t>
+	// void OctreeInspector<Octree_t>::print() const
+	// {
+	// 	//get all leaf nodes
+	// 	std::vector<typename Octree_t::Node_t*> nodes = octree._get_node(octree.bbox());
+
+	// 	//print data from all leaf nodes
+	// 	for (size_t i=0; i<nodes.size(); i++)
+	// 	{
+	// 		if (nodes[i]->data_cursor==0) {continue;}
+
+	// 		std::cout << "===== node " << i << " =====\n";
+	// 		std::cout << "\tbbox= " << nodes[i]->bbox << "\n";
+	// 		std::cout << "\tdepth= " << nodes[i]->depth << "\n";
+	// 		std::cout << "\tdata: (" << nodes[i]->data_cursor << ")\n";
+	// 		for (int j=0; j<nodes[i]->data_cursor; j++)
+	// 		{
+	// 			std::cout << "\t\tdata_idx[" << j <<"]= " << nodes[i]->data_idx[j];
+	// 			std::cout << " (" << octree[nodes[i]->data_idx[j]] << ")\n";
+	// 		}
+	// 		std::cout << std::endl;
+	// 	}
+	// }
 
 
-	// ///function for viewing octree structure, only works in 3 dimensions
+
+
+	///function for viewing octree structure, only works in 3 dimensions
 	// template <typename Octree_t>
-	// void OctreeInspector<Octree_t>::save_octree_structure(const std::string filename="octree_structure.vtk")
+	// void save_octree_structure(Octree_t& octree, const std::string filename="octree_structure.vtk")
 	// {	
 	// 	using Node_t = Octree_t::Node_t;
 	// 	std::vector<Node_t*> leaves = octree._get_node(octree.root->bbox); //put all leaf nodes into a vector

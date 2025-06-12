@@ -22,7 +22,7 @@ namespace gv::util{
 		Point<dim,double> _high;
 
 	public:
-		Box() : _low(Point<dim,double>(-1.0)), _high(Point<dim,double>(1.0)) {}
+		constexpr Box() : _low(Point<dim,double>(-1.0)), _high(Point<dim,double>(1.0)) {}
 
 		Box(const Point<dim> &vertex1, const Point<dim> &vertex2){
 			_low = elmin(vertex1, vertex2);

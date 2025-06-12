@@ -5,6 +5,7 @@
 //each user implemented octree container will require a method with the signature: bool is_data_valid(const Box_t &bbox, const Data_t &val) for data insertion
 //if Data_t encloses a volume (e.g. a spherical particle), then is_data_valid(bbox,val) should test for intersection of bbox and val.
 //the data type must implement an equality comparison (e.g., bool operator==(const Data_t& other) const) only unique data (by this comparison) will be stored in the container
+//to be able to effectively re-size the array, Data_t must have a move assignment operator (std::move() must be callable)
 
 //TODO:
 //	-implement data deletion
@@ -12,7 +13,6 @@
 
 #include "util/point.hpp"
 #include "util/box.hpp"
-#include "util/octree_util.hpp" //inspector class (save octree structure as vtk, etc.)
 #include "compile_constants.hpp" //max octree depth
 
 #include <cassert>
@@ -80,7 +80,7 @@ namespace gv::util
 
 	//helpful functions to call on nodes
 	template<typename Data_t, int dim, int n_data>
-	bool is_divided(OctreeNode<Data_t,dim,n_data>* const node) {return node->children[0]!=nullptr;}
+	bool is_divided(const OctreeNode<Data_t,dim,n_data>* const node) {return node->children[0]!=nullptr;}
 
 	template<typename Data_t, int dim, int n_data>
 	void append_index(OctreeNode<Data_t,dim,n_data>* const node, const int idx)
@@ -90,8 +90,6 @@ namespace gv::util
 		node->data_idx[node->data_cursor] = idx;
 		node->data_cursor += 1;
 	}
-
-
 
 
 
@@ -105,7 +103,6 @@ namespace gv::util
 		static constexpr int n_children = std::pow(2,dim);
 		using Point_t = gv::util::Point<dim,double>;
 		using Box_t   = gv::util::Box<dim>;
-	protected:
 		using Node_t  = OctreeNode<Data_t,dim,n_data>; //this should not be exposed to standard use, but it is useful for other containers
 	
 	private:
@@ -118,21 +115,19 @@ namespace gv::util
 	public:
 		//constructor if the bounding box and capacity are unknown
 		BasicOctree(const size_t capacity=64) :
-			_capacity(capacity)
-		{
-			root = new Node_t(bbox(Point_t{0}, Point_t{1})); //bbox = [0,1]^dim may be unsuitable for the problem
-			_data = new Data_t[_capacity];
-			_data_cursor = 0;
-		}
+			root(new Node_t(Box_t(Point_t(0), Point_t(0)))),
+			_data(new Data_t[capacity]),
+			_data_cursor(0),
+			_capacity(capacity) {}
 
 		//use this constructor if possible. the bounding box should be known ahead of time to avoid re-creating the octree structure.
+		//changing the bounding box as a copy constructor must be done in the octree for the specific data type so that the correct
+		//is_data_valid() method is available
 		BasicOctree(const Box_t &bbox, const size_t capacity) :
-			_capacity(capacity)
-		{
-			root = new Node_t(bbox);
-			_data = new Data_t[_capacity];
-			_data_cursor = 0;
-		}
+			root(new Node_t(bbox)),
+			_data(new Data_t[capacity]),
+			_data_cursor(0),
+			_capacity(capacity) {}
 
 		//destructor
 		virtual ~BasicOctree()
@@ -149,11 +144,11 @@ namespace gv::util
 		int push_back(const Data_t &val); //attempt to insert data. return 1 on success, 0 if the data was already contained, and -1 on failure
 		int push_back(const Data_t &val, size_t &idx); //same as push_back(const Data_t&) but puts the storage index into idx when flag=0 or 1
 
-		//data memory information
+		//data memory information and control
 		inline size_t capacity() const {return _capacity;} //maximum number of elements
 		inline size_t size() const {return _data_cursor;} //current number of elements
 		void reserve(const size_t new_capacity); //re-size reserved space
-		void set_bbox(const Box_t &new_bbox); //re-create the octree using this bounding box. will trim data that return is_data_valid(new_bbox, data)==false
+		void clear(); //delete all data and tree structure
 		Box_t bbox() const {return root->bbox;} //get a copy of the bounding box
 
 		//data access by index
@@ -163,21 +158,26 @@ namespace gv::util
 		Data_t& at(const size_t idx) {assert(idx<size()); return _data[idx];} //return data with bound check (octree can be invalidated if data is improperly modified after insertion)
 
 		//get data associated with a region
-		std::vector<size_t> get_data_indices(const Box_t &box); //get all data indices from nodes that intersect the given bounding box. TODO: make const
+		std::vector<size_t> get_data_indices(const Box_t &box) const; //get all data indices from nodes that intersect the given bounding box.
+		std::vector<size_t> get_data_indices(const Point_t &coord) const; //get all data indices from nodes that contain the given coordinate.
+
+		//access nodes of octree
+		const Node_t* _get_node(const Point_t &coord) const; //get the first leaf node with the given coordinate
+		std::vector<const Node_t*> _get_node(const Box_t &box) const; //get all leaf nodes that intersect the given region
 
 	protected:
 		//this is also why we have an octree. useful for getting all data associated with some key. implement in data specific octree container.
-		Node_t* _get_node(const Point_t &coord); //get first leaf node that is contains with the specified coordinate
-		std::vector<Node_t*> _get_node(const Box_t &box); //get all leaf nodes that intersect the specified region
+		// Node_t* _get_node(const Point_t &coord); //get first leaf node that is contains with the specified coordinate
+		// std::vector<Node_t*> _get_node(const Box_t &box); //get all leaf nodes that intersect the specified region
 
 		//OVERWRITE THIS IN THE DATA SPECIFIC OCTREE CONTAINER
-		virtual bool is_data_valid(const Box_t &bbox, const Data_t &val) const {return false;} //check if data can be placed into a node with the specified bounding box
+		virtual bool is_data_valid(const Box_t &bbox, const Data_t &val) const {assert(false); return false;} //check if data can be placed into a node with the specified bounding box
 
 	private:
 		size_t recursive_find(Node_t* const node, const Data_t &val) const; //primary method for finding data
 		bool recursive_insert(Node_t* const node, const Data_t &val, const size_t idx); //primary method for inserting data into octree structure
-		Node_t* recursive_get_node(Node_t* const node, const Point_t &coord); //primary method for accessing nodes associated with a coordinate
-		void recursive_get_node(Node_t* const node, std::vector<Node_t*> &result, const Box_t &box); //primary method for getting leaf nodes intersecting a region
+		const Node_t* recursive_get_node(const Node_t* const node, const Point_t &coord) const; //primary method for accessing nodes associated with a coordinate
+		void recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Box_t &box) const; //primary method for getting leaf nodes intersecting a region
 		void divide(Node_t* const node); //divide a node into its children nodes
 	};
 
@@ -214,7 +214,8 @@ namespace gv::util
 			bool success = recursive_insert(root, val, _data_cursor);
 			if (success)
 			{
-				_data[_data_cursor] = val;
+				idx = _data_cursor; //pass back correct index of the inserted data
+				_data[_data_cursor] = val; //TODO: should this be std::move(val)?
 				_data_cursor += 1;
 				return 1; //data was not contained and was successfully inserted
 			}
@@ -230,7 +231,7 @@ namespace gv::util
 		Data_t* _resized_data = new Data_t[new_capacity]; //reserve space
 		for (size_t idx=0; idx<size(); idx++) //copy old data into new array. the data is in the same order, so the octree structure does not change.
 		{
-			_resized_data[idx] = _data[idx];
+			_resized_data[idx] = std::move(_data[idx]);
 		}
 
 		//free the old array and re-point it to the new array
@@ -240,43 +241,36 @@ namespace gv::util
 	}
 
 	template<typename Data_t, int dim, int n_data>
-	void BasicOctree<Data_t,dim,n_data>::set_bbox(const Box_t &new_bbox)
+	void BasicOctree<Data_t,dim,n_data>::clear()
 	{
-		//prepare new data structure
-		Node_t* new_root = new Node_t(new_bbox);
-		Data_t* new_data = new Data_t[_capacity];
-		size_t  new_data_cursor = 0;
-
-		//loop through current data and try to add it to the new structure
-		for (size_t idx=0; idx<_data_cursor; idx++)
+		//delete current data and tree structure
+		if (root!=nullptr)
 		{
-			if (is_data_valid(new_bbox, _data[idx]))
-			{
-				assert(recursive_insert(new_root,_data[idx],new_data_cursor));
-				new_data[new_data_cursor] = Data_t(_data[idx]);
-				new_data_cursor += 1;
-			}
+			Box_t bbox = root->bbox; 
+			delete root; 
+			root = new Node_t(bbox);
 		}
 
-		//delete old data structure and re-point it to new data structure
-		delete root;
-		root = new_root;
-
-		delete[] _data;
-		_data = new_data;
-		_data_cursor = new_data_cursor;
+		if (_data!=nullptr)
+		{
+			delete[] _data; 
+			_data_cursor=0;
+		}
 	}
 
 	template<typename Data_t, int dim, int n_data>
-	std::vector<size_t> BasicOctree<Data_t,dim,n_data>::get_data_indices(const Box_t &box)
+	std::vector<size_t> BasicOctree<Data_t,dim,n_data>::get_data_indices(const Box_t &box) const
 	{
+		assert(box.intersects(root->bbox));
 		std::vector<size_t> result;
 
 		bool used_indices[_capacity] {false};
-		std::vector<Node_t*> nodes = _get_node(box);
+		std::vector<const Node_t*> nodes = _get_node(box);
+		assert(nodes.size()>0);
+
 		for (size_t n_idx=0; n_idx<nodes.size(); n_idx++)
 		{
-			Node_t* node = nodes[n_idx];
+			const Node_t* const node = nodes[n_idx];
 			for (int d_idx=0; d_idx<node->data_cursor; d_idx++)
 			{
 				size_t idx = node->data_idx[d_idx];
@@ -292,17 +286,16 @@ namespace gv::util
 	}
 
 	template<typename Data_t, int dim, int n_data>
-	typename BasicOctree<Data_t,dim,n_data>::Node_t* BasicOctree<Data_t,dim,n_data>::_get_node(const Point_t &coord)
+	const typename BasicOctree<Data_t,dim,n_data>::Node_t* BasicOctree<Data_t,dim,n_data>::_get_node(const Point_t &coord) const
 	{
 		assert(root->bbox.contains(coord));
 		return recursive_get_node(root, coord);
 	}
 
 	template<typename Data_t, int dim, int n_data>
-	std::vector<typename BasicOctree<Data_t,dim,n_data>::Node_t*> BasicOctree<Data_t,dim,n_data>::_get_node(const Box_t &box)
+	std::vector<const typename BasicOctree<Data_t,dim,n_data>::Node_t*> BasicOctree<Data_t,dim,n_data>::_get_node(const Box_t &box) const
 	{
-		assert(root->bbox.intersects(box));
-		std::vector<Node_t*> result;
+		std::vector<const Node_t*> result;
 		recursive_get_node(root, result, box);
 		return result;
 	}
@@ -363,7 +356,10 @@ namespace gv::util
 		}
 
 		//in valid leaf node. store index to data if there is room
-		if (node->data_cursor < n_data) {append_index(node,idx); return true;}
+		if (node->data_cursor < n_data)
+		{
+			append_index(node,idx); return true;
+		}
 
 		//in valid leaf node, but it must divide
 		if (node->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
@@ -373,7 +369,7 @@ namespace gv::util
 
 
 	template<typename Data_t, int dim, int n_data>
-	typename BasicOctree<Data_t,dim,n_data>::Node_t* BasicOctree<Data_t,dim,n_data>::recursive_get_node(Node_t* const node, const Point_t &coord)
+	const typename BasicOctree<Data_t,dim,n_data>::Node_t* BasicOctree<Data_t,dim,n_data>::recursive_get_node(const Node_t* const node, const Point_t &coord) const
 	{
 		//it is assumed that we are in a valid node
 		assert(node->bbox.contains(coord));
@@ -393,7 +389,7 @@ namespace gv::util
 	}
 
 	template<typename Data_t, int dim, int n_data>
-	void BasicOctree<Data_t,dim,n_data>::recursive_get_node(Node_t* const node, std::vector<Node_t*> &result, const Box_t &box)
+	void BasicOctree<Data_t,dim,n_data>::recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Box_t &box) const
 	{
 		//it is assumed that the current node intersect the specified box
 		assert(node->bbox.intersects(box));
