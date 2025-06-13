@@ -71,7 +71,10 @@ namespace gv::pde
 		{
 			mesh.save_as(filename);
 			mesh._append_node_scalar_data(filename, u, "poisson_solution", true);
-			mesh._append_element_scalar_data(filename, mesh.elem_marker, "element_markers", true);
+			if (mesh.elem_marker.size()==mesh.nElems())
+			{
+				mesh._append_element_scalar_data(filename, mesh.elem_marker, "element_markers", true);
+			}
 		}
 	};
 }

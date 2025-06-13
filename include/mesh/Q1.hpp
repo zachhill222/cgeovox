@@ -19,12 +19,16 @@ namespace gv::mesh
 	//voxels embedded in 3D with piecewise d-linear shape functions.
 	class VoxelMeshQ1 : public HomoMesh<gv::mesh::Voxel> {
 	public:
+		using Point_t = gv::util::Point<3,double>;
+		using Box_t   = gv::util::Box<3>;
+		using Index_t = gv::util::Point<3,size_t>;
+
 		VoxelMeshQ1() : HomoMesh<gv::mesh::Voxel>() {}
+		VoxelMeshQ1(const Box_t &bbox) : HomoMesh<gv::mesh::Voxel>(bbox) {}
 
 		//mesh a box region uniformly
-		VoxelMeshQ1(gv::util::Point<3,double> length, size_t N[3]) : HomoMesh<gv::mesh::Voxel>()
+		VoxelMeshQ1(Point_t length, Index_t N) : HomoMesh<gv::mesh::Voxel>(Box_t(Point_t(0), length))
 		{
-			_nodes.set_bbox(gv::util::Point<3,double> {0,0,0}, length);
 			reserve(N[0]*N[1]*N[2]);
 
 			gv::util::Point<3,double> H {length[0]/((double) N[0]), length[1]/((double) N[1]), length[2]/((double) N[2])};

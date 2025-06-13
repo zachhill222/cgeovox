@@ -32,23 +32,33 @@ namespace gv::mesh
 		std::vector<std::vector<size_t>> _boundary; //assign which nodes belong to the boundary. allow for multiple boundaries.
 
 	public:
+		HomoMesh() : _nodes() {}
 		HomoMesh(const Box_t& bbox) : _nodes(bbox) {}
 
 		///type of element
 		static const bool isHomogeneous = true;
 		static const Element_t referenceElement;
-		Element_t new_element() const {Element_t element; return element;}
-
 
 		///array for storing element markers (e.g., use for marking properties or sub-domains).
 		std::vector<int> elem_marker;
 
+		///get a default element. usefull for external tools.
+		Element_t new_element() const {Element_t element; return element;}
+
 		///clear current mesh
 		void clear();
 
+		///set bounding box for the mesh
+		void set_bbox(const Box_t& bbox) {clear(); _nodes.set_bbox(bbox);}
+
 		///reserve space for _elem2node
-		void reserve(size_t nNewElems)  {_elem2node.reserve(_elem2node.size()+referenceElement.nNodes*nNewElems);}
-		
+		void reserve(size_t nNewElems)
+		{
+			assert(nNewElems>=nElems());
+			_nodes.reserve(referenceElement.nNodes*nNewElems);
+			_elem2node.reserve(referenceElement.nNodes*nNewElems);
+		}
+
 		///copy node global indices for element "idx" into array "element"
 		void get_element(const size_t idx, size_t (&element)[referenceElement.nNodes]) const;
 
@@ -146,13 +156,8 @@ void HomoMesh<Element_t>::add_element(const gv::util::Point<3,double> (&element)
 {
 	for (size_t i=0; i<referenceElement.nNodes; i++)
 	{
-
-		_nodes.push_back(element[i]);
-		
 		size_t global_idx;
-		bool success = _nodes.find(element[i], global_idx);
-		if (!success) {throw std::runtime_error("ERROR: can't find node while adding element to mesh. Possibly need to set the bbox for the _nodes octree.");}
-
+		assert(_nodes.push_back(element[i], global_idx)!=-1);
 		_elem2node.push_back(global_idx);
 	}
 }

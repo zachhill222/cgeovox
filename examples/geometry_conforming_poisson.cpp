@@ -35,8 +35,8 @@ int main(int argc, char* argv[])
 
 	//read geometry
 	std::cout << "construct assembly: " << std::flush;
-	using Particle_t = gv::geometry::Prism;
-	// using Particle_t = gv::geometry::SuperEllipsoid;
+	// using Particle_t = gv::geometry::Prism;
+	using Particle_t = gv::geometry::SuperEllipsoid;
 	start = std::time(nullptr);
 	gv::geometry::Assembly<Particle_t> assembly(file, read_flags);
 	end = std::time(nullptr);
@@ -55,6 +55,7 @@ int main(int argc, char* argv[])
 	//mesh
 	std::cout << "create Q1 mesh: " << std::flush;
 	start = std::time(nullptr);
+	// gv::mesh::VoxelMeshQ1 mesh(gv::util::Point<3,double>{r,r,r}, gv::util::Point<3,size_t>{n,n,n});
 	gv::mesh::VoxelMeshQ1 mesh;
 	assembly.create_voxel_mesh_Q1(mesh, r*assembly.bbox(), opts);
 	end = std::time(nullptr);

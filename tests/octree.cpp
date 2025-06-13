@@ -79,7 +79,10 @@ void test_octree(size_t N)
     //resize and trim bounding box
     // gv::util::PointOctree<3,n_data_per_leaf>* octree2 = new gv::util::PointOctree<3,n_data_per_leaf>(new_bbox, octree->size());
     // for (size_t idx=0; idx<octree->size(); idx++) {octree2->push_back(octree->at(idx));}
-    gv::util::PointOctree<3,n_data_per_leaf>* octree2 = new gv::util::PointOctree<3,n_data_per_leaf>(*octree, new_bbox);
+    // gv::util::PointOctree<3,n_data_per_leaf>* octree2 = new gv::util::PointOctree<3,n_data_per_leaf>(*octree, new_bbox);
+
+    gv::util::PointOctree<3,n_data_per_leaf>* octree2 = octree;
+    octree2->set_bbox(new_bbox);
 
     std::cout << "\nmaking smaller octree (octree2): " << octree2->size() << "/" << octree2->capacity() << std::endl;
     std::cout << "\tinitial bbox= " << bbox << std::endl;
@@ -135,7 +138,7 @@ void test_octree(size_t N)
 
     //free memory
     delete octree;
-    delete octree2;
+    // delete octree2;
 }
 
 int main(int argc, char* argv[])

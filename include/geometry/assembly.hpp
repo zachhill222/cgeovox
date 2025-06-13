@@ -21,19 +21,16 @@ namespace gv::geometry{
 
 	//class for storing octrees efficiently
 	template <typename Particle_t, size_t n_data=8>
-	class ParticleOctree : public gv::util::BasicOctree<Particle_t, 3, true, n_data> {
+	class ParticleOctree : public gv::util::BasicOctree<Particle_t, 3, n_data> {
 	public:
-		ParticleOctree() : gv::util::BasicOctree<Particle_t, 3, true, n_data>() {}
-		ParticleOctree(const gv::util::Box<3> &bbox) : gv::util::BasicOctree<Particle_t, 3, true, n_data>(bbox) {}
+		ParticleOctree() : gv::util::BasicOctree<Particle_t, 3, n_data>() {}
+		ParticleOctree(const gv::util::Box<3> &bbox) : gv::util::BasicOctree<Particle_t, 3, n_data>(bbox, 64) {}
 
 		//check if a point is in any particle
 		bool is_in_particle(const gv::util::Point<3,double> &point) const
 		{
-			const auto* node = this->getnode(point);
-			for (size_t i=0; i<node->cursor; i++)
-			{
-				if (this->_data[node->data_idx[i]].contains(point)) {return true;}
-			}
+			std::vector<size_t> d_idx = this->get_data_indices(point);
+			for (size_t i=0; i<d_idx.size(); i++) {if ((*this)[d_idx[i]].contains(point)) {return true;}}
 			return false;
 		}
 
@@ -64,7 +61,7 @@ namespace gv::geometry{
 		int solid_marker = 1;
 		int interface_marker = 2;
 
-		size_t N[3] {32, 32, 32};
+		gv::util::Point<3,size_t> N {32, 32, 32};
 		double scale = 1.0; //TODO: implement functionality to scale/change length units.
 	};
 	
@@ -74,8 +71,13 @@ namespace gv::geometry{
 	class Assembly
 	{
 	public:
-		Assembly() {};
-		Assembly(const std::string filename, const std::string columns) {readfile(filename, columns);}
+		using ParticleList_t = ParticleOctree<Particle_t, n_data>;
+		using Point_t = gv::util::Point<3,double>;
+		using Box_t = gv::util::Box<3>;
+
+
+		Assembly() : _particles() {};
+		Assembly(const std::string filename, const std::string columns) : _particles() {readfile(filename, columns);}
 
 		//check if a point is in any particle
 		bool is_in_particle(const gv::util::Point<3,double> &point) const
@@ -104,7 +106,7 @@ namespace gv::geometry{
 		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const AssemblyMeshOptions &opts) const {create_voxel_mesh_Q1(out_mesh, this->_particles.bbox(), opts);}
 
 	private:
-		ParticleOctree<Particle_t, n_data> _particles;
+		ParticleList_t _particles;
 	};
 
 
@@ -270,10 +272,7 @@ namespace gv::geometry{
 		gv::util::Point<3,double> centroid {0,0,0};
 		gv::util::Point<3,double> ijk {0,0,0};
 
-		gv::util::Point<3,double> H = box.high()-box.low();
-		H[0]/= (double) N[0];
-		H[1]/= (double) N[1];
-		H[2]/= (double) N[2];
+		gv::util::Point<3,double> H = box.sidelength() / Point_t {N[0], N[1], N[2]};
 
 		for (long unsigned int  k=0; k<N[2]; k++){
 			ijk[2] = 0.5 + (double) k;
@@ -316,10 +315,7 @@ namespace gv::geometry{
 		gv::util::Point<3,double> sample_point {0,0,0};
 		gv::util::Point<3,double> ijk {0,0,0};
 
-		gv::util::Point<3,double> H = box.high()-box.low();
-		H[0]/= (double) N[0];
-		H[1]/= (double) N[1];
-		H[2]/= (double) N[2];
+		gv::util::Point<3,double> H = box.sidelength() / Point_t{N[0],N[1],N[2]};
 
 
 		//////////////// WRITE TO FILE ////////////////
@@ -410,29 +406,20 @@ namespace gv::geometry{
 		out_mesh.reserve(opts.N[0]*opts.N[1]*opts.N[2]);
 
 		//COMPUTE SPACING
-		gv::util::Point<3,double> ijk {0,0,0};
-		gv::util::Point<3,double> ones {1,1,1};
-		gv::util::Point<3,double> origin = box.low();
-		gv::util::Point<3,double> H = box.high()-box.low();
-		H[0]/= (double) opts.N[0];
-		H[1]/= (double) opts.N[1];
-		H[2]/= (double) opts.N[2];
+		gv::util::Point<3,double> H = box.sidelength()/Point_t(opts.N);
 
 		//CONSTRUCT ELEMENTS
 		for (size_t  k=0; k<opts.N[2]; k++)
 		{
-			ijk[2] = (double) k;
 			for (size_t  j=0; j<opts.N[1]; j++)
 			{
-				ijk[1] = (double) j;
 				for (size_t  i=0; i<opts.N[0]; i++)
 				{
-					ijk[0] = (double) i;
-
 					//create element
 					gv::util::Point<3,double> new_elem[8];
 
-					gv::util::Box<3> element_box(origin + H*ijk, origin + H*(ijk+ones));
+
+					gv::util::Box<3> element_box(box.low() + H*Point_t{i,j,k}, box.low() + H*Point_t{i+1,j+1,k+1});
 					for (int n=0; n<8; n++)
 					{
 						new_elem[n] = element_box.voxelvertex(n);
@@ -445,7 +432,6 @@ namespace gv::geometry{
 					{
 						if (this->is_in_particle(element_box[n])) {n_vert += 1;}
 					}
-
 
 					//add element to mesh
 					switch (n_vert)

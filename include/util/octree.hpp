@@ -115,7 +115,7 @@ namespace gv::util
 	public:
 		//constructor if the bounding box and capacity are unknown
 		BasicOctree(const size_t capacity=64) :
-			root(new Node_t(Box_t(Point_t(0), Point_t(0)))),
+			root(new Node_t(Box_t(Point_t(0), Point_t(1)))),
 			_data(new Data_t[capacity]),
 			_data_cursor(0),
 			_capacity(capacity) {}
@@ -150,6 +150,7 @@ namespace gv::util
 		void reserve(const size_t new_capacity); //re-size reserved space
 		void clear(); //delete all data and tree structure
 		Box_t bbox() const {return root->bbox;} //get a copy of the bounding box
+		void set_bbox(const Box_t& bbox); //re-size the bounding box. requires data a data move and re-creation of the entire tree structure.
 
 		//data access by index
 		const Data_t& operator[](const size_t idx) const {return _data[idx];} //return const data with no bound check
@@ -228,16 +229,22 @@ namespace gv::util
 	void BasicOctree<Data_t,dim,n_data>::reserve(const size_t new_capacity)
 	{
 		assert(new_capacity>=size()); //make sure that the new capacity has enough room for the current data
-		Data_t* _resized_data = new Data_t[new_capacity]; //reserve space
+		
+		//move old data to temporary location
+		Data_t* old_data = _data;
+
+		//prepare new data array
+		_data = new Data_t[new_capacity];
+		_capacity = new_capacity;
+
+		//move data
 		for (size_t idx=0; idx<size(); idx++) //copy old data into new array. the data is in the same order, so the octree structure does not change.
 		{
-			_resized_data[idx] = std::move(_data[idx]);
+			_data[idx] = std::move(old_data[idx]);
 		}
 
 		//free the old array and re-point it to the new array
-		delete[] _data;
-		_data = _resized_data;
-		_capacity = new_capacity;
+		delete[] old_data;
 	}
 
 	template<typename Data_t, int dim, int n_data>
@@ -257,6 +264,32 @@ namespace gv::util
 			_data_cursor=0;
 		}
 	}
+
+	template<typename Data_t, int dim, int n_data>
+	void BasicOctree<Data_t,dim,n_data>::set_bbox(const Box_t& new_bbox)
+	{
+		//re-set the tree structure
+		delete root;
+		root = new Node_t(new_bbox);
+		
+		//move the data so that it can be re-inserted
+		Data_t* old_data = _data;
+		size_t  old_data_cursor = _data_cursor;
+
+		//re-set the octree data
+		_data = new Data_t[_capacity];
+		_data_cursor = 0;
+
+		//add the data to the new octree
+		for (size_t d_idx=0; d_idx<old_data_cursor; d_idx++)
+		{
+			push_back(old_data[d_idx]);
+		}
+
+		//delete old tree structure and data. point to the newly created data.
+		delete[] old_data;
+	}
+
 
 	template<typename Data_t, int dim, int n_data>
 	std::vector<size_t> BasicOctree<Data_t,dim,n_data>::get_data_indices(const Box_t &box) const
@@ -279,6 +312,28 @@ namespace gv::util
 					result.push_back(idx);
 					used_indices[idx] = true;
 				}
+			}
+		}
+
+		return result;
+	}
+
+	template<typename Data_t, int dim, int n_data>
+	std::vector<size_t> BasicOctree<Data_t,dim,n_data>::get_data_indices(const Point_t &coord) const
+	{
+		assert(root->bbox.contains(coord));
+		std::vector<size_t> result;
+
+		bool used_indices[_capacity] {false}; //TODO: remove to reduce memory overhead
+		const Node_t* node = _get_node(coord);
+
+		for (int d_idx=0; d_idx<node->data_cursor; d_idx++)
+		{
+			size_t idx = node->data_idx[d_idx];
+			if (!used_indices[idx])
+			{
+				result.push_back(idx);
+				used_indices[idx] = true;
 			}
 		}
 

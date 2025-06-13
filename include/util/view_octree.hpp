@@ -13,18 +13,17 @@ namespace gv::util
 	template <typename Octree_t>
 	void view_octree_vtk(const Octree_t &octree, const std::string filename="octree_structure.vtk")
 	{	
-		const size_t nElems = octree.nNodes();
+		std::vector<const typename Octree_t::Node_t*> nodes = octree._get_nodes(octree.bbox()); //get all leaf nodes from the octree
+
+		const size_t nElems = nodes.size(); //each node will be a voxel element in the visualization
 
 		//initialize mesh
-		gv::mesh::HomoMesh<gv::mesh::Voxel> octree_mesh;
-		octree_mesh.set_bbox(octree.bbox());
+		gv::mesh::HomoMesh<gv::mesh::Voxel> octree_mesh(octree.bbox());
 		octree_mesh.reserve(nElems);
 
 		//create an element for each node
 		for (size_t idx=0; idx<nElems; idx++)
 		{
-			if (not octree.isLeaf(idx)) {continue;}
-
 			//make element
 			gv::util::Point<3,double> element[8];
 			gv::util::Box<3> box = octree.bbox(idx);
@@ -58,7 +57,7 @@ namespace gv::util
 		buffer << "LOOKUP_TABLE default\n";
 		for (size_t i=0; i<octree_mesh.nElems(); i++)
 		{
-			buffer << octree.nData(i) << "\n";
+			buffer << nodes[i]->data_cursor << "\n";
 		}
 		buffer << "\n";
 		meshfile << buffer.rdbuf();

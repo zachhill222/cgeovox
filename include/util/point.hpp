@@ -59,11 +59,11 @@ namespace gv::util {
 		}
 
 		//move constructor (must be correct type obviously)
-		Point (Point<dim,T>&& other) noexcept : _data(nullptr)
-		{
-			_data = other._data;
-			other._data = nullptr;
-		}
+		// Point (Point<dim,T>&& other) noexcept : _data(nullptr)
+		// {
+		// 	_data = other._data;
+		// 	other._data = nullptr;
+		// }
 
 		
 
