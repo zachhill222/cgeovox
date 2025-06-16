@@ -1,8 +1,7 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "util/point_octree.hpp"
-#include "mesh/homo_mesh.hpp"
-// #include "util/octree_util.hpp"
+#include "util/octree_util.hpp"
 
 #include <iostream>
 #include <random>
@@ -16,9 +15,8 @@ void test_octree(size_t N)
 {
 	//set up octree container for points
 	Box_t bbox(Point_t {0,0,0}, Point_t {1,1,1});
-	const int n_data_per_leaf = 4;
-	gv::util::PointOctree<3,n_data_per_leaf>* octree = new gv::util::PointOctree<3,n_data_per_leaf>(bbox,16); //test using a pointer
-	// gv::util::OctreeInspector inspector(*octree); //print and vtk functions
+    using Octree_t = gv::util::PointOctree<3,4>;
+	Octree_t* octree = new Octree_t(bbox,16); //test using a pointer
 	std::vector<Point_t> vector;
 
 	//set up random number generator
@@ -71,74 +69,60 @@ void test_octree(size_t N)
     std::vector<size_t> some_points = octree->get_data_indices(new_bbox);
 	std::cout << "there are " << some_points.size() << " points in the box " << new_bbox << std::endl;
 
+    octree->set_bbox(new_bbox);
 
-    //print octree structure
-    // std::cout << "\nPRINT OCTREE STRUCTURE" << std::endl;
-    // inspector.print();
-
-    //resize and trim bounding box
-    // gv::util::PointOctree<3,n_data_per_leaf>* octree2 = new gv::util::PointOctree<3,n_data_per_leaf>(new_bbox, octree->size());
-    // for (size_t idx=0; idx<octree->size(); idx++) {octree2->push_back(octree->at(idx));}
-    // gv::util::PointOctree<3,n_data_per_leaf>* octree2 = new gv::util::PointOctree<3,n_data_per_leaf>(*octree, new_bbox);
-
-    gv::util::PointOctree<3,n_data_per_leaf>* octree2 = octree;
-    octree2->set_bbox(new_bbox);
-
-    std::cout << "\nmaking smaller octree (octree2): " << octree2->size() << "/" << octree2->capacity() << std::endl;
+    std::cout << "\nmaking smaller octree (octree): " << octree->size() << "/" << octree->capacity() << std::endl;
     std::cout << "\tinitial bbox= " << bbox << std::endl;
     std::cout << "\tnew bbox= " << new_bbox << std::endl;
 
     some_points.clear();
-    some_points = octree2->get_data_indices(new_bbox);
+    some_points = octree->get_data_indices(new_bbox);
 	std::cout << "there are (still?) " << some_points.size() << " points in the box " << new_bbox << std::endl;
-
-    //print octree structure
-    // std::cout << "\nPRINT OCTREE STRUCTURE" << std::endl;
-    // inspector.print();
 
     //verify that the octree can find every element with the correct index
     success = true;
-	for (size_t i=0; i<octree2->size(); i++)
+	for (size_t i=0; i<octree->size(); i++)
     {
-    	bool same_index = i==octree2->find(octree2->at(i));
-    	if (!same_index) {std::cout << "ERROR: octree2.find(octree2[i])!=i  (i=" << i << ")" << std::endl;}
+    	bool same_index = i==octree->find(octree->at(i));
+    	if (!same_index) {std::cout << "ERROR: octree.find(octree[i])!=i  (i=" << i << ")" << std::endl;}
     	success = success and same_index;
     }
-    if (success) {std::cout << "\nSUCCESS: octree2.find(octree2[i])=i for all i" << std::endl;}
+    if (success) {std::cout << "\nSUCCESS: octree.find(octree[i])=i for all i" << std::endl;}
 
 
     
     for (size_t i=0; i<N; i++)
     {
     	const Point_t& point = vector[i];
-    	if (octree2->contains(point))
+    	if (octree->contains(point))
     	{
-    		size_t j = octree2->find(point);
-	    	std::cout << "vector: " << i << "\t" << vector[i] << "\t| octree: " << j << "\t" << octree2->at(j);
-	    	std::cout << "\t (diff= " << vector[i]-octree2->at(j) << ")" << std::endl;
+    		size_t j = octree->find(point);
+	    	std::cout << "vector: " << i << "\t" << vector[i] << "\t| octree: " << j << "\t" << octree->at(j);
+	    	std::cout << "\t (diff= " << vector[i]-octree->at(j) << ")" << std::endl;
     	}
     	else
     	{
-    		std::cout << "vector: " << i << "\t" << vector[i] << " trimmed from octree2" << std::endl;
+    		std::cout << "vector: " << i << "\t" << vector[i] << " trimmed from octree" << std::endl;
     		continue;
     	}
 	}
 
     //print all of the octee nodes
-   	std::cout << "\n\nlist octree2 data" << std::endl;
+   	std::cout << "\n\nlist octree data" << std::endl;
    	success = true;
-    for (size_t i=0; i<octree2->size(); i++)
+    for (size_t i=0; i<octree->size(); i++)
     {
-    	bool same_index = i==octree2->find(octree2->at(i));
-    	if (!same_index) {std::cout << "ERROR: can't find data at index " << i << " (" << octree2->at(i) << ")" << std::endl;}
+    	bool same_index = i==octree->find(octree->at(i));
+    	if (!same_index) {std::cout << "ERROR: can't find data at index " << i << " (" << octree->at(i) << ")" << std::endl;}
     	success = success and same_index;
     }
-    if (success) {std::cout << "\nSUCCESS: octree2.find(octree2[i])=i for all i" << std::endl;}
+    if (success) {std::cout << "\nSUCCESS: octree.find(octree[i])=i for all i" << std::endl;}
 
+    //save octree structure
+    gv::util::view_octree_vtk(*octree, "./outfiles/octree_structure.vtk");
 
     //free memory
     delete octree;
-    // delete octree2;
 }
 
 int main(int argc, char* argv[])

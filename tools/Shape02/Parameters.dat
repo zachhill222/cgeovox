@@ -1,7 +1,0 @@
-length= 1
-width= 0.999615
-height= 0.994376
-solver_max_iterations= 2000
-solver_absolute_tolerance= 1e-08
-solver_relative_tolerance= 1e-06
-solver_verbose= 2

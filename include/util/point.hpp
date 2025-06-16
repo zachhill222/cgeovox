@@ -24,16 +24,6 @@ namespace gv::util {
 			for (int i=0; i<dim; i++) {_data[i] = val;}
 		}
 
-		//initialize via braces {1,2,3} 
-		// Point (std::initializer_list<T> init) : _data(new T[dim])
-		// {
-		// 	int i=0;
-		// 	for (T coord : init){
-		// 		_data[i] = coord;
-		// 		i++;
-		// 	}
-		// }
-
 		//initialize via braces {1,2,3} and converte types if needed
 		template <typename U>
 		Point (std::initializer_list<U> init) : _data(new T[dim])
@@ -59,11 +49,11 @@ namespace gv::util {
 		}
 
 		//move constructor (must be correct type obviously)
-		// Point (Point<dim,T>&& other) noexcept : _data(nullptr)
-		// {
-		// 	_data = other._data;
-		// 	other._data = nullptr;
-		// }
+		Point (Point<dim,T>&& other) noexcept : _data(nullptr)
+		{
+			_data = other._data;
+			other._data = nullptr;
+		}
 
 		
 

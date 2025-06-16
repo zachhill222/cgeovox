@@ -8,7 +8,7 @@
 #include "geometry/particles.hpp"
 #include "geometry/collisions.hpp"
 
-#include "util/view_octree.hpp" //for viewing octree structure
+#include "util/octree_util.hpp" //for viewing octree structure
 #include "mesh/Q1.hpp" //unstructured voxel mesh
 
 #include <fstream>

@@ -1,5 +1,4 @@
-#ifndef NELDERMEAD_H
-#define NELDERMEAD_H
+#pragma once
 
 #include "util/polytope.hpp"
 #include "util/point.hpp"
@@ -143,6 +142,3 @@ namespace GeoVox::solvers{
 	}
 
 }
-
-
-#endif

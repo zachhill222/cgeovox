@@ -3,7 +3,7 @@ LIB_DIR    =
 
 SRC        = $(wildcard *.cpp)
 OBJ        = $(SRC:.cpp=.o)
-TARGETS     = $(SRC:.cpp=)
+TARGETS    = $(SRC:.cpp=)
 
 CC         = g++ -fopenmp -g
 CFLAGS     = -Wall -O2
@@ -11,17 +11,31 @@ LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
 
 
-.PHONY: all
+# DEFAULT: make all test programs
 all: $(TARGETS)
 
 
-# LINK
-$(TARGETS) : % : %.o $(OBJ)
-	$(CC) $< -o $@
+# RULES TO MAKE EACH TEST INDIVIDUALLY. listing individually helps autocomplete. using .PHONY forces re-build when header files have changed but not source files.
+.PHONY: assembly
+assembly :
+	$(CC) $(CFLAGS) $(INC_DIR) -c assembly.cpp -o assembly.o
+	$(CC) assembly.o -o assembly
 
-# COMPILE
-%.o: %.cpp
-	$(CC) $(CFLAGS) $(INC_DIR) -c $< -o $@
+.PHONY: charmsQ1
+charmsQ1 :
+	$(CC) $(CFLAGS) $(INC_DIR) -c charmsQ1.cpp -o charmsQ1.o
+	$(CC) charmsQ1.o -o charmsQ1
+
+.PHONY: octree
+octree :
+	$(CC) $(CFLAGS) $(INC_DIR) -c octree.cpp -o octree.o
+	$(CC) octree.o -o octree
+
+.PHONY: util
+util :
+	$(CC) $(CFLAGS) $(INC_DIR) -c util.cpp -o util.o
+	$(CC) util.o -o util
+
 
 
 .PHONY: clean
