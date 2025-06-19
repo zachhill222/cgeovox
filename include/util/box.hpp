@@ -7,59 +7,77 @@
 #include <sstream>
 #include <cmath>
 #include <iostream>
+#include <cassert>
+#include <algorithm>
 
 namespace gv::util{
-	template <int dim>
-	class Box;
 
-	using Box3d = Box<3>;
-
-
-	template <int dim=3>
+	template <int dim=3, typename T=double>
 	class Box{
-	private:
+	protected:
 		Point<dim,double> _low;
 		Point<dim,double> _high;
 
 	public:
-		constexpr Box() : _low(Point<dim,double>(-1.0)), _high(Point<dim,double>(1.0)) {}
+		using Point_t = gv::util::Point<dim,T>;
 
-		Box(const Point<dim> &vertex1, const Point<dim> &vertex2){
-			_low = elmin(vertex1, vertex2);
-			_high = elmax(vertex1, vertex2);
-			
-			if (!(_low<_high)){
-				throw std::invalid_argument("Box: low<high");
-			}
+		constexpr Box() : _low(Point_t(-1.0)), _high(Point_t(1.0)) {}
+		constexpr Box(const T low, const T high) : _low(Point_t(low)), _high(Point_t(high)) {}
+
+		Box(const Point_t &vertex1, const Point_t &vertex2) : _low(elmin(vertex1,vertex2)), _high(elmax(vertex1,vertex2))
+		{
+			assert(_low<_high);
 		}
 
-		Box(const Box &box1, const Box &box2){
-			_low = el_min(box1.low(), box2.low());
-			_high = el_max(box1.high(), box2.high());
-			if (!(_low<_high)){
-				throw std::invalid_argument("Box: low<high");
-			}
-		}
-
+		//copy constructor
 		Box(const Box &other){
 			_low = other.low();
 			_high = other.high();
 		}
 
-		Box(const double low, const double high) : _low(Point<dim,double>(low)), _high(Point<dim,double>(high)) {} //Box<3>(-1,1) is [-1,1]^3
+		//move constructor
+		Box(Box &&other)
+		{
+			_low = std::move(other._low);
+			_high = std::move(other._high);
+		}
+
+		//destructor
+		~Box() {}
+
+
+		//move assignment
+		Box& operator=(Box &&other) noexcept
+		{
+			if (this!=&other)
+			{
+				_low  = std::move(other._low);
+				_high = std::move(other._high);
+			}
+			return *this;
+		}
+
+		//copy assignment
+		Box& operator=(const Box &other)
+		{
+			_low  = other._low;
+			_high = other._high;
+			return *this;
+		}
+		
 
 
 		//////////////////////////
 		/////// ATTRIBUTES ///////
 		//////////////////////////
-		inline Point<dim> low() const {return _low;}
-		inline Point<dim> high() const {return _high;}
-		inline Point<dim> center() const {return 0.5*(_low+_high);}
-		inline Point<dim> sidelength() const {return _high-_low;}
+		inline Point_t low() const {return _low;}
+		inline Point_t high() const {return _high;}
+		inline Point_t center() const {return 0.5*(_low+_high);}
+		inline Point_t sidelength() const {return _high-_low;}
 
 		///Get i-th vertex in vtk pixel/voxel order.
-		Point<dim> operator[](const int idx) const {
-			Point<dim> vertex;
+		Point_t operator[](const int idx) const {
+			Point_t vertex;
 			int p = idx;
 			int r = 0;
 			for (int i=0; i<dim; i++){
@@ -71,30 +89,8 @@ namespace gv::util{
 			return vertex;
 		}
 
-		void setlow(const Point<dim> &newlow){
-			Point<dim> _newlow = el_min(newlow, _high);
-			Point<dim> _newhigh = el_max(newlow, _high);
-			if (_newlow < _newhigh){
-				_low = _newlow;
-				_high = _newhigh;
-			}else{
-				throw std::out_of_range("Box: can't move _low to newlow");
-			}
-		}
-
-		void sethigh(const Point<dim> &newhigh){
-			Point<dim> _newlow = el_min(newhigh, _high);
-			Point<dim> _newhigh = el_max(newhigh, _high);
-			if (_newlow < _newhigh){
-				_low = _newlow;
-				_high = _newhigh;
-			}else{
-				std::out_of_range("Box: can't move _high to newhigh");
-			}
-		}
-
 		///Get i-th vertex in vtk quad/hexahedron order.
-		Point<dim> hexvertex(const int idx) const{
+		Point_t hexvertex(const int idx) const{
 			switch (idx){
 			case 2: return operator[](3);
 			case 3: return operator[](2);
@@ -105,29 +101,31 @@ namespace gv::util{
 		}
 
 		///Get i-th vertex in vtk pixel/voxel order.
-		Point<dim> voxelvertex(const int idx) const {return operator[](idx);}
+		inline Point_t voxelvertex(const int idx) const {return (*this)[idx];}
 
 
 		///////////////////////////////////////////////
 		/////// CONTAINMENT AND INTERSECTION //////////
 		///////////////////////////////////////////////
 		///Check if point is in the closed box.
-		inline bool contains(const Point<dim> &point) const {return _low<=point and point<=_high;}
+		inline bool contains(const Point_t &point) const {return _low<=point and point<=_high;}
 		///Check if point is in the open box.
-		inline bool contains_strict(const Point<dim> &point) const {return _low<point and point<_high;}
+		inline bool contains_strict(const Point_t &point) const {return _low<point and point<_high;}
 		///Check if this box contains the other.
 		inline bool contains(const Box<dim> &other) const {return _low<=other.low() and other.high()<=_high;}
 		///Check if this box intersects the other.
-		bool intersects(const Box<dim> &other) const{
-			for (int i=0; i<std::pow(2,dim); i++){
-				if (this->contains(other[i])){return true;}
-				if (other.contains(operator[](i))){return true;}
+		bool intersects(const Box<dim> &other) const
+		{
+			for (int i=0; i<dim; i++)
+			{
+				bool axis_overlap = _high[i]>=other._low[i] and other._high[i]>=_low[i];
+				if (!axis_overlap) {return false;}
 			}
-			return false;
+			return true;
 		}
 
 		///Find a location of the supporting hyperplane with the given direction. This maximizes dot(x,direction) over all points x in the box.
-		Point<dim> support(const Point<dim> &direction) const{
+		Point_t support(const Point_t &direction) const{
 			double maxdot = dot(direction, (*this)[0]);
 			int maxind = 0;
 
@@ -146,55 +144,55 @@ namespace gv::util{
 		///////////////////////////////////////////////
 		////////// SHIFTING AND SCALING ///////////////
 		///////////////////////////////////////////////
-		Box<dim>* operator+=(const Point<dim> &shift){
-			_low+=shift;
-			_high+=shift;
-			return this;
-		}
-		Box<dim> operator+(const Point<dim> &shift) const{
-			return Box(_low+shift, _high+shift);
-		}
-		Box<dim>* operator-=(const Point<dim> &shift){
-			_low-=shift;
-			_high-=shift;
-			return this;
-		}
-		Box<dim> operator-(const Point<dim> &shift) const{
-			return Box(_low-shift, _high-shift);
-		}
+		// Box<dim>* operator+=(const Point_t &shift){
+		// 	_low+=shift;
+		// 	_high+=shift;
+		// 	return this;
+		// }
+		// Box<dim> operator+(const Point_t &shift) const{
+		// 	return Box(_low+shift, _high+shift);
+		// }
+		// Box<dim>* operator-=(const Point_t &shift){
+		// 	_low-=shift;
+		// 	_high-=shift;
+		// 	return this;
+		// }
+		// Box<dim> operator-(const Point_t &shift) const{
+		// 	return Box(_low-shift, _high-shift);
+		// }
 
 		///Scale box towards center.
-		Box<dim>* operator*=(const double& scale){
-			Point<dim> _center = center();
+		Box& operator*=(const double& scale){
+			Point_t _center = center();
 			_low = _center + scale*(_low-_center);
 			_high = _center + scale*(_high-_center);
-			return this;
+			return *this;
 		}
 
-		Box<dim> operator*(const double& scale) const{
-			Point<dim> _center = center();
-			return Box<dim>(_center+scale*(_low-_center), _center+scale*(_high-_center));
+		Box operator*(const double& scale) const{
+			Point_t _center = center();
+			return Box(_center+scale*(_low-_center), _center+scale*(_high-_center));
 		}
 
-		inline Box<dim>* operator/=(const double& scale){return operator*=(1.0/scale);}
-		inline Box<dim> operator/(const double& scale) const{return operator*(1.0/scale);}
+		// inline Box<dim>* operator/=(const double& scale){return operator*=(1.0/scale);}
+		// inline Box<dim> operator/(const double& scale) const{return operator*(1.0/scale);}
 
 		///Enlarge this box so that it contains the other.
-		Box<dim>* combine(const Box<dim>& other){
-			Point<dim> _newlow = elmin(_low, other.low());
-			Point<dim> _newhigh = elmax(_high, other.high());
+		Box& combine(const Box<dim>& other){
+			Point_t _newlow = elmin(_low, other.low());
+			Point_t _newhigh = elmax(_high, other.high());
 			_low = _newlow;
 			_high = _newhigh;
-			return this;
+			return *this;
 		}
 
-		std::string str() const{
-			std::stringstream ss;
-			for (int i=0; i<std::pow(2,dim); i++){
-				ss << i << ": " << operator[](i) << "\n";
-			}
-			return ss.str();
-		}
+		// std::string str() const{
+		// 	std::stringstream ss;
+		// 	for (int i=0; i<std::pow(2,dim); i++){
+		// 		ss << i << ": " << operator[](i) << "\n";
+		// 	}
+		// 	return ss.str();
+		// }
 
 	
 	};

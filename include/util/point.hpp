@@ -3,7 +3,7 @@
 #include <iostream>
 #include <initializer_list>
 #include <cmath>
-#include <limits>
+// #include <limits>
 
 namespace gv::util {
 	///Class for points in space.
@@ -11,6 +11,9 @@ namespace gv::util {
 	 * Note that the initialization Point p {1,2,3} gives p the type Point<3,int> while the initialization Point p {1.0, 2.0, 3.0} give p the type Point<3,double>.*/
 	template <int dim=3, typename T=double>
 	class Point {
+	protected:
+		T* _data;
+
 	public:
 		//default constructor (all zeros)
 		constexpr Point () : _data(new T[dim])
@@ -19,14 +22,14 @@ namespace gv::util {
 		}
 
 		//constructor for constant value
-		Point (const T val) : _data(new T[dim])
+		constexpr Point (const T val) : _data(new T[dim])
 		{
 			for (int i=0; i<dim; i++) {_data[i] = val;}
 		}
 
 		//initialize via braces {1,2,3} and converte types if needed
 		template <typename U>
-		Point (std::initializer_list<U> init) : _data(new T[dim])
+		constexpr Point (std::initializer_list<U> init) : _data(new T[dim])
 		{
 			int i=0;
 			for (U coord : init){
@@ -38,7 +41,7 @@ namespace gv::util {
 		//copy constructor
 		constexpr Point (const Point<dim,T> &other) : _data(new T[dim])
 		{
-			for (int i=0; i<dim; i++) {_data[i] = other[i];}
+			for (int i=0; i<dim; i++) {_data[i] = other._data[i];}
 		}
 
 		//copy constructor with type conversion if needed
@@ -46,6 +49,12 @@ namespace gv::util {
 		constexpr Point (const Point<dim,U> &other) : _data(new T[dim])
 		{
 			for (int i=0; i<dim; i++) {_data[i] = (T) other[i];}
+		}
+
+		//destructor
+		~Point()
+		{
+			if (_data!=nullptr) {delete[] _data; _data=nullptr;}
 		}
 
 		//move constructor (must be correct type obviously)
@@ -81,8 +90,7 @@ namespace gv::util {
 		T squaredNorm() const;
 		Point<dim,T> normalized() const;
 
-	private:
-		T* _data;
+
 	};
 
 
@@ -109,7 +117,7 @@ namespace gv::util {
 	template <int dim=3, typename T=double>
 	Point<dim, T> operator+(const Point<dim,T> &left, const Point<dim,T> &right)
 	{
-		Point<dim, T> result;
+		Point<dim, T> result(0);
 		for (int i=0; i<dim; i++) {result[i] = left[i]+right[i];}
 		return result;
 	}
@@ -282,13 +290,13 @@ namespace gv::util {
 	}
 
 	///Scalar approximately equal
-	template <typename T=double>
-	bool approxEqual(const T &left, const T &right)
-	{
-		T absmax = gv::util::max( gv::util::abs(left), gv::util::abs(right) );
-		T delta = gv::util::abs(left-right);
-		return  delta <= std::numeric_limits<T>::epsilon() * 2 * absmax;
-	}
+	// template <typename T=double>
+	// bool approxEqual(const T &left, const T &right)
+	// {
+	// 	T absmax = gv::util::max( gv::util::abs(left), gv::util::abs(right) );
+	// 	T delta = gv::util::abs(left-right);
+	// 	return  delta <= std::numeric_limits<T>::epsilon() * 2 * absmax;
+	// }
 
 	///Point equal to comparison.
 	template <int dim=3, typename T=double>
@@ -296,8 +304,8 @@ namespace gv::util {
 	{
 		for (int i=0; i<dim; i++)
 		{
-			// if (left[i] != right[i]) {return false;}
-			if (not approxEqual(left[i], right[i])) {return false;}
+			if (left[i] != right[i]) {return false;}
+			// if (not approxEqual(left[i], right[i])) {return false;}
 		}
 		return true;
 	}

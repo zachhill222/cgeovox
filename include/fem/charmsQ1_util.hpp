@@ -8,8 +8,17 @@
 #include "util/octree.hpp"
 
 #include <vector>
+#include <algorithm>
 #include <cassert>
 #include <iostream>
+
+#define CHARMS_Q1_BASIS_SUPPORT_SIZE 8
+#define CHARMS_Q1_BASIS_CHILD_SIZE   27
+#define CHARMS_Q1_BASIS_PARENT_SIZE  27
+
+#define CHARMS_Q1_ELEMENT_NODE_SIZE    8
+#define CHARMS_Q1_ELEMENT_CHILD_SIZE   8
+#define CHARMS_Q1_ELEMENT_BASIS_S_SIZE 8
 
 namespace gv::fem
 {
@@ -19,7 +28,11 @@ namespace gv::fem
 	class CharmsQ1BasisFunOctree;
 	class CharmsQ1ElementOctree;
 	
-	class CharmsQ1BasisFun : public CharmsBasisFun<8>
+	using CharmsQ1BasisFun_BASE = CharmsBasisFun<CHARMS_Q1_BASIS_SUPPORT_SIZE,CHARMS_Q1_BASIS_CHILD_SIZE,CHARMS_Q1_BASIS_PARENT_SIZE>;
+	using CharmsQ1Element_BASE  = CharmsElement<CHARMS_Q1_ELEMENT_NODE_SIZE,CHARMS_Q1_ELEMENT_CHILD_SIZE,CHARMS_Q1_ELEMENT_BASIS_S_SIZE>;
+	
+
+	class CharmsQ1BasisFun : public CharmsQ1BasisFun_BASE
 	{
 	public:
 		using VertexList_t = gv::util::PointOctree<3>;
@@ -31,15 +44,15 @@ namespace gv::fem
 		CharmsQ1ElementOctree*  elements;
 		CharmsQ1BasisFunOctree* basis;
 		
-		size_t basis_list_index = CharmsBasisFun<8>::NO_DATA; //track where this basis function occurs in the basis function list. set by octree container.
-		
+		size_t list_index = CharmsQ1BasisFun_BASE::NO_DATA; //track where this basis function occurs in the basis function list. set by octree container.
+
 		//default constructor
-		constexpr CharmsQ1BasisFun() : CharmsBasisFun<8>(), vertices(nullptr), elements(nullptr), basis(nullptr) {}
+		constexpr CharmsQ1BasisFun() : CharmsQ1BasisFun_BASE(), vertices(nullptr), elements(nullptr), basis(nullptr) {}
 
 		//constructor for creating a new basis function in the coarsest mesh. elements[] must be up to date.
 		//sets is_active and is_odd to true
 		CharmsQ1BasisFun(VertexList_t* vertices, CharmsQ1ElementOctree* elements, CharmsQ1BasisFunOctree* basis, const size_t node_index) :
-			CharmsBasisFun<8>(node_index, 0, true, true, false),
+			CharmsQ1BasisFun_BASE(node_index, 0, true, true, false),
 			vertices(vertices),
 			elements(elements),
 			basis(basis) {}
@@ -47,7 +60,7 @@ namespace gv::fem
 		//constructor for creating a new basis function using information from a parent basis function
 		//parent[], child[], and support[] are initialized but only filled with NO_DATA (i.e. (size_t) -1)
 		CharmsQ1BasisFun(const CharmsQ1BasisFun& some_parent, const size_t node_index, const bool is_odd) :
-			CharmsBasisFun<8>(node_index, some_parent.depth+1, is_odd, false, false),
+			CharmsQ1BasisFun_BASE(node_index, some_parent.depth+1, is_odd, false, false),
 			vertices(some_parent.vertices),
 			elements(some_parent.elements),
 			basis(some_parent.basis) {}
@@ -61,11 +74,11 @@ namespace gv::fem
 
 		//move constructor
 		CharmsQ1BasisFun(CharmsQ1BasisFun&& other) :
-			CharmsBasisFun<8>(other),
+			CharmsQ1BasisFun_BASE(other),
 			vertices(other.vertices),
 			elements(other.elements),
 			basis(other.basis),
-			basis_list_index(other.basis_list_index)
+			list_index(other.list_index)
 		{
 			other.vertices = nullptr;
 			other.elements = nullptr;
@@ -74,11 +87,11 @@ namespace gv::fem
 
 		//copy constructor
 		CharmsQ1BasisFun(const CharmsQ1BasisFun& other) :
-			CharmsBasisFun<8>(other),
+			CharmsQ1BasisFun_BASE(other),
 			vertices(other.vertices),
 			elements(other.elements),
 			basis(other.basis),
-			basis_list_index(other.basis_list_index){}
+			list_index(other.list_index){}
 
 		//update move operator
 		CharmsQ1BasisFun& operator=(CharmsQ1BasisFun&& other)
@@ -89,7 +102,7 @@ namespace gv::fem
 				vertices = other.vertices; other.vertices = nullptr;
 				elements = other.elements; other.elements = nullptr;
 				basis    = other.basis;    other.basis    = nullptr;
-				basis_list_index = other.basis_list_index;
+				list_index = other.list_index;
 			}
 			return *this;	
 		}
@@ -101,7 +114,7 @@ namespace gv::fem
 			vertices = other.vertices;
 			elements = other.elements; 
 			basis    = other.basis;    
-			basis_list_index = other.basis_list_index;
+			list_index = other.list_index;
 			
 			return *this;
 		}
@@ -116,13 +129,16 @@ namespace gv::fem
 		//does not change is_active and sets is_active=false for the new basis functions.
 		void subdivide();
 
+		//activate a basis function and any necessary elements
+		void activate();
+
 		inline Point_t coord() const {return (*vertices)[this->node_index];}
 		Box_t bbox() const; //get bounding box for the support of this element
 	};
 
 
 	
-	class CharmsQ1Element : public CharmsElement<8>
+	class CharmsQ1Element : public CharmsQ1Element_BASE
 	{
 	public:
 		using VertexList_t = CharmsQ1BasisFun::VertexList_t;
@@ -134,15 +150,16 @@ namespace gv::fem
 		CharmsQ1ElementOctree*  elements;
 		CharmsQ1BasisFunOctree* basis;
 		
-		size_t element_list_index = CharmsElement<8>::NO_DATA; //track where this element occurs in the element list. set by octree container.
+		size_t list_index = CharmsQ1Element_BASE::NO_DATA; //track where this element occurs in the element list. set by octree container.
+		static constexpr int vtk_id = 11;
 
 		//default constructor
-		constexpr CharmsQ1Element() : CharmsElement<8>(), vertices(nullptr), elements(nullptr), basis(nullptr) {}
+		constexpr CharmsQ1Element() : CharmsQ1Element_BASE(), vertices(nullptr), elements(nullptr), basis(nullptr) {}
 
 		//constructor for creating the coarsest mesh. adds vertices to the list, but does not add the element or create any basis functions
 		//sets is_active=true
 		CharmsQ1Element(VertexList_t* vertices, CharmsQ1ElementOctree* elements, CharmsQ1BasisFunOctree* basis, const Box_t &bbox) :
-			CharmsElement<8>(0, (size_t)-1, true, false),
+			CharmsQ1Element_BASE(0, (size_t)-1, true, false),
 			vertices(vertices),
 			elements(elements),
 			basis(basis)
@@ -158,7 +175,7 @@ namespace gv::fem
 		//constructor for creating a new element using information from its parent. adds vertices to the list if necessary.
 		//sets is_active=false
 		CharmsQ1Element(const CharmsQ1Element& parent, int sibling_number) :
-			CharmsElement<8>(parent.depth+1, parent.element_list_index, false, false),
+			CharmsQ1Element_BASE(parent.depth+1, parent.list_index, false, false),
 			vertices(parent.vertices),
 			elements(parent.elements),
 			basis(parent.basis)
@@ -171,7 +188,8 @@ namespace gv::fem
 			for (int i=0; i<8; i++)
 			{
 				int flag = vertices->push_back(bbox.voxelvertex(i), node_idx);
-				if (flag==1) {std::cout << "vertex: " << node_idx << "\t" << bbox.voxelvertex(i) << std::endl;}
+				assert(flag!=-1);
+				// if (flag==1) {std::cout << "vertex: " << node_idx << "\t" << bbox.voxelvertex(i) << std::endl;}
 				this->insert_node(node_idx);
 			}
 		}
@@ -185,11 +203,11 @@ namespace gv::fem
 
 		//move constructor
 		CharmsQ1Element(CharmsQ1Element&& other) :
-			CharmsElement<8>(other),
+			CharmsQ1Element_BASE(other),
 			vertices(other.vertices),
 			elements(other.elements),
 			basis(other.basis),
-			element_list_index(other.element_list_index)
+			list_index(other.list_index)
 		{
 			other.vertices = nullptr;
 			other.elements = nullptr;
@@ -198,11 +216,11 @@ namespace gv::fem
 
 		//copy constructor
 		CharmsQ1Element(const CharmsQ1Element& other) :
-			CharmsElement<8>(other),
+			CharmsQ1Element_BASE(other),
 			vertices(other.vertices),
 			elements(other.elements),
 			basis(other.basis),
-			element_list_index(other.element_list_index){}
+			list_index(other.list_index){}
 
 		//update move operator
 		CharmsQ1Element& operator=(CharmsQ1Element&& other)
@@ -213,7 +231,7 @@ namespace gv::fem
 				vertices = other.vertices; other.vertices = nullptr;
 				elements = other.elements; other.elements = nullptr;
 				basis    = other.basis;    other.basis    = nullptr;
-				element_list_index = other.element_list_index;
+				list_index = other.list_index;
 			}
 			return *this;	
 		}
@@ -225,7 +243,7 @@ namespace gv::fem
 			vertices = other.vertices; 
 			elements = other.elements; 
 			basis    = other.basis;    
-			element_list_index = other.element_list_index;
+			list_index = other.list_index;
 			
 			return *this;
 		}
@@ -235,11 +253,32 @@ namespace gv::fem
 		//does not change the is_active marker of any element or basis function
 		void subdivide();
 
+		//get all ancestor basis functions (i.e. union of all basis_s and basis_a for all ancestor elements)
+		std::vector<size_t> ancestor_basis_fun() const;
+
 		inline Box_t bbox() const {return Box_t{(*vertices)[node[0]], (*vertices)[node[7]]};}
 		inline Point_t center() const {return 0.5*((*vertices)[node[0]] + (*vertices)[node[7]]);}
 		inline Point_t H() const {return (*vertices)[node[7]] - (*vertices)[node[0]];}
 		inline bool contains(const Point_t &coord) const {return (*vertices)[node[0]] <= coord and coord <= (*vertices)[node[7]];}
 
+		std::vector<size_t> ancestor_elements() const
+		{
+			std::vector<size_t> result;
+			result.reserve(this->depth);
+			_ancestor_elements(result);
+			return result;
+		}
+
+		std::vector<size_t> descendent_elements() const
+		{
+			std::vector<size_t> result;
+			_descendent_elements(result);
+			return result;
+		}
+
+	private:
+		void _ancestor_elements(std::vector<size_t> &result) const;
+		void _descendent_elements(std::vector<size_t> &result) const;
 	};
 
 
@@ -268,7 +307,7 @@ namespace gv::fem
 		std::vector<size_t> check_elements_idx = elements->get_data_indices(this->coord());
 		for (auto it=check_elements_idx.begin(); it!=check_elements_idx.end(); ++it)
 		{
-			const CharmsQ1Element& ELEM = (*elements)[*it];
+			CharmsQ1Element& ELEM = (*elements)[*it];
 			if (ELEM.contains(this->coord()) and ELEM.depth==this->depth) {this->insert_support(*it);}
 		}
 		assert(this->cursor_support>0);
@@ -276,7 +315,7 @@ namespace gv::fem
 
 	void CharmsQ1BasisFun::update_element_basis_lists()
 	{
-		assert(basis_list_index!=this->NO_DATA);
+		assert(list_index!=this->NO_DATA);
 		Box_t support_bbox = bbox();
 
 		//get a list of all elements that intersect the support
@@ -286,21 +325,21 @@ namespace gv::fem
 			CharmsQ1Element& ELEM = (*elements)[*it];
 			if (ELEM.bbox().contains(this->coord()))
 			{
-				if (this->depth==ELEM.depth) {ELEM.insert_basis_s(this->basis_list_index);}
-				else if (this->depth<ELEM.depth) {ELEM.insert_basis_a(this->basis_list_index);}
+				if (this->depth==ELEM.depth) {ELEM.insert_basis_s(this->list_index);}
+				else if (this->depth<ELEM.depth) {ELEM.insert_basis_a(this->list_index);}
 			}
 		}
 	}
 
 	void CharmsQ1BasisFun::subdivide()
 	{
-		std::cout << "subdivide basis function " << basis_list_index << std::endl;
+		// std::cout << "subdivide basis function " << list_index << std::endl;
 		if (this->is_refined) {return;}
 		this->is_refined = true;
 
 		//subdivide each support element if necessary
 		// while (elements->capacity() < elements->size()+8) {elements->reserve(2*elements->capacity());}
-		std::cout << elements->size() << "/" << elements->capacity() << std::endl;
+		// std::cout << elements->size() << "/" << elements->capacity() << std::endl;
 		for (int i=0; i<this->cursor_support; i++)
 		{
 			CharmsQ1Element& ELEM = (*elements)[this->support[i]];
@@ -314,7 +353,7 @@ namespace gv::fem
 				for (int k=-1; k<2; k++){
 
 					//get coordinate and index for the location of the new basis function
-					std::cout << "basis: " << basis->size() << "/" << basis->capacity() << std::endl;
+					// std::cout << "basis: " << basis->size() << "/" << basis->capacity() << std::endl;
 					Point_t new_coord = this->coord() + H * Point_t{i,j,k};
 					size_t  new_coord_idx = vertices->find(new_coord);
 					if(new_coord_idx >= vertices->size()) {continue;} //happens near domain boundary
@@ -326,16 +365,25 @@ namespace gv::fem
 					fun.set_support();
 
 					//add the new basis function to the list
-					size_t new_basis_list_index;
-					int flag = basis->push_back(fun, new_basis_list_index);
+					size_t new_list_index;
+					int flag = basis->push_back(fun, new_list_index);
 					assert(flag!=-1);
-					(*basis)[new_basis_list_index].basis_list_index = new_basis_list_index;
+					(*basis)[new_list_index].list_index = new_list_index;
+
+					//add the new basis to basis_s list of all support elements
+					for (int l=0; l<(*basis)[new_list_index].cursor_support; l++)
+					{
+						size_t s_idx = (*basis)[new_list_index].support[l];
+						(*elements)[s_idx].insert_basis_s(new_list_index);
+					}
 
 					//add the new basis function as a child of this function
-					// this->insert_child(new_basis_list_index);
+					// std::cout << this->cursor_child << std::endl;
+					this->insert_child(new_list_index);
 
 					//add this function as a parent of the new basis function
-					(*basis)[new_basis_list_index].insert_parent(this->basis_list_index);
+					// std::cout << (*basis)[new_list_index].cursor_parent << std::endl;
+					(*basis)[new_list_index].insert_parent(this->list_index);
 				}
 			}
 		}
@@ -349,11 +397,48 @@ namespace gv::fem
 		return result;
 	}
 
+	void CharmsQ1BasisFun::activate()
+	{
+		if (this->is_active) {return;}
+		this->is_active = true;
+
+		//deactivate all ancestor elements
+		std::vector<size_t> ancestor_elems = (*elements)[this->support[0]].ancestor_elements();
+		for (auto it=ancestor_elems.begin(); it!=ancestor_elems.end(); ++it)
+		{
+			(*elements)[*it].is_active = false;
+		}
+
+		for (int i=0; i<this->cursor_support; i++)
+		{
+			size_t s_idx = this->support[i];
+			if (!(*elements)[s_idx].is_active) //activate support elements if they are not already active
+			{
+				(*elements)[s_idx].is_active  = true;
+
+				//add ancestor basis functions. TODO: is this necessary?
+				std::vector<size_t> ancestor_funs = (*elements)[s_idx].ancestor_basis_fun();
+				for (auto it=ancestor_funs.begin(); it!=ancestor_funs.end(); ++it)
+				{
+					(*elements)[s_idx].insert_basis_a(*it);
+				}
+
+				//add this basis function to all descendent elements. TODO: is this necessary?
+				std::vector<size_t> desc_elems = (*elements)[s_idx].descendent_elements();
+				for (auto it=desc_elems.begin(); it!=desc_elems.end(); ++it)
+				{
+					(*elements)[*it].insert_basis_a(this->list_index);
+				}
+			}
+		}
+	}
+
+
 	//implemtation of CharmsQ1Element methods
 	void CharmsQ1Element::subdivide()
 	{
-		std::cout << "subdivide element " << element_list_index << std::endl;
-		std::cout << *this << std::endl;
+		// std::cout << "subdivide element " << list_index << std::endl;
+		// std::cout << *this << std::endl;
 
 		if(this->is_refined) {return;}
 		this->is_refined = true;
@@ -361,17 +446,88 @@ namespace gv::fem
 		for (int i=0; i<8; i++)
 		{
 			CharmsQ1Element elem(*this, i); //updates vertex list, sets basis_a[], basis_s[], and node[]
-			std::cout << elem << std::endl;
-			std::cout << elements << "\t" << elem.elements << std::endl;
+			// std::cout << elem << std::endl;
+			// std::cout << elements << "\t" << elem.elements << std::endl;
 
-			size_t new_element_list_index;
-			int flag = elements->push_back(elem,new_element_list_index);
+			size_t new_list_index;
+			int flag = elements->push_back(elem,new_list_index);
 			assert(flag!=-1);
-			std::cout << flag << std::endl;
-			std::cout << elements << std::endl;
-			(*elements)[new_element_list_index].element_list_index = new_element_list_index;
-			this->insert_child(elem.element_list_index);
+			// std::cout << flag << std::endl;
+			// std::cout << elements << std::endl;
+			(*elements)[new_list_index].list_index = new_list_index;
+			this->insert_child(elem.list_index);
 		}
+	}
+
+	void CharmsQ1Element::_ancestor_elements(std::vector<size_t> &result) const
+	{
+		if (this->parent == this->NO_DATA) {return;}
+		result.push_back(this->parent);
+		(*elements)[this->parent]._ancestor_elements(result);
+	}
+
+	void CharmsQ1Element::_descendent_elements(std::vector<size_t> &result) const
+	{
+		if (!this->is_refined) {return;}
+		for (int i=0; i<this->cursor_child; i++)
+		{
+			result.push_back(this->child[i]);
+			(*elements)[this->child[i]]._descendent_elements(result);
+		}
+	}
+
+	std::vector<size_t> CharmsQ1Element::ancestor_basis_fun() const //TODO: make this recursive using this->parent?
+	{
+		std::vector<size_t> result;
+		
+		//loop through all ancestor elements
+		std::vector<size_t> ancestors = this->ancestor_elements();
+
+		for (auto it=ancestors.begin(); it!=ancestors.end(); ++it)
+		{
+			const CharmsQ1Element& ELEM = (*elements)[*it];
+			for (int i=0; i<ELEM.cursor_basis_s; i++) {result.push_back(ELEM.basis_s[i]);}
+			for (int i=0; i<ELEM.cursor_basis_a; i++) {result.push_back(ELEM.basis_a[i]);}
+		}
+
+		//make result contain only unique values
+		// std::cout << "ancestor basis non_unique: ";
+		// for (auto it=result.begin(); it!=result.end(); ++it) {std::cout << *it << " ";}
+		// std::cout << std::endl;
+
+		std::sort(result.begin(), result.end());
+		auto delete_past = std::unique(result.begin(), result.end());
+		result.erase(delete_past, result.end());
+
+		// std::cout << "ancestor basis unique:     ";
+		// for (auto it=result.begin(); it!=result.end(); ++it) {std::cout << *it << " ";}
+		// std::cout << std::endl;
+
+		return result;
+	}
+
+
+	//UPDATE PRINTING
+	std::ostream& operator<<(std::ostream& os, const CharmsQ1BasisFun& fun)
+	{
+		os << static_cast<const CharmsQ1BasisFun_BASE&>(fun);
+		os << "list_index\t: " << fun.list_index << "\n";
+		os << "&vertices \t: " << fun.vertices   << "\n";
+		os << "&elements \t: " << fun.elements   << "\n";
+		os << "&basis    \t: " << fun.basis      << "\n";
+		return os;
+	}
+
+
+	std::ostream& operator<<(std::ostream& os, const CharmsQ1Element& elem)
+	{
+		os << static_cast<const CharmsQ1Element_BASE&>(elem);
+		os << "vtk_id    \t: " << elem.vtk_id     << "\n";
+		os << "list_index\t: " << elem.list_index << "\n";
+		os << "&vertices \t: " << elem.vertices   << "\n";
+		os << "&elements \t: " << elem.elements   << "\n";
+		os << "&basis    \t: " << elem.basis      << "\n";
+		return os;
 	}
 
 

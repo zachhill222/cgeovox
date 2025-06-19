@@ -6,7 +6,7 @@
 namespace gv::fem
 {
 	//bare essentials for the charms basis functions
-	template<int ARR_SIZE> //ARR_SIZE is the maximum number of children/parents and is governed by the subdivision scheme and type of element
+	template<int SUPPORT_SIZE, int CHILD_SIZE, int PARENT_SIZE>
 	class CharmsBasisFun
 	{
 	public:
@@ -35,20 +35,17 @@ namespace gv::fem
 
 		CharmsBasisFun(const size_t node_index, const size_t depth, const bool is_odd, const bool is_active, const bool is_refined) :
 			node_index(node_index), 
-			support(new size_t[ARR_SIZE]),
+			support(new size_t[SUPPORT_SIZE]),
 			depth(depth),
 			is_odd(is_odd), 
-			child(new size_t[ARR_SIZE]),
-			parent(new size_t[ARR_SIZE]),
+			child(new size_t[CHILD_SIZE]),
+			parent(new size_t[PARENT_SIZE]),
 			is_active(is_active),
 			is_refined(is_refined)
 			{
-				for (int i=0; i<ARR_SIZE; i++)
-				{
-					support[i] = NO_DATA;
-					child[i]   = NO_DATA;
-					parent[i]  = NO_DATA;
-				}
+				fill_array(NO_DATA, support, SUPPORT_SIZE);
+				fill_array(NO_DATA, child,   CHILD_SIZE);
+				fill_array(NO_DATA, parent,  PARENT_SIZE);
 			}
 
 		//move constructor
@@ -138,8 +135,8 @@ namespace gv::fem
 			}
 			else
 			{
-				if (support==nullptr) {support = new size_t[ARR_SIZE];}
-				for (int i=0; i<ARR_SIZE; i++) {support[i]=other.support[i];}
+				if (support==nullptr) {support = new size_t[SUPPORT_SIZE];}
+				for (int i=0; i<SUPPORT_SIZE; i++) {support[i]=other.support[i];}
 			}
 
 			//copy child
@@ -149,8 +146,8 @@ namespace gv::fem
 			}
 			else
 			{
-				if (child==nullptr) {child = new size_t[ARR_SIZE];}
-				for (int i=0; i<ARR_SIZE; i++) {child[i]=other.child[i];}
+				if (child==nullptr) {child = new size_t[CHILD_SIZE];}
+				for (int i=0; i<CHILD_SIZE; i++) {child[i]=other.child[i];}
 			}
 
 			//copy parent
@@ -160,17 +157,17 @@ namespace gv::fem
 			}
 			else
 			{
-				if (parent==nullptr) {parent = new size_t[ARR_SIZE];}
-				for (int i=0; i<ARR_SIZE; i++) {parent[i]=other.parent[i];}
+				if (parent==nullptr) {parent = new size_t[PARENT_SIZE];}
+				for (int i=0; i<PARENT_SIZE; i++) {parent[i]=other.parent[i];}
 			}
 			
 			return *this;
 		}
 
 
-		inline void insert_support(const size_t value) {std::cout << "basis: insert_support" << std::endl; insert(value, support, cursor_support);}
-		inline void insert_child(const size_t value)   {std::cout << "basis: insert_child" << std::endl; insert(value, child, cursor_child);}
-		inline void insert_parent(const size_t value)  {std::cout << "basis: insert_parent" << std::endl; insert(value, parent, cursor_parent);}
+		inline void insert_support(const size_t value) {insert(value, support, cursor_support, SUPPORT_SIZE);}
+		inline void insert_child(const size_t value)   {insert(value, child, cursor_child, CHILD_SIZE);}
+		inline void insert_parent(const size_t value)  {insert(value, parent, cursor_parent, PARENT_SIZE);}
 
 		bool operator==(const CharmsBasisFun& other) const
 		{
@@ -181,9 +178,20 @@ namespace gv::fem
 
 	private:
 		//data insertion.
-		void insert(const size_t value, size_t* array, int &cursor)
+		void fill_array(const size_t val, size_t* arr, const int len)
+		{
+			for (int i=0; i<len; i++) {arr[i]=val;}
+		}
+
+		void insert(const size_t value, size_t* array, int &cursor, const int ARR_SIZE)
 		{
 			assert(array!=nullptr);
+			if (cursor>=ARR_SIZE) //if the array is full, verify that the value is already contained. TODO: make a debug flag to remove this?
+			{
+				for (int i=0; i<ARR_SIZE; i++) {if (value==array[i]) {return;}}
+				assert("array is full\n" and false);
+			}
+
 			assert(cursor<ARR_SIZE);
 			assert(array[cursor]==NO_DATA);
 
@@ -196,7 +204,7 @@ namespace gv::fem
 	};
 
 	//bare essentials for a charms element
-	template<int ARR_SIZE> //ARR_SIZE is the maximum number of child/parent and is governed by the subdivision scheme and type of elements
+	template<int NODE_SIZE, int CHILD_SIZE, int BASIS_S_SIZE>
 	class CharmsElement
 	{
 	public:
@@ -218,23 +226,20 @@ namespace gv::fem
 		constexpr CharmsElement() : node(nullptr), depth(0), child(nullptr), parent(NO_DATA), basis_s(nullptr), basis_a(nullptr), is_active(false), is_refined(false) {}
 
 		CharmsElement(const int depth, const size_t parent, const bool is_active, bool is_refined) :
-			node(new size_t[ARR_SIZE]),
+			node(new size_t[NODE_SIZE]),
 			depth(depth),
-			child(new size_t[ARR_SIZE]),
+			child(new size_t[CHILD_SIZE]),
 			parent(parent),
-			basis_s(new size_t[ARR_SIZE]),
-			basis_a(new size_t[ARR_SIZE]),
-			capacity_basis_a(ARR_SIZE),
+			basis_s(new size_t[BASIS_S_SIZE]),
+			basis_a(new size_t[BASIS_S_SIZE]),
+			capacity_basis_a(BASIS_S_SIZE),
 			is_active(is_active),
 			is_refined(is_refined)
 		{
-			for (int i=0; i<ARR_SIZE; i++)
-			{
-				node[i]    = NO_DATA;
-				child[i]   = NO_DATA;
-				basis_s[i] = NO_DATA;
-				basis_a[i] = NO_DATA;
-			}
+			fill_array(NO_DATA, node,    NODE_SIZE);
+			fill_array(NO_DATA, child,   CHILD_SIZE);
+			fill_array(NO_DATA, basis_s, BASIS_S_SIZE);
+			fill_array(NO_DATA, basis_a, capacity_basis_a);
 		}
 
 		~CharmsElement()
@@ -335,8 +340,8 @@ namespace gv::fem
 			}
 			else
 			{
-				if (node==nullptr) {node = new size_t[ARR_SIZE];}
-				for (int i=0; i<ARR_SIZE; i++) {node[i]=other.node[i];}
+				if (node==nullptr) {node = new size_t[NODE_SIZE];}
+				for (int i=0; i<NODE_SIZE; i++) {node[i]=other.node[i];}
 			}
 
 			//copy child
@@ -346,8 +351,8 @@ namespace gv::fem
 			}
 			else
 			{
-				if (child==nullptr) {child = new size_t[ARR_SIZE];}
-				for (int i=0; i<ARR_SIZE; i++) {child[i]=other.child[i];}
+				if (child==nullptr) {child = new size_t[CHILD_SIZE];}
+				for (int i=0; i<CHILD_SIZE; i++) {child[i]=other.child[i];}
 			}
 
 			//copy basis_s
@@ -357,8 +362,8 @@ namespace gv::fem
 			}
 			else
 			{
-				if (basis_s==nullptr) {basis_s = new size_t[ARR_SIZE];}
-				for (int i=0; i<ARR_SIZE; i++) {basis_s[i]=other.basis_s[i];}
+				if (basis_s==nullptr) {basis_s = new size_t[BASIS_S_SIZE];}
+				for (int i=0; i<BASIS_S_SIZE; i++) {basis_s[i]=other.basis_s[i];}
 			}
 
 			//copy basis_a
@@ -375,9 +380,9 @@ namespace gv::fem
 			return *this;
 		}
 		
-		inline void insert_node(const size_t value)    {insert(value, node, cursor_node);}
-		inline void insert_child(const size_t value)   {insert(value, child, cursor_child);}
-		inline void insert_basis_s(const size_t value) {insert(value, basis_s, cursor_basis_s);}
+		inline void insert_node(const size_t value)    {insert(value, node, cursor_node, NODE_SIZE);}
+		inline void insert_child(const size_t value)   {insert(value, child, cursor_child, CHILD_SIZE);}
+		inline void insert_basis_s(const size_t value) {insert(value, basis_s, cursor_basis_s, BASIS_S_SIZE);}
 		inline void insert_basis_a(const size_t value)
 		{
 			if (cursor_basis_a>=capacity_basis_a) //expand capacity if needed
@@ -394,7 +399,7 @@ namespace gv::fem
 				delete[] old_basis_a;
 			}
 			
-			insert(value, basis_a, cursor_basis_a);
+			insert(value, basis_a, cursor_basis_a, capacity_basis_a);
 		}
 
 		bool operator==(const CharmsElement& other) const //useful for storing in an octree
@@ -404,7 +409,7 @@ namespace gv::fem
 			if (this->node==nullptr and other.node!=nullptr) {return false;}
 			if (this->node!=nullptr and other.node!=nullptr)
 			{
-				for (int i=0; i<8; i++)
+				for (int i=0; i<NODE_SIZE; i++)
 				{
 					if (this->node[i]!=other.node[i]) {return false;}
 				}
@@ -415,9 +420,20 @@ namespace gv::fem
 
 	private:
 		//data insertion.
-		void insert(const size_t value, size_t* array, int &cursor)
+		void fill_array(const size_t val, size_t* arr, const int len)
+		{
+			for (int i=0; i<len; i++) {arr[i]=val;}
+		}
+
+		void insert(const size_t value, size_t* array, int &cursor, const int ARR_SIZE)
 		{
 			assert(array!=nullptr);
+			if (cursor>=ARR_SIZE) //if the array is full, verify that the value is already contained
+			{
+				for (int i=0; i<ARR_SIZE; i++) {if (value==array[i]) {return;}}
+				assert("array is full\n" and false);
+			}
+
 			assert(cursor<ARR_SIZE);
 			assert(array[cursor]==NO_DATA);
 
@@ -429,9 +445,8 @@ namespace gv::fem
 		}
 	};
 
-
 	//DEBUG AND PRINTING HELP
-	void to_stream(std::ostream& os, size_t* arr, int len)
+	void to_stream(std::ostream& os, const size_t* arr, const int len)
 	{
 		for (int i=0; i<len; i++)
 		{
@@ -441,31 +456,31 @@ namespace gv::fem
 	}
 
 
-	template<int ARR_SIZE>
-	std::ostream& operator<<(std::ostream& os, const CharmsBasisFun<ARR_SIZE>& fun)
+	template<int SUPPORT_SIZE, int CHILD_SIZE, int PARENT_SIZE>
+	std::ostream& operator<<(std::ostream& os, const CharmsBasisFun<SUPPORT_SIZE,CHILD_SIZE,PARENT_SIZE>& fun)
 	{
-		os << "node_index : " << fun.node_index << "\n";
-		os << "support    : "; to_stream(os, fun.support, fun.cursor_support); os << "\n";
-		os << "depth      : " << fun.depth  << "\n";
-		os << "is_odd     : " << fun.is_odd << "\n";
-		os << "parent     : "; to_stream(os, fun.parent, fun.cursor_parent); os << "\n";
-		os << "child      : "; to_stream(os, fun.child, fun.cursor_child);   os << "\n";
-		os << "is_active  : " << fun.is_active  << "\n";
-		os << "is_refined : " << fun.is_refined << "\n";
+		os << "node_index\t: " << fun.node_index << "\n";
+		os << "support (" << fun.cursor_support <<")\t: "; to_stream(os, fun.support, fun.cursor_support); os << "\n";
+		os << "depth     \t: " << fun.depth  << "\n";
+		os << "is_odd    \t: " << fun.is_odd << "\n";
+		os << "parent (" << fun.cursor_parent << ")\t: "; to_stream(os, fun.parent, fun.cursor_parent); os << "\n";
+		os << "child (" << fun.cursor_child << ")\t: "; to_stream(os, fun.child, fun.cursor_child);   os << "\n";
+		os << "is_active \t: " << fun.is_active  << "\n";
+		os << "is_refined\t: " << fun.is_refined << "\n";
 		return os;
 	}
 
-	template<int ARR_SIZE>
-	std::ostream& operator<<(std::ostream& os, const CharmsElement<ARR_SIZE>& elem)
+	template<int NODE_SIZE, int CHILD_SIZE, int BASIS_S_SIZE>
+	std::ostream& operator<<(std::ostream& os, const CharmsElement<NODE_SIZE,CHILD_SIZE,BASIS_S_SIZE>& elem)
 	{
-		os << "node        : "; to_stream(os, elem.node, elem.cursor_node); os << "\n";
-		os << "depth       : " << elem.depth  << "\n";
-		os << "parent      : " << elem.parent << "\n";
-		os << "child       : "; to_stream(os, elem.child, elem.cursor_child);     os << "\n";
-		os << "basis_s     : "; to_stream(os, elem.basis_s, elem.cursor_basis_s); os << "\n";
-		os << "basis_a     : "; to_stream(os, elem.basis_a, elem.cursor_basis_a); os << "\n";
-		os << "is_active   : " << elem.is_active  << "\n";
-		os << "is_refined  : " << elem.is_refined << "\n";
+		os << "node (" << elem.cursor_node << ")\t: "; to_stream(os, elem.node, elem.cursor_node); os << "\n";
+		os << "depth      \t: " << elem.depth  << "\n";
+		os << "parent     \t: " << elem.parent << "\n";
+		os << "child (" << elem.cursor_child << ")\t: "; to_stream(os, elem.child, elem.cursor_child);     os << "\n";
+		os << "basis_s (" << elem.cursor_basis_s << ")\t: "; to_stream(os, elem.basis_s, elem.cursor_basis_s); os << "\n";
+		os << "basis_a (" << elem.cursor_basis_a << ")\t: "; to_stream(os, elem.basis_a, elem.cursor_basis_a); os << "\n";
+		os << "is_active  \t: " << elem.is_active  << "\n";
+		os << "is_refined \t: " << elem.is_refined << "\n";
 		return os;
 	}
 

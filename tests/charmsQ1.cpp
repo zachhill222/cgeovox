@@ -2,11 +2,14 @@
 #include "util/octree_util.hpp"
 #include <iostream>
 
+//uncomment to disable assert()
+#define NDEBUG
+
 int main(int argc, char const *argv[])
 {
 	//set domain parameters
 	gv::util::Box<3> domain(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,2,3}); //box domain to be meshed
-	gv::util::Point<3,size_t> N {3, 5, 7}; //number of elements in each cardinal direction
+	gv::util::Point<3,size_t> N {128, 128, 128}; //number of elements in each cardinal direction
 	
 	//initialize coarsest mesh
 	gv::fem::CharmsQ1Mesh mesh(domain,N);
@@ -17,24 +20,29 @@ int main(int argc, char const *argv[])
 	// mesh.basis.reserve(1000);
 
 	//refine mesh
-	mesh.h_refine(9);
-	mesh.h_refine(8);
-	mesh.h_refine(32);
-	mesh.h_refine(65);
-	mesh.h_refine(11);
-	mesh.h_refine(7);
-	mesh.h_refine(0);
-	mesh.h_refine(91);
-	mesh.h_refine(83);
+	for (int i=1; i<argc; i++) {mesh.h_refine(atoi(argv[i]));}
 	std::cout << "refined mesh" << std::endl;
 
 	// //save mesh to view in ParaView
-	mesh.save_as("./outfiles/charms_mesh.vtk");
-	std::cout << "saved mesh" << std::endl;
+	// mesh.save_as("./outfiles/charms_mesh.vtk");
+	// std::cout << "saved mesh" << std::endl;
 
+	// std::cout << "\n===============================================" << std::endl;
+	// std::cout << "========== PRINT ALL BASIS FUNCTIONS ==========" << std::endl;
+	// std::cout << "===============================================\n" << std::endl;
 	// for (size_t i=0; i<mesh.nBasis(); i++)
 	// {
+	// 	std::cout << "basis: " << i << std::endl;
 	// 	std::cout << mesh.basis[i] << std::endl;
+	// }
+
+	// std::cout << "================================================" << std::endl;
+	// std::cout << "============== PRINT ALL ELEMENTS ==============" << std::endl;
+	// std::cout << "================================================\n" << std::endl;
+	// for (size_t i=0; i<mesh.nElems(); i++)
+	// {
+	// 	std::cout << "element: " << i << std::endl;
+	// 	std::cout << mesh.elements[i] << std::endl;
 	// }
 
 	// // for (size_t i=0; i<mesh.basis.size(); i++)

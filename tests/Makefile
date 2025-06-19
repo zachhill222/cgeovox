@@ -5,7 +5,7 @@ SRC        = $(wildcard *.cpp)
 OBJ        = $(SRC:.cpp=.o)
 TARGETS    = $(SRC:.cpp=)
 
-CC         = g++ -fopenmp -g
+CC         = g++ -fopenmp -g -pg #-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/) 
 CFLAGS     = -Wall -O2
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
@@ -41,6 +41,13 @@ util :
 .PHONY: clean
 clean:
 	rm -f $(TARGETS) $(OBJ)
+
+.PHONY: remove_tests
+remove_tests:
+	rm -f gmon.out
+	rm -rf *.er
+	rm -f *.vtk
+	rm -f ./outfiles/*
 
 .PHONY: print
 print:

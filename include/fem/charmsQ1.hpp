@@ -50,7 +50,7 @@ namespace gv::fem
 						Element_t elem(&vertices, &elements, &basis, Box_t{low,high}); //this adds the appropriate vertices to the vertex list
 						size_t elem_idx;
 						elements.push_back(elem, elem_idx); //add element to mesh
-						elements[elem_idx].element_list_index = elem_idx;
+						elements[elem_idx].list_index = elem_idx;
 					}
 				}
 			}
@@ -62,7 +62,7 @@ namespace gv::fem
 				fun.set_support();
 				size_t fun_idx;
 				int flag = basis.push_back(fun, fun_idx); assert(flag==1);
-				basis[fun_idx].basis_list_index = fun_idx;
+				basis[fun_idx].list_index = fun_idx;
 				basis[fun_idx].update_element_basis_lists();
 			}
 		}
@@ -83,11 +83,15 @@ namespace gv::fem
 			while (vertices.capacity() < vertices.size()+125) {vertices.reserve(2*vertices.capacity());}
 			while (elements.capacity() < elements.size()+64) {elements.reserve(2*elements.capacity());}
 			while (basis.capacity() < basis.size()+27) {basis.reserve(2*basis.capacity());}
+			
 			//create candidate basis functions and elements
-			std::cout << basis[basis_idx] << std::endl;
 			basis[basis_idx].subdivide();
-			std::cout << basis[basis_idx] << std::endl;
-
+		
+			for (int i=0; i<basis[basis_idx].cursor_child; i++)
+			{
+				size_t c_idx = basis[basis_idx].child[i];
+				if (basis[c_idx].is_odd) {basis[c_idx].activate();}
+			}
 		}
 	};
 
@@ -129,7 +133,7 @@ namespace gv::fem
 
 		//VTK IDs
 		buffer << "CELL_TYPES " << nElems() << "\n";
-		for (size_t i=0; i<nElems(); i++) {buffer << 11 << " ";}
+		for (size_t i=0; i<nElems(); i++) {buffer << elements[i].vtk_id << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
@@ -138,7 +142,7 @@ namespace gv::fem
 
 		//MESH INFORMATION AT EACH CELL (depth, is_active, global_index, #basis_a, #basis_s)
 		buffer << "CELL_DATA " << nElems() << "\n";
-		buffer << "FIELD mesh_element_info 5\n";
+		buffer << "FIELD mesh_element_info 4\n";
 
 		//ELEMENT DEPTH
 		buffer << "depth 1 " << nElems() << " integer\n";
@@ -154,73 +158,48 @@ namespace gv::fem
 		os << buffer.rdbuf();
 		buffer.str("");
 
-		//ELEMENT GLOBAL INDEX
-		buffer << "elem_index 2 " << nElems() << " integer\n";
-		for (size_t i=0; i<nElems(); i++) {buffer << i << " " << elements[i].element_list_index << " ";}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
-
-		//ELEMENT BASIS_A
-		buffer << "basis_a 8 " << nElems() << " integer\n";
-		for (size_t i=0; i<nElems(); i++) {to_stream(buffer, elements[i].basis_a, 8);}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
-
-		//ELEMENT BASIS_A
+		//ELEMENT BASIS_S
 		buffer << "basis_s 8 " << nElems() << " integer\n";
 		for (size_t i=0; i<nElems(); i++) {to_stream(buffer, elements[i].basis_s, 8);}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
-
-
-		//MESH INFORMATION AT EACH VERTEX (#basis_total, active_basis_index, active_basis_depth, support)
-		buffer << "POINT_DATA " << nNodes() << "\n";
-		buffer << "FIELD mesh_vertex_info 4\n";
-
-		//loop through vertices to collect info
-		size_t basis_total_size[nNodes()] {0};
-		size_t active_basis_index[nNodes()] {0};
-		size_t active_basis_depth[nNodes()] {0};
-		for (size_t i=0; i<nNodes(); i++)
-		{
-			std::vector<size_t> basis_total = basis.get_data_indices(vertices[i]);
-			basis_total_size[i] = 0;
-			int count = 0;
-			for (auto it=basis_total.begin(); it!=basis_total.end(); ++it)
-			{
-				if (basis[*it].coord()==vertices[i])
-				{
-					basis_total_size[i]++;
-					if (basis[*it].is_active)
-					{
-						count++;
-						active_basis_index[i] = *it;
-						active_basis_depth[i] = basis[*it].depth;
-					}
-				}
-				
-			}
-			assert(count<=1);
-			if (count==0)
-			{
-				active_basis_index[i] = (size_t) -1;
-				active_basis_depth[i] = (size_t) -1;
-			}
-		}
-
-		//VERTEX TOTAL NUMBER OF CONSTRUCTED BASIS FUNCTIONS
-		buffer << "#basis_total 1 " << nNodes() << " integer\n";
-		for (size_t i=0; i<nNodes(); i++) {buffer << basis_total_size[i] << " ";}
+		//ELEMENT BASIS_A
+		buffer << "basis_a[0:7] 8 " << nElems() << " integer\n";
+		for (size_t i=0; i<nElems(); i++) {to_stream(buffer, elements[i].basis_a, 8);}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
+		
+
+
+
+		//MESH INFORMATION AT EACH VERTEX (active_basis_index, active_basis_depth, support)
+		buffer << "POINT_DATA " << nNodes() << "\n";
+		buffer << "FIELD mesh_vertex_info 5\n";
+
+		//loop through vertices to get index of active basis function
+		size_t active_basis_index[nNodes()] {0};
+		for (size_t i=0; i<nNodes(); i++)
+		{
+			std::vector<size_t> basis_total = basis.get_data_indices(vertices[i]);
+			int count = 0;
+			for (auto it=basis_total.begin(); it!=basis_total.end(); ++it)
+			{
+				if (basis[*it].is_active and basis[*it].coord()==vertices[i])
+				{
+					count++;
+					active_basis_index[i] = *it;
+				}
+			}
+			assert(count<=1);
+			if (count==0) {active_basis_index[i] = (size_t) -1;}
+		}
+
 		//VERTEX ACTIVE BASIS INDEX
-		buffer << "active_basis_index 1 " << nNodes() << " integer\n";
+		buffer << "index 1 " << nNodes() << " integer\n";
 		for (size_t i=0; i<nNodes(); i++)
 		{
 			if (active_basis_index[i]<nBasis()) {buffer << active_basis_index[i] << " ";}
@@ -231,22 +210,60 @@ namespace gv::fem
 		buffer.str("");
 
 		//VERTEX ACTIVE BASIS DEPTH
-		buffer << "active_basis_depth 1 " << nNodes() << " integer\n";
+		buffer << "depth 1 " << nNodes() << " integer\n";
 		for (size_t i=0; i<nNodes(); i++)
 		{
-			if (active_basis_depth[i] != (size_t) -1) {buffer << active_basis_depth[i] << " ";}
-			else {buffer << -1 << " ";}
+			if (active_basis_index[i]==(size_t)-1) {buffer << -1 << " ";}
+			else
+			{
+				const BasisFun_t& FUN = basis[active_basis_index[i]];
+				buffer << FUN.depth << " ";
+			}
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//VERTEX ACTIVE BASIS SUPPORT
-		buffer << "active_basis_support 8 " << nNodes() << " integer\n";
+		buffer << "support 8 " << nNodes() << " integer\n";
 		for (size_t i=0; i<nNodes(); i++)
 		{
-			if (active_basis_index[i]==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 "; continue;}
-			else {to_stream(buffer, basis[i].support, 8);}
+			if (active_basis_index[i]==(size_t)-1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 ";}
+			else
+			{
+				const BasisFun_t& FUN = basis[active_basis_index[i]];
+				to_stream(buffer, FUN.support, 8);
+			}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//VERTEX ACTIVE BASIS PARENTS
+		buffer << "parent 27 " << nNodes() << " integer\n";
+		for (size_t i=0; i<nNodes(); i++)
+		{
+			if (active_basis_index[i]==(size_t)-1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
+			else
+			{
+				const BasisFun_t& FUN = basis[active_basis_index[i]];
+				to_stream(buffer, FUN.parent, 27);
+			}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//VERTEX ACTIVE BASIS PARENTS
+		buffer << "child 27 " << nNodes() << " integer\n";
+		for (size_t i=0; i<nNodes(); i++)
+		{
+			if (active_basis_index[i]==(size_t)-1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
+			else
+			{
+				const BasisFun_t& FUN = basis[active_basis_index[i]];
+				to_stream(buffer, FUN.child, 27);
+			}
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();

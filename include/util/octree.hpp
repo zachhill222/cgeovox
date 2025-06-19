@@ -18,6 +18,7 @@
 
 #include <cassert>
 #include <vector>
+#include <memory>
 
 namespace gv::util
 {
@@ -173,7 +174,7 @@ namespace gv::util
 		// std::vector<Node_t*> _get_node(const Box_t &box); //get all leaf nodes that intersect the specified region
 
 		//OVERWRITE THIS IN THE DATA SPECIFIC OCTREE CONTAINER
-		virtual bool is_data_valid(const Box_t &bbox, const Data_t &val) const {assert(false); return false;} //check if data can be placed into a node with the specified bounding box
+		virtual bool is_data_valid(const Box_t &bbox, const Data_t &val) const = 0;  //check if data can be placed into a node with the specified bounding box
 
 	private:
 		size_t recursive_find(Node_t* const node, const Data_t &val) const; //primary method for finding data
@@ -221,7 +222,6 @@ namespace gv::util
 				_data_cursor += 1;
 				return 1; //data was not contained and was successfully inserted
 			}
-			std::cout << "COULD NOT INSERT\n" << val << "\n" << std::endl;
 			return -1; //data was not contained and could not be inserted
 		}
 		return 0; //data was already contained and did not need to be inserted
