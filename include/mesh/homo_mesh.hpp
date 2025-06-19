@@ -55,7 +55,7 @@ namespace gv::mesh
 		void reserve(size_t nNewElems)
 		{
 			assert(nNewElems>=nElems());
-			_nodes.reserve(referenceElement.nNodes*nNewElems);
+			if (nNewElems>_nodes.size()) {_nodes.reserve(nNewElems);} //approximation
 			_elem2node.reserve(referenceElement.nNodes*nNewElems);
 		}
 

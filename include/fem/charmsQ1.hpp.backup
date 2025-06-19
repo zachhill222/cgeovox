@@ -1,0 +1,524 @@
+//These classes are helper classes to implement the CHARMS
+//(Conforming, Hierarchical, Adaptive Refinement Methods)
+//method for finite elements.
+//Paper: "CHARMS: A Simple Framework for Adaptive Simulation" (2002)
+//Authors: Eitan Grinspun, Petr Krysl, Peter Schroder
+
+
+
+#pragma once
+
+#include "util/point.hpp"
+#include "util/box.hpp"
+#include "util/octree.hpp"
+#include "util/point_octree.hpp"
+
+#include "fem/charmsQ1_element.hpp"
+#include "fem/charmsQ1_basis.hpp"
+
+#include <vector>
+#include <set>
+#include <algorithm>
+#include <cassert>
+
+#include <sstream>
+#include <iostream>
+#include <fstream>
+
+namespace gv::fem
+{
+	/////////////// CHARMS Q1 MESH IMPLEMENTATION /////////////////
+	class CharmsQ1Mesh
+	{
+	public:
+		//basic typedefs
+		using Index_t         = gv::util::Point<3,size_t>;
+		using Point_t         = gv::util::Point<3,double>;
+		using Box_t           = gv::util::Box<3>;
+		using Element_t       = ElementQ1;
+		using BasisFunction_t = BasisFunctionQ1;
+
+		//constructor for meshing a box domain with equal-sized elements as the coarsest mesh
+		CharmsQ1Mesh(const Box_t &domain, const Index_t &N) : vertices(domain), elements(domain), basis(domain)
+		{
+			//reserve space
+			vertices.reserve((N[0]+1)*(N[1]+1)*(N[2]+1));
+			elements.reserve(N[0]*N[1]*N[2]);
+			basis.reserve(vertices.capacity());
+
+			//construct elements
+			Point_t H = domain.sidelength() / Point_t(N);
+			for (size_t i=0; i<N[0]; i++)
+			{
+				for (size_t j=0; j<N[1]; j++)
+				{
+					for (size_t k=0; k<N[2]; k++)
+					{
+						Point_t low  = domain.low() + Point_t{i,j,k} * H;
+						Point_t high = domain.low() + Point_t{i+1,j+1,k+1} * H;
+
+						Element_t elem(Box_t(low,high), &vertices); //this adds the appropriate vertices to the vertex list
+						elem.is_active = true; //coarsest level elements are all active when initialized
+						elements.push_back(elem); //add element to mesh
+					}
+				}
+			}
+
+			//construct basis functions and add references to elements. in the coarsest mesh, each vertex corresponds to a basis function.
+			for (size_t v_idx=0; v_idx<vertices.size(); v_idx++)
+			{
+				BasisFunction_t fun(&vertices, v_idx, 0);
+				fun.is_active = true; //all basis functions on the coarsest level are initially active
+				fun.is_odd = true;
+				fun.support = elements.get_elements_containing_coordinate(fun.coord()); //there is only one level in the current mesh
+				int flag = basis.push_back(fun); assert(flag==1);
+				for (std::set<size_t>::iterator it=fun.support.begin(); it!=fun.support.end(); ++it)  {elements[*it].basis_s.insert(v_idx);} //the vertex index and basis function index are the same in the current mesh
+			}
+		}
+
+		//storage
+		gv::util::PointOctree<3> vertices; //list of vertices used in the mesh
+		ElementQ1Octree elements; //list of elements (both active and inactive)
+		BasisFunctionQ1Octree basis; //list of basis functions (both active and inactive)
+
+		//refinement operators
+		void h_refine_basis(const size_t basis_idx); //primary method to refine the mesh. elements are subdivided if necessary.
+
+		//convenient references
+		size_t nNodes() const {return vertices.size();} //number of nodes in the mesh
+		size_t nElems() const {return elements.size();} //number of elements (active or otherwise) in the mesh
+		size_t nBasis() const {return basis.size();} //number of basis functions (active or otherwise) in the mesh
+
+		//file io
+		void vtkprint(std::ostream &os) const; //write mesh (as unstructured non-conforming voxels) in vtk format to specified stream
+		void save_as(std::string filename) const; //save mesh information to file, uses vtkprint()
+
+	private:
+		//utility functions
+		void ancestor_elements(const Element_t* const elem, std::vector<Element_t*> &result);
+		void descendent_elements(const Element_t* const elem, std::vector<Element_t*> &result);
+		std::set<size_t> ancestor_basis(const Element_t* const elem);
+		void activate_basis(const size_t basis_idx);
+		void deactivate_basis(const size_t basis_idx);
+		std::set<size_t> child_basis_functions(const size_t basis_idx) const; //get all children basis functions (one level deeper, non-trivial support intersection)
+		void refine_element(const size_t elem_idx); //subdivide an element. does not create new basis functions.
+		void split_basis(const size_t basis_idx); //subdivide the support elements of a basis function and create the detail basis functions. does not activate them.
+	};
+
+
+	void CharmsQ1Mesh::h_refine_basis(const size_t basis_idx)
+	{
+		split_basis(basis_idx); //create the possible new basis functions and elements. do not activate anything.
+
+		//loop through the children basis functions and activate the odd ones
+		std::set<size_t> children = child_basis_functions(basis_idx);
+		std::set<size_t>::iterator it;
+		for (it=children.begin(); it!=children.end(); ++it)
+		{
+			if (basis[*it].is_odd)
+			{
+				// std::cout << "basis " << *it << " is_active= " << basis[*it].is_active << std::endl;
+				if (!basis[*it].is_active) {activate_basis(*it);}
+			}
+		}
+	}
+
+
+	void CharmsQ1Mesh::ancestor_elements(const Element_t* const elem, std::vector<Element_t*> &result)
+	{
+		if (elem->parent==nullptr) {return;}
+		result.push_back(elem->parent);
+		ancestor_elements(elem->parent, result);
+	}
+
+	void CharmsQ1Mesh::descendent_elements(const Element_t* const elem, std::vector<Element_t*> &result)
+	{
+		if (!elem->is_refined) {return;}
+		for (int c_idx=0; c_idx<8; c_idx++)
+		{
+			result.push_back(elem->children[c_idx]);
+			descendent_elements(elem->children[c_idx], result);
+		}
+	}
+
+	std::set<size_t> CharmsQ1Mesh::ancestor_basis(const Element_t* const elem)
+	{
+		std::set<size_t> result;
+		std::vector<Element_t*> ancestors;
+		ancestor_elements(elem, ancestors);
+		for (size_t elem_idx=0; elem_idx<ancestors.size(); elem_idx++)
+		{
+			Element_t& ELEM = *ancestors[elem_idx];
+			if (ELEM.is_active) //if the element is active, insert all basis functions
+			{
+				std::set<size_t>::iterator it;
+				for (it=ELEM.basis_a.begin(); it!=ELEM.basis_a.end(); ++it) {result.insert(*it);}
+				for (it=ELEM.basis_s.begin(); it!=ELEM.basis_s.end(); ++it) {result.insert(*it);}
+			}
+		}
+
+		return result;
+	}
+
+	void CharmsQ1Mesh::activate_basis(const size_t basis_idx)
+	{
+		std::cout << "activate basis " << basis_idx << " support.size()= " << basis[basis_idx].support.size() << std::endl;
+		std::cout << "\tis_active= " << basis[basis_idx].is_active << std::endl;
+		BasisFunction_t& FUN = basis[basis_idx];
+		assert(!FUN.is_active);
+		FUN.is_active = true;
+
+		std::cout << *FUN.support.begin() << std::endl;
+
+		//loop through the support elements
+		std::set<size_t>::iterator it;
+		for (it=FUN.support.begin(); it!=FUN.support.end(); ++it)
+		{
+			const size_t idx = *it;
+			std::cout << idx << std::endl;
+			continue;
+			// std::cout << "\telement " << *it << " is_active= " << elements[*it].is_active << std::endl;
+			Element_t& ELEM = elements[*it];
+			ELEM.basis_s.insert(basis_idx); //add current basis function to its support elements
+
+			if (!ELEM.is_active) //activate each support element if necessary
+			{
+				ELEM.is_active = true;
+				std::set<size_t> ancestor_funs = ancestor_basis(&ELEM);
+				std::set<size_t>::iterator it2;
+				for (it2=ancestor_funs.begin(); it2!=ancestor_funs.end(); ++it2)
+				{
+					ELEM.basis_a.insert(*it); //TODO: check if this is necessary
+				}
+			}
+
+			//add current basis function to the ancestor basis set of all descendent elements
+			std::vector<Element_t*> descendents;
+			descendent_elements(&ELEM, descendents); 
+			for (size_t idx=0; idx<descendents.size(); idx++)
+			{
+				descendents[idx]->basis_a.insert(basis_idx); //TODO: should this only be done for active elements?
+			}
+		}
+	}
+
+	void CharmsQ1Mesh::deactivate_basis(const size_t basis_idx)
+	{
+		BasisFunction_t& FUN = basis[basis_idx];
+		assert(FUN.is_active);
+		FUN.is_active = false;
+
+		//loop through the support elements
+		std::set<size_t>::iterator it;
+		for (it=FUN.support.begin(); it!=FUN.support.end(); ++it)
+		{
+			//if every basis function in basis_s is deactivated, then deactivate the element
+			Element_t& ELEM = elements[*it];
+			std::set<size_t>::iterator it2;
+			bool any_active = false;
+			for (it2=ELEM.basis_s.begin(); it2!=ELEM.basis_s.end(); ++it2)
+			{
+				any_active = any_active or basis[*it].is_active;
+			}
+			if (!any_active) {ELEM.is_active=false;}
+		
+			//TODO: check if I need to loop through the active descendant elements
+		}
+	}
+
+	std::set<size_t> CharmsQ1Mesh::child_basis_functions(const size_t basis_idx) const
+	{
+		const BasisFunction_t& FUN = basis[basis_idx];
+
+		//loop through support elements and union their basis_s basis functions
+		std::set<size_t> result;
+		std::set<size_t>::iterator it, it2;
+		for (it=FUN.support.begin(); it!=FUN.support.end(); ++it)
+		{
+			const Element_t& ELEM = elements[*it];
+			for (it2=ELEM.basis_s.begin(); it2!=ELEM.basis_s.end(); ++it2)
+			{
+				result.insert(*it2);
+			}
+		}
+		return result;
+	}
+
+
+	//refine_element implementation. does not create new basis functions
+	void CharmsQ1Mesh::refine_element(const size_t elem_idx)
+	{
+
+		std::cout << "\n\n=== refine element: " << elem_idx << " ===" << std::endl;
+
+		assert(elem_idx<nElems()); //the element index must have a valid index
+		Element_t& ELEM = elements[elem_idx];
+		if(ELEM.is_refined) {return;}
+
+		//update the element to be subdivided
+		ELEM.is_refined = true; //mark the element as having been refined
+		ELEM.is_active  = false; //use the finest elements possible
+
+		//create children elements and add to element list
+		for (int c_idx=0; c_idx<8; c_idx++)
+		{
+			std::cout << "\tcreate child " << c_idx << std::endl;
+			Element_t elem(&elements[elem_idx], c_idx); //this adds the appropriate new vertices
+			std::cout << "\tcreated" << std::endl;
+			std::cout << "\t" << elem.basis_a.size() << "\t" << *elem.basis_a.begin() << std::endl;
+			elem.is_active = true;
+			std::set<size_t>::iterator it;
+			for (it=ELEM.basis_a.begin(); it!=ELEM.basis_a.end(); ++it) {elem.basis_a.insert(*it);} //add ancestor basis functions
+			std::cout << "\tmoved basis_a" << std::endl;
+			for (it=ELEM.basis_s.begin(); it!=ELEM.basis_s.end(); ++it) {elem.basis_a.insert(*it);} //add ancestor basis functions
+			std::cout << elements.size() << "/" << elements.capacity() << std::endl;
+			elements.push_back(elem); //add elements to mesh
+			std::cout << "\tsuccess" << std::endl;
+		}
+	}
+
+	//subdivide the support elements of a basis function and create the detail basis functions. do not activate them.
+	void CharmsQ1Mesh::split_basis(const size_t basis_idx)
+	{
+		std::cout << "split basis " << basis_idx << std::endl;
+
+		BasisFunction_t& FUN = basis[basis_idx];
+		if(FUN.is_refined) {return;}
+		FUN.is_refined = true;
+
+		//ensure support elements are refined
+		std::set<size_t>::iterator it;
+		for (it=FUN.support.begin(); it!=FUN.support.end(); ++it) {refine_element(*it);}
+
+		//create new basis functions (do not activate yet)
+		Point_t center = FUN.coord();
+		Point_t H = elements[*FUN.support.begin()].H();
+		
+		//loop through the 27 adjacent vertices
+		for (int i=-1; i<2; i++){
+			for (int j=-1; j<2; j++){
+				for (int k=-1; k<2; k++)
+				{
+					//find the vertex that we are at
+					Point_t new_basis_coord = center + H * Point_t{i,j,k};
+					size_t new_basis_coord_idx = vertices.find(new_basis_coord);
+					if (new_basis_coord_idx == (size_t) -1) //should only happen if the coordinate is outside the domain
+					{
+						// std::cout << "basis function located at " << new_basis_coord << " does not exist" << std::endl;
+						continue;
+					}
+
+					//create the basis function
+					BasisFunction_t fun(&vertices, new_basis_coord_idx, FUN.depth+1);
+					fun.is_active = false;
+					if (basis.contains(fun)) //could happen if an adjacent basis function was previously refined
+					{
+						// std::cout << "basis function located at " << fun.coord() << " and depth " << fun.depth << " already exists" << std::endl;
+						continue;
+					}
+
+					//mark function as even or odd
+					if (i==0 and j==0 and k==0) {fun.is_odd=false;}
+					else {fun.is_odd=true;}
+
+					//specify the support of the new basis function, loop through the children of the support elements of the basis function being refined
+					//also, add the current basis function to the corresponding basis_s
+					size_t new_basis_idx = basis.size();
+					fun.support = elements.get_elements_containing_coordinate(fun.coord(), fun.depth);
+					for (it=fun.support.begin(); it!=fun.support.end(); ++it)
+					{
+						Element_t& ELEM = elements[*it];
+						ELEM.basis_s.insert(new_basis_idx);
+					}
+
+					//add new basis function to list
+					assert(basis.push_back(fun)==1);
+					// std::cout << "created new basis function at " << fun.coord() << " and depth " << fun.depth << " (index= " << basis.find(fun) << ")" << std::endl;
+				}
+			}
+		}
+	}
+
+
+	//vtkprint implementation
+	void CharmsQ1Mesh::vtkprint(std::ostream &os) const
+	{
+		//write to buffer and flush buffer to the stream
+		std::stringstream buffer;
+
+		//HEADER
+		buffer << "# vtk DataFile Version 2.0\n";
+		buffer << "Mesh Data\n";
+		buffer << "ASCII\n\n";
+		buffer << "DATASET UNSTRUCTURED_GRID\n";
+
+		//POINTS
+		buffer << "POINTS " << nNodes() << " float\n";
+		for (size_t i=0; i<nNodes(); i++) { buffer << vertices[i] << "\n";}
+		buffer << "\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//ELEMENTS
+		buffer << "CELLS " << nElems() << " " << (1+8)*nElems() << "\n";
+		for (size_t i=0; i<nElems(); i++)
+		{
+			buffer << 8 << " "; //8 nodes per element
+			for (size_t j=0; j<8; j++)
+			{
+				buffer << elements[i].nodes[j] << " ";
+			}
+			buffer << "\n";
+		}
+		buffer << "\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//VTK IDs
+		buffer << "CELL_TYPES " << nElems() << "\n";
+		for (size_t i=0; i<nElems(); i++) {buffer << elements[i].vtk_id << " ";}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+
+
+		//MESH INFORMATION AT EACH CELL (depth, is_active, global_index, #basis_a, #basis_s)
+		buffer << "CELL_DATA " << nElems() << "\n";
+		buffer << "FIELD mesh_element_info 5\n";
+
+		//ELEMENT DEPTH
+		buffer << "depth 1 " << nElems() << " integer\n";
+		for (size_t i=0; i<nElems(); i++) {buffer << elements[i].depth << " ";}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//ELEMENT ACTIVE MARKER
+		buffer << "is_active 1 " << nElems() << " integer\n";
+		for (size_t i=0; i<nElems(); i++) {buffer << elements[i].is_active << " ";}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//ELEMENT GLOBAL INDEX
+		buffer << "elem_index 1 " << nElems() << " integer\n";
+		for (size_t i=0; i<nElems(); i++) {buffer << i << " ";}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//ELEMENT BASIS_A
+		buffer << "#basis_a 1 " << nElems() << " integer\n";
+		for (size_t i=0; i<nElems(); i++) {buffer << elements[i].basis_a.size() << " ";}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//ELEMENT BASIS_A
+		buffer << "#basis_s 1 " << nElems() << " integer\n";
+		for (size_t i=0; i<nElems(); i++) {buffer << elements[i].basis_s.size() << " ";}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+
+
+		//MESH INFORMATION AT EACH VERTEX (#basis_total, active_basis_index, active_basis_depth, support)
+		buffer << "POINT_DATA " << nNodes() << "\n";
+		buffer << "FIELD mesh_vertex_info 4\n";
+
+		//loop through vertices to collect info
+		size_t basis_total_size[nNodes()] {0};
+		size_t active_basis_index[nNodes()] {0};
+		size_t active_basis_depth[nNodes()] {0};
+		for (size_t i=0; i<nNodes(); i++)
+		{
+			std::vector<size_t> basis_total = basis.get_basis_functions_with_coordinate(vertices[i]);
+			basis_total_size[i] = basis_total.size();
+			int count = 0;
+			for (size_t idx=0; idx<basis_total.size(); idx++)
+			{
+				if (basis[basis_total[idx]].is_active)
+				{
+					count++;
+					active_basis_index[i] = basis_total[idx];
+					active_basis_depth[i] = basis[basis_total[idx]].depth;
+				}
+			}
+			assert(count<=1);
+			if (count==0)
+			{
+				active_basis_index[i] = (size_t) -1;
+				active_basis_depth[i] = (size_t) -1;
+			}
+		}
+
+		//VERTEX TOTAL NUMBER OF CONSTRUCTED BASIS FUNCTIONS
+		buffer << "#basis_total 1 " << nNodes() << " integer\n";
+		for (size_t i=0; i<nNodes(); i++) {buffer << basis_total_size[i] << " ";}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//VERTEX ACTIVE BASIS INDEX
+		buffer << "active_basis_index 1 " << nNodes() << " integer\n";
+		for (size_t i=0; i<nNodes(); i++)
+		{
+			if (active_basis_index[i]<nBasis()) {buffer << active_basis_index[i] << " ";}
+			else {buffer << -1 << " ";}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//VERTEX ACTIVE BASIS DEPTH
+		buffer << "active_basis_depth 1 " << nNodes() << " integer\n";
+		for (size_t i=0; i<nNodes(); i++)
+		{
+			if (active_basis_depth[i] != (size_t) -1) {buffer << active_basis_depth[i] << " ";}
+			else {buffer << -1 << " ";}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//VERTEX ACTIVE BASIS SUPPORT
+		buffer << "active_basis_support 8 " << nNodes() << " integer\n";
+		for (size_t i=0; i<nNodes(); i++)
+		{
+			if (active_basis_index[i]==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 "; continue;}
+			int counter = 0;
+			std::set<size_t>::iterator it;
+			const BasisFunction_t& FUN = basis[active_basis_index[i]];
+			for (it=FUN.support.begin(); it!=FUN.support.end(); ++it)
+			{
+				counter++;
+				buffer << *it << " ";
+			}
+			for (int j=counter; j<8; j++) {buffer << "-1 ";}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+	}
+
+	//save mesh implementation
+	void CharmsQ1Mesh::save_as(std::string filename) const
+	{
+		//open and check file
+		std::ofstream meshfile(filename);
+
+		if (not meshfile.is_open()){
+			std::cout << "Couldn't write to " << filename << std::endl;
+			meshfile.close();
+			return;
+		}
+
+		//print mesh to file
+		vtkprint(meshfile);
+		meshfile.close();
+	}
+
+
+}

@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <vector>
+#include <iostream>
 
 namespace gv::util
 {

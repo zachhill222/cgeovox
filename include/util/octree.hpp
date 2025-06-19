@@ -8,6 +8,7 @@
 //to be able to effectively re-size the array, Data_t must have a move assignment operator (std::move() must be callable)
 
 //TODO:
+//  -implement push_back(Data_t&&)
 //	-implement data deletion
 //	-implement data sorting
 
@@ -36,7 +37,7 @@ namespace gv::util
 		using Point_t = gv::util::Point<dim,double>;
 		using Box_t   = gv::util::Box<dim>;
 
-		//constructor for initializing root node
+		//constructor for initializing _root node
 		OctreeNode(const Box_t& bbox) :
 			data_idx(new size_t[n_data]), 
 			data_cursor(0), 
@@ -107,15 +108,15 @@ namespace gv::util
 	
 	private:
 		//data and tree structure
-		Node_t* root;
+		Node_t*  _root;
 		Data_t* _data;
-		size_t _data_cursor;
-		size_t _capacity;
+		size_t  _data_cursor;
+		size_t  _capacity;
 
 	public:
 		//constructor if the bounding box and capacity are unknown
 		BasicOctree(const size_t capacity=64) :
-			root(new Node_t(Box_t(Point_t(0), Point_t(1)))),
+			_root(new Node_t(Box_t(Point_t(0), Point_t(1)))),
 			_data(new Data_t[capacity]),
 			_data_cursor(0),
 			_capacity(capacity) {}
@@ -123,8 +124,8 @@ namespace gv::util
 		//use this constructor if possible. the bounding box should be known ahead of time to avoid re-creating the octree structure.
 		//changing the bounding box as a copy constructor must be done in the octree for the specific data type so that the correct
 		//is_data_valid() method is available
-		BasicOctree(const Box_t &bbox, const size_t capacity) :
-			root(new Node_t(bbox)),
+		BasicOctree(const Box_t &bbox, const size_t capacity=64) :
+			_root(new Node_t(bbox)),
 			_data(new Data_t[capacity]),
 			_data_cursor(0),
 			_capacity(capacity) {}
@@ -132,7 +133,7 @@ namespace gv::util
 		//destructor
 		virtual ~BasicOctree()
 		{
-			if (root!=nullptr) {delete root;}
+			if (_root!=nullptr) {delete _root;}
 			if (_data!=nullptr) {delete[] _data; _data_cursor=0;}
 		}
 
@@ -149,7 +150,7 @@ namespace gv::util
 		inline size_t size() const {return _data_cursor;} //current number of elements
 		void reserve(const size_t new_capacity); //re-size reserved space
 		void clear(); //delete all data and tree structure
-		Box_t bbox() const {return root->bbox;} //get a copy of the bounding box
+		Box_t bbox() const {return _root->bbox;} //get a copy of the bounding box
 		void set_bbox(const Box_t& bbox); //re-size the bounding box. requires data a data move and re-creation of the entire tree structure.
 
 		//data access by index
@@ -187,8 +188,8 @@ namespace gv::util
 	template<typename Data_t, int dim, int n_data>
 	size_t BasicOctree<Data_t,dim,n_data>::find(const Data_t &val) const
 	{	
-		if (!is_data_valid(root->bbox, val)) {return (size_t) -1;} //data is invalid so it is not in the octree.
-		return recursive_find(root, val);
+		if (!is_data_valid(_root->bbox, val)) {return (size_t) -1;} //data is invalid so it is not in the octree.
+		return recursive_find(_root, val);
 	}
 
 	template<typename Data_t, int dim, int n_data>
@@ -207,19 +208,20 @@ namespace gv::util
 		if (size()>=capacity()) {reserve(2*_capacity);} //increase storage size if needed
 		assert(size()<capacity());
 
-		if (!is_data_valid(root->bbox,val)) {return -1;} //data can't be added
+		if (!is_data_valid(_root->bbox,val)) {return -1;} //data can't be added
 
 		idx = find(val);
 		if (idx == (size_t) -1)
 		{
-			bool success = recursive_insert(root, val, _data_cursor);
+			bool success = recursive_insert(_root, val, _data_cursor);
 			if (success)
 			{
 				idx = _data_cursor; //pass back correct index of the inserted data
-				_data[_data_cursor] = val; //TODO: should this be std::move(val)?
+				_data[_data_cursor] = val;
 				_data_cursor += 1;
 				return 1; //data was not contained and was successfully inserted
 			}
+			std::cout << "COULD NOT INSERT\n" << val << "\n" << std::endl;
 			return -1; //data was not contained and could not be inserted
 		}
 		return 0; //data was already contained and did not need to be inserted
@@ -251,11 +253,11 @@ namespace gv::util
 	void BasicOctree<Data_t,dim,n_data>::clear()
 	{
 		//delete current data and tree structure
-		if (root!=nullptr)
+		if (_root!=nullptr)
 		{
-			Box_t bbox = root->bbox; 
-			delete root; 
-			root = new Node_t(bbox);
+			Box_t bbox = _root->bbox; 
+			delete _root; 
+			_root = new Node_t(bbox);
 		}
 
 		if (_data!=nullptr)
@@ -269,8 +271,8 @@ namespace gv::util
 	void BasicOctree<Data_t,dim,n_data>::set_bbox(const Box_t& new_bbox)
 	{
 		//re-set the tree structure
-		delete root;
-		root = new Node_t(new_bbox);
+		delete _root;
+		_root = new Node_t(new_bbox);
 		
 		//move the data so that it can be re-inserted
 		Data_t* old_data = _data;
@@ -294,7 +296,7 @@ namespace gv::util
 	template<typename Data_t, int dim, int n_data>
 	std::vector<size_t> BasicOctree<Data_t,dim,n_data>::get_data_indices(const Box_t &box) const
 	{
-		assert(box.intersects(root->bbox));
+		assert(box.intersects(_root->bbox));
 		std::vector<size_t> result;
 
 		bool used_indices[_capacity] {false};
@@ -321,7 +323,7 @@ namespace gv::util
 	template<typename Data_t, int dim, int n_data>
 	std::vector<size_t> BasicOctree<Data_t,dim,n_data>::get_data_indices(const Point_t &coord) const
 	{
-		assert(root->bbox.contains(coord));
+		assert(_root->bbox.contains(coord));
 		std::vector<size_t> result;
 
 		bool used_indices[_capacity] {false}; //TODO: remove to reduce memory overhead
@@ -343,15 +345,15 @@ namespace gv::util
 	template<typename Data_t, int dim, int n_data>
 	const typename BasicOctree<Data_t,dim,n_data>::Node_t* BasicOctree<Data_t,dim,n_data>::_get_node(const Point_t &coord) const
 	{
-		assert(root->bbox.contains(coord));
-		return recursive_get_node(root, coord);
+		assert(_root->bbox.contains(coord));
+		return recursive_get_node(_root, coord);
 	}
 
 	template<typename Data_t, int dim, int n_data>
 	std::vector<const typename BasicOctree<Data_t,dim,n_data>::Node_t*> BasicOctree<Data_t,dim,n_data>::_get_node(const Box_t &box) const
 	{
 		std::vector<const Node_t*> result;
-		recursive_get_node(root, result, box);
+		recursive_get_node(_root, result, box);
 		return result;
 	}
 
@@ -417,6 +419,7 @@ namespace gv::util
 		}
 
 		//in valid leaf node, but it must divide
+		assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
 		if (node->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
 		divide(node); //moves data, frees some memory, creates children. checks for a maximum tree depth.
 		return recursive_insert(node, val, idx); //re-run insertion here now that it is divided
