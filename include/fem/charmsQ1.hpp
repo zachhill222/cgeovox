@@ -59,11 +59,17 @@ namespace gv::fem
 			for (size_t v_idx=0; v_idx<vertices.size(); v_idx++)
 			{
 				BasisFun_t fun(&vertices, &elements, &basis, v_idx);
-				fun.set_support();
+				fun.set_support(); //TODO: speed this up or remove from here.
 				size_t fun_idx;
 				int flag = basis.push_back(fun, fun_idx); assert(flag==1);
 				basis[fun_idx].list_index = fun_idx;
-				basis[fun_idx].update_element_basis_lists();
+
+				//add basis fucntion to basis_s of all support elements
+				for (int i=0; i<basis[fun_idx].cursor_support; i++)
+				{
+					elements[basis[fun_idx].support[i]].insert_basis_s(fun_idx);
+				}
+				// basis[fun_idx].update_element_basis_lists();
 			}
 		}
 
@@ -181,9 +187,10 @@ namespace gv::fem
 		buffer << "FIELD mesh_vertex_info 5\n";
 
 		//loop through vertices to get index of active basis function
-		size_t active_basis_index[nNodes()] {0};
+		size_t* active_basis_index = new size_t[nNodes()];
 		for (size_t i=0; i<nNodes(); i++)
 		{
+			active_basis_index[i] = 0;
 			std::vector<size_t> basis_total = basis.get_data_indices(vertices[i]);
 			int count = 0;
 			for (auto it=basis_total.begin(); it!=basis_total.end(); ++it)
@@ -268,6 +275,8 @@ namespace gv::fem
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
+
+		delete[] active_basis_index;
 	}
 
 	//save mesh implementation

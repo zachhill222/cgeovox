@@ -3,13 +3,13 @@
 #include <iostream>
 
 //uncomment to disable assert()
-#define NDEBUG
+// #define NDEBUG
 
 int main(int argc, char const *argv[])
 {
 	//set domain parameters
 	gv::util::Box<3> domain(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,2,3}); //box domain to be meshed
-	gv::util::Point<3,size_t> N {128, 128, 128}; //number of elements in each cardinal direction
+	gv::util::Point<3,size_t> N {32, 32, 32}; //number of elements in each cardinal direction
 	
 	//initialize coarsest mesh
 	gv::fem::CharmsQ1Mesh mesh(domain,N);
@@ -20,12 +20,13 @@ int main(int argc, char const *argv[])
 	// mesh.basis.reserve(1000);
 
 	//refine mesh
-	for (int i=1; i<argc; i++) {mesh.h_refine(atoi(argv[i]));}
+	// for (int i=1; i<argc; i++) {mesh.h_refine(atoi(argv[i]));}
+	for (int i=0; i<10000; i++) {mesh.h_refine(i);}
 	std::cout << "refined mesh" << std::endl;
 
-	// //save mesh to view in ParaView
-	// mesh.save_as("./outfiles/charms_mesh.vtk");
-	// std::cout << "saved mesh" << std::endl;
+	//save mesh to view in ParaView
+	mesh.save_as("./outfiles/charms_mesh.vtk");
+	std::cout << "saved mesh" << std::endl;
 
 	// std::cout << "\n===============================================" << std::endl;
 	// std::cout << "========== PRINT ALL BASIS FUNCTIONS ==========" << std::endl;

@@ -20,6 +20,9 @@
 #define CHARMS_Q1_ELEMENT_CHILD_SIZE   8
 #define CHARMS_Q1_ELEMENT_BASIS_S_SIZE 8
 
+#define CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF 64
+#define CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF 64
+
 namespace gv::fem
 {
 	//constructors for basis functions and elements may need to refer to eachother
@@ -283,19 +286,21 @@ namespace gv::fem
 
 
 	//Octee definitions
-	class CharmsQ1BasisFunOctree : public gv::util::BasicOctree<CharmsQ1BasisFun,3,32>
+	class CharmsQ1BasisFunOctree : public gv::util::BasicOctree<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>
 	{
 	public:
-		CharmsQ1BasisFunOctree(const gv::util::Box<3> &domain) : gv::util::BasicOctree<CharmsQ1BasisFun,3,32>(domain,64) {}
+		CharmsQ1BasisFunOctree(const gv::util::Box<3> &domain) : 
+			gv::util::BasicOctree<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>(domain,64) {}
 	private:
 		bool is_data_valid(const gv::util::Box<3> &box, const CharmsQ1BasisFun &data) const override {return box.contains(data.coord());}
 	};
 
 
-	class CharmsQ1ElementOctree : public gv::util::BasicOctree<CharmsQ1Element,3,32>
+	class CharmsQ1ElementOctree : public gv::util::BasicOctree<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>
 	{
 	public:
-		CharmsQ1ElementOctree(const gv::util::Box<3> &domain) : gv::util::BasicOctree<CharmsQ1Element,3,32>(domain,64) {}
+		CharmsQ1ElementOctree(const gv::util::Box<3> &domain) : 
+			gv::util::BasicOctree<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>(domain,64) {}
 	private:
 		bool is_data_valid(const gv::util::Box<3> &box, const CharmsQ1Element &data) const override {return box.intersects(data.bbox());}
 	};
@@ -308,7 +313,7 @@ namespace gv::fem
 		for (auto it=check_elements_idx.begin(); it!=check_elements_idx.end(); ++it)
 		{
 			CharmsQ1Element& ELEM = (*elements)[*it];
-			if (ELEM.contains(this->coord()) and ELEM.depth==this->depth) {this->insert_support(*it);}
+			if (ELEM.depth==this->depth and ELEM.contains(this->coord())) {this->insert_support(*it);}
 		}
 		assert(this->cursor_support>0);
 	}
@@ -491,17 +496,9 @@ namespace gv::fem
 		}
 
 		//make result contain only unique values
-		// std::cout << "ancestor basis non_unique: ";
-		// for (auto it=result.begin(); it!=result.end(); ++it) {std::cout << *it << " ";}
-		// std::cout << std::endl;
-
 		std::sort(result.begin(), result.end());
 		auto delete_past = std::unique(result.begin(), result.end());
 		result.erase(delete_past, result.end());
-
-		// std::cout << "ancestor basis unique:     ";
-		// for (auto it=result.begin(); it!=result.end(); ++it) {std::cout << *it << " ";}
-		// std::cout << std::endl;
 
 		return result;
 	}
