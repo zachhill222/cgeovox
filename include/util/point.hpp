@@ -16,37 +16,36 @@ namespace gv::util {
 
 	public:
 		//default constructor (all zeros)
-		constexpr Point () : _data(new T[dim])
+		Point () : _data(new T[dim])
 		{
 			for (int i=0; i<dim; i++) {_data[i] = 0;}
 		}
 
 		//constructor for constant value
-		constexpr Point (const T val) : _data(new T[dim])
+		Point (const T val) : _data(new T[dim])
 		{
 			for (int i=0; i<dim; i++) {_data[i] = val;}
 		}
 
 		//initialize via braces {1,2,3} and converte types if needed
 		template <typename U>
-		constexpr Point (std::initializer_list<U> init) : _data(new T[dim])
+		Point (std::initializer_list<U> init) : _data(new T[dim])
 		{
 			int i=0;
-			for (U coord : init){
-				_data[i] = (T) coord;
-				i++;
+			for (auto it=init.begin(); it!=init.end(); ++it){
+				_data[i++] = (T) *it;
 			}
 		}
 		
 		//copy constructor
-		constexpr Point (const Point<dim,T> &other) : _data(new T[dim])
+		Point (const Point<dim,T> &other) : _data(new T[dim])
 		{
 			for (int i=0; i<dim; i++) {_data[i] = other._data[i];}
 		}
 
 		//copy constructor with type conversion if needed
 		template <typename U>
-		constexpr Point (const Point<dim,U> &other) : _data(new T[dim])
+		Point (const Point<dim,U> &other) : _data(new T[dim])
 		{
 			for (int i=0; i<dim; i++) {_data[i] = (T) other[i];}
 		}

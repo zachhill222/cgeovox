@@ -21,8 +21,8 @@ namespace gv::util{
 	public:
 		using Point_t = gv::util::Point<dim,T>;
 
-		constexpr Box() : _low(Point_t(-1.0)), _high(Point_t(1.0)) {}
-		constexpr Box(const T low, const T high) : _low(Point_t(low)), _high(Point_t(high)) {}
+		Box() : _low(Point_t(-1.0)), _high(Point_t(1.0)) {}
+		Box(const T low, const T high) : _low(Point_t(low)), _high(Point_t(high)) {}
 
 		Box(const Point_t &vertex1, const Point_t &vertex2) : _low(elmin(vertex1,vertex2)), _high(elmax(vertex1,vertex2))
 		{

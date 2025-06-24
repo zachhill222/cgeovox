@@ -8,25 +8,32 @@
 int main(int argc, char const *argv[])
 {
 	//set domain parameters
-	gv::util::Box<3> domain(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,2,3}); //box domain to be meshed
-	gv::util::Point<3,size_t> N {32, 32, 32}; //number of elements in each cardinal direction
+	gv::util::Box<3> domain(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,1,1}); //box domain to be meshed
+	gv::util::Point<3,size_t> N {2, 2, 2}; //number of elements in each cardinal direction
 	
 	//initialize coarsest mesh
 	gv::fem::CharmsQ1Mesh mesh(domain,N);
 	std::cout << "initialized mesh" << std::endl;
 	
-	// mesh.elements.reserve(1000);
-	// mesh.vertices.reserve(1000);
-	// mesh.basis.reserve(1000);
+	// mesh.elements.reserve(10000);
+	// mesh.vertices.reserve(10000);
+	// mesh.basis.reserve(10000);
+
+	size_t n = 10;
+	if (argc > 1) {n=atoi(argv[1]);}
 
 	//refine mesh
 	// for (int i=1; i<argc; i++) {mesh.h_refine(atoi(argv[i]));}
-	for (int i=0; i<10000; i++) {mesh.h_refine(i);}
+	for (size_t i=0; i<n; i++) {mesh.h_refine(mesh.nBasis()/2);}
 	std::cout << "refined mesh" << std::endl;
 
 	//save mesh to view in ParaView
-	mesh.save_as("./outfiles/charms_mesh.vtk");
+	mesh.save_as("./outfiles/charms_mesh_refined.vtk");
 	std::cout << "saved mesh" << std::endl;
+
+	//save mesh to view in ParaView
+	// mesh.save_as("./outfiles/charms_mesh_unrefined.vtk");
+	// std::cout << "saved mesh" << std::endl;
 
 	// std::cout << "\n===============================================" << std::endl;
 	// std::cout << "========== PRINT ALL BASIS FUNCTIONS ==========" << std::endl;
@@ -46,14 +53,9 @@ int main(int argc, char const *argv[])
 	// 	std::cout << mesh.elements[i] << std::endl;
 	// }
 
-	// // for (size_t i=0; i<mesh.basis.size(); i++)
-	// // {
-	// // 	std::cout << i << ":\t( " << mesh.basis[i].coord() << ")\tdepth= " << mesh.basis[i].depth << "\tactive= " << mesh.basis[i].is_active << std::endl;
-	// // }
-
 	//save octree structures for debugging
 	// gv::util::view_octree_vtk(mesh.elements, "./outfiles/charms_element_octree.vtk");
-	// // gv::util::view_octree_vtk(mesh.vertices, "vertices_octree.vtk");
-	// // gv::util::view_octree_vtk(mesh.basis,    "basis_octree.vtk");
+	// gv::util::view_octree_vtk(mesh.vertices, "vertices_octree.vtk");
+	// gv::util::view_octree_vtk(mesh.basis,    "basis_octree.vtk");
 	return 0;
 }

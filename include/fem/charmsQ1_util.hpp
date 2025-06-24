@@ -55,7 +55,7 @@ namespace gv::fem
 		//constructor for creating a new basis function in the coarsest mesh. elements[] must be up to date.
 		//sets is_active and is_odd to true
 		CharmsQ1BasisFun(VertexList_t* vertices, CharmsQ1ElementOctree* elements, CharmsQ1BasisFunOctree* basis, const size_t node_index) :
-			CharmsQ1BasisFun_BASE(node_index, 0, true, true, false),
+			CharmsQ1BasisFun_BASE(node_index, 0, true, true, false, false),
 			vertices(vertices),
 			elements(elements),
 			basis(basis) {}
@@ -63,7 +63,7 @@ namespace gv::fem
 		//constructor for creating a new basis function using information from a parent basis function
 		//parent[], child[], and support[] are initialized but only filled with NO_DATA (i.e. (size_t) -1)
 		CharmsQ1BasisFun(const CharmsQ1BasisFun& some_parent, const size_t node_index, const bool is_odd) :
-			CharmsQ1BasisFun_BASE(node_index, some_parent.depth+1, is_odd, false, false),
+			CharmsQ1BasisFun_BASE(node_index, some_parent.depth+1, is_odd, false, false, false),
 			vertices(some_parent.vertices),
 			elements(some_parent.elements),
 			basis(some_parent.basis) {}
@@ -135,6 +135,9 @@ namespace gv::fem
 		//activate a basis function and any necessary elements
 		void activate();
 
+		//deactivate a basis function and any unused elements
+		void deactivate();
+
 		inline Point_t coord() const {return (*vertices)[this->node_index];}
 		Box_t bbox() const; //get bounding box for the support of this element
 	};
@@ -162,7 +165,7 @@ namespace gv::fem
 		//constructor for creating the coarsest mesh. adds vertices to the list, but does not add the element or create any basis functions
 		//sets is_active=true
 		CharmsQ1Element(VertexList_t* vertices, CharmsQ1ElementOctree* elements, CharmsQ1BasisFunOctree* basis, const Box_t &bbox) :
-			CharmsQ1Element_BASE(0, (size_t)-1, true, false),
+			CharmsQ1Element_BASE(0, (size_t)-1, CHARMS_Q1_ELEMENT_BASIS_S_SIZE, true, false),
 			vertices(vertices),
 			elements(elements),
 			basis(basis)
@@ -178,7 +181,7 @@ namespace gv::fem
 		//constructor for creating a new element using information from its parent. adds vertices to the list if necessary.
 		//sets is_active=false
 		CharmsQ1Element(const CharmsQ1Element& parent, int sibling_number) :
-			CharmsQ1Element_BASE(parent.depth+1, parent.list_index, false, false),
+			CharmsQ1Element_BASE(parent.depth+1, parent.list_index, parent.capacity_basis_a, false, false),
 			vertices(parent.vertices),
 			elements(parent.elements),
 			basis(parent.basis)
@@ -338,13 +341,10 @@ namespace gv::fem
 
 	void CharmsQ1BasisFun::subdivide()
 	{
-		// std::cout << "subdivide basis function " << list_index << std::endl;
-		if (this->is_refined) {return;}
-		this->is_refined = true;
+		if (this->is_subdivided) {return;}
+		this->is_subdivided = true;
 
 		//subdivide each support element if necessary
-		// while (elements->capacity() < elements->size()+8) {elements->reserve(2*elements->capacity());}
-		// std::cout << elements->size() << "/" << elements->capacity() << std::endl;
 		for (int i=0; i<this->cursor_support; i++)
 		{
 			CharmsQ1Element& ELEM = (*elements)[this->support[i]];
@@ -358,7 +358,6 @@ namespace gv::fem
 				for (int k=-1; k<2; k++){
 
 					//get coordinate and index for the location of the new basis function
-					// std::cout << "basis: " << basis->size() << "/" << basis->capacity() << std::endl;
 					Point_t new_coord = this->coord() + H * Point_t{i,j,k};
 					size_t  new_coord_idx = vertices->find(new_coord);
 					if(new_coord_idx >= vertices->size()) {continue;} //happens near domain boundary
@@ -372,7 +371,9 @@ namespace gv::fem
 					//add the new basis function to the list
 					size_t new_list_index;
 					int flag = basis->push_back(fun, new_list_index);
-					assert(flag!=-1);
+					if (flag==0) {continue;} //it is possible that the basis function already exists
+
+					assert(flag==1); //we should only alter newly created functions here
 					(*basis)[new_list_index].list_index = new_list_index;
 
 					//add the new basis to basis_s list of all support elements
@@ -383,11 +384,9 @@ namespace gv::fem
 					}
 
 					//add the new basis function as a child of this function
-					// std::cout << this->cursor_child << std::endl;
 					this->insert_child(new_list_index);
 
 					//add this function as a parent of the new basis function
-					// std::cout << (*basis)[new_list_index].cursor_parent << std::endl;
 					(*basis)[new_list_index].insert_parent(this->list_index);
 				}
 			}
@@ -417,50 +416,81 @@ namespace gv::fem
 		for (int i=0; i<this->cursor_support; i++)
 		{
 			size_t s_idx = this->support[i];
-			if (!(*elements)[s_idx].is_active) //activate support elements if they are not already active
+			if (!(*elements)[s_idx].is_subdivided) //activate support elements if they are not already active
 			{
+				//this assumes that the domain is covered by active elements at all times with no overlap
 				(*elements)[s_idx].is_active  = true;
 
 				//add ancestor basis functions. TODO: is this necessary?
-				std::vector<size_t> ancestor_funs = (*elements)[s_idx].ancestor_basis_fun();
-				for (auto it=ancestor_funs.begin(); it!=ancestor_funs.end(); ++it)
-				{
-					(*elements)[s_idx].insert_basis_a(*it);
-				}
+				// std::vector<size_t> ancestor_funs = (*elements)[s_idx].ancestor_basis_fun();
+				// for (auto it=ancestor_funs.begin(); it!=ancestor_funs.end(); ++it)
+				// {
+				// 	(*elements)[s_idx].insert_basis_a(*it);
+				// }
 
-				//add this basis function to all descendent elements. TODO: is this necessary?
-				std::vector<size_t> desc_elems = (*elements)[s_idx].descendent_elements();
-				for (auto it=desc_elems.begin(); it!=desc_elems.end(); ++it)
-				{
-					(*elements)[*it].insert_basis_a(this->list_index);
-				}
+				// //add this basis function to all descendent elements. TODO: is this necessary?
+				// std::vector<size_t> desc_elems = (*elements)[s_idx].descendent_elements();
+				// for (auto it=desc_elems.begin(); it!=desc_elems.end(); ++it)
+				// {
+				// 	(*elements)[*it].insert_basis_a(this->list_index);
+				// }
 			}
 		}
+	}
+
+	void CharmsQ1BasisFun::deactivate()
+	{
+		//skip if this basis function is already deactivated
+		if (!this->is_active) {return;}
+
+		//ensure that any/all children basis functions are not active
+		bool any_child_active = false;
+		for (int i=0; i<this->cursor_child; i++)
+		{
+			size_t c_idx = this->child[i];
+			any_child_active = any_child_active or (*basis)[c_idx].is_active;
+		}
+		if (any_child_active) {return;}
+
+
+		//we are allowed to de-activate this basis function
+		this->is_active = false;
+
+		//check if support elements have any active basis functions is basis_s. if not, deactivate those elements.
+		for (int i=0; i<this->cursor_support; i++)
+		{
+			size_t s_idx = this->support[i];
+			bool any_active_fun = false;
+			for (int j=0; j<(*elements)[s_idx].cursor_basis_s; j++)
+			{
+				size_t b_idx = (*elements)[s_idx].basis_s[j];
+				any_active_fun = any_active_fun or (*basis)[b_idx].is_active;
+			}
+
+			if (!any_active_fun)
+			{
+				(*elements)[s_idx].is_active = false;
+			}
+		}
+
 	}
 
 
 	//implemtation of CharmsQ1Element methods
 	void CharmsQ1Element::subdivide()
 	{
-		// std::cout << "subdivide element " << list_index << std::endl;
-		// std::cout << *this << std::endl;
-
-		if(this->is_refined) {return;}
-		this->is_refined = true;
+		if(this->is_subdivided) {return;}
+		this->is_subdivided = true;
 
 		for (int i=0; i<8; i++)
 		{
 			CharmsQ1Element elem(*this, i); //updates vertex list, sets basis_a[], basis_s[], and node[]
-			// std::cout << elem << std::endl;
-			// std::cout << elements << "\t" << elem.elements << std::endl;
 
 			size_t new_list_index;
 			int flag = elements->push_back(elem,new_list_index);
-			assert(flag!=-1);
-			// std::cout << flag << std::endl;
-			// std::cout << elements << std::endl;
+			assert(flag==1); //elements should always be newly created when this routine is called
 			(*elements)[new_list_index].list_index = new_list_index;
-			this->insert_child(elem.list_index);
+			this->insert_child(new_list_index);
 		}
 	}
 
@@ -473,7 +503,7 @@ namespace gv::fem
 
 	void CharmsQ1Element::_descendent_elements(std::vector<size_t> &result) const
 	{
-		if (!this->is_refined) {return;}
+		if (!this->is_subdivided) {return;}
 		for (int i=0; i<this->cursor_child; i++)
 		{
 			result.push_back(this->child[i]);

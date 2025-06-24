@@ -5,7 +5,8 @@ SRC        = $(wildcard *.cpp)
 OBJ        = $(SRC:.cpp=.o)
 TARGETS    = $(SRC:.cpp=)
 
-CC         = g++ -fopenmp -g -pg #-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/) 
+#-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/)
+CC         = g++ -g -pg -fopenmp
 CFLAGS     = -Wall -O2
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 

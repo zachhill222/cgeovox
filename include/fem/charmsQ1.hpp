@@ -86,6 +86,10 @@ namespace gv::fem
 		void h_refine(const size_t basis_idx)
 		{
 			assert(basis_idx<nBasis());
+			
+			//verify that this basis function can be refined
+			assert(!basis[basis_idx].is_refined);
+
 			while (vertices.capacity() < vertices.size()+125) {vertices.reserve(2*vertices.capacity());}
 			while (elements.capacity() < elements.size()+64) {elements.reserve(2*elements.capacity());}
 			while (basis.capacity() < basis.size()+27) {basis.reserve(2*basis.capacity());}
@@ -98,6 +102,47 @@ namespace gv::fem
 				size_t c_idx = basis[basis_idx].child[i];
 				if (basis[c_idx].is_odd) {basis[c_idx].activate();}
 			}
+
+			//mark this basis function as refined
+			basis[basis_idx].is_refined = true;
+		}
+
+		//un-refinement
+		void h_unrefine(const size_t basis_idx) //remove the detail functions
+		{
+			assert(basis_idx<nBasis());
+			if (!basis[basis_idx].is_active) {return;}
+
+			//verify that this basis function is allowed to be un-refined
+			assert(basis[basis_idx].is_refined);
+
+			//verify that no children functions are refined
+			for (int i=0; i<basis[basis_idx].cursor_child; i++)
+			{
+				size_t c_idx = basis[basis_idx].child[i];
+				assert(!basis[c_idx].is_refined);
+				if (basis[c_idx].is_odd and basis[c_idx].is_active) {basis[c_idx].deactivate();}
+			}
+
+			//ensure all support elements are active
+			for (int i=0; i<basis[basis_idx].cursor_support; i++)
+			{
+				size_t s_idx = basis[basis_idx].support[i];
+
+				//check if there are any active descendent elements
+				std::vector<size_t> desc_elems = elements[s_idx].descendent_elements();
+				bool has_active_descendent = false;
+				for (auto it=desc_elems.begin(); it!=desc_elems.end(); ++it)
+				{
+					has_active_descendent = elements[*it].is_active;
+					if (has_active_descendent) {break;}
+				}
+				
+				if (!has_active_descendent) {elements[s_idx].is_active = true;}
+			}
+
+			//mark this basis function as not refined
+			basis[basis_idx].is_refined = false;
 		}
 	};
 
@@ -146,9 +191,17 @@ namespace gv::fem
 
 
 
-		//MESH INFORMATION AT EACH CELL (depth, is_active, global_index, #basis_a, #basis_s)
+		//MESH INFORMATION AT EACH CELL
 		buffer << "CELL_DATA " << nElems() << "\n";
-		buffer << "FIELD mesh_element_info 4\n";
+		buffer << "FIELD mesh_element_info 6\n";
+
+		//ELEMENT INDEX
+		buffer << "index 1 " << nElems() << " integer\n";
+		for (size_t i=0; i<nElems(); i++) {buffer << elements[i].list_index << " ";}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
 
 		//ELEMENT DEPTH
 		buffer << "depth 1 " << nElems() << " integer\n";
@@ -160,6 +213,13 @@ namespace gv::fem
 		//ELEMENT ACTIVE MARKER
 		buffer << "is_active 1 " << nElems() << " integer\n";
 		for (size_t i=0; i<nElems(); i++) {buffer << elements[i].is_active << " ";}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//ELEMENT IS_SUBDIVIDED MARKER
+		buffer << "is_subdivided 1 " << nElems() << " integer\n";
+		for (size_t i=0; i<nElems(); i++) {buffer << elements[i].is_subdivided << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
@@ -184,7 +244,7 @@ namespace gv::fem
 
 		//MESH INFORMATION AT EACH VERTEX (active_basis_index, active_basis_depth, support)
 		buffer << "POINT_DATA " << nNodes() << "\n";
-		buffer << "FIELD mesh_vertex_info 5\n";
+		buffer << "FIELD mesh_vertex_info 6\n";
 
 		//loop through vertices to get index of active basis function
 		size_t* active_basis_index = new size_t[nNodes()];
@@ -271,6 +331,17 @@ namespace gv::fem
 				const BasisFun_t& FUN = basis[active_basis_index[i]];
 				to_stream(buffer, FUN.child, 27);
 			}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+
+		//VERTEX TEST DATA
+		buffer << "testdata 1 " << nNodes() << " float\n";
+		for (size_t i=0; i<nNodes(); i++)
+		{
+			buffer << vertices[i][0] << " ";
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();

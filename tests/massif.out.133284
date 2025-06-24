@@ -1,0 +1,1928 @@
+desc: (none)
+cmd: ./charmsQ1 200
+time_unit: i
+#-----------
+snapshot=0
+#-----------
+time=0
+mem_heap_B=0
+mem_heap_extra_B=0
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=1
+#-----------
+time=39574064
+mem_heap_B=323424
+mem_heap_extra_B=5912
+mem_stacks_B=0
+heap_tree=detailed
+n15: 323424 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 22472 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 22472 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 22472 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 17928 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 17928 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 17928 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 17928 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 17928 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 17928 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 17928 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 17928 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 17928 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 17928 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 14344 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 14344 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 14344 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 10368 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 10368 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 10368 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n0: 7648 in 22 places, all below massif's threshold (1.00%)
+ n2: 5312 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 5312 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 5312 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 5312 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 5312 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 4224 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n1: 3712 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 3712 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 3712 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 3712 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 3712 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 3712 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n0: 512 in 1 place, below massif's threshold (1.00%)
+ n2: 4160 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n1: 3648 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 3648 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 3648 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 3648 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 3648 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 3648 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n0: 512 in 1 place, below massif's threshold (1.00%)
+ n2: 4160 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n1: 3648 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 3648 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 3648 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 3648 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 3648 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 3648 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n0: 512 in 1 place, below massif's threshold (1.00%)
+ n2: 4160 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 3648 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 3648 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 3648 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 3648 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 3648 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 3648 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n0: 512 in 1 place, below massif's threshold (1.00%)
+ n1: 4096 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 4096 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n1: 4096 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n1: 4096 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+     n1: 4096 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+      n1: 4096 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 4096 0x10E2C3: main (charmsQ1.cpp:31)
+ n1: 4096 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 4096 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n1: 4096 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n1: 4096 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+     n1: 4096 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+      n1: 4096 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+       n1: 4096 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+        n0: 4096 0x10E2C3: main (charmsQ1.cpp:31)
+#-----------
+snapshot=2
+#-----------
+time=72577149
+mem_heap_B=367440
+mem_heap_extra_B=8368
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=3
+#-----------
+time=103933790
+mem_heap_B=409040
+mem_heap_extra_B=11256
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=4
+#-----------
+time=143537961
+mem_heap_B=476192
+mem_heap_extra_B=14736
+mem_stacks_B=0
+heap_tree=detailed
+n17: 476192 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 47952 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 41472 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 41472 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 41472 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 41472 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 6480 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 6480 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 6480 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 6480 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 6480 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 47952 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 41472 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 41472 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 41472 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 41472 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 6480 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 6480 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 6480 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 6480 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 6480 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 44936 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 44936 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 44936 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 28680 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 28680 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 28680 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 14208 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 12288 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 12288 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 12288 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 12288 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 1920 in 1 place, below massif's threshold (1.00%)
+ n2: 13824 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 9216 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 9216 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 9216 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 9216 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 9216 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 9216 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n0: 4608 in 1 place, below massif's threshold (1.00%)
+ n2: 10368 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 10368 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 10368 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 9216 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n0: 9216 in 2 places, all below massif's threshold (1.00%)
+ n1: 9216 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n0: 9216 in 2 places, all below massif's threshold (1.00%)
+ n1: 9216 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n0: 9216 in 2 places, all below massif's threshold (1.00%)
+ n1: 9216 0x11801C: gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>::OctreeNode(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, int) (octree.hpp:53)
+  n1: 9216 0x116A7B: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+   n2: 9216 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+    n1: 8192 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+     n1: 8192 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+      n1: 8192 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+       n1: 8192 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+        n1: 8192 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 8192 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 8192 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 1024 in 1 place, below massif's threshold (1.00%)
+ n1: 7680 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 7680 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n1: 7680 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n0: 7680 in 2 places, all below massif's threshold (1.00%)
+ n1: 7680 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 7680 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n1: 7680 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n0: 7680 in 2 places, all below massif's threshold (1.00%)
+ n0: 7120 in 21 places, all below massif's threshold (1.00%)
+ n1: 6400 0x116A60: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+  n2: 6400 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+   n1: 5120 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+    n1: 5120 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+     n1: 5120 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+      n1: 5120 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+       n1: 5120 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 5120 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 5120 0x10E2C3: main (charmsQ1.cpp:31)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+#-----------
+snapshot=5
+#-----------
+time=164230786
+mem_heap_B=504136
+mem_heap_extra_B=16304
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=6
+#-----------
+time=198607112
+mem_heap_B=540736
+mem_heap_extra_B=18848
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=7
+#-----------
+time=246588905
+mem_heap_B=632784
+mem_heap_extra_B=22512
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=8
+#-----------
+time=278107212
+mem_heap_B=661456
+mem_heap_extra_B=24432
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=9
+#-----------
+time=316768957
+mem_heap_B=698384
+mem_heap_extra_B=26608
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=10
+#-----------
+time=343613720
+mem_heap_B=724384
+mem_heap_extra_B=28288
+mem_stacks_B=0
+heap_tree=detailed
+n18: 724384 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n2: 81648 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 41472 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 41472 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 41472 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 41472 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 40176 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 40176 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 40176 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 40176 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 40176 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 81648 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 41472 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 41472 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 41472 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 41472 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 40176 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 40176 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 40176 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 40176 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 40176 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 57352 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 57352 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 57352 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 47104 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 47104 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n2: 47104 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n2: 45056 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 32768 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 32768 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 12288 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 12288 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 12288 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 12288 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 12288 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 2048 in 1 place, below massif's threshold (1.00%)
+ n2: 44936 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 44936 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 44936 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 34304 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 20992 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 20992 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 20992 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 20992 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 13312 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 13312 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 13312 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 13312 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 13312 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 13312 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 24192 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 12288 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 12288 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 12288 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 12288 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 11904 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 11904 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 11904 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 11904 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 11904 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 20736 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 20736 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 20736 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 19456 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n1: 12800 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 12800 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 12800 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 12800 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 6656 in 1 place, below massif's threshold (1.00%)
+ n2: 19456 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n1: 12800 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 12800 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 12800 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 12800 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 6656 in 1 place, below massif's threshold (1.00%)
+ n2: 19456 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n1: 12800 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 12800 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 12800 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 12800 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 6656 in 1 place, below massif's threshold (1.00%)
+ n1: 18432 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 18432 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n2: 18432 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n1: 16384 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+     n1: 16384 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+      n1: 16384 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+       n1: 16384 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+        n0: 16384 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 2048 in 1 place, below massif's threshold (1.00%)
+ n1: 16640 0x1177A8: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+  n2: 16640 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+   n2: 15360 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+    n1: 10240 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 10240 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 10240 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 10240 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 10240 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 10240 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 5120 in 1 place, below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n1: 16384 0x11801C: gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>::OctreeNode(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, int) (octree.hpp:53)
+  n1: 16384 0x116A7B: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+   n2: 16384 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+    n1: 16384 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+     n1: 16384 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+      n1: 16384 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+       n1: 16384 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+        n1: 16384 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 16384 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 16384 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 11520 0x116A60: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+  n2: 11520 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+   n1: 10240 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+    n1: 10240 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+     n1: 10240 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+      n1: 10240 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+       n1: 10240 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 10240 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 10240 0x10E2C3: main (charmsQ1.cpp:31)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n0: 8592 in 20 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=11
+#-----------
+time=384585291
+mem_heap_B=802960
+mem_heap_extra_B=30936
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=12
+#-----------
+time=414246746
+mem_heap_B=837712
+mem_heap_extra_B=33080
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=13
+#-----------
+time=440586484
+mem_heap_B=865424
+mem_heap_extra_B=34600
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=14
+#-----------
+time=482290600
+mem_heap_B=900560
+mem_heap_extra_B=36784
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=15
+#-----------
+time=513797602
+mem_heap_B=923536
+mem_heap_extra_B=38392
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=16
+#-----------
+time=540547217
+mem_heap_B=952016
+mem_heap_extra_B=40080
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=17
+#-----------
+time=571340916
+mem_heap_B=1034224
+mem_heap_extra_B=41552
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=18
+#-----------
+time=613509431
+mem_heap_B=1073488
+mem_heap_extra_B=44184
+mem_stacks_B=0
+heap_tree=detailed
+n18: 1073488 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n2: 122688 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 88128 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 88128 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 88128 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 88128 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 34560 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 34560 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 34560 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 34560 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 34560 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 122688 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 88128 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 88128 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 88128 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 88128 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 34560 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 34560 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 34560 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 34560 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 34560 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 114696 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 114696 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 114696 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 104448 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 104448 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n2: 104448 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n2: 104448 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 81920 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 81920 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 81920 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 81920 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 81920 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 81920 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 22528 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 22528 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 22528 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 22528 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 22528 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 89864 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 89864 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 89864 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 58496 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 53760 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 53760 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 4736 in 1 place, below massif's threshold (1.00%)
+ n1: 37120 0x1177A8: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+  n2: 37120 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+   n2: 35840 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+    n1: 25600 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 25600 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 25600 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 25600 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 25600 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 25600 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 10240 in 1 place, below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n2: 36352 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 26112 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 26112 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 26112 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 26112 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 10240 in 1 place, below massif's threshold (1.00%)
+ n2: 31616 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 2432 in 1 place, below massif's threshold (1.00%)
+ n2: 31552 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 2368 in 1 place, below massif's threshold (1.00%)
+ n2: 31552 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 2368 in 1 place, below massif's threshold (1.00%)
+ n1: 29184 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 29184 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n2: 29184 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n1: 28672 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+     n1: 28672 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+      n1: 28672 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+       n1: 28672 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+        n0: 28672 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 512 in 1 place, below massif's threshold (1.00%)
+ n2: 20736 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 20736 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 20736 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 16384 0x11801C: gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>::OctreeNode(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, int) (octree.hpp:53)
+  n1: 16384 0x116A7B: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+   n2: 16384 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+    n1: 16384 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+     n1: 16384 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+      n1: 16384 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+       n1: 16384 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+        n1: 16384 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 16384 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 16384 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n0: 12064 in 20 places, all below massif's threshold (1.00%)
+ n1: 11520 0x116A60: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+  n1: 11520 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+   n0: 11520 in 2 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=19
+#-----------
+time=650170435
+mem_heap_B=1102144
+mem_heap_extra_B=45784
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=20
+#-----------
+time=686251826
+mem_heap_B=1128080
+mem_heap_extra_B=47528
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=21
+#-----------
+time=721632970
+mem_heap_B=1154312
+mem_heap_extra_B=49168
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=22
+#-----------
+time=757799939
+mem_heap_B=1186816
+mem_heap_extra_B=50784
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=23
+#-----------
+time=784621591
+mem_heap_B=1208528
+mem_heap_extra_B=52080
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=24
+#-----------
+time=819814939
+mem_heap_B=1231424
+mem_heap_extra_B=53936
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=25
+#-----------
+time=874119529
+mem_heap_B=1263664
+mem_heap_extra_B=56536
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=26
+#-----------
+time=912280712
+mem_heap_B=1283280
+mem_heap_extra_B=58072
+mem_stacks_B=0
+heap_tree=detailed
+n17: 1283280 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 173448 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 88128 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 88128 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 88128 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 88128 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 85320 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 85320 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 85320 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 85320 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 85320 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 173448 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 88128 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 88128 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 88128 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 88128 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 85320 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 85320 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 85320 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 85320 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 85320 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 147456 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 147456 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n2: 147456 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n2: 147456 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 131072 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 131072 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 131072 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 131072 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 131072 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 131072 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 16384 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 16384 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 16384 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 16384 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 16384 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n2: 114696 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 114696 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 114696 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 89864 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 89864 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 89864 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 70144 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 53760 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 53760 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 16384 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 16384 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 16384 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 16384 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 16384 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 16384 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 52480 0x1177A8: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+  n2: 52480 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+   n2: 51200 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+    n1: 40960 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 40960 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 40960 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 40960 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 40960 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 40960 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 10240 in 1 place, below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n2: 51392 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 26112 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 26112 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 26112 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 26112 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 25280 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 25280 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 25280 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 25280 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 25280 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 37376 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 8192 in 1 place, below massif's threshold (1.00%)
+ n2: 37376 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 8192 in 1 place, below massif's threshold (1.00%)
+ n2: 37376 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 8192 in 1 place, below massif's threshold (1.00%)
+ n1: 32768 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 32768 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n2: 32768 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n1: 32768 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+     n1: 32768 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+      n1: 32768 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+       n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+        n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n0: 25808 in 21 places, all below massif's threshold (1.00%)
+ n2: 20736 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 20736 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 20736 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 16384 0x11801C: gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>::OctreeNode(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, int) (octree.hpp:53)
+  n1: 16384 0x116A7B: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+   n2: 16384 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+    n1: 16384 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+     n1: 16384 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+      n1: 16384 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+       n1: 16384 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+        n1: 16384 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 16384 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 16384 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+#-----------
+snapshot=27
+#-----------
+time=940439833
+mem_heap_B=1896728
+mem_heap_extra_B=93112
+mem_stacks_B=0
+heap_tree=detailed
+n16: 1896728 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 362880 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 269568 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 269568 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 269568 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 269568 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 93312 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 93312 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 93312 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 93312 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 93312 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 362880 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 269568 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 269568 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 269568 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 269568 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 93312 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 93312 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 93312 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 93312 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 93312 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 269584 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 269584 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 269584 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 147456 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 147456 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n2: 147456 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n2: 147456 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 131072 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 131072 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 131072 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 131072 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 131072 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 131072 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 16384 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n2: 114696 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 114696 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 114696 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 107520 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 79872 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 79872 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 79872 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 79872 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 27648 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 27648 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 27648 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 27648 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 27648 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 70144 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 53760 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 53760 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 16384 in 1 place, below massif's threshold (1.00%)
+ n1: 52480 0x1177A8: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+  n2: 52480 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+   n2: 51200 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+    n1: 40960 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 40960 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 40960 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 40960 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 40960 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 40960 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 10240 in 1 place, below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n0: 40928 in 22 places, all below massif's threshold (1.00%)
+ n2: 37376 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 8192 in 1 place, below massif's threshold (1.00%)
+ n2: 37376 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 8192 in 1 place, below massif's threshold (1.00%)
+ n2: 37376 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 8192 in 1 place, below massif's threshold (1.00%)
+ n1: 32768 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 32768 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n2: 32768 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n1: 32768 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+     n1: 32768 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+      n1: 32768 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+       n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+        n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 20736 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 20736 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 20736 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+#-----------
+snapshot=28
+#-----------
+time=975688118
+mem_heap_B=1406528
+mem_heap_extra_B=60808
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=29
+#-----------
+time=1011746212
+mem_heap_B=1470272
+mem_heap_extra_B=63504
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=30
+#-----------
+time=1065529787
+mem_heap_B=1531072
+mem_heap_extra_B=67024
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=31
+#-----------
+time=1115801045
+mem_heap_B=1588672
+mem_heap_extra_B=70568
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=32
+#-----------
+time=1143193456
+mem_heap_B=1610976
+mem_heap_extra_B=71872
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=33
+#-----------
+time=1184860789
+mem_heap_B=1651648
+mem_heap_extra_B=74504
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=34
+#-----------
+time=1226217572
+mem_heap_B=1691968
+mem_heap_extra_B=76976
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=35
+#-----------
+time=1253660915
+mem_heap_B=1720320
+mem_heap_extra_B=78144
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=36
+#-----------
+time=1294863686
+mem_heap_B=1761616
+mem_heap_extra_B=80560
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=37
+#-----------
+time=1336835346
+mem_heap_B=1798272
+mem_heap_extra_B=82496
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=38
+#-----------
+time=1378049378
+mem_heap_B=1830656
+mem_heap_extra_B=84464
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=39
+#-----------
+time=1405604516
+mem_heap_B=1860352
+mem_heap_extra_B=85976
+mem_stacks_B=0
+heap_tree=detailed
+n18: 1860352 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 250776 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 181440 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 181440 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 181440 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 181440 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 69336 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 69336 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 69336 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 69336 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 69336 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 250776 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 181440 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 181440 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 181440 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 181440 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 69336 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 69336 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 69336 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 69336 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 69336 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 226304 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 226304 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n2: 226304 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n2: 226304 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n2: 212992 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 147456 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 147456 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 147456 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 147456 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 147456 0x10E2C3: main (charmsQ1.cpp:31)
+      n1: 65536 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+       n1: 65536 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+        n1: 65536 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+         n1: 65536 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+          n1: 65536 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+           n0: 65536 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 13312 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 179720 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 179720 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 179720 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 142336 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 88576 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 88576 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 88576 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 88576 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 88576 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 88576 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 53760 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 53760 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n2: 114696 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 114696 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 114696 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 80640 0x1177A8: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+  n2: 80640 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+   n2: 79360 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+    n2: 69120 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 48640 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 48640 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 48640 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 48640 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 48640 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 20480 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 20480 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 20480 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 20480 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 20480 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 20480 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 10240 in 1 place, below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n2: 74304 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 53760 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 53760 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 20544 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 20544 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 20544 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 20544 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 20544 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 55488 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 26304 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 26304 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 26304 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 26304 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 26304 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 26304 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 55424 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 26240 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 26240 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 26240 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 26240 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 26240 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 26240 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 55424 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 26240 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 26240 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 26240 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 26240 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 26240 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 26240 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 47104 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 47104 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n2: 47104 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n2: 47104 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+     n1: 30720 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+      n1: 30720 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+       n1: 30720 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+        n0: 30720 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 16384 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 41472 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 41472 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 41472 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 37888 0x11801C: gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>::OctreeNode(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, int) (octree.hpp:53)
+  n1: 37888 0x116A7B: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+   n2: 37888 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+    n2: 37888 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+     n1: 24576 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+      n1: 24576 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+       n1: 24576 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+        n1: 24576 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+         n1: 24576 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+          n1: 24576 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+           n0: 24576 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 13312 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 26880 0x116A60: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+  n2: 26880 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+   n1: 25600 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+    n0: 25600 in 2 places, all below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n0: 18592 in 20 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=40
+#-----------
+time=1433151698
+mem_heap_B=1887616
+mem_heap_extra_B=87688
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=41
+#-----------
+time=1461570112
+mem_heap_B=1911008
+mem_heap_extra_B=89216
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=42
+#-----------
+time=1500095057
+mem_heap_B=1950784
+mem_heap_extra_B=91128
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=43
+#-----------
+time=1528254211
+mem_heap_B=1974368
+mem_heap_extra_B=92424
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=44
+#-----------
+time=1570762846
+mem_heap_B=2009728
+mem_heap_extra_B=94512
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=45
+#-----------
+time=1598023311
+mem_heap_B=2126845
+mem_heap_extra_B=95147
+mem_stacks_B=0
+heap_tree=detailed
+n19: 2126845 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 273240 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 181440 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 181440 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 181440 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 181440 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 91800 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 91800 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 91800 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 91800 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 91800 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 273240 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 181440 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 181440 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 181440 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 181440 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 91800 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 91800 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 91800 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 91800 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 91800 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 258560 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 258560 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n2: 258560 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n2: 258560 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n2: 245760 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 147456 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 147456 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 147456 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 147456 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 147456 0x10E2C3: main (charmsQ1.cpp:31)
+      n1: 98304 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+       n1: 98304 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+        n1: 98304 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+         n1: 98304 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+          n1: 98304 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+           n0: 98304 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 12800 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 179720 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 179720 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 179720 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 168448 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 114688 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 114688 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 114688 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 114688 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 114688 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 114688 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 53760 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 53760 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n2: 114696 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 114696 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 114696 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 98306 0x49E1DAB: std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve(unsigned long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 98306 0x49D661E: std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::overflow(int) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+   n3: 98306 0x49DFEA0: std::basic_streambuf<char, std::char_traits<char> >::xsputn(char const*, long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+    n1: 65537 0x49C0153: std::ostreambuf_iterator<char, std::char_traits<char> > std::num_put<char, std::ostreambuf_iterator<char, std::char_traits<char> > >::_M_insert_int<unsigned long>(std::ostreambuf_iterator<char, std::char_traits<char> >, std::ios_base&, char, unsigned long) const (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+     n1: 65537 0x49D06C1: std::ostream& std::ostream::_M_insert<unsigned long>(unsigned long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+      n1: 65537 0x10C261: gv::fem::CharmsQ1Mesh::vtkprint(std::ostream&) const (charmsQ1.hpp:168)
+       n1: 65537 0x10E021: gv::fem::CharmsQ1Mesh::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) const (charmsQ1.hpp:357)
+        n0: 65537 0x10E34F: main (charmsQ1.cpp:35)
+    n1: 32769 0x49BF0C1: std::ostreambuf_iterator<char, std::char_traits<char> > std::num_put<char, std::ostreambuf_iterator<char, std::char_traits<char> > >::_M_insert_float<double>(std::ostreambuf_iterator<char, std::char_traits<char> >, std::ios_base&, char, char, double) const (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+     n1: 32769 0x49D1166: std::ostream& std::ostream::_M_insert<double>(double) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+      n1: 32769 0x1142DD: std::ostream& gv::util::operator<< <3, double>(std::ostream&, gv::util::Point<3, double> const&) (point.hpp:362)
+       n1: 32769 0x10C05F: gv::fem::CharmsQ1Mesh::vtkprint(std::ostream&) const (charmsQ1.hpp:156)
+        n1: 32769 0x10E021: gv::fem::CharmsQ1Mesh::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) const (charmsQ1.hpp:357)
+         n0: 32769 0x10E34F: main (charmsQ1.cpp:35)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 92160 0x1177A8: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+  n2: 92160 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+   n2: 90880 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+    n2: 80640 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 49920 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 49920 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 49920 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 49920 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 49920 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 30720 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 30720 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 30720 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 30720 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 30720 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 30720 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 10240 in 1 place, below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n2: 80960 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 53760 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 53760 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 27200 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 27200 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 27200 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 27200 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 27200 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 61952 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n1: 32768 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 32768 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+ n2: 61952 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n1: 32768 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 32768 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+ n2: 61952 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n1: 32768 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 32768 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+ n1: 54272 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 54272 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n2: 54272 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n2: 54272 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+     n1: 29696 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+      n1: 29696 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+       n1: 29696 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+        n0: 29696 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 24576 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+      n1: 24576 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+       n1: 24576 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+        n1: 24576 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 24576 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 43264 0x11801C: gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>::OctreeNode(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, int) (octree.hpp:53)
+  n1: 43264 0x116A7B: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+   n2: 43264 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+    n2: 43264 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+     n1: 30720 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+      n1: 30720 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+       n1: 30720 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+        n1: 30720 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+         n1: 30720 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+          n1: 30720 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+           n0: 30720 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 12544 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 41472 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 41472 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 41472 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 30720 0x116A60: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+  n2: 30720 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+   n1: 29440 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+    n0: 29440 in 2 places, all below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n0: 29403 in 23 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=46
+#-----------
+time=1625315498
+mem_heap_B=2103756
+mem_heap_extra_B=95156
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=47
+#-----------
+time=1652638402
+mem_heap_B=2103748
+mem_heap_extra_B=95140
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=48
+#-----------
+time=1693590787
+mem_heap_B=2103748
+mem_heap_extra_B=95140
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=49
+#-----------
+time=1720911396
+mem_heap_B=2103748
+mem_heap_extra_B=95140
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=50
+#-----------
+time=1744353431
+mem_heap_B=2234821
+mem_heap_extra_B=95163
+mem_stacks_B=0
+heap_tree=detailed
+n19: 2234821 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 273240 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 181440 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 181440 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 181440 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 181440 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 91800 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 91800 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 91800 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 91800 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 91800 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 273240 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 181440 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 181440 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 181440 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 181440 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 91800 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 91800 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 91800 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 91800 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 91800 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 258560 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 258560 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n2: 258560 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n2: 258560 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n2: 245760 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 147456 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 147456 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 147456 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 147456 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 147456 0x10E2C3: main (charmsQ1.cpp:31)
+      n1: 98304 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+       n1: 98304 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+        n1: 98304 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+         n1: 98304 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+          n1: 98304 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+           n0: 98304 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 12800 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 196610 0x49E1DAB: std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve(unsigned long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 196610 0x49D661E: std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::overflow(int) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+   n2: 196610 0x49DFEA0: std::basic_streambuf<char, std::char_traits<char> >::xsputn(char const*, long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+    n1: 196610 0x49C0153: std::ostreambuf_iterator<char, std::char_traits<char> > std::num_put<char, std::ostreambuf_iterator<char, std::char_traits<char> > >::_M_insert_int<unsigned long>(std::ostreambuf_iterator<char, std::char_traits<char> >, std::ios_base&, char, unsigned long) const (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+     n2: 196610 0x49D06C1: std::ostream& std::ostream::_M_insert<unsigned long>(unsigned long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+      n1: 131073 0x10A782: gv::fem::to_stream(std::ostream&, unsigned long const*, int) (charms_util.hpp:472)
+       n1: 131073 0x10D79E: gv::fem::CharmsQ1Mesh::vtkprint(std::ostream&) const (charmsQ1.hpp:308)
+        n1: 131073 0x10E021: gv::fem::CharmsQ1Mesh::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) const (charmsQ1.hpp:357)
+         n0: 131073 0x10E34F: main (charmsQ1.cpp:35)
+      n1: 65537 0x10C261: gv::fem::CharmsQ1Mesh::vtkprint(std::ostream&) const (charmsQ1.hpp:168)
+       n1: 65537 0x10E021: gv::fem::CharmsQ1Mesh::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) const (charmsQ1.hpp:357)
+        n0: 65537 0x10E34F: main (charmsQ1.cpp:35)
+    n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n2: 179720 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 179720 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 179720 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 168448 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 114688 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 114688 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 114688 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 114688 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 114688 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 114688 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 53760 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 53760 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n2: 114696 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 114696 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 114696 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 92160 0x1177A8: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+  n2: 92160 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+   n2: 90880 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+    n2: 80640 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 49920 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 49920 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 49920 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 49920 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 49920 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 30720 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 30720 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 30720 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 30720 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 30720 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 30720 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 10240 in 1 place, below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n2: 80960 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 53760 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 53760 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 27200 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 27200 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 27200 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 27200 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 27200 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 61952 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n1: 32768 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 32768 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+ n2: 61952 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n1: 32768 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 32768 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+ n2: 61952 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n1: 32768 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 32768 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+ n1: 54272 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 54272 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n2: 54272 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n2: 54272 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+     n1: 29696 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+      n1: 29696 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+       n1: 29696 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+        n0: 29696 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 24576 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+      n1: 24576 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+       n1: 24576 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+        n1: 24576 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 24576 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 43264 0x11801C: gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>::OctreeNode(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, int) (octree.hpp:53)
+  n1: 43264 0x116A7B: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+   n2: 43264 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+    n2: 43264 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+     n1: 30720 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+      n1: 30720 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+       n1: 30720 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+        n1: 30720 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+         n1: 30720 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+          n1: 30720 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+           n0: 30720 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 12544 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 41472 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 41472 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 41472 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n0: 39075 in 24 places, all below massif's threshold (1.00%)
+ n1: 30720 0x116A60: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+  n2: 30720 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+   n1: 29440 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+    n0: 29440 in 2 places, all below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+#-----------
+snapshot=51
+#-----------
+time=1744419230
+mem_heap_B=2234821
+mem_heap_extra_B=95163
+mem_stacks_B=0
+heap_tree=peak
+n19: 2234821 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 273240 0x110B58: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:156)
+  n1: 181440 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 181440 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 181440 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 181440 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 91800 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 91800 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 91800 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 91800 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 91800 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 273240 0x110C07: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:167)
+  n1: 181440 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 181440 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 181440 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 181440 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 91800 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 91800 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 91800 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 91800 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 91800 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 258560 0x118714: gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, int) (octree.hpp:53)
+  n1: 258560 0x1177C3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+   n2: 258560 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+    n2: 258560 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n2: 245760 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 147456 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 147456 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 147456 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 147456 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 147456 0x10E2C3: main (charmsQ1.cpp:31)
+      n1: 98304 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+       n1: 98304 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+        n1: 98304 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+         n1: 98304 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+          n1: 98304 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+           n0: 98304 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 12800 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 196610 0x49E1DAB: std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve(unsigned long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 196610 0x49D661E: std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::overflow(int) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+   n2: 196610 0x49DFEA0: std::basic_streambuf<char, std::char_traits<char> >::xsputn(char const*, long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+    n1: 196610 0x49C0153: std::ostreambuf_iterator<char, std::char_traits<char> > std::num_put<char, std::ostreambuf_iterator<char, std::char_traits<char> > >::_M_insert_int<unsigned long>(std::ostreambuf_iterator<char, std::char_traits<char> >, std::ios_base&, char, unsigned long) const (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+     n2: 196610 0x49D06C1: std::ostream& std::ostream::_M_insert<unsigned long>(unsigned long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+      n1: 131073 0x10A782: gv::fem::to_stream(std::ostream&, unsigned long const*, int) (charms_util.hpp:472)
+       n1: 131073 0x10D79E: gv::fem::CharmsQ1Mesh::vtkprint(std::ostream&) const (charmsQ1.hpp:308)
+        n1: 131073 0x10E021: gv::fem::CharmsQ1Mesh::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) const (charmsQ1.hpp:357)
+         n0: 131073 0x10E34F: main (charmsQ1.cpp:35)
+      n1: 65537 0x10C261: gv::fem::CharmsQ1Mesh::vtkprint(std::ostream&) const (charmsQ1.hpp:168)
+       n1: 65537 0x10E021: gv::fem::CharmsQ1Mesh::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) const (charmsQ1.hpp:357)
+        n0: 65537 0x10E34F: main (charmsQ1.cpp:35)
+    n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n2: 179720 0x113DC1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 179720 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+   n0: 179720 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 168448 0x1117D2: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:392)
+  n1: 114688 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 114688 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 114688 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 114688 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 114688 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 114688 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 53760 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 53760 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+ n1: 128800 0x4C5201F: monstartup (gmon.c:175)
+  n1: 128800 0x10A640: __gmon_start__ (in /home/zachary-hilliard/repos/cgeovox/tests/charmsQ1)
+   n1: 128800 0x4844015: ??? (in /usr/libexec/valgrind/vgpreload_massif-amd64-linux.so)
+    n1: 128800 0x40058C5: call_init (dl-init.c:37)
+     n1: 128800 0x40058C5: _dl_init (dl-init.c:88)
+      n1: 128800 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+       n1: 128800 0x1: ???
+        n1: 128800 0x1FFF0000B2: ???
+         n0: 128800 0x1FFF0000BD: ???
+ n2: 114696 0x113BC3: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:239)
+  n1: 114696 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+   n0: 114696 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 92160 0x1177A8: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*) (octree.hpp:480)
+  n2: 92160 0x11602E: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:424)
+   n2: 90880 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+    n2: 80640 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+     n1: 49920 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+      n1: 49920 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+       n1: 49920 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+        n1: 49920 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 49920 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 30720 0x115F81: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1Element, 3, 64>*, gv::fem::CharmsQ1Element const&, unsigned long) (octree.hpp:409)
+      n1: 30720 0x11328D: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:217)
+       n1: 30720 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+        n1: 30720 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+         n1: 30720 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+          n0: 30720 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 10240 in 1 place, below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+ n2: 80960 0x110AA9: gv::fem::CharmsBasisFun<8, 27, 27>::operator=(gv::fem::CharmsBasisFun<8, 27, 27> const&) (charms_util.hpp:145)
+  n1: 53760 0x10EB16: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun&&) (charmsQ1_util.hpp:104)
+   n1: 53760 0x113E71: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 53760 0x110180: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:95)
+     n0: 53760 0x10E2C3: main (charmsQ1.cpp:31)
+  n1: 27200 0x10EBAE: gv::fem::CharmsQ1BasisFun::operator=(gv::fem::CharmsQ1BasisFun const&) (charmsQ1_util.hpp:116)
+   n2: 27200 0x112CB6: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:221)
+    n1: 27200 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+     n1: 27200 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+      n0: 27200 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 73728 0x493038E: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33)
+  n1: 73728 0x400571E: call_init.part.0 (dl-init.c:74)
+   n1: 73728 0x4005823: call_init (dl-init.c:120)
+    n1: 73728 0x4005823: _dl_init (dl-init.c:121)
+     n1: 73728 0x401F59F: ??? (in /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2)
+      n1: 73728 0x1: ???
+       n1: 73728 0x1FFF0000B2: ???
+        n0: 73728 0x1FFF0000BD: ???
+ n2: 61952 0x1115AB: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:359)
+  n1: 32768 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 32768 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+ n2: 61952 0x111657: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:370)
+  n1: 32768 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 32768 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+ n2: 61952 0x111706: gv::fem::CharmsElement<8, 8, 8>::operator=(gv::fem::CharmsElement<8, 8, 8> const&) (charms_util.hpp:381)
+  n1: 32768 0x10F1C4: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element const&) (charmsQ1_util.hpp:248)
+   n2: 32768 0x1132D6: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::push_back(gv::fem::CharmsQ1Element const&, unsigned long&) (octree.hpp:221)
+    n1: 32768 0x10B72F: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:499)
+     n1: 32768 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+      n1: 32768 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+       n0: 32768 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+  n1: 29184 0x10F12C: gv::fem::CharmsQ1Element::operator=(gv::fem::CharmsQ1Element&&) (charmsQ1_util.hpp:236)
+   n1: 29184 0x113C67: gv::util::BasicOctree<gv::fem::CharmsQ1Element, 3, 64>::reserve(unsigned long) (octree.hpp:245)
+    n1: 29184 0x110127: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:94)
+     n0: 29184 0x10E2C3: main (charmsQ1.cpp:31)
+ n1: 54272 0x118524: gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>::OctreeNode(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, int) (octree.hpp:53)
+  n1: 54272 0x1173D1: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::divide(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*) (octree.hpp:480)
+   n2: 54272 0x115D60: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:424)
+    n2: 54272 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+     n1: 29696 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+      n1: 29696 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+       n1: 29696 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+        n0: 29696 0x10E2C3: main (charmsQ1.cpp:31)
+     n1: 24576 0x115CB3: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::recursive_insert(gv::util::OctreeNode<gv::fem::CharmsQ1BasisFun, 3, 64>*, gv::fem::CharmsQ1BasisFun const&, unsigned long) (octree.hpp:409)
+      n1: 24576 0x112C67: gv::util::BasicOctree<gv::fem::CharmsQ1BasisFun, 3, 64>::push_back(gv::fem::CharmsQ1BasisFun const&, unsigned long&) (octree.hpp:217)
+       n1: 24576 0x10AEBC: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:375)
+        n1: 24576 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+         n0: 24576 0x10E2C3: main (charmsQ1.cpp:31)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 43264 0x11801C: gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>::OctreeNode(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, int) (octree.hpp:53)
+  n1: 43264 0x116A7B: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+   n2: 43264 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+    n2: 43264 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+     n1: 30720 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+      n1: 30720 0x11113D: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::push_back(gv::util::Point<3, double> const&, unsigned long&) (octree.hpp:217)
+       n1: 30720 0x10EFE2: gv::fem::CharmsQ1Element::CharmsQ1Element(gv::fem::CharmsQ1Element const&, int) (charmsQ1_util.hpp:196)
+        n1: 30720 0x10B708: gv::fem::CharmsQ1Element::subdivide() (charmsQ1_util.hpp:496)
+         n1: 30720 0x10ACA8: gv::fem::CharmsQ1BasisFun::subdivide() (charmsQ1_util.hpp:352)
+          n1: 30720 0x1101D0: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:98)
+           n0: 30720 0x10E2C3: main (charmsQ1.cpp:31)
+     n0: 12544 in 1 place, below massif's threshold (1.00%)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n2: 41472 0x113A53: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::reserve(unsigned long) (octree.hpp:239)
+  n1: 41472 0x1100D6: gv::fem::CharmsQ1Mesh::h_refine(unsigned long) (charmsQ1.hpp:93)
+   n0: 41472 0x10E2C3: main (charmsQ1.cpp:31)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+ n0: 39075 in 24 places, all below massif's threshold (1.00%)
+ n1: 30720 0x116A60: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::divide(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*) (octree.hpp:480)
+  n2: 30720 0x114D40: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:424)
+   n1: 29440 0x114C93: gv::util::BasicOctree<gv::util::Point<3, double>, 3, 32>::recursive_insert(gv::util::OctreeNode<gv::util::Point<3, double>, 3, 32>*, gv::util::Point<3, double> const&, unsigned long) (octree.hpp:409)
+    n0: 29440 in 2 places, all below massif's threshold (1.00%)
+   n0: 1280 in 1 place, below massif's threshold (1.00%)
+#-----------
+snapshot=52
+#-----------
+time=1765291055
+mem_heap_B=2020312
+mem_heap_extra_B=95056
+mem_stacks_B=0
+heap_tree=empty

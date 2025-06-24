@@ -21,7 +21,8 @@ namespace gv::fem
 		size_t* parent;           //adjoint of child
 		int     cursor_parent=0;  //index of next parent data to be inserted
 		bool    is_active;        //mark if this basis function is active or not
-		bool    is_refined;       //mark if this basis function has beed refined/split
+		bool    is_refined;       //mark if this basis function has been refined (e.g., h_refine has been called on it. used to track if it is a valid un-refine target)
+		bool    is_subdivided;    //mark if this basis function has beed refined/split
 
 		constexpr CharmsBasisFun() : 
 			node_index(NO_DATA), 
@@ -31,9 +32,10 @@ namespace gv::fem
 			child(nullptr), 
 			parent(nullptr), 
 			is_active(false), 
-			is_refined(false) {};
+			is_refined(false),
+			is_subdivided(false) {};
 
-		CharmsBasisFun(const size_t node_index, const size_t depth, const bool is_odd, const bool is_active, const bool is_refined) :
+		CharmsBasisFun(const size_t node_index, const size_t depth, const bool is_odd, const bool is_active, const bool is_refined, const bool is_subdivided) :
 			node_index(node_index), 
 			support(new size_t[SUPPORT_SIZE]),
 			depth(depth),
@@ -41,7 +43,8 @@ namespace gv::fem
 			child(new size_t[CHILD_SIZE]),
 			parent(new size_t[PARENT_SIZE]),
 			is_active(is_active),
-			is_refined(is_refined)
+			is_refined(is_refined),
+			is_subdivided(is_subdivided)
 			{
 				fill_array(NO_DATA, support, SUPPORT_SIZE);
 				fill_array(NO_DATA, child,   CHILD_SIZE);
@@ -57,7 +60,8 @@ namespace gv::fem
 			child(other.child),
 			parent(other.parent),
 			is_active(other.is_active),
-			is_refined(other.is_refined)
+			is_refined(other.is_refined),
+			is_subdivided(other.is_subdivided)
 		{
 			if (other.support!=nullptr) {delete[] other.support; other.support=nullptr;}
 			if (other.child!=nullptr)   {delete[] other.child; other.child=nullptr;}
@@ -73,7 +77,8 @@ namespace gv::fem
 			child(other.child),
 			parent(other.parent),
 			is_active(other.is_active),
-			is_refined(other.is_refined) {}
+			is_refined(other.is_refined),
+			is_subdivided(other.is_subdivided) {}
 
 		~CharmsBasisFun()
 		{
@@ -96,6 +101,7 @@ namespace gv::fem
 				cursor_support = other.cursor_support;
 				cursor_child   = other.cursor_child;
 				cursor_parent  = other.cursor_parent;
+				is_subdivided  = other.is_subdivided;
 
 				//move support
 				if (support!=nullptr) {delete[] support;}
@@ -127,6 +133,7 @@ namespace gv::fem
 			cursor_support = other.cursor_support;
 			cursor_child   = other.cursor_child;
 			cursor_parent  = other.cursor_parent;
+			is_subdivided  = other.is_subdivided;
 
 			//copy support
 			if (other.support==nullptr)
@@ -178,9 +185,10 @@ namespace gv::fem
 
 	private:
 		//data insertion.
-		void fill_array(const size_t val, size_t* arr, const int len)
+		void fill_array(const size_t val, size_t* arr, const int ARR_SIZE)
 		{
-			for (int i=0; i<len; i++) {arr[i]=val;}
+			assert(arr!=nullptr);
+			for (int i=0; i<ARR_SIZE; i++) {arr[i]=val;}
 		}
 
 		void insert(const size_t value, size_t* array, int &cursor, const int ARR_SIZE)
@@ -217,24 +225,24 @@ namespace gv::fem
 		size_t  parent;             //adjoint of child, elements can only have a single parent
 		size_t* basis_s;            //indices of basis functions with the same depth
 		int     cursor_basis_s=0;   //location of next basis_s to add
+		int     capacity_basis_a;   //current capacity of basis_a to allow re-sizing
 		size_t* basis_a;            //indices of basis functions with a lower depth and whose support overlap this element. this must be dynamically resized.
 		int     cursor_basis_a=0;   //location of next basis_a to add
-		int     capacity_basis_a=0; //current capacity of basis_a to allow re-sizing
 		bool    is_active;          //mark if this element is active or not
-		bool    is_refined;         //mark if this element has been refined/subdiveded
+		bool    is_subdivided;      //mark if this element has been refined/subdiveded
 
-		constexpr CharmsElement() : node(nullptr), depth(0), child(nullptr), parent(NO_DATA), basis_s(nullptr), basis_a(nullptr), is_active(false), is_refined(false) {}
+		constexpr CharmsElement() : node(nullptr), depth(0), child(nullptr), parent(NO_DATA), basis_s(nullptr), basis_a(nullptr), is_active(false), is_subdivided(false) {}
 
-		CharmsElement(const int depth, const size_t parent, const bool is_active, bool is_refined) :
+		CharmsElement(const int depth, const size_t parent_index, const int parent_capacity_basis_a, const bool is_active, bool is_subdivided) :
 			node(new size_t[NODE_SIZE]),
 			depth(depth),
 			child(new size_t[CHILD_SIZE]),
-			parent(parent),
+			parent(parent_index),
 			basis_s(new size_t[BASIS_S_SIZE]),
-			basis_a(new size_t[BASIS_S_SIZE]),
-			capacity_basis_a(BASIS_S_SIZE),
+			capacity_basis_a(parent_capacity_basis_a),
+			basis_a(new size_t[capacity_basis_a]),
 			is_active(is_active),
-			is_refined(is_refined)
+			is_subdivided(is_subdivided)
 		{
 			fill_array(NO_DATA, node,    NODE_SIZE);
 			fill_array(NO_DATA, child,   CHILD_SIZE);
@@ -253,14 +261,18 @@ namespace gv::fem
 		//move constructor
 		CharmsElement(CharmsElement&& other) :
 			node(other.node),
+			cursor_node(other.cursor_node),
 			depth(other.depth),
 			child(other.child),
+			cursor_child(other.cursor_child),
 			parent(other.parent),
 			basis_s(other.basis_s),
-			basis_a(other.basis_a),
+			cursor_basis_s(other.cursor_basis_s),
 			capacity_basis_a(other.capacity_basis_a),
+			basis_a(other.basis_a),
+			cursor_basis_a(other.cursor_basis_a),
 			is_active(other.is_active),
-			is_refined(other.is_refined)
+			is_subdivided(other.is_subdivided)
 		{
 			other.node    = nullptr;
 			other.child   = nullptr;
@@ -271,14 +283,18 @@ namespace gv::fem
 		//copy constructor
 		CharmsElement(const CharmsElement& other) :
 			node(other.node),
+			cursor_node(other.cursor_node),
 			depth(other.depth),
 			child(other.child),
+			cursor_child(other.cursor_child),
 			parent(other.parent),
 			basis_s(other.basis_s),
-			basis_a(other.basis_a),
+			cursor_basis_s(other.cursor_basis_s),
 			capacity_basis_a(other.capacity_basis_a),
+			basis_a(other.basis_a),
+			cursor_basis_a(other.cursor_basis_a),
 			is_active(other.is_active),
-			is_refined(other.is_refined) {}
+			is_subdivided(other.is_subdivided) {}
 
 		//move assignment
 		CharmsElement& operator=(CharmsElement&& other)
@@ -294,7 +310,7 @@ namespace gv::fem
 				cursor_basis_a   = other.cursor_basis_a;
 				capacity_basis_a = other.capacity_basis_a;
 				is_active        = other.is_active;
-				is_refined       = other.is_refined;
+				is_subdivided    = other.is_subdivided;
 
 				//move node
 				if (node!=nullptr) {delete[] node;}
@@ -331,7 +347,7 @@ namespace gv::fem
 			cursor_basis_a   = other.cursor_basis_a;
 			capacity_basis_a = other.capacity_basis_a;
 			is_active        = other.is_active;
-			is_refined       = other.is_refined;
+			is_subdivided    = other.is_subdivided;
 
 			//copy node
 			if (other.node==nullptr)
@@ -397,6 +413,8 @@ namespace gv::fem
 				for (int i=cursor_basis_a; i<capacity_basis_a; i++) {basis_a[i]=NO_DATA;}
 
 				delete[] old_basis_a;
+			
+				// std::cout << "resized basis_a from capacity " << old_capacity_basis_a << " to " << capacity_basis_a << " (cursor= " << cursor_basis_a << ")" << std::endl;
 			}
 			
 			insert(value, basis_a, cursor_basis_a, capacity_basis_a);
@@ -420,9 +438,10 @@ namespace gv::fem
 
 	private:
 		//data insertion.
-		void fill_array(const size_t val, size_t* arr, const int len)
+		void fill_array(const size_t val, size_t* arr, const int ARR_SIZE)
 		{
-			for (int i=0; i<len; i++) {arr[i]=val;}
+			assert(arr!=nullptr);
+			for (int i=0; i<ARR_SIZE; i++) {arr[i]=val;}
 		}
 
 		void insert(const size_t value, size_t* array, int &cursor, const int ARR_SIZE)
@@ -431,7 +450,7 @@ namespace gv::fem
 			if (cursor>=ARR_SIZE) //if the array is full, verify that the value is already contained
 			{
 				for (int i=0; i<ARR_SIZE; i++) {if (value==array[i]) {return;}}
-				assert("array is full\n" and false);
+				assert("array is full" and false);
 			}
 
 			assert(cursor<ARR_SIZE);
@@ -467,6 +486,7 @@ namespace gv::fem
 		os << "child (" << fun.cursor_child << ")\t: "; to_stream(os, fun.child, fun.cursor_child);   os << "\n";
 		os << "is_active \t: " << fun.is_active  << "\n";
 		os << "is_refined\t: " << fun.is_refined << "\n";
+		os << "is_subdivided\t: " << fun.is_subdivided << "\n";
 		return os;
 	}
 
@@ -480,7 +500,7 @@ namespace gv::fem
 		os << "basis_s (" << elem.cursor_basis_s << ")\t: "; to_stream(os, elem.basis_s, elem.cursor_basis_s); os << "\n";
 		os << "basis_a (" << elem.cursor_basis_a << ")\t: "; to_stream(os, elem.basis_a, elem.cursor_basis_a); os << "\n";
 		os << "is_active  \t: " << elem.is_active  << "\n";
-		os << "is_refined \t: " << elem.is_refined << "\n";
+		os << "is_subdivided \t: " << elem.is_subdivided << "\n";
 		return os;
 	}
 
