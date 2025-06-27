@@ -145,6 +145,8 @@ namespace gv::util
 		//add data to the container
 		int push_back(const Data_t &val); //attempt to insert data. return 1 on success, 0 if the data was already contained, and -1 on failure
 		int push_back(const Data_t &val, size_t &idx); //same as push_back(const Data_t&) but puts the storage index into idx when flag=0 or 1
+		int push_back(Data_t &&val); //attempt to insert data. return 1 on success, 0 if the data was already contained, and -1 on failure
+		int push_back(Data_t &&val, size_t &idx); //same as push_back(const Data_t&) but puts the storage index into idx when flag=0 or 1
 
 		//data memory information and control
 		inline size_t capacity() const {return _capacity;} //maximum number of elements
@@ -196,6 +198,7 @@ namespace gv::util
 	template<typename Data_t, int dim, int n_data>
 	bool BasicOctree<Data_t,dim,n_data>::contains(const Data_t &val) const {return find(val)!= (size_t) -1;}
 
+	//copy push_back
 	template<typename Data_t, int dim, int n_data>
 	int BasicOctree<Data_t,dim,n_data>::push_back(const Data_t &val)
 	{
@@ -203,8 +206,26 @@ namespace gv::util
 		return push_back(val, idx);
 	}
 
+	//copy push_back
 	template<typename Data_t, int dim, int n_data>
 	int BasicOctree<Data_t,dim,n_data>::push_back(const Data_t &val, size_t &idx)
+	{
+		Data_t copy(val);
+		return push_back(std::move(copy),idx);
+	}
+
+
+	//move push_back
+	template<typename Data_t, int dim, int n_data>
+	int BasicOctree<Data_t,dim,n_data>::push_back(Data_t &&val)
+	{
+		size_t idx;
+		return push_back(val, idx);
+	}
+
+	//move push_back
+	template<typename Data_t, int dim, int n_data>
+	int BasicOctree<Data_t,dim,n_data>::push_back(Data_t &&val, size_t &idx)
 	{
 		if (size()>=capacity()) {reserve(2*_capacity);} //increase storage size if needed
 		assert(size()<capacity());
@@ -218,7 +239,7 @@ namespace gv::util
 			if (success)
 			{
 				idx = _data_cursor; //pass back correct index of the inserted data
-				_data[_data_cursor] = val;
+				_data[_data_cursor] = std::move(val);
 				_data_cursor += 1;
 				return 1; //data was not contained and was successfully inserted
 			}
@@ -226,6 +247,8 @@ namespace gv::util
 		}
 		return 0; //data was already contained and did not need to be inserted
 	}
+
+
 
 	template<typename Data_t, int dim, int n_data>
 	void BasicOctree<Data_t,dim,n_data>::reserve(const size_t new_capacity)
@@ -299,7 +322,7 @@ namespace gv::util
 		assert(box.intersects(_root->bbox));
 		std::vector<size_t> result;
 
-		bool used_indices[_capacity] {false};
+		std::vector<bool> used_indices(_capacity,false);
 		std::vector<const Node_t*> nodes = _get_node(box);
 		assert(nodes.size()>0);
 
@@ -326,7 +349,7 @@ namespace gv::util
 		assert(_root->bbox.contains(coord));
 		std::vector<size_t> result;
 
-		bool used_indices[_capacity] {false}; //TODO: remove to reduce memory overhead
+		std::vector<bool> used_indices(_capacity,false); //TODO: remove to reduce memory overhead
 		const Node_t* node = _get_node(coord);
 
 		for (int d_idx=0; d_idx<node->data_cursor; d_idx++)

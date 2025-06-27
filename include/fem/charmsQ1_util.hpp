@@ -76,7 +76,7 @@ namespace gv::fem
 		}
 
 		//move constructor
-		CharmsQ1BasisFun(CharmsQ1BasisFun&& other) :
+		CharmsQ1BasisFun(CharmsQ1BasisFun&& other) noexcept :
 			CharmsQ1BasisFun_BASE(other),
 			vertices(other.vertices),
 			elements(other.elements),
@@ -97,7 +97,7 @@ namespace gv::fem
 			list_index(other.list_index){}
 
 		//update move operator
-		CharmsQ1BasisFun& operator=(CharmsQ1BasisFun&& other)
+		CharmsQ1BasisFun& operator=(CharmsQ1BasisFun&& other) noexcept
 		{
 			if (this!=&other)
 			{
@@ -208,7 +208,7 @@ namespace gv::fem
 		}
 
 		//move constructor
-		CharmsQ1Element(CharmsQ1Element&& other) :
+		CharmsQ1Element(CharmsQ1Element&& other) noexcept :
 			CharmsQ1Element_BASE(other),
 			vertices(other.vertices),
 			elements(other.elements),
@@ -229,7 +229,7 @@ namespace gv::fem
 			list_index(other.list_index){}
 
 		//update move operator
-		CharmsQ1Element& operator=(CharmsQ1Element&& other)
+		CharmsQ1Element& operator=(CharmsQ1Element&& other) noexcept
 		{
 			if (this!=&other)
 			{

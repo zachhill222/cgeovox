@@ -49,6 +49,7 @@ remove_tests:
 	rm -rf *.er
 	rm -f *.vtk
 	rm -f ./outfiles/*
+	rm -f massif.*
 
 .PHONY: print
 print:

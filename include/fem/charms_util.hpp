@@ -52,7 +52,7 @@ namespace gv::fem
 			}
 
 		//move constructor
-		CharmsBasisFun(CharmsBasisFun&& other) :
+		CharmsBasisFun(CharmsBasisFun&& other) noexcept :
 			node_index(other.node_index), 
 			support(other.support),
 			depth(other.depth),
@@ -71,14 +71,20 @@ namespace gv::fem
 		//copy constructor
 		CharmsBasisFun(const CharmsBasisFun& other) :
 			node_index(other.node_index), 
-			support(other.support),
+			support(new size_t[SUPPORT_SIZE]),
 			depth(other.depth),
 			is_odd(other.is_odd), 
-			child(other.child),
-			parent(other.parent),
+			child(new size_t[CHILD_SIZE]),
+			parent(new size_t[PARENT_SIZE]),
 			is_active(other.is_active),
 			is_refined(other.is_refined),
-			is_subdivided(other.is_subdivided) {}
+			is_subdivided(other.is_subdivided)
+		{
+			//copy data
+			for (int i=0; i<SUPPORT_SIZE; i++) {support[i]=other.support[i];}
+			for (int i=0; i<CHILD_SIZE; i++)   {child[i]=other.child[i];}
+			for (int i=0; i<PARENT_SIZE; i++)  {parent[i]=other.parent[i];}
+		}
 
 		~CharmsBasisFun()
 		{
@@ -259,7 +265,7 @@ namespace gv::fem
 		}
 
 		//move constructor
-		CharmsElement(CharmsElement&& other) :
+		CharmsElement(CharmsElement&& other) noexcept :
 			node(other.node),
 			cursor_node(other.cursor_node),
 			depth(other.depth),
@@ -282,22 +288,29 @@ namespace gv::fem
 
 		//copy constructor
 		CharmsElement(const CharmsElement& other) :
-			node(other.node),
+			node(new size_t[NODE_SIZE]),
 			cursor_node(other.cursor_node),
 			depth(other.depth),
-			child(other.child),
+			child(new size_t[CHILD_SIZE]),
 			cursor_child(other.cursor_child),
 			parent(other.parent),
-			basis_s(other.basis_s),
+			basis_s(new size_t[BASIS_S_SIZE]),
 			cursor_basis_s(other.cursor_basis_s),
 			capacity_basis_a(other.capacity_basis_a),
-			basis_a(other.basis_a),
+			basis_a(new size_t[other.capacity_basis_a]),
 			cursor_basis_a(other.cursor_basis_a),
 			is_active(other.is_active),
-			is_subdivided(other.is_subdivided) {}
+			is_subdivided(other.is_subdivided)
+		{
+			//copy data
+			for (int i=0; i<NODE_SIZE; i++) {node[i]=other.node[i];}
+			for (int i=0; i<CHILD_SIZE; i++) {child[i]=other.child[i];}
+			for (int i=0; i<BASIS_S_SIZE; i++) {basis_s[i]=other.basis_s[i];}
+			for (int i=0; i<capacity_basis_a; i++) {basis_a[i]=other.basis_a[i];}
+		}
 
 		//move assignment
-		CharmsElement& operator=(CharmsElement&& other)
+		CharmsElement& operator=(CharmsElement&& other) noexcept
 		{
 			if (this!=&other)
 			{

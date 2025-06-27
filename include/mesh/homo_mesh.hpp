@@ -157,7 +157,8 @@ void HomoMesh<Element_t>::add_element(const gv::util::Point<3,double> (&element)
 	for (size_t i=0; i<referenceElement.nNodes; i++)
 	{
 		size_t global_idx;
-		assert(_nodes.push_back(element[i], global_idx)!=-1);
+		int flag = _nodes.push_back(element[i], global_idx);
+		assert(flag!=-1);
 		_elem2node.push_back(global_idx);
 	}
 }
