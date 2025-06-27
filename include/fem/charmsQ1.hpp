@@ -60,6 +60,7 @@ namespace gv::fem
 			{
 				BasisFun_t fun(&vertices, &elements, &basis, v_idx);
 				fun.set_support(); //TODO: speed this up or remove from here.
+
 				size_t fun_idx;
 				int flag = basis.push_back(fun, fun_idx); assert(flag==1);
 				basis[fun_idx].list_index = fun_idx;

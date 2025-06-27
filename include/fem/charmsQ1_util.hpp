@@ -195,7 +195,6 @@ namespace gv::fem
 			{
 				int flag = vertices->push_back(bbox.voxelvertex(i), node_idx);
 				assert(flag!=-1);
-				// if (flag==1) {std::cout << "vertex: " << node_idx << "\t" << bbox.voxelvertex(i) << std::endl;}
 				this->insert_node(node_idx);
 			}
 		}

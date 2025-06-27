@@ -11,26 +11,29 @@ namespace gv::fem
 	{
 	public:
 		static constexpr size_t NO_DATA = (size_t) -1; //not every basis function will have the maximum number of parents/children.
-		size_t  node_index;       //index to coordinate in space
-		size_t* support;          //indices of support elements with the same depth as this basis function
-		int     cursor_support=0; //index of next support data to be inserted
-		size_t  depth;            //number of mesh refinements from the coarsest mesh
-		bool    is_odd;           //a basis function is odd if it has the minimum possible depth for its spatial coordinate
-		size_t* child;            //indices of basis functions with depth one greater and whose support intersects the support of this basis function (with positive measure)
-		int     cursor_child=0;   //index of next child data to be inserted
-		size_t* parent;           //adjoint of child
-		int     cursor_parent=0;  //index of next parent data to be inserted
-		bool    is_active;        //mark if this basis function is active or not
-		bool    is_refined;       //mark if this basis function has been refined (e.g., h_refine has been called on it. used to track if it is a valid un-refine target)
-		bool    is_subdivided;    //mark if this basis function has beed refined/split
+		size_t  node_index;     //index to coordinate in space
+		size_t* support;        //indices of support elements with the same depth as this basis function
+		int     cursor_support; //index of next support data to be inserted
+		size_t  depth;          //number of mesh refinements from the coarsest mesh
+		bool    is_odd;         //a basis function is odd if it has the minimum possible depth for its spatial coordinate
+		size_t* child;          //indices of basis functions with depth one greater and whose support intersects the support of this basis function (with positive measure)
+		int     cursor_child;   //index of next child data to be inserted
+		size_t* parent;         //adjoint of child
+		int     cursor_parent;  //index of next parent data to be inserted
+		bool    is_active;      //mark if this basis function is active or not
+		bool    is_refined;     //mark if this basis function has been refined (e.g., h_refine has been called on it. used to track if it is a valid un-refine target)
+		bool    is_subdivided;  //mark if this basis function has beed refined/split
 
 		constexpr CharmsBasisFun() : 
 			node_index(NO_DATA), 
-			support(nullptr), 
+			support(nullptr),
+			cursor_support(0), 
 			depth(0), 
 			is_odd(false), 
-			child(nullptr), 
-			parent(nullptr), 
+			child(nullptr),
+			cursor_child(0), 
+			parent(nullptr),
+			cursor_parent(0), 
 			is_active(false), 
 			is_refined(false),
 			is_subdivided(false) {};
@@ -38,10 +41,13 @@ namespace gv::fem
 		CharmsBasisFun(const size_t node_index, const size_t depth, const bool is_odd, const bool is_active, const bool is_refined, const bool is_subdivided) :
 			node_index(node_index), 
 			support(new size_t[SUPPORT_SIZE]),
+			cursor_support(0),
 			depth(depth),
 			is_odd(is_odd), 
 			child(new size_t[CHILD_SIZE]),
+			cursor_child(0),
 			parent(new size_t[PARENT_SIZE]),
+			cursor_parent(0),
 			is_active(is_active),
 			is_refined(is_refined),
 			is_subdivided(is_subdivided)
@@ -55,10 +61,13 @@ namespace gv::fem
 		CharmsBasisFun(CharmsBasisFun&& other) noexcept :
 			node_index(other.node_index), 
 			support(other.support),
+			cursor_support(other.cursor_support),
 			depth(other.depth),
 			is_odd(other.is_odd), 
 			child(other.child),
+			cursor_child(other.cursor_child),
 			parent(other.parent),
+			cursor_parent(other.cursor_parent),
 			is_active(other.is_active),
 			is_refined(other.is_refined),
 			is_subdivided(other.is_subdivided)
@@ -72,10 +81,13 @@ namespace gv::fem
 		CharmsBasisFun(const CharmsBasisFun& other) :
 			node_index(other.node_index), 
 			support(new size_t[SUPPORT_SIZE]),
+			cursor_support(other.cursor_support),
 			depth(other.depth),
 			is_odd(other.is_odd), 
 			child(new size_t[CHILD_SIZE]),
+			cursor_child(other.cursor_child),
 			parent(new size_t[PARENT_SIZE]),
+			cursor_parent(other.cursor_parent),
 			is_active(other.is_active),
 			is_refined(other.is_refined),
 			is_subdivided(other.is_subdivided)
@@ -223,30 +235,34 @@ namespace gv::fem
 	{
 	public:
 		static constexpr size_t NO_DATA = (size_t) -1; //not every element will have the maximum number of parent/child.
-		size_t* node;               //index to coordinate in space for each vertex (i.e. elem2node mesh data)
-		int     cursor_node=0;      //location of next node data to add
-		size_t  depth;              //number of mesh refinements from the coarsest mesh
-		size_t* child;              //indices of elements with depth one greater and are contained in this element
-		int     cursor_child=0;     //location of next child to add
-		size_t  parent;             //adjoint of child, elements can only have a single parent
-		size_t* basis_s;            //indices of basis functions with the same depth
-		int     cursor_basis_s=0;   //location of next basis_s to add
-		int     capacity_basis_a;   //current capacity of basis_a to allow re-sizing
-		size_t* basis_a;            //indices of basis functions with a lower depth and whose support overlap this element. this must be dynamically resized.
-		int     cursor_basis_a=0;   //location of next basis_a to add
-		bool    is_active;          //mark if this element is active or not
-		bool    is_subdivided;      //mark if this element has been refined/subdiveded
+		size_t* node;             //index to coordinate in space for each vertex (i.e. elem2node mesh data)
+		int     cursor_node;      //location of next node data to add
+		size_t  depth;            //number of mesh refinements from the coarsest mesh
+		size_t* child;            //indices of elements with depth one greater and are contained in this element
+		int     cursor_child;     //location of next child to add
+		size_t  parent;           //adjoint of child, elements can only have a single parent
+		size_t* basis_s;          //indices of basis functions with the same depth
+		int     cursor_basis_s;   //location of next basis_s to add
+		int     capacity_basis_a; //current capacity of basis_a to allow re-sizing
+		size_t* basis_a;          //indices of basis functions with a lower depth and whose support overlap this element. this must be dynamically resized.
+		int     cursor_basis_a;   //location of next basis_a to add
+		bool    is_active;        //mark if this element is active or not
+		bool    is_subdivided;    //mark if this element has been refined/subdiveded
 
 		constexpr CharmsElement() : node(nullptr), depth(0), child(nullptr), parent(NO_DATA), basis_s(nullptr), basis_a(nullptr), is_active(false), is_subdivided(false) {}
 
 		CharmsElement(const int depth, const size_t parent_index, const int parent_capacity_basis_a, const bool is_active, bool is_subdivided) :
 			node(new size_t[NODE_SIZE]),
+			cursor_node(0),
 			depth(depth),
 			child(new size_t[CHILD_SIZE]),
+			cursor_child(0),
 			parent(parent_index),
 			basis_s(new size_t[BASIS_S_SIZE]),
+			cursor_basis_s(0),
 			capacity_basis_a(parent_capacity_basis_a),
 			basis_a(new size_t[capacity_basis_a]),
+			cursor_basis_a(0),
 			is_active(is_active),
 			is_subdivided(is_subdivided)
 		{
@@ -426,8 +442,6 @@ namespace gv::fem
 				for (int i=cursor_basis_a; i<capacity_basis_a; i++) {basis_a[i]=NO_DATA;}
 
 				delete[] old_basis_a;
-			
-				// std::cout << "resized basis_a from capacity " << old_capacity_basis_a << " to " << capacity_basis_a << " (cursor= " << cursor_basis_a << ")" << std::endl;
 			}
 			
 			insert(value, basis_a, cursor_basis_a, capacity_basis_a);

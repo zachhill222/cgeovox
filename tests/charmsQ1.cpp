@@ -9,31 +9,23 @@ int main(int argc, char const *argv[])
 {
 	//set domain parameters
 	gv::util::Box<3> domain(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,1,1}); //box domain to be meshed
-	gv::util::Point<3,size_t> N {128, 128, 128}; //number of elements in each cardinal direction
+	gv::util::Point<3,size_t> N {64, 64, 64}; //number of elements in each axis direction
 	
 	//initialize coarsest mesh
 	gv::fem::CharmsQ1Mesh mesh(domain,N);
 	std::cout << "initialized mesh" << std::endl;
-	
-	// mesh.elements.reserve(10000);
-	// mesh.vertices.reserve(10000);
-	// mesh.basis.reserve(10000);
 
-	size_t n = 10;
+	size_t n = 0;
 	if (argc > 1) {n=atoi(argv[1]);}
 
 	//refine mesh
-	// for (int i=1; i<argc; i++) {mesh.h_refine(atoi(argv[i]));}
-	// for (size_t i=0; i<n; i++) {mesh.h_refine(mesh.nBasis()/2);}
-	// std::cout << "refined mesh" << std::endl;
+	for (int i=1; i<argc; i++) {mesh.h_refine(atoi(argv[i]));}
+	for (size_t i=0; i<n; i++) {mesh.h_refine(mesh.nBasis()/2);}
+	std::cout << "refined mesh" << std::endl;
 
 	//save mesh to view in ParaView
 	mesh.save_as("./outfiles/charms_mesh_refined.vtk");
 	std::cout << "saved mesh" << std::endl;
-
-	//save mesh to view in ParaView
-	// mesh.save_as("./outfiles/charms_mesh_unrefined.vtk");
-	// std::cout << "saved mesh" << std::endl;
 
 	// std::cout << "\n===============================================" << std::endl;
 	// std::cout << "========== PRINT ALL BASIS FUNCTIONS ==========" << std::endl;

@@ -6,8 +6,8 @@ OBJ        = $(SRC:.cpp=.o)
 TARGETS    = $(SRC:.cpp=)
 
 #-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/)
-CC         = g++ -g -pg -fopenmp
-CFLAGS     = -Wall -O2
+CC         = g++ -fopenmp -g -pg
+CFLAGS     = -Wall -O3
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
 
