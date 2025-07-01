@@ -85,23 +85,27 @@ namespace gv::util {
 		}
 
 		T& operator[](const int idx) {return _data[idx];}
-		const T&  operator[](const int idx) const {return _data[idx];}
-		T squaredNorm() const;
-		Point<dim,T> normalized() const;
-
-
+		
+		T  operator[](const int idx) const {return _data[idx];}
+		
+		T  at(const int idx) const
+		{
+			if (idx<0 or idx>=dim) {throw std::runtime_error("INDEX_OUT_OF_RANGE"); return (T) 0;}
+			if (_data==nullptr) {throw std::runtime_error("DATA_MOVED"); return (T) 0;}
+			return _data[idx];
+		}
 	};
 
 
 
-	///Scalar maximum.
-	template <typename T=double>
-	T max(const T &left, const T &right) {return (left > right) ? left : right;}
+	// ///Scalar maximum.
+	// template <typename T=double>
+	// T max(const T &left, const T &right) {return (left > right) ? left : right;}
 
 
-	///Scalar minimum.
-	template <typename T=double>
-	T min(const T &left, const T &right) {return (left < right) ? left : right;}
+	// ///Scalar minimum.
+	// template <typename T=double>
+	// T min(const T &left, const T &right) {return (left < right) ? left : right;}
 
 
 	///Scalar absolute value.
@@ -321,7 +325,7 @@ namespace gv::util {
 	Point<dim, T> elmax(const Point<dim,T> &left, const Point<dim,T> &right)
 	{
 		Point<dim, T> result;
-		for (int i=0; i<dim; i++) { result[i] = max(left[i],right[i]);}
+		for (int i=0; i<dim; i++) { result[i] = std::max(left[i],right[i]);}
 		return result;
 	}
 
@@ -331,7 +335,7 @@ namespace gv::util {
 	Point<dim, T> elmin(const Point<dim,T> &left, const Point<dim,T> &right)
 	{
 		Point<dim, T> result;
-		for (int i=0; i<dim; i++) {result[i] = min(left[i],right[i]);}
+		for (int i=0; i<dim; i++) {result[i] = std::min(left[i],right[i]);}
 		return result;
 	}
 
@@ -372,17 +376,18 @@ namespace gv::util {
 	template <int dim=3, typename T=double>
 	std::ostream& operator<<(std::ostream& os, const Point<dim,T> &point)
 	{
-		for (int i = 0; i < dim; i++) {os << point[i] << " ";}
+		for (int i = 0; i < dim; i++) {os << point.at(i) << " ";}
+		os << "\b";
 		return os;
 	}
 
 
 	///Squared Norm
 	template <int dim, typename T>
-	T Point<dim,T>::squaredNorm() const
+	T squaredNorm(const Point<dim,T> &point)
 	{
 		T result = 0;
-		for (int i=0; i<dim; i++) {result+=_data[i]*_data[i];}
+		for (int i=0; i<dim; i++) {result+=point[i]*point[i];}
 		return result;
 	}
 
@@ -409,11 +414,10 @@ namespace gv::util {
 
 	///Normalize (without modification)
 	template <int dim, typename T>
-	Point<dim,T> Point<dim,T>::normalized() const
+	Point<dim,T> normalize(const Point<dim,T> &point)
 	{
-		T scale = std::sqrt(this->squaredNorm());
-		return (1.0/scale) * (*this);
+		T scale = std::sqrt(squaredNorm(point));
+		return (1.0/scale) * point;
 	}
-
 
 }
