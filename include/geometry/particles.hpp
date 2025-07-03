@@ -103,12 +103,12 @@ namespace gv::geometry{
 		gv::util::Point<3,double> support(const gv::util::Point<3,double> &direction) const override
 		{
 			gv::util::Point<3,double> rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
-			gv::util::Point<3,double> localpoint = rotated_direction.normalized();
+			gv::util::Point<3,double> localpoint = gv::util::normalize(rotated_direction);
 			return this->toglobal(localpoint);
 		}
 
 	protected:
-		double _eval_level_set(const gv::util::Point<3,double> &localpoint) const override {return localpoint.squaredNorm();}
+		double _eval_level_set(const gv::util::Point<3,double> &localpoint) const override {return gv::util::squaredNorm(localpoint);}
 	};
 
 
@@ -137,7 +137,7 @@ namespace gv::geometry{
 		}
 
 	protected:
-		double _eval_level_set(const gv::util::Point<3,double> &localpoint) const override{return gv::util::max(localpoint[0]*localpoint[0]+localpoint[1]*localpoint[1], gv::util::abs(localpoint[2]));}
+		double _eval_level_set(const gv::util::Point<3,double> &localpoint) const override{return std::max(localpoint[0]*localpoint[0]+localpoint[1]*localpoint[1], gv::util::abs(localpoint[2]));}
 	};
 
 

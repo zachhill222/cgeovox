@@ -1,7 +1,7 @@
 #pragma once
 
 #include "mesh/homo_mesh.hpp" //for writing vtk files
-#include "mesh/vtkVoxel.hpp"
+#include "mesh/vtk_voxel.hpp"
 
 #include "util/octree.hpp"
 

@@ -355,7 +355,7 @@ namespace gv::util {
 	T max(const Point<dim,T> &point)
 	{
 		T result = point[0];
-		for (int i=1; i<dim; i++) {result = max(result,point[i]);}
+		for (int i=1; i<dim; i++) {result = std::max(result,point[i]);}
 		return result;
 	}
 

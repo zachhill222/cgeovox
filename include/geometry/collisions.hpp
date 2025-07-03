@@ -76,18 +76,9 @@ bool collides_GJK(const SA& S1, const SB& S2)
 
 		simplex.push_back(A);
 
-		// std::cout << "\n====================\niteration= " << i << "\tdirection= ";
-		// std::cout << direction << std::endl;
-		// std::cout << "A.dot(direction)= " << gv::util::dot(A,direction) << std::endl;
-		// simplex.print(std::cout);
-
-
 		if (doSimplex(simplex, direction)) {
 			return true;
 		}
-
-
-		// std::cout << "\n====================\n";
 	}
 
 	// std::cout << "GJK failed to converge in " << MAX_GJK_ITERATIONS << " iterations\n";
@@ -114,7 +105,7 @@ bool lineCase(Polytope3_t<T>& simplex, Point3_t<T>& direction)
 		direction = gv::util::cross(AB, gv::util::cross(AO,AB));
 
 		//check if line segment contained the origin. AB and AO are co-linear.
-		if (direction.squaredNorm() <= GJK_DBL_TOL)
+		if (gv::util::squaredNorm(direction) <= GJK_DBL_TOL)
 		{
 			return true;
 		}
@@ -122,7 +113,6 @@ bool lineCase(Polytope3_t<T>& simplex, Point3_t<T>& direction)
 	}
 	else
 	{
-		// std::cout << "AO\n";
 		direction = AO;
 		simplex = Polytope3_t<T>({A});
 	}
@@ -154,7 +144,6 @@ bool triangleCase(Polytope3_t<T>& simplex, Point3_t<T>& direction){
 		{
 			direction = gv::util::cross(AC, gv::util::cross(AO,AC));
 			simplex = Polytope3_t<T>({C,A});
-			// std::cout << "REGION 1\n";
 		}
 		else{
 			DOT = gv::util::dot(AB,AO);
@@ -162,13 +151,11 @@ bool triangleCase(Polytope3_t<T>& simplex, Point3_t<T>& direction){
 			{ //STAR
 				direction = gv::util::cross(AB, gv::util::cross(AO,AB));
 				simplex = Polytope3_t<T>({B, A});
-				// std::cout << "REGION 3-\n";
 			}
 			else
 			{
 				direction = AO;
 				simplex = Polytope3_t<T>({A});
-				// std::cout << "REGION 2-\n";
 			}
 		}
 	}
@@ -180,31 +167,26 @@ bool triangleCase(Polytope3_t<T>& simplex, Point3_t<T>& direction){
 			{ //STAR
 				direction = gv::util::cross(AB, gv::util::cross(AO,AB));
 				simplex = Polytope3_t<T>({B,A});
-				// std::cout << "REGION 3+\n";
 			}
 			else
 			{
 				direction = AO;
 				simplex = Polytope3_t<T>({A});
-				// std::cout << "REGION 2+\n";
 			}
 		}
 		else
 		{
 			DOT = gv::util::dot(ABC_normal,AO);
-			// std::cout << DOT << std::endl;
 			//above, below, or on triangle
 			if (DOT>GJK_DBL_TOL )
 			{
 				direction = ABC_normal;
 				// simplex = Polytope3_t<T>({C,B,A}); //no change to simplex
-				// std::cout << "REGION 4\n";
 			}
 			else if (DOT<-GJK_DBL_TOL)
 			{
 				direction = -ABC_normal;
 				simplex = Polytope3_t<T>({B, C, A}); //orientation matters
-				// std::cout << "REGION 5\n";
 			}
 			else {return true;}
 		}
@@ -239,7 +221,7 @@ bool tetraCase(Polytope3_t<T>& simplex, Point3_t<T>& direction)
 	abd = P.dist(O);
 
 	// if all distances are negative, origin is in side the tetrahedron
-	T max_dist = gv::util::max(abc,gv::util::max(adc,abd));
+	T max_dist = std::max(abc,std::max(adc,abd));
 	// std::cout << "max_dist= " << max_dist << std::endl;
 	if (max_dist<0.0) {return true;}
 

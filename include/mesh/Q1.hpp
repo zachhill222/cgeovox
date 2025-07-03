@@ -4,7 +4,7 @@
 #include "util/box.hpp"
 
 #include "mesh/homo_mesh.hpp"
-#include "mesh/vtkVoxel.hpp"
+#include "mesh/vtk_voxel.hpp"
 
 #include <vector>
 

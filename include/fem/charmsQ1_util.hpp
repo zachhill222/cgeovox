@@ -2,6 +2,8 @@
 
 
 #include "fem/charms_util.hpp"
+#include "mesh/vtk_voxel.hpp"
+
 #include "util/point_octree.hpp"
 #include "util/point.hpp"
 #include "util/box.hpp"
@@ -140,6 +142,9 @@ namespace gv::fem
 
 		inline Point_t coord() const {return (*vertices)[this->node_index];}
 		Box_t bbox() const; //get bounding box for the support of this element
+
+		double  eval(const Point_t &point) const; //evaluate this basis function
+		Point_t grad(const Point_t &point) const; //evaluate the gradient of this function
 	};
 
 
@@ -473,6 +478,56 @@ namespace gv::fem
 		}
 
 	}
+
+	//evaluate this basis function
+	double  CharmsQ1BasisFun::eval(const Point_t &point) const
+	{
+		//loop through support elements and create voxel
+		for (int i=0; i<cursor_support; i++)
+		{
+			const CharmsQ1Element& ELEM = (*elements)[support[i]];
+			if (ELEM.contains(point))
+			{
+				//create voxel and determine which index this basis function corresponds to
+				int idx=0;
+				gv::mesh::Voxel voxel;
+				for (int j=0; j<8; j++)
+				{
+					voxel.nodes[j] = &(*vertices)[ELEM.node[j]];
+					if (ELEM.node[j] == node_index) {idx=j;}
+				}
+				return voxel.eval_basis(idx, point);
+			}
+		}
+
+		//no support element contains the point
+		return 0;
+	}
+
+	//evaluate the gradient of this function (should only be called on interior points)
+	CharmsQ1BasisFun::Point_t CharmsQ1BasisFun::grad(const Point_t &point) const
+	{
+		//loop through support elements and create voxel
+		for (int i=0; i<cursor_support; i++)
+		{
+			const CharmsQ1Element& ELEM = (*elements)[support[i]];
+			if (ELEM.contains(point))
+			{
+				//create voxel and determine which index this basis function corresponds to
+				int idx=0;
+				gv::mesh::Voxel voxel;
+				for (int j=0; j<8; j++)
+				{
+					voxel.nodes[j] = &(*vertices)[ELEM.node[j]];
+					if (ELEM.node[j] == node_index) {idx=j;}
+				}
+				return voxel.eval_grad_basis(idx, point);
+			}
+		}
+
+		//no support element contains the point
+		return Point_t{0,0,0};
+	} 
 
 
 	//implemtation of CharmsQ1Element methods

@@ -16,8 +16,8 @@ namespace gv::util{
 	class Plane{
 	public:
 		Plane(): _origin(Point_t<T>{0,0,0}), _normal(Point_t<T>{0,0,1}) {calcbasis();}
-		Plane( const Point_t<T>& origin, const Point_t<T>& normal): _origin(origin), _normal(normal.normalized()) {calcbasis();}
-		Plane( const Point_t<T>& p1, const Point_t<T>& p2, const Point_t<T>& p3): _origin(p1), _normal(cross(p3-p1,p2-p1).normalized()) {calcbasis();}
+		Plane( const Point_t<T>& origin, const Point_t<T>& normal): _origin(origin), _normal(normalize(normal)) {calcbasis();}
+		Plane( const Point_t<T>& p1, const Point_t<T>& p2, const Point_t<T>& p3): _origin(p1), _normal(normalize(cross(p3-p1,p2-p1))) {calcbasis();}
 
 		T dist(const Point_t<T>& point) const; //signed distence to the plane
 
@@ -42,11 +42,11 @@ namespace gv::util{
 
 		vec1 = cross(_normal,Point_t<T>{1,0,0});
 		vec2 = cross(_normal,Point_t<T>{0,1,0});
-		if (vec2.squaredNorm() > vec1.squaredNorm()) {vec1 = vec2;
+		if (squaredNorm(vec2) > squaredNorm(vec1)) {vec1 = vec2;
 		}
 
 		vec2 = cross(_normal,Point_t<T>{0,0,1});
-		if (vec2.squaredNorm() > vec1.squaredNorm()) {vec1 = vec2;}
+		if (squaredNorm(vec2) > squaredNorm(vec1)) {vec1 = vec2;}
 
 		_basis[0] = vec1;
 		_basis[1] = cross(_normal,_basis[0]);
