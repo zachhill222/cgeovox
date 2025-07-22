@@ -366,7 +366,8 @@ namespace gv::fem
 					size_t  new_coord_idx = vertices->find(new_coord);
 					if(new_coord_idx >= vertices->size()) //happens near domain boundary
 					{
-						// std::cout << "WARNING: could not find vertex at " << new_coord << std::endl;
+						// Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
+						// if (domain.contains(new_coord)) {std::cout << "WARNING: could not find vertex at " << new_coord << std::endl;}
 						continue;
 					}
 

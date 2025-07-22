@@ -84,8 +84,19 @@ namespace gv::fem
 		void vtkprint(std::ostream &os) const; //write mesh (as unstructured non-conforming voxels) in vtk format to specified stream
 		void save_as(std::string filename) const; //save mesh information to file, uses vtkprint()
 
-		//refinement
-		void h_refine(const size_t basis_idx)
+		//hierarchical refinement
+		void h_refine(const size_t basis_idx); //add detail functions
+		void h_unrefine(const size_t basis_idx); //remove detail functions
+
+		//mesh generation
+		template<int Format_t>
+		void make_mass_matrix(Eigen::SparseMatrix<double,Format_t> &mat) const;
+
+		template<int Format_t>
+		void make_stiff_matrix(Eigen::SparseMatrix<double,Format_t> &mat) const;
+	};
+
+	void CharmsQ1Mesh::h_refine(const size_t basis_idx)
 		{
 			assert(basis_idx<nBasis());
 			
@@ -110,7 +121,7 @@ namespace gv::fem
 		}
 
 		//un-refinement
-		void h_unrefine(const size_t basis_idx) //remove the detail functions
+		void CharmsQ1Mesh::h_unrefine(const size_t basis_idx) //remove the detail functions
 		{
 			assert(basis_idx<nBasis());
 			if (!basis[basis_idx].is_active) {return;}
@@ -146,9 +157,6 @@ namespace gv::fem
 			//mark this basis function as not refined
 			basis[basis_idx].is_refined = false;
 		}
-	};
-
-
 
 	//vtkprint implementation
 	void CharmsQ1Mesh::vtkprint(std::ostream &os) const
@@ -340,10 +348,10 @@ namespace gv::fem
 
 
 		//VERTEX TEST DATA
-		buffer << "testdata 1 " << nNodes() << " float\n";
+		buffer << "testdata 2 " << nNodes() << " float\n";
 		for (size_t i=0; i<nNodes(); i++)
 		{
-			buffer << vertices[i][0] << " ";
+			buffer << vertices[i][0] << " " << 1 << " ";
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
@@ -367,5 +375,152 @@ namespace gv::fem
 		//print mesh to file
 		vtkprint(meshfile);
 		meshfile.close();
+	}
+
+	//mass matrix assembly implementation
+	template <int Format_t>
+	void CharmsQ1Mesh::make_mass_matrix(Eigen::SparseMatrix<double,Format_t> &mat) const
+	{
+		//pre-process to determine matrix structure so that the integration loop can be done in parallel
+		using Triplet = Eigen::Triplet<double>;
+		std::vector<Triplet> coo_structure;
+		for (size_t e_idx=0; e_idx<elements.size(); e_idx++) //loop over active elements
+		{
+			const Element_t& ELEM = elements[e_idx];
+			assert(ELEM.cursor_basis_s>0); //any active element should be a support element for at least one basis function
+			for (int i=0; i<ELEM.cursor_basis_s; i++) //loop over basis functions for which this element is a support element
+			{
+				size_t basis_i = ELEM.basis_s[i];
+				coo_structure.push_back(Triplet(basis_i, basis_i, 0)); //diagonal entry
+
+				//check for interaction between basis functions on the same level
+				for (int j=i+1; j<ELEM.cursor_basis_s; j++)
+				{
+					size_t basis_j = ELEM.basis_s[j];
+					coo_structure.push_back(Triplet(basis_i, basis_j, 0)); //off-diagonal entry
+					coo_structure.push_back(Triplet(basis_j, basis_i, 0)); //symmetric off-diagonal entry
+				}
+
+				//check for interaction with coarser basis functions
+				for (int j=0; j<ELEM.cursor_basis_a; j++)
+				{
+					size_t basis_j = ELEM.basis_a[j];
+					coo_structure.push_back(Triplet(basis_i, basis_j, 0)); //off-diagonal entry
+					coo_structure.push_back(Triplet(basis_j, basis_i, 0)); //symmetric off-diagonal entry
+				}
+			}
+		}
+
+		//create matrix
+		mat.setZero();
+		mat.resize(basis.size(), basis.size());
+		mat.setFromTriplets(coo_structure.begin(), coo_structure.end()); //all zeros, but structure is known
+
+		//populate matrix
+		for (size_t e_idx=0; e_idx<elements.size(); e_idx++) //loop over active elements
+		{
+			const Element_t& ELEM = elements[e_idx];
+			assert(ELEM.cursor_basis_s>0); //any active element should be a support element for at least one basis function
+			for (int i=0; i<ELEM.cursor_basis_s; i++) //loop over basis functions for which this element is a support element
+			{
+				size_t basis_i = ELEM.basis_s[i];
+				//temporary: testing using mass lumped
+				Point_t H = ELEM.H();
+				double volume = H[0]*H[1]*H[2];
+				mat.coeffRef(basis_i,basis_i) += volume*basis[basis_i].eval(ELEM.center())*basis[basis_i].eval(ELEM.center());
+
+				//check for interaction between basis functions on the same level
+				for (int j=i+1; j<ELEM.cursor_basis_s; j++)
+				{
+					size_t basis_j = ELEM.basis_s[j];
+					double val = volume*basis[basis_i].eval(ELEM.center())*basis[basis_j].eval(ELEM.center());
+					mat.coeffRef(basis_i,basis_j) += val;
+					mat.coeffRef(basis_j,basis_i) += val;
+				}
+
+				//check for interaction with coarser basis functions
+				for (int j=0; j<ELEM.cursor_basis_a; j++)
+				{
+					size_t basis_j = ELEM.basis_a[j];
+					double val = volume*basis[basis_i].eval(ELEM.center())*basis[basis_j].eval(ELEM.center());
+					mat.coeffRef(basis_i,basis_j) += val;
+					mat.coeffRef(basis_j,basis_i) += val;
+				}
+			}
+		}
+	}
+
+
+	//stiffness matrix assembly implementation
+	template <int Format_t>
+	void CharmsQ1Mesh::make_stiff_matrix(Eigen::SparseMatrix<double,Format_t> &mat) const
+	{
+		//pre-process to determine matrix structure so that the integration loop can be done in parallel
+		using Triplet = Eigen::Triplet<double>;
+		std::vector<Triplet> coo_structure;
+		for (size_t e_idx=0; e_idx<elements.size(); e_idx++) //loop over active elements
+		{
+			const Element_t& ELEM = elements[e_idx];
+			assert(ELEM.cursor_basis_s>0); //any active element should be a support element for at least one basis function
+			for (int i=0; i<ELEM.cursor_basis_s; i++) //loop over basis functions for which this element is a support element
+			{
+				size_t basis_i = ELEM.basis_s[i];
+				coo_structure.push_back(Triplet(basis_i, basis_i, 0)); //diagonal entry
+
+				//check for interaction between basis functions on the same level
+				for (int j=i+1; j<ELEM.cursor_basis_s; j++)
+				{
+					size_t basis_j = ELEM.basis_s[j];
+					coo_structure.push_back(Triplet(basis_i, basis_j, 0)); //off-diagonal entry
+					coo_structure.push_back(Triplet(basis_j, basis_i, 0)); //symmetric off-diagonal entry
+				}
+
+				//check for interaction with coarser basis functions
+				for (int j=0; j<ELEM.cursor_basis_a; j++)
+				{
+					size_t basis_j = ELEM.basis_a[j];
+					coo_structure.push_back(Triplet(basis_i, basis_j, 0)); //off-diagonal entry
+					coo_structure.push_back(Triplet(basis_j, basis_i, 0)); //symmetric off-diagonal entry
+				}
+			}
+		}
+
+		//create matrix
+		mat.setZero();
+		mat.resize(basis.size(), basis.size());
+		mat.setFromTriplets(coo_structure.begin(), coo_structure.end()); //all zeros, but structure is known
+
+		//populate matrix
+		for (size_t e_idx=0; e_idx<elements.size(); e_idx++) //loop over active elements
+		{
+			const Element_t& ELEM = elements[e_idx];
+			assert(ELEM.cursor_basis_s>0); //any active element should be a support element for at least one basis function
+			for (int i=0; i<ELEM.cursor_basis_s; i++) //loop over basis functions for which this element is a support element
+			{
+				size_t basis_i = ELEM.basis_s[i];
+				//temporary: testing using mass lumped
+				Point_t H = ELEM.H();
+				double volume = H[0]*H[1]*H[2];
+				mat.coeffRef(basis_i,basis_i) += volume*gv::util::dot(basis[basis_i].grad(ELEM.center()),basis[basis_i].grad(ELEM.center()));
+
+				//check for interaction between basis functions on the same level
+				for (int j=i+1; j<ELEM.cursor_basis_s; j++)
+				{
+					size_t basis_j = ELEM.basis_s[j];
+					double val = volume*gv::util::dot(basis[basis_i].grad(ELEM.center()),basis[basis_j].grad(ELEM.center()));
+					mat.coeffRef(basis_i,basis_j) += val;
+					mat.coeffRef(basis_j,basis_i) += val;
+				}
+
+				//check for interaction with coarser basis functions
+				for (int j=0; j<ELEM.cursor_basis_a; j++)
+				{
+					size_t basis_j = ELEM.basis_a[j];
+					double val = volume*gv::util::dot(basis[basis_i].grad(ELEM.center()),basis[basis_j].grad(ELEM.center()));
+					mat.coeffRef(basis_i,basis_j) += val;
+					mat.coeffRef(basis_j,basis_i) += val;
+				}
+			}
+		}
 	}
 }

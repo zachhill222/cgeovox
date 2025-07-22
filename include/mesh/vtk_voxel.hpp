@@ -45,11 +45,14 @@ namespace gv::mesh{
 		gv::util::Point<3,double> eval_grad_basis(const size_t i, const gv::util::Point<3,double> &point) const
 		{
 			gv::util::Point<3,double> result;
+			const gv::util::Point<3,double> H = *(nodes[7]) - *(nodes[0]);
+			const double coef = 0.25; //0.125 * 2 where the 0.125 comes from the basis function and the 2 comes from the change of variables
 
-			result[0] = 0.125 * basis_sign(i,0)              * (1+basis_sign(i,1)*point[1]) * (1+basis_sign(i,2)*point[2]);
-			result[1] = 0.125 * (1+basis_sign(i,0)*point[0]) * basis_sign(i,1)              * (1+basis_sign(i,2)*point[2]);
-			result[2] = 0.125 * (1+basis_sign(i,0)*point[0]) * (1+basis_sign(i,1)*point[1]) * basis_sign(i,2);
-			return result;
+			result[0] = coef * basis_sign(i,0)              * (1+basis_sign(i,1)*point[1]) * (1+basis_sign(i,2)*point[2]);
+			result[1] = coef * (1+basis_sign(i,0)*point[0]) * basis_sign(i,1)              * (1+basis_sign(i,2)*point[2]);
+			result[2] = coef * (1+basis_sign(i,0)*point[0]) * (1+basis_sign(i,1)*point[1]) * basis_sign(i,2);
+			
+			return result/H; //dphi/dx = dphi/du * du/dx with du/dx = 2/H
 		}
 
 		//evaluate integral of product of two basis functions over element with size H
