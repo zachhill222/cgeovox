@@ -8,7 +8,6 @@
 //to be able to effectively re-size the array, Data_t must have a move assignment operator (std::move() must be callable)
 
 //TODO:
-//  -implement push_back(Data_t&&)
 //	-implement data deletion
 //	-implement data sorting
 
@@ -395,9 +394,12 @@ namespace gv::util
 				if (is_data_valid(child->bbox, val))
 				{   //only recursing into the first child node will still find the data because every leaf node in which the data is valid
 					//will store an index to the data
-					return recursive_find(child, val); 
+					size_t result = recursive_find(child, val); 
+					if (result != (size_t) -1) {return result;}
 				}
 			}
+			//looped through all children without finding the correct data
+			return (size_t) -1;
 		}
 
 		//in valid leaf. loop through data.

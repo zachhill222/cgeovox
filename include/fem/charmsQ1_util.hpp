@@ -364,7 +364,11 @@ namespace gv::fem
 					//get coordinate and index for the location of the new basis function
 					Point_t new_coord = this->coord() + H * Point_t{i,j,k};
 					size_t  new_coord_idx = vertices->find(new_coord);
-					if(new_coord_idx >= vertices->size()) {continue;} //happens near domain boundary
+					if(new_coord_idx >= vertices->size()) //happens near domain boundary
+					{
+						// std::cout << "WARNING: could not find vertex at " << new_coord << std::endl;
+						continue;
+					}
 
 					//initialize the new basis function
 					bool new_fun_is_odd = true;

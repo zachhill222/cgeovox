@@ -47,7 +47,7 @@ int main(int argc, char const *argv[])
 
 	//save octree structures for debugging
 	// gv::util::view_octree_vtk(mesh.elements, "./outfiles/charms_element_octree.vtk");
-	// gv::util::view_octree_vtk(mesh.vertices, "vertices_octree.vtk");
-	// gv::util::view_octree_vtk(mesh.basis,    "basis_octree.vtk");
+	gv::util::view_octree_vtk(mesh.vertices, "./outfiles/vertices_octree.vtk");
+	// gv::util::view_octree_vtk(mesh.basis,    "./outfiles/basis_octree.vtk");
 	return 0;
 }

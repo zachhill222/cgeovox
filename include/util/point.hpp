@@ -3,7 +3,7 @@
 #include <iostream>
 #include <initializer_list>
 #include <cmath>
-// #include <limits>
+#include <limits>
 
 namespace gv::util {
 	///Class for points in space.
@@ -293,13 +293,13 @@ namespace gv::util {
 	}
 
 	///Scalar approximately equal
-	// template <typename T=double>
-	// bool approxEqual(const T &left, const T &right)
-	// {
-	// 	T absmax = gv::util::max( gv::util::abs(left), gv::util::abs(right) );
-	// 	T delta = gv::util::abs(left-right);
-	// 	return  delta <= std::numeric_limits<T>::epsilon() * 2 * absmax;
-	// }
+	template <typename T=double>
+	bool approxEqual(const T &left, const T &right)
+	{
+		T absmax = std::max( gv::util::abs(left), gv::util::abs(right) );
+		T delta = gv::util::abs(left-right);
+		return  delta <= std::numeric_limits<T>::epsilon() * 2 * absmax;
+	}
 
 	///Point equal to comparison.
 	template <int dim=3, typename T=double>
@@ -307,8 +307,8 @@ namespace gv::util {
 	{
 		for (int i=0; i<dim; i++)
 		{
-			if (left[i] != right[i]) {return false;}
-			// if (not approxEqual(left[i], right[i])) {return false;}
+			// if (left[i] != right[i]) {return false;}
+			if (not approxEqual(left[i], right[i])) {return false;}
 		}
 		return true;
 	}
@@ -376,8 +376,8 @@ namespace gv::util {
 	template <int dim=3, typename T=double>
 	std::ostream& operator<<(std::ostream& os, const Point<dim,T> &point)
 	{
-		for (int i = 0; i < dim; i++) {os << point.at(i) << " ";}
-		os << "\b";
+		for (int i = 0; i < dim-1; i++) {os << point.at(i) << " ";}
+		os << point.at(dim-1);
 		return os;
 	}
 

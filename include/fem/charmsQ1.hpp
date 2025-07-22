@@ -1,12 +1,13 @@
 #pragma once
 
-
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "util/point_octree.hpp"
 #include "util/octree_util.hpp"
 
 #include "fem/charmsQ1_util.hpp"
+
+#include <Eigen/SparseCore>
 
 #include <iostream>
 #include <sstream>
