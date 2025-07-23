@@ -19,12 +19,13 @@ namespace gv::mesh
 	template <typename Element_t>
 	class HomoMesh
 	{
-	protected:
+	public:
 		//common typedefs
 		using Point_t = gv::util::Point<3,double>;
-		using Box_t   = gv::util::Box<3>;
+		using Box_t   = gv::util::Box<3,double>;
 		using PointList_t = gv::util::PointOctree<3,32>;
 
+	protected:
 		PointList_t _nodes;
 		std::vector<size_t> _elem2node;
 		std::vector<size_t> _node2elem_start_idx; //each node belongs to an unknown number of elements. track where node2element begins for each node.
@@ -51,6 +52,10 @@ namespace gv::mesh
 		///set bounding box for the mesh
 		void set_bbox(const Box_t& bbox) {clear(); _nodes.set_bbox(bbox);}
 
+		///get bounding box for entire mesh
+		Box_t bbox() const {return _nodes.bbox();}
+
+
 		///reserve space for _elem2node
 		void reserve(size_t nNewElems)
 		{
@@ -63,19 +68,21 @@ namespace gv::mesh
 		void get_element(const size_t idx, size_t (&element)[referenceElement.nNodes]) const;
 
 		///add a single element via its node phycial locations. new nodes are added to _nodes if needed.
-		void add_element(const gv::util::Point<3,double> (&element)[referenceElement.nNodes]);
+		void add_element(const Point_t (&element)[referenceElement.nNodes]);
 
 		///add a single element via its global node indices in _nodes. each node must have previously been added to _nodes and index tracked externally.
 		void add_element(const size_t (&element)[referenceElement.nNodes]);
 
 		///add a single node
-		void add_node(const gv::util::Point<3,double> &node)  {_nodes.push_back(node);}
+		void add_node(const Point_t &node)  {_nodes.push_back(node);}
 
 		///get index for a node
-		size_t node_idx(const gv::util::Point<3,double> &node) const  {return _nodes.find(node);}
+		size_t node_idx(const Point_t &node) const  {return _nodes.find(node);}
+
+		Point_t node(const size_t idx) const {return _nodes[idx];}
 
 		///get node location (return const reference)
-		const gv::util::Point<3,double>& nodes(size_t const &idx) const  {return _nodes[idx];}
+		const Point_t& nodes(size_t const &idx) const  {return _nodes[idx];}
 
 		///add node to a boundary group
 		void add_to_boundary(const size_t node_idx, const size_t boundary_idx = 0)  {_boundary[boundary_idx].push_back(node_idx);}
@@ -152,7 +159,7 @@ void HomoMesh<Element_t>::get_element(const size_t idx, size_t (&element)[refere
 
 ///add a single element via its node phycial locations. new nodes are added to _nodes if needed.
 template <typename Element_t>
-void HomoMesh<Element_t>::add_element(const gv::util::Point<3,double> (&element)[referenceElement.nNodes])
+void HomoMesh<Element_t>::add_element(const Point_t (&element)[referenceElement.nNodes])
 {
 	for (size_t i=0; i<referenceElement.nNodes; i++)
 	{
@@ -160,6 +167,16 @@ void HomoMesh<Element_t>::add_element(const gv::util::Point<3,double> (&element)
 		int flag = _nodes.push_back(element[i], global_idx);
 		assert(flag!=-1);
 		_elem2node.push_back(global_idx);
+	}
+
+	//sanity check
+	size_t new_elem[8];
+	get_element(nElems()-1, new_elem);
+	std::cout << "ELEMENT: " << nElems()-1 << std::endl;
+	for (size_t i=0; i<referenceElement.nNodes; i++)
+	{
+		std::cout << "\t" << i << " (" << new_elem[i] << ") : " << _nodes[new_elem[i]] << std::endl;
+		assert(element[i]==_nodes[new_elem[i]]);
 	}
 }
 
@@ -265,7 +282,7 @@ void HomoMesh<Element_t>::mesh_subdomain(const int mkr, HomoMesh<Element_t> &out
 		if (elem_marker[el] == mkr)
 		{
 			//construct new element
-			gv::util::Point<3,double> new_elem[referenceElement.nNodes];
+			Point_t new_elem[referenceElement.nNodes];
 			for (size_t i=0; i<referenceElement.nNodes; i++)
 			{
 				new_elem[i] = this->_nodes[this->elem2node(el,i)];

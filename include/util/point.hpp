@@ -305,12 +305,13 @@ namespace gv::util {
 	template <int dim=3, typename T=double>
 	bool operator==(const Point<dim,T> &left, const Point<dim,T> &right)
 	{
-		for (int i=0; i<dim; i++)
-		{
-			// if (left[i] != right[i]) {return false;}
-			if (not approxEqual(left[i], right[i])) {return false;}
-		}
-		return true;
+		// for (int i=0; i<dim; i++)
+		// {
+		// 	// if (left[i] != right[i]) {return false;}
+		// 	if (not approxEqual(left[i], right[i])) {return false;}
+		// }
+		// return true;
+		return approxEqual( squaredNorm(left-right), (T) 0);
 	}
 
 	///Point not equal to comparison.
@@ -394,7 +395,7 @@ namespace gv::util {
 
 	///L2-norm
 	template <int dim=3, typename T=double>
-	T norm2(const Point<dim,T> &point) {return std::sqrt(point.normSquared());}
+	T norm2(const Point<dim,T> &point) {return std::sqrt(squaredNorm(point));}
 
 
 	///L1-norm

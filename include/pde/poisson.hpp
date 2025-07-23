@@ -70,7 +70,8 @@ namespace gv::pde
 		void save_as(const char* filename) const
 		{
 			mesh.save_as(filename);
-			mesh._append_node_scalar_data(filename, u, "poisson_solution", true);
+			mesh._append_node_scalar_data(filename, u, "u", true);
+			mesh._append_node_scalar_data(filename, f, "f", false);
 			if (mesh.elem_marker.size()==mesh.nElems())
 			{
 				mesh._append_element_scalar_data(filename, mesh.elem_marker, "element_markers", true);

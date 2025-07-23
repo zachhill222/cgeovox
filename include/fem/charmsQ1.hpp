@@ -5,6 +5,8 @@
 #include "util/point_octree.hpp"
 #include "util/octree_util.hpp"
 
+#include "mesh/Q1.hpp"
+
 #include "fem/charmsQ1_util.hpp"
 
 #include <Eigen/SparseCore>
@@ -49,9 +51,9 @@ namespace gv::fem
 						Point_t high = domain.low() + Point_t{i+1,j+1,k+1} * H;
 
 						Element_t elem(&vertices, &elements, &basis, Box_t{low,high}); //this adds the appropriate vertices to the vertex list
-						size_t elem_idx;
-						elements.push_back(elem, elem_idx); //add element to mesh
-						elements[elem_idx].list_index = elem_idx;
+						size_t new_elem_idx = (size_t) -1;
+						elements.push_back(elem, new_elem_idx); //add element to mesh
+						assert(elements[new_elem_idx].list_index == new_elem_idx);
 					}
 				}
 			}
@@ -62,9 +64,10 @@ namespace gv::fem
 				BasisFun_t fun(&vertices, &elements, &basis, v_idx);
 				fun.set_support(); //TODO: speed this up or remove from here.
 
-				size_t fun_idx;
-				int flag = basis.push_back(fun, fun_idx); assert(flag==1);
-				basis[fun_idx].list_index = fun_idx;
+				size_t fun_idx = (size_t) -1;
+				int flag = basis.push_back(fun, fun_idx);
+				assert(flag==1);
+				assert(basis[fun_idx].list_index == fun_idx);
 
 				//add basis fucntion to basis_s of all support elements
 				for (int i=0; i<basis[fun_idx].cursor_support; i++)
@@ -72,6 +75,56 @@ namespace gv::fem
 					elements[basis[fun_idx].support[i]].insert_basis_s(fun_idx);
 				}
 				// basis[fun_idx].update_element_basis_lists();
+			}
+		}
+
+		//constructor for creating a charms mesh from a standard mesh
+		CharmsQ1Mesh(const gv::mesh::VoxelMeshQ1 &mesh) : vertices(mesh.bbox()), elements(mesh.bbox()), basis(mesh.bbox())
+		{
+			//reserve space
+			vertices.reserve(mesh.nNodes());
+			elements.reserve(mesh.nElems());
+			basis.reserve(mesh.nNodes());
+
+			//copy vertices
+			for (size_t v_idx=0; v_idx<mesh.nNodes(); v_idx++)
+			{
+				vertices.push_back(mesh.node(v_idx));
+			}
+
+			//construct elements
+			for (size_t e_idx=0; e_idx<mesh.nElems(); e_idx++)
+			{
+				size_t elem_nodes[8];
+				mesh.get_element(e_idx, elem_nodes);
+
+				std::cout << "elem_nodes= ";
+				for (int i=0; i<8; i++) {std::cout << elem_nodes[i] << " ";}
+				std::cout << std::endl;
+
+				Element_t elem(&vertices, &elements, &basis, elem_nodes);
+				int flag = elements.push_back(elem);
+				assert(flag==1);
+			}
+
+			//construct basis functions
+			for (size_t v_idx=0; v_idx<vertices.size(); v_idx++)
+			{
+				BasisFun_t fun(&vertices, &elements, &basis, v_idx);
+				fun.set_support();
+				size_t fun_idx = v_idx;
+				int flag = basis.push_back(fun, fun_idx);
+				assert(flag==1);
+				const BasisFun_t& FUN = basis[fun_idx];
+				assert(FUN.list_index==fun_idx);
+				assert(fun_idx==v_idx);
+
+				//add index of this basis to its support elements
+
+				for (int i=0; i<basis[FUN.list_index].cursor_support; i++)
+				{
+					elements[FUN.support[i]].insert_basis_s(FUN.list_index);
+				}
 			}
 		}
 

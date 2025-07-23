@@ -183,6 +183,22 @@ namespace gv::fem
 			}
 		}
 
+		//constructor for creating the coarsest mesh from an existing list of vertices. does not add element, vertices, or basis functions to the lists.
+		//sets is_active=true
+		CharmsQ1Element(VertexList_t* vertices, CharmsQ1ElementOctree* elements, CharmsQ1BasisFunOctree* basis, const size_t (&elem_nodes)[8]) :
+			CharmsQ1Element_BASE(0, (size_t)-1, CHARMS_Q1_ELEMENT_BASIS_S_SIZE, true, false),
+			vertices(vertices),
+			elements(elements),
+			basis(basis)
+		{
+			for (int i=0; i<8; i++)
+			{
+				this->insert_node(elem_nodes[i]);
+			}
+		}
+
+
+
 		//constructor for creating a new element using information from its parent. adds vertices to the list if necessary.
 		//sets is_active=false
 		CharmsQ1Element(const CharmsQ1Element& parent, int sibling_number) :
@@ -298,6 +314,21 @@ namespace gv::fem
 	public:
 		CharmsQ1BasisFunOctree(const gv::util::Box<3> &domain) : 
 			gv::util::BasicOctree<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>(domain,64) {}
+
+		int push_back(CharmsQ1BasisFun &val)
+		{
+			size_t idx;
+			return this->push_back(val, idx);
+		}
+
+		int push_back(CharmsQ1BasisFun &val, size_t &idx)
+		{
+			int result = gv::util::BasicOctree<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>::push_back(std::move(val), idx);
+			(*this)[idx].list_index = idx;
+			return result;
+		}
+
+
 	private:
 		bool is_data_valid(const gv::util::Box<3> &box, const CharmsQ1BasisFun &data) const override {return box.contains(data.coord());}
 	};
@@ -308,6 +339,20 @@ namespace gv::fem
 	public:
 		CharmsQ1ElementOctree(const gv::util::Box<3> &domain) : 
 			gv::util::BasicOctree<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>(domain,64) {}
+
+		int push_back(CharmsQ1Element &val)
+		{
+			size_t idx;
+			return this->push_back(val, idx);
+		}
+
+		int push_back(CharmsQ1Element &val, size_t &idx)
+		{
+			int result = gv::util::BasicOctree<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>::push_back(std::move(val), idx);
+			(*this)[idx].list_index = idx;
+			return result;
+		}
+
 	private:
 		bool is_data_valid(const gv::util::Box<3> &box, const CharmsQ1Element &data) const override {return box.intersects(data.bbox());}
 	};
@@ -378,12 +423,17 @@ namespace gv::fem
 					fun.set_support();
 
 					//add the new basis function to the list
-					size_t new_list_index;
+					size_t new_list_index = (size_t) -1;
 					int flag = basis->push_back(fun, new_list_index);
 					if (flag==0) {continue;} //it is possible that the basis function already exists
-
 					assert(flag==1); //we should only alter newly created functions here
-					(*basis)[new_list_index].list_index = new_list_index;
+
+					const CharmsQ1BasisFun& FUN = (*basis)[new_list_index];
+					assert(FUN.list_index==basis->size()-1);
+					assert(FUN.list_index==new_list_index);
+					
+					
+					// (*basis)[new_list_index].list_index = new_list_index;
 
 					//add the new basis to basis_s list of all support elements
 					for (int l=0; l<(*basis)[new_list_index].cursor_support; l++)
@@ -545,11 +595,12 @@ namespace gv::fem
 		{
 			CharmsQ1Element elem(*this, i); //updates vertex list, sets basis_a[], basis_s[], and node[]
 
-			size_t new_list_index;
+			size_t new_list_index = (size_t) -1;
 			int flag = elements->push_back(elem,new_list_index);
 			assert(flag==1); //elements should always be newly created when this routine is called
-			(*elements)[new_list_index].list_index = new_list_index;
-			this->insert_child(new_list_index);
+			const CharmsQ1Element& ELEM = (*elements)[new_list_index];
+			assert(ELEM.list_index==new_list_index);
+			this->insert_child(ELEM.list_index);
 		}
 	}
 

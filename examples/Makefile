@@ -16,10 +16,15 @@ all: $(TARGETS)
 
 
 # RULES TO MAKE EACH TEST INDIVIDUALLY. listing individually helps autocomplete. using .PHONY forces re-build when header files have changed but not source files.
-.PHONY: geometry_conforming_poisson
-geometry_conforming_poisson :
-	$(CC) $(CFLAGS) $(INC_DIR) -c geometry_conforming_poisson.cpp -o geometry_conforming_poisson.o
-	$(CC) geometry_conforming_poisson.o -o geometry_conforming_poisson
+.PHONY: poisson_standard
+poisson_standard :
+	$(CC) $(CFLAGS) $(INC_DIR) -c poisson_standard.cpp -o poisson_standard.o
+	$(CC) poisson_standard.o -o poisson_standard
+
+.PHONY: poisson_charms
+poisson_charms :
+	$(CC) $(CFLAGS) $(INC_DIR) -c poisson_charms.cpp -o poisson_charms.o
+	$(CC) poisson_charms.o -o poisson_charms
 
 .PHONY: clean
 clean:

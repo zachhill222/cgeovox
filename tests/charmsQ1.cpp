@@ -9,7 +9,7 @@
 int main(int argc, char const *argv[])
 {
 	//set domain parameters
-	gv::util::Box<3> domain(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,1,1}); //box domain to be meshed
+	gv::util::Box<3> domain(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,2,3}); //box domain to be meshed
 	gv::util::Point<3,size_t> N {1, 1, 1}; //number of elements in each axis direction
 	
 	//initialize coarsest mesh
@@ -31,7 +31,7 @@ int main(int argc, char const *argv[])
 	//save mesh to view in ParaView
 	mesh.save_as("./outfiles/charms_mesh_refined.vtk");
 	std::cout << "saved mesh" << std::endl;
-
+	
 	//create mass and stiffness matrices
 	Eigen::SparseMatrix<double> massMat, stifMat;
 	Eigen::VectorXd ones(mesh.nBasis());

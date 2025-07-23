@@ -3,6 +3,8 @@
 
 #include "mesh/Q1.hpp"
 
+#include "util/octree_util.hpp"
+
 #include "pde/poisson.hpp"
 
 #include <ctime>
@@ -35,8 +37,8 @@ int main(int argc, char* argv[])
 
 	//read geometry
 	std::cout << "construct assembly: " << std::flush;
-	// using Particle_t = gv::geometry::Prism;
-	using Particle_t = gv::geometry::SuperEllipsoid;
+	using Particle_t = gv::geometry::Prism;
+	// using Particle_t = gv::geometry::SuperEllipsoid;
 	start = std::time(nullptr);
 	gv::geometry::Assembly<Particle_t> assembly(file, read_flags);
 	end = std::time(nullptr);
@@ -61,6 +63,27 @@ int main(int argc, char* argv[])
 	end = std::time(nullptr);
 	std::cout << std::difftime(end,start) << " seconds\n";
 	std::cout << "\tnNodes= " << mesh.nNodes() << "\tnElems= " << mesh.nElems() << "\n";
+
+	//save mesh
+	std::cout << "save Q1 mesh: " << std::flush;
+	start = std::time(nullptr);
+	mesh.save_as("mesh.vtk");
+	gv::util::view_octree_vtk(mesh._nodes);
+	end = std::time(nullptr);
+	std::cout << std::difftime(end,start) << " seconds" << std::endl;
+
+	//check mesh for duplicate points
+	for (size_t i=0; i<mesh.nNodes(); i++)
+	{
+		for (size_t j=i+1; j<mesh.nNodes(); j++)
+		{
+			if (mesh.node(i)==mesh.node(j))
+			{
+				std::cout << "duplicate point (" << mesh.node(i) << ") at indices " << i << " and " << j << std::endl;
+			}
+		}
+	}
+
 
 	//construct connectivity
 	std::cout << "construct mesh connectivity (node2elem): " << std::flush;

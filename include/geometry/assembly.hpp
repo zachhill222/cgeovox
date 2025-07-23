@@ -23,11 +23,14 @@ namespace gv::geometry{
 	template <typename Particle_t, size_t n_data=8>
 	class ParticleOctree : public gv::util::BasicOctree<Particle_t, 3, n_data> {
 	public:
+		using Point_t = gv::util::Point<3,double>;
+		using Box_t = gv::util::Box<3,double>;
+
 		ParticleOctree() : gv::util::BasicOctree<Particle_t, 3, n_data>() {}
-		ParticleOctree(const gv::util::Box<3> &bbox) : gv::util::BasicOctree<Particle_t, 3, n_data>(bbox, 64) {}
+		ParticleOctree(const Box_t &bbox) : gv::util::BasicOctree<Particle_t, 3, n_data>(bbox, 64) {}
 
 		//check if a point is in any particle
-		bool is_in_particle(const gv::util::Point<3,double> &point) const
+		bool is_in_particle(const Point_t &point) const
 		{
 			std::vector<size_t> d_idx = this->get_data_indices(point);
 			for (size_t i=0; i<d_idx.size(); i++) {if ((*this)[d_idx[i]].contains(point)) {return true;}}
@@ -35,7 +38,7 @@ namespace gv::geometry{
 		}
 
 	private:
-		bool is_data_valid(gv::util::Box<3> const &box, Particle_t const &P) const override {return gv::geometry::collides_GJK(box,P);}
+		bool is_data_valid(Box_t const &box, Particle_t const &P) const override {return gv::geometry::collides_GJK(box,P);}
 	};
 
 
@@ -73,14 +76,14 @@ namespace gv::geometry{
 	public:
 		using ParticleList_t = ParticleOctree<Particle_t, n_data>;
 		using Point_t = gv::util::Point<3,double>;
-		using Box_t = gv::util::Box<3>;
+		using Box_t = gv::util::Box<3,double>;
 
 
 		Assembly() : _particles() {};
 		Assembly(const std::string filename, const std::string columns) : _particles() {readfile(filename, columns);}
 
 		//check if a point is in any particle
-		bool is_in_particle(const gv::util::Point<3,double> &point) const
+		bool is_in_particle(const Point_t &point) const
 		{	
 			if (not _particles.bbox().contains(point)) {return false;}
 			return _particles.is_in_particle(point);
@@ -90,19 +93,19 @@ namespace gv::geometry{
 		void readfile(const std::string filename, const std::string columns);
 
 		//get bounding box
-		gv::util::Box<3> bbox() const {return _particles.bbox();}
+		Box_t bbox() const {return _particles.bbox();}
 
 		//save geometry to a text file as a rectangular prism of sampled points with the. voidspace=0, solidspace=1.
-		void save_geometry(const std::string filename, const gv::util::Box<3> &box, const size_t N[3]) const;
+		void save_geometry(const std::string filename, const Box_t &box, const size_t N[3]) const;
 		void save_geometry(const std::string filename, const size_t  N[3]) const {save_geometry(filename, this->_particles.bbox(), N);}
-		void save_solid(const std::string filename, const gv::util::Box<3> &box, const size_t N[3]) const;
+		void save_solid(const std::string filename, const Box_t &box, const size_t N[3]) const;
 		void save_solid(const std::string filename, const size_t  N[3]) const {save_solid(filename, this->_particles.bbox(), N);}
 
 		//view octree structure of _particles octree
 		void view_octree_vtk(const std::string filename="octree_structure.vtk") const {gv::util::view_octree_vtk(_particles, filename);}
 
 		//create unstructured voxel mesh of the entire region. mark elements with 0 for void, 1 for solid, and 2 for interface
-		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const gv::util::Box<3> &box, const AssemblyMeshOptions &opts) const;
+		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const Box_t &box, const AssemblyMeshOptions &opts) const;
 		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const AssemblyMeshOptions &opts) const {create_voxel_mesh_Q1(out_mesh, this->_particles.bbox(), opts);}
 
 	private:
@@ -222,7 +225,7 @@ namespace gv::geometry{
 					}
 				}
 
-				Particle_t P(gv::util::Point<3,double> {rx,ry,rz}, eps, gv::util::Point<3,double> {x,y,z}, gv::util::Quaternion<double>(qw,-qx,-qy,-qz));
+				Particle_t P(Point_t {rx,ry,rz}, eps, Point_t {x,y,z}, gv::util::Quaternion<double>(qw,-qx,-qy,-qz));
 				temp_particles.push_back(P);
 			}
 		}
@@ -231,7 +234,7 @@ namespace gv::geometry{
 		for (size_t i=0; i<_particles.size(); i++) {temp_particles.push_back(_particles[i]);}
 
 		//GET BOUNDING BOX SIZE
-		gv::util::Box<3> bbox = temp_particles[0].bbox();
+		Box_t bbox = temp_particles[0].bbox();
 		for (size_t i=1; i<temp_particles.size(); i++) {bbox.combine(temp_particles[i].bbox());}
 
 		//MAKE ParticleOctree
@@ -247,7 +250,7 @@ namespace gv::geometry{
 
 	//save geometry to a text file as a rectangular prism of sampled points with the. voidspace=0, solidspace=1.
 	template <typename Particle_t, size_t n_data>
-	void Assembly<Particle_t, n_data>::save_geometry(const std::string filename, const gv::util::Box<3> &box, const size_t N[3]) const
+	void Assembly<Particle_t, n_data>::save_geometry(const std::string filename, const Box_t &box, const size_t N[3]) const
 	{
 		//////////////// OPEN FILE ////////////////
 		std::ofstream geofile(filename);
@@ -269,10 +272,10 @@ namespace gv::geometry{
 
 
 		//DATA
-		gv::util::Point<3,double> centroid {0,0,0};
-		gv::util::Point<3,double> ijk {0,0,0};
+		Point_t centroid {0,0,0};
+		Point_t ijk {0,0,0};
 
-		gv::util::Point<3,double> H = box.sidelength() / Point_t {N[0], N[1], N[2]};
+		Point_t H = box.sidelength() / Point_t {N[0], N[1], N[2]};
 
 		for (long unsigned int  k=0; k<N[2]; k++){
 			ijk[2] = 0.5 + (double) k;
@@ -299,7 +302,7 @@ namespace gv::geometry{
 
 	//save geometry to a .vtk file as a rectangular prism of sampled points with the. voidspace=0, solidspace=1.
 	template <typename Particle_t, size_t n_data>
-	void Assembly<Particle_t, n_data>::save_solid(const std::string filename, const gv::util::Box<3> &box, const size_t N[3]) const
+	void Assembly<Particle_t, n_data>::save_solid(const std::string filename, const Box_t &box, const size_t N[3]) const
 	{
 		//////////////// OPEN FILE ////////////////
 		std::ofstream meshfile(filename);
@@ -312,10 +315,10 @@ namespace gv::geometry{
 
 
 		//COMPUTE SPACING
-		gv::util::Point<3,double> sample_point {0,0,0};
-		gv::util::Point<3,double> ijk {0,0,0};
+		Point_t sample_point {0,0,0};
+		Point_t ijk {0,0,0};
 
-		gv::util::Point<3,double> H = box.sidelength() / Point_t{N[0],N[1],N[2]};
+		Point_t H = box.sidelength() / Point_t{N[0],N[1],N[2]};
 
 
 		//////////////// WRITE TO FILE ////////////////
@@ -400,13 +403,13 @@ namespace gv::geometry{
 
 	//construct an unstructured voxel mesh of the region
 	template <typename Particle_t, size_t n_data>
-	void Assembly<Particle_t, n_data>::create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const gv::util::Box<3> &box, const AssemblyMeshOptions &opts) const
+	void Assembly<Particle_t, n_data>::create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const Box_t &box, const AssemblyMeshOptions &opts) const
 	{
-		out_mesh.set_bbox(box);
+		out_mesh.set_bbox(1.3*box);
 		out_mesh.reserve(opts.N[0]*opts.N[1]*opts.N[2]);
 
 		//COMPUTE SPACING
-		gv::util::Point<3,double> H = box.sidelength()/Point_t(opts.N);
+		Point_t H = box.sidelength()/Point_t(opts.N);
 
 		//CONSTRUCT ELEMENTS
 		for (size_t  k=0; k<opts.N[2]; k++)
@@ -416,15 +419,11 @@ namespace gv::geometry{
 				for (size_t  i=0; i<opts.N[0]; i++)
 				{
 					//create element
-					gv::util::Point<3,double> new_elem[8];
-
-
-					gv::util::Box<3> element_box(box.low() + H*Point_t{i,j,k}, box.low() + H*Point_t{i+1,j+1,k+1});
-					for (int n=0; n<8; n++)
-					{
-						new_elem[n] = element_box.voxelvertex(n);
-					}
-
+					const Point_t low = box.low() + H*Point_t{i,j,k};
+					const Point_t high = low + H;
+					const Box_t element_box(low,high);
+					bool add_element = false;
+					int elem_marker;
 
 					//get number of vertices contained in particles
 					int n_vert = 0;
@@ -433,22 +432,26 @@ namespace gv::geometry{
 						if (this->is_in_particle(element_box[n])) {n_vert += 1;}
 					}
 
-					//add element to mesh
+					//determine if the element should be added to the mesh and what marker it gets
 					switch (n_vert)
 					{
 					case 0:
 						if (opts.include_void)
 						{
-							out_mesh.add_element(new_elem);
-							out_mesh.elem_marker.push_back(opts.void_marker);
+							// out_mesh.add_element(&new_elem);
+							// out_mesh.elem_marker.push_back(opts.void_marker);
+							add_element = true;
+							elem_marker = opts.void_marker;
 						}
 						break;
 
 					case 8:
 						if (opts.include_solid)
 						{
-							out_mesh.add_element(new_elem);
-							out_mesh.elem_marker.push_back(opts.solid_marker);
+							// out_mesh.add_element(&new_elem);
+							// out_mesh.elem_marker.push_back(opts.solid_marker);
+							add_element = true;
+							elem_marker = opts.solid_marker;
 						}
 						break;
 
@@ -458,29 +461,51 @@ namespace gv::geometry{
 							//check centroid if needed
 							if (opts.check_centroid)
 							{	
-								gv::util::Point<3,double> centroid = 0.5*(new_elem[0]+new_elem[7]);
+							const Point_t centroid = element_box.center();
 								bool is_solid = this->is_in_particle(centroid);
 								if (is_solid and opts.include_solid)
 								{
-									out_mesh.add_element(new_elem);
-									out_mesh.elem_marker.push_back(opts.interface_marker);
+									// out_mesh.add_element(&new_elem);
+									// out_mesh.elem_marker.push_back(opts.interface_marker);
+									add_element = true;
+									elem_marker = opts.interface_marker;
 								}
 								else if ((!is_solid) and opts.include_void)
 								{
-									out_mesh.add_element(new_elem);
-									out_mesh.elem_marker.push_back(opts.interface_marker);
+									// out_mesh.add_element(&new_elem);
+									// out_mesh.elem_marker.push_back(opts.interface_marker);
+									add_element = true;
+									elem_marker = opts.interface_marker;
 								}
 							}
 							else
 							{
-								out_mesh.add_element(new_elem);
-								out_mesh.elem_marker.push_back(opts.interface_marker);
+								// out_mesh.add_element(&new_elem);
+								// out_mesh.elem_marker.push_back(opts.interface_marker);
+								add_element = true;
+								elem_marker = opts.interface_marker;
 							}
 						}
 						break;
 					}
+
+					//add element to the mesh
+					if (add_element)
+					{
+						Point_t elem[8];
+						for (int i=0; i<8; i++) {elem[i] = element_box.voxelvertex(i);}
+						out_mesh.add_element(elem);
+						out_mesh.elem_marker.push_back(elem_marker);
+					}
 				}
 			}
+		}
+
+		//print vertices
+		std::cout << "MESH NODES:\n";
+		for (size_t i=0; i<out_mesh.nNodes(); i++)
+		{
+			std::cout << i << ": " << out_mesh.node(i) << std::endl;
 		}
 	}
 }
