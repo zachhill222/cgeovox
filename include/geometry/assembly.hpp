@@ -405,8 +405,8 @@ namespace gv::geometry{
 	template <typename Particle_t, size_t n_data>
 	void Assembly<Particle_t, n_data>::create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const Box_t &box, const AssemblyMeshOptions &opts) const
 	{
-		out_mesh.set_bbox(1.3*box);
-		out_mesh.reserve(opts.N[0]*opts.N[1]*opts.N[2]);
+		out_mesh.set_bbox(box);
+		out_mesh.reserve((opts.N[0]+1)*(opts.N[1]+1)*(opts.N[2]+1));
 
 		//COMPUTE SPACING
 		Point_t H = box.sidelength()/Point_t(opts.N);

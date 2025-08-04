@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
 	const char* read_flags = "-rrr-eps-xyz-q"; 
 
 	//set discretization size
-	size_t n = 32;
+	size_t n = 8;
 	if (argc>2) {n = atoi(argv[2]);}
 
 	//set padding ratio
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
 	std::cout << "save Q1 mesh: " << std::flush;
 	start = std::time(nullptr);
 	mesh.save_as("mesh.vtk");
-	gv::util::view_octree_vtk(mesh._nodes);
+	// gv::util::view_octree_vtk(mesh._nodes);
 	end = std::time(nullptr);
 	std::cout << std::difftime(end,start) << " seconds" << std::endl;
 
