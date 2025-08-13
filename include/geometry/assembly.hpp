@@ -405,7 +405,7 @@ namespace gv::geometry{
 	template <typename Particle_t, size_t n_data>
 	void Assembly<Particle_t, n_data>::create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const Box_t &box, const AssemblyMeshOptions &opts) const
 	{
-		out_mesh.set_bbox(box);
+		out_mesh.set_bbox(Box_t{opts.scale*box.low(), opts.scale*box.high()});
 		out_mesh.reserve((opts.N[0]+1)*(opts.N[1]+1)*(opts.N[2]+1));
 
 		//COMPUTE SPACING
@@ -420,7 +420,7 @@ namespace gv::geometry{
 				{
 					//create element
 					const Point_t low = box.low() + H*Point_t{i,j,k};
-					const Point_t high = low + H;
+					const Point_t high = box.low() + H*Point_t{i+1,j+1,k+1};
 					const Box_t element_box(low,high);
 					bool add_element = false;
 					int elem_marker;
@@ -493,7 +493,7 @@ namespace gv::geometry{
 					if (add_element)
 					{
 						Point_t elem[8];
-						for (int i=0; i<8; i++) {elem[i] = element_box.voxelvertex(i);}
+						for (int i=0; i<8; i++) {elem[i] = opts.scale * element_box.voxelvertex(i);}
 						out_mesh.add_element(elem);
 						out_mesh.elem_marker.push_back(elem_marker);
 					}
@@ -502,10 +502,10 @@ namespace gv::geometry{
 		}
 
 		//print vertices
-		std::cout << "MESH NODES:\n";
-		for (size_t i=0; i<out_mesh.nNodes(); i++)
-		{
-			std::cout << i << ": " << out_mesh.node(i) << std::endl;
-		}
+		// std::cout << "MESH NODES:\n";
+		// for (size_t i=0; i<out_mesh.nNodes(); i++)
+		// {
+		// 	std::cout << i << ": " << out_mesh.node(i) << std::endl;
+		// }
 	}
 }

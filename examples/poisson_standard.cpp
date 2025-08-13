@@ -53,6 +53,7 @@ int main(int argc, char* argv[])
 	opts.N[0] = n;
 	opts.N[1] = n;
 	opts.N[2] = n;
+	opts.scale = 1.0;
 
 	//mesh
 	std::cout << "create Q1 mesh: " << std::flush;
@@ -79,7 +80,7 @@ int main(int argc, char* argv[])
 		{
 			if (mesh.node(i)==mesh.node(j))
 			{
-				std::cout << "duplicate point (" << mesh.node(i) << ") at indices " << i << " and " << j << std::endl;
+				std::cout << "duplicate point:\n\tvertex[" << i << "]= (" << mesh.node(i) << ")\n\tvertex[" << j << "]= (" << mesh.node(j) << ")" << std::endl;
 			}
 		}
 	}

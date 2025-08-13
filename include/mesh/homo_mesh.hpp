@@ -23,9 +23,9 @@ namespace gv::mesh
 		//common typedefs
 		using Point_t = gv::util::Point<3,double>;
 		using Box_t   = gv::util::Box<3,double>;
-		using PointList_t = gv::util::PointOctree<3,32>;
+		using PointList_t = gv::util::PointOctree<3,128>;
 
-	protected:
+	// protected:
 		PointList_t _nodes;
 		std::vector<size_t> _elem2node;
 		std::vector<size_t> _node2elem_start_idx; //each node belongs to an unknown number of elements. track where node2element begins for each node.
@@ -170,14 +170,14 @@ void HomoMesh<Element_t>::add_element(const Point_t (&element)[referenceElement.
 	}
 
 	//sanity check
-	size_t new_elem[8];
-	get_element(nElems()-1, new_elem);
-	std::cout << "ELEMENT: " << nElems()-1 << std::endl;
-	for (size_t i=0; i<referenceElement.nNodes; i++)
-	{
-		std::cout << "\t" << i << " (" << new_elem[i] << ") : " << _nodes[new_elem[i]] << std::endl;
-		assert(element[i]==_nodes[new_elem[i]]);
-	}
+	// size_t new_elem[8];
+	// get_element(nElems()-1, new_elem);
+	// std::cout << "ELEMENT: " << nElems()-1 << std::endl;
+	// for (size_t i=0; i<referenceElement.nNodes; i++)
+	// {
+	// 	std::cout << "\t" << i << " (" << new_elem[i] << ") : " << _nodes[new_elem[i]] << std::endl;
+	// 	assert(element[i]==_nodes[new_elem[i]]);
+	// }
 }
 
 ///add a single element via its global node indices in _nodes. each node must have previously been added to _nodes and index tracked externally.

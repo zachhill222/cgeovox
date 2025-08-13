@@ -89,6 +89,20 @@ namespace gv::util{
 			return vertex;
 		}
 
+
+		Point_t voxelijk(const int idx) const {
+			Point_t vertex;
+			int p = idx;
+			int r = 0;
+			for (int i=0; i<dim; i++){
+				r = p%2;
+				p = p/2;
+				if (r){vertex[i] = 1.0;}
+				else {vertex[i] = 0.0;}
+			}
+			return vertex;
+		}
+
 		///Get i-th vertex in vtk quad/hexahedron order.
 		Point_t hexvertex(const int idx) const{
 			switch (idx){
@@ -102,6 +116,8 @@ namespace gv::util{
 
 		///Get i-th vertex in vtk pixel/voxel order.
 		inline Point_t voxelvertex(const int idx) const {return (*this)[idx];}
+
+
 
 
 		///////////////////////////////////////////////

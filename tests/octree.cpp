@@ -9,13 +9,15 @@
 
 //helpful data types
 using Point_t = gv::util::Point<3,double>;
+using Index_t = gv::util::Point<3,size_t>;
 using Box_t = gv::util::Box<3>;
+using Octree_t = gv::util::PointOctree<3,64>;
 
-void test_octree(size_t N)
+void test_octree_random(size_t N)
 {
 	//set up octree container for points
 	Box_t bbox(Point_t {0,0,0}, Point_t {1,1,1});
-    using Octree_t = gv::util::PointOctree<3,4>;
+    
 	Octree_t* octree = new Octree_t(bbox,16); //test using a pointer
 	std::vector<Point_t> vector;
 
@@ -125,13 +127,87 @@ void test_octree(size_t N)
     delete octree;
 }
 
+void test_octree_structured(size_t N=128, double L=1.0)
+{
+    const Box_t domain(Point_t{1,1,1},Point_t{1+L,1+L,1+L});
+    const double h = L/ (double) N;
+    Octree_t octree(domain);
+
+    //construct points and check detection
+    for (size_t i=0; i<N; i++)
+    {
+        for (size_t j=0; j<N; j++)
+        {
+            for (size_t k=0; k<N; k++)
+            {
+                Point_t low{i,j,k};
+                Point_t high{i+1,j+1,k+1};
+                Box_t element(domain.low()+h*low, domain.low()+h*high);
+                
+                // std::cout << "Element: " << Index_t{i,j,k} << ": " << element << std::endl;
+                for (int l=0; l<8; l++)
+                {
+                    int flag = octree.push_back(element.voxelvertex(l));
+                    // std::cout << "\t" << l << " (" << element.voxelijk(l) << "): Point " << element.voxelvertex(l);
+
+                    // switch (flag)
+                    // {
+                    //     case  0: std::cout << " added" << std::endl; break;
+                    //     case  1: std::cout << " already exists" << std::endl; break;
+                    //     case -1: std::cout << " error" << std::endl; break;
+                    // }
+                }
+            }
+        }
+    }
+
+    //check existance of points
+    std::cout << "\ncheck that points exist" << std::endl;
+    for (size_t i=0; i<N+1; i++)
+    {
+        for (size_t j=0; j<N+1; j++)
+        {
+            for (size_t k=0; k<N+1; k++)
+            {
+                Point_t coord = domain.low() + h*Point_t{i,j,k};
+                size_t idx = octree.find(coord);
+                if (idx == (size_t) -1)
+                {
+                    std::cout << "Point " << coord << " not found" << std::endl;
+                }
+            }
+        }
+    }
+
+    //check for duplicate points
+    std::cout << "\ncheck for duplicate points" << std::endl;
+    size_t n_duplicates = 0;
+    for (size_t i=0; i<octree.size(); i++)
+    {
+        const Point_t coord = octree[i];
+        for (size_t j=i+1; j<octree.size(); j++)
+        {
+            if (octree[j]==coord)
+            {
+                n_duplicates++;
+                std::cout << "diplicate coord:\n\toctree[" << i <<"]= " << octree[i] << "\n\toctree[" << j << "]" << std::endl;
+            }
+        }
+    }
+
+
+    //print summary
+    std::cout << "octree is storing " << octree.size() << " points. should be " << (N+1)*(N+1)*(N+1) << std::endl;
+    std::cout << "there were " << n_duplicates << " duplicate points found" << std::endl;
+}
+
 int main(int argc, char* argv[])
 {	
 	int N = 10;
 	if (argc>1) {N=atoi(argv[1]);}
 
-	// test_octree_mesh(N);
-	test_octree(N);
+	test_octree_structured(N,0.0001);
+	// test_octree_random(N);
 
 	return 0;
 }
