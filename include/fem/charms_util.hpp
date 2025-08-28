@@ -530,5 +530,4 @@ namespace gv::fem
 		os << "is_subdivided \t: " << elem.is_subdivided << "\n";
 		return os;
 	}
-
 }

@@ -308,7 +308,7 @@ namespace gv::fem
 	};
 
 
-	//Octee definitions
+	//Octree definitions
 	class CharmsQ1BasisFunOctree : public gv::util::BasicOctree<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>
 	{
 	public:
@@ -509,6 +509,7 @@ namespace gv::fem
 			size_t c_idx = this->child[i];
 			any_child_active = any_child_active or (*basis)[c_idx].is_active;
 		}
+		assert(!any_child_active);
 		if (any_child_active) {return;}
 
 
@@ -648,6 +649,7 @@ namespace gv::fem
 	std::ostream& operator<<(std::ostream& os, const CharmsQ1BasisFun& fun)
 	{
 		os << static_cast<const CharmsQ1BasisFun_BASE&>(fun);
+		os << "coordinate\t: " << fun.coord()    << "\n";
 		os << "list_index\t: " << fun.list_index << "\n";
 		os << "&vertices \t: " << fun.vertices   << "\n";
 		os << "&elements \t: " << fun.elements   << "\n";
@@ -659,6 +661,7 @@ namespace gv::fem
 	std::ostream& operator<<(std::ostream& os, const CharmsQ1Element& elem)
 	{
 		os << static_cast<const CharmsQ1Element_BASE&>(elem);
+		os << "aabb      \t: " << elem.bbox()     << "\n";
 		os << "vtk_id    \t: " << elem.vtk_id     << "\n";
 		os << "list_index\t: " << elem.list_index << "\n";
 		os << "&vertices \t: " << elem.vertices   << "\n";

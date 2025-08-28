@@ -141,7 +141,11 @@ namespace gv::fem
 		void h_refine(const size_t basis_idx); //add detail functions
 		void h_unrefine(const size_t basis_idx); //remove detail functions
 
-		//mesh generation
+		//quasi-hierarchical refinement
+		void q_refine(const size_t basis_idx); //de-activate the specified basis function and activate its children
+		void q_unrefine(const size_t basis_idx); //activate the specified basis function and de-activate its children
+
+		//matrix generation (Q1)
 		template<int Format_t>
 		void make_mass_matrix(Eigen::SparseMatrix<double,Format_t> &mat) const;
 
@@ -149,67 +153,149 @@ namespace gv::fem
 		void make_stiff_matrix(Eigen::SparseMatrix<double,Format_t> &mat) const;
 	};
 
+
+	//hierarchical refinement
 	void CharmsQ1Mesh::h_refine(const size_t basis_idx)
-		{
-			assert(basis_idx<nBasis());
-			
-			//verify that this basis function can be refined
-			assert(!basis[basis_idx].is_refined);
-
-			while (vertices.capacity() < vertices.size()+125) {vertices.reserve(2*vertices.capacity());}
-			while (elements.capacity() < elements.size()+64) {elements.reserve(2*elements.capacity());}
-			while (basis.capacity() < basis.size()+27) {basis.reserve(2*basis.capacity());}
-			
-			//create candidate basis functions and elements
-			basis[basis_idx].subdivide();
+	{
+		assert(basis_idx<nBasis());
 		
-			for (int i=0; i<basis[basis_idx].cursor_child; i++)
-			{
-				size_t c_idx = basis[basis_idx].child[i];
-				if (basis[c_idx].is_odd) {basis[c_idx].activate();}
-			}
+		//verify that this basis function can be refined
+		assert(!basis[basis_idx].is_refined);
 
-			//mark this basis function as refined
-			basis[basis_idx].is_refined = true;
-		}
-
-		//un-refinement
-		void CharmsQ1Mesh::h_unrefine(const size_t basis_idx) //remove the detail functions
+		while (vertices.capacity() < vertices.size()+125) {vertices.reserve(2*vertices.capacity());}
+		while (elements.capacity() < elements.size()+64) {elements.reserve(2*elements.capacity());}
+		while (basis.capacity() < basis.size()+27) {basis.reserve(2*basis.capacity());}
+		
+		//create candidate basis functions and elements
+		basis[basis_idx].subdivide();
+	
+		for (int i=0; i<basis[basis_idx].cursor_child; i++)
 		{
-			assert(basis_idx<nBasis());
-			if (!basis[basis_idx].is_active) {return;}
-
-			//verify that this basis function is allowed to be un-refined
-			assert(basis[basis_idx].is_refined);
-
-			//verify that no children functions are refined
-			for (int i=0; i<basis[basis_idx].cursor_child; i++)
-			{
-				size_t c_idx = basis[basis_idx].child[i];
-				assert(!basis[c_idx].is_refined);
-				if (basis[c_idx].is_odd and basis[c_idx].is_active) {basis[c_idx].deactivate();}
-			}
-
-			//ensure all support elements are active
-			for (int i=0; i<basis[basis_idx].cursor_support; i++)
-			{
-				size_t s_idx = basis[basis_idx].support[i];
-
-				//check if there are any active descendent elements
-				std::vector<size_t> desc_elems = elements[s_idx].descendent_elements();
-				bool has_active_descendent = false;
-				for (auto it=desc_elems.begin(); it!=desc_elems.end(); ++it)
-				{
-					has_active_descendent = elements[*it].is_active;
-					if (has_active_descendent) {break;}
-				}
-				
-				if (!has_active_descendent) {elements[s_idx].is_active = true;}
-			}
-
-			//mark this basis function as not refined
-			basis[basis_idx].is_refined = false;
+			size_t c_idx = basis[basis_idx].child[i];
+			if (basis[c_idx].is_odd) {basis[c_idx].activate();}
 		}
+
+		//mark this basis function as refined
+		basis[basis_idx].is_refined = true;
+	}
+
+	//hierarchical un-refinement
+	void CharmsQ1Mesh::h_unrefine(const size_t basis_idx) //remove the detail functions
+	{
+		assert(basis_idx<nBasis());
+		if (!basis[basis_idx].is_active) {return;}
+
+		//verify that this basis function is allowed to be un-refined
+		assert(basis[basis_idx].is_refined);
+
+		//verify that no children functions are refined
+		for (int i=0; i<basis[basis_idx].cursor_child; i++)
+		{
+			size_t c_idx = basis[basis_idx].child[i];
+			assert(!basis[c_idx].is_refined);
+			if (basis[c_idx].is_odd and basis[c_idx].is_active) {basis[c_idx].deactivate();}
+		}
+
+		//ensure all support elements are active
+		for (int i=0; i<basis[basis_idx].cursor_support; i++)
+		{
+			size_t s_idx = basis[basis_idx].support[i];
+
+			//check if there are any active descendent elements
+			std::vector<size_t> desc_elems = elements[s_idx].descendent_elements();
+			bool has_active_descendent = false;
+			for (auto it=desc_elems.begin(); it!=desc_elems.end(); ++it)
+			{
+				has_active_descendent = elements[*it].is_active;
+				if (has_active_descendent) {break;}
+			}
+			
+			if (!has_active_descendent) {elements[s_idx].is_active = true;}
+		}
+
+		//mark this basis function as not refined
+		basis[basis_idx].is_refined = false;
+	}
+
+
+	//quasi-hierarchical refinement
+	void CharmsQ1Mesh::q_refine(const size_t basis_idx)
+	{
+		assert(basis_idx<nBasis());
+		
+		//verify that this basis function can be refined
+		assert(!basis[basis_idx].is_refined);
+
+		while (vertices.capacity() < vertices.size()+125) {vertices.reserve(2*vertices.capacity());}
+		while (elements.capacity() < elements.size()+64) {elements.reserve(2*elements.capacity());}
+		while (basis.capacity() < basis.size()+27) {basis.reserve(2*basis.capacity());}
+		
+		//create candidate basis functions and elements
+		basis[basis_idx].subdivide();
+		
+		//deactivate current basis
+		basis[basis_idx].deactivate();
+
+		for (int i=0; i<basis[basis_idx].cursor_child; i++)
+		{
+			size_t c_idx = basis[basis_idx].child[i];
+			basis[c_idx].activate();
+		}
+
+		//mark this basis function as refined
+		basis[basis_idx].is_refined = true;
+	}
+
+	//quasi-hierarchical un-refinement
+	void CharmsQ1Mesh::q_unrefine(const size_t basis_idx)
+	{
+		assert(basis_idx<nBasis());
+		if (basis[basis_idx].is_active) {return;} //for quasi-hierarchical unrefinement, the "center" basis must be de-activated
+
+		//verify that this basis function is allowed to be un-refined
+		assert(basis[basis_idx].is_refined);
+
+		//verify that no children functions are refined and de-activate all children
+		for (int i=0; i<basis[basis_idx].cursor_child; i++)
+		{
+			size_t c_idx = basis[basis_idx].child[i];
+			assert(!basis[c_idx].is_refined);
+			if (basis[c_idx].is_active) {basis[c_idx].deactivate();}
+		}
+
+		//ensure all support elements are active
+		for (int i=0; i<basis[basis_idx].cursor_support; i++)
+		{
+			size_t s_idx = basis[basis_idx].support[i];
+
+			//check if there are any active descendent elements
+			std::vector<size_t> desc_elems = elements[s_idx].descendent_elements();
+			bool has_active_descendent = false;
+			for (auto it=desc_elems.begin(); it!=desc_elems.end(); ++it)
+			{
+				has_active_descendent = elements[*it].is_active;
+				if (has_active_descendent) {break;}
+			}
+			
+			if (!has_active_descendent) {elements[s_idx].is_active = true;}
+		}
+
+		//mark this basis function as not refined and activate it
+		basis[basis_idx].is_refined = false;
+		basis[basis_idx].activate();
+	}
+
+
+
+
+
+
+
+
+
+
+
+
 
 	//vtkprint implementation
 	void CharmsQ1Mesh::vtkprint(std::ostream &os) const

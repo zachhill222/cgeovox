@@ -10,7 +10,7 @@ int main(int argc, char const *argv[])
 {
 	//set domain parameters
 	gv::util::Box<3> domain(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,2,3}); //box domain to be meshed
-	gv::util::Point<3,size_t> N {1, 1, 1}; //number of elements in each axis direction
+	gv::util::Point<3,size_t> N {32, 32, 32}; //number of elements in each axis direction
 	
 	//initialize coarsest mesh
 	gv::fem::CharmsQ1Mesh mesh(domain,N);
@@ -24,7 +24,8 @@ int main(int argc, char const *argv[])
 	{
 		size_t idx = mesh.nBasis()/2;
 		std::cout << "refine basis " << idx << " at " << mesh.basis[idx].coord() << std::endl;
-		mesh.h_refine(idx);
+		// mesh.h_refine(idx);
+		mesh.q_refine(idx);
 	}
 	std::cout << "refined mesh" << std::endl;
 
@@ -53,6 +54,20 @@ int main(int argc, char const *argv[])
 
 	mesh.make_stiff_matrix(stifMat);
 	std::cout << "x*A*x= " << x.transpose()*(stifMat*x) << std::endl;
+
+
+	//check for duplicate vertices
+	std::cout << "DUPLICATE VERTICES: " << std::flush;
+	size_t n_duplicates = 0;
+	for (size_t i=0; i<mesh.nNodes(); i++)
+	{
+		for (size_t j=i+1; j<mesh.nNodes(); j++)
+		{
+			if (mesh.vertices[i]==mesh.vertices[j]) {n_duplicates+=1;}
+		}
+	}
+	std::cout << n_duplicates << std::endl;
+
 
 	// std::cout << "\nMASS MATRIX:\n" << massMat << std::endl;
 	// std::cout << "\nSTIFFNESS MATRIX:\n" << stifMat << std::endl;
