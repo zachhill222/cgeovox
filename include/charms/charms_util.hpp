@@ -3,7 +3,10 @@
 #include<cassert>
 #include<iostream>
 
-namespace gv::fem
+//this file provedes the most basic utility to use the CHARMS method. element types are not assumed to be known.
+
+
+namespace gv::charms
 {
 	//bare essentials for the charms basis functions
 	template<int SUPPORT_SIZE, int CHILD_SIZE, int PARENT_SIZE>

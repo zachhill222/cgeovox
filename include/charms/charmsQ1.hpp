@@ -7,7 +7,7 @@
 
 #include "mesh/Q1.hpp"
 
-#include "fem/charmsQ1_util.hpp"
+#include "charms/charmsQ1_util.hpp"
 
 #include <Eigen/SparseCore>
 
@@ -15,7 +15,7 @@
 #include <sstream>
 #include <fstream>
 
-namespace gv::fem
+namespace gv::charms
 {
 	class CharmsQ1Mesh
 	{

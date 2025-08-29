@@ -1,7 +1,11 @@
-#include "charms/charmsQ1.hpp"
+#include "charms/assembly_charmsQ1.hpp"
 #include "util/octree_util.hpp"
+#include "geometry/assembly.hpp"
+
 #include <Eigen/SparseCore>
+
 #include <iostream>
+#include <string>
 
 //uncomment to disable assert()
 // #define NDEBUG
@@ -9,51 +13,60 @@
 int main(int argc, char const *argv[])
 {
 	//set domain parameters
-	gv::util::Box<3> domain(gv::util::Point<3,double> {0,0,0}, gv::util::Point<3,double> {1,2,3}); //box domain to be meshed
-	gv::util::Point<3,size_t> N {32, 32, 32}; //number of elements in each axis direction
+	std::string filename = "testdata/particles_50.txt";
+	gv::geometry::Assembly<gv::geometry::SuperEllipsoid,8> assembly(filename, "-rrr-eps-xyz-q");
+
+	gv::geometry::AssemblyMeshOptions opts;
+	opts.include_void = false;
+	opts.include_interface = false;
+	opts.include_solid = true;
+	opts.check_centroid = true;
+	opts.N = gv::util::Point<3,size_t> {64,64,64};
 	
+
+
 	//initialize coarsest mesh
-	gv::charms::CharmsQ1Mesh mesh(domain,N);
+	gv::charms::AssemblyCharmsQ1Mesh mesh(assembly.bbox(), opts, assembly);
 	std::cout << "initialized mesh" << std::endl;
 
-	size_t n = 0;
-	if (argc > 1) {n=atoi(argv[1]);}
+	// size_t n = 0;
+	// if (argc > 1) {n=atoi(argv[1]);}
 
-	//refine mesh
-	for (size_t i=0; i<n; i++)
-	{
-		size_t idx = mesh.nBasis()/2;
-		std::cout << "refine basis " << idx << " at " << mesh.basis[idx].coord() << std::endl;
-		// mesh.h_refine(idx);
-		mesh.q_refine(idx);
-	}
-	std::cout << "refined mesh" << std::endl;
+	// //refine mesh
+	// for (size_t i=0; i<n; i++)
+	// {
+	// 	size_t idx = mesh.nBasis()/2;
+	// 	std::cout << "refine basis " << idx << " at " << mesh.basis[idx].coord() << std::endl;
+	// 	// mesh.h_refine(idx);
+	// 	mesh.q_refine(idx);
+	// }
+	// std::cout << "refined mesh" << std::endl;
 
 	//save mesh to view in ParaView
-	mesh.save_as("./outfiles/charms_mesh_refined.vtk");
+	mesh.save_as("./outfiles/assembly_charms_mesh_refined.vtk");
 	std::cout << "saved mesh" << std::endl;
 	
 	//create mass and stiffness matrices
-	Eigen::SparseMatrix<double> massMat, stifMat;
-	Eigen::VectorXd ones(mesh.nBasis());
-	Eigen::VectorXd x(mesh.nBasis());
-	ones.fill(0.0);
-	x.fill(0.0);
-	for (size_t b_idx=0; b_idx<mesh.nBasis(); b_idx++)
-	{
-		if (mesh.basis[b_idx].depth==0)
-		{
-			ones[b_idx] = 1.0;
-			x[b_idx]    = mesh.basis[b_idx].coord()[0];
-		}
-	}
+	// Eigen::SparseMatrix<double> massMat, stifMat;
+	// Eigen::VectorXd ones(mesh.nBasis());
+	// Eigen::VectorXd x(mesh.nBasis());
+	// ones.fill(0.0);
+	// x.fill(0.0);
+	// for (size_t b_idx=0; b_idx<mesh.nBasis(); b_idx++)
+	// {
+	// 	if (mesh.basis[b_idx].depth==0)
+	// 	{
+	// 		ones[b_idx] = 1.0;
+	// 		x[b_idx]    = mesh.basis[b_idx].coord()[0];
+	// 	}
+	// }
 
 
-	mesh.make_mass_matrix(massMat);
-	std::cout << "1*M*1= " << ones.transpose()*(massMat*ones) << std::endl;
+	// mesh.make_mass_matrix(massMat);
+	// std::cout << "1*M*1= " << ones.transpose()*(massMat*ones) << std::endl;
 
-	mesh.make_stiff_matrix(stifMat);
-	std::cout << "x*A*x= " << x.transpose()*(stifMat*x) << std::endl;
+	// mesh.make_stiff_matrix(stifMat);
+	// std::cout << "x*A*x= " << x.transpose()*(stifMat*x) << std::endl;
 
 
 	//check for duplicate vertices

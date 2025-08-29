@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include "fem/charms_util.hpp"
+#include "charms/charms_util.hpp"
 #include "mesh/vtk_voxel.hpp"
 
 #include "util/point_octree.hpp"
@@ -25,7 +25,7 @@
 #define CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF 64
 #define CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF 64
 
-namespace gv::fem
+namespace gv::charms
 {
 	//constructors for basis functions and elements may need to refer to eachother
 	class CharmsQ1BasisFun;

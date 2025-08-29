@@ -225,7 +225,7 @@ namespace gv::geometry{
 					}
 				}
 
-				Particle_t P(Point_t {rx,ry,rz}, eps, Point_t {x,y,z}, gv::util::Quaternion<double>(qw,-qx,-qy,-qz));
+				Particle_t P(Point_t {rx,ry,rz}, Point_t {x,y,z}, gv::util::Quaternion<double>(qw,-qx,-qy,-qz), eps[0], eps[1]);
 				temp_particles.push_back(P);
 			}
 		}

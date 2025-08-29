@@ -74,6 +74,7 @@ namespace gv::util{
 		inline Point_t high() const {return _high;}
 		inline Point_t center() const {return 0.5*(_low+_high);}
 		inline Point_t sidelength() const {return _high-_low;}
+		inline double diameter() const {return gv::util::norm2(_high-_low);}
 
 		///Get i-th vertex in vtk pixel/voxel order.
 		Point_t operator[](const int idx) const {

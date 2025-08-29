@@ -37,6 +37,10 @@ util :
 	$(CC) $(CFLAGS) $(INC_DIR) -c util.cpp -o util.o
 	$(CC) util.o -o util
 
+.PHONY: charms_assembly
+charms_assembly :
+	$(CC) $(CFLAGS) $(INC_DIR) -c charms_assembly.cpp -o charms_assembly.o
+	$(CC) charms_assembly.o -o charms_assembly
 
 
 .PHONY: clean
