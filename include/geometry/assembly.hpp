@@ -108,10 +108,46 @@ namespace gv::geometry{
 		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const Box_t &box, const AssemblyMeshOptions &opts) const;
 		void create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const AssemblyMeshOptions &opts) const {create_voxel_mesh_Q1(out_mesh, this->_particles.bbox(), opts);}
 
+		//check if a voxel should be meshed and what its marker should be (given mesh options)
+		void check_voxel(const Box_t &voxel, const AssemblyMeshOptions &opts, int &marker, bool &include) const;
+
 	private:
 		ParticleList_t _particles;
 	};
 
+
+	template <typename Particle_t, size_t n_data>
+	void Assembly<Particle_t, n_data>::check_voxel(const Box_t &voxel, const AssemblyMeshOptions &opts, int &marker, bool &include_element) const
+	{
+		//check if the element should be marked as void, solid, or interface
+		int n_vert = 0; //number of vertices in the solid phase
+		for (int i=0; i<8; i++) {if (is_in_particle(voxel.voxelvertex(i))) {n_vert += 1;}}
+
+		if (n_vert==0) {marker = opts.void_marker;}
+		else if (n_vert==8) {marker = opts.solid_marker;}
+		else {marker = opts.interface_marker;}
+
+		//check if the element should be added to the mesh
+		include_element = false;
+		if (marker==opts.solid_marker)
+		{
+			if (opts.include_solid) {include_element=true;}
+		}
+		else if (marker==opts.void_marker)
+		{
+			if (opts.include_void) {include_element=true;}
+		}
+		else if (opts.include_interface) //marker is interface, only continue here if we are allowed to include it in the mesh
+		{
+			if (opts.check_centroid) //check interface more closely by checking the center
+			{
+				bool center_in_solid = is_in_particle(voxel.center());
+				if (center_in_solid and opts.include_solid) {include_element=true;} //center is in the solid, include element as interface (mostly solid)
+				else if (!center_in_solid and opts.include_void) {include_element=true;} //center is in the void, include element as interface (mostly void)
+			}
+			else {include_element = true;} //include the interface without checking the center
+		}
+	}
 
 
 

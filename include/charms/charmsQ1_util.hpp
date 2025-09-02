@@ -4,6 +4,8 @@
 #include "charms/charms_util.hpp"
 #include "mesh/vtk_voxel.hpp"
 
+#include "geometry/assembly.hpp"
+
 #include "util/point_octree.hpp"
 #include "util/point.hpp"
 #include "util/box.hpp"
@@ -125,7 +127,7 @@ namespace gv::charms
 		}
 
 		//populate the support of this basis function. the elements[] list must be updated first.
-		void set_support();
+		int set_support();
 
 		//add this function to the appropriate basis_s and basis_a of the elements.
 		void update_element_basis_lists();
@@ -133,6 +135,8 @@ namespace gv::charms
 		//add detail functions of this basis function. divides elements as needed. adds new basis functions to the basis list.
 		//does not change is_active and sets is_active=false for the new basis functions.
 		void subdivide();
+		template <class Particle_t, size_t n_data>
+		void subdivide(const gv::geometry::Assembly<Particle_t,n_data> &assembly, const gv::geometry::AssemblyMeshOptions &opts, std::vector<int> &new_markers);
 
 		//activate a basis function and any necessary elements
 		void activate();
@@ -278,6 +282,8 @@ namespace gv::charms
 		//split an element. adds vertices and elements to their lists, but does not create any basis functions.
 		//does not change the is_active marker of any element or basis function
 		void subdivide();
+		template <class Particle_t, size_t n_data>
+		void subdivide(const gv::geometry::Assembly<Particle_t,n_data> &assembly, const gv::geometry::AssemblyMeshOptions &opts, std::vector<int> &new_markers); //
 
 		//get all ancestor basis functions (i.e. union of all basis_s and basis_a for all ancestor elements)
 		std::vector<size_t> ancestor_basis_fun() const;
@@ -359,7 +365,7 @@ namespace gv::charms
 
 
 	//implement methods for CharmsQ1BasisFun
-	void CharmsQ1BasisFun::set_support()
+	int CharmsQ1BasisFun::set_support()
 	{
 		std::vector<size_t> check_elements_idx = elements->get_data_indices(this->coord());
 		for (auto it=check_elements_idx.begin(); it!=check_elements_idx.end(); ++it)
@@ -367,7 +373,8 @@ namespace gv::charms
 			CharmsQ1Element& ELEM = (*elements)[*it];
 			if (ELEM.depth==this->depth and ELEM.contains(this->coord())) {this->insert_support(*it);}
 		}
-		assert(this->cursor_support>0);
+		// assert(this->cursor_support>0);
+		return this->cursor_support;
 	}
 
 	void CharmsQ1BasisFun::update_element_basis_lists()
@@ -420,7 +427,79 @@ namespace gv::charms
 					bool new_fun_is_odd = true;
 					if (i==0 and j==0 and k==0) {new_fun_is_odd=false;}
 					CharmsQ1BasisFun fun(*this, new_coord_idx, new_fun_is_odd);
-					fun.set_support();
+					int n_support_elems = fun.set_support();
+					assert(n_support_elems>0);
+
+					//add the new basis function to the list
+					size_t new_list_index = (size_t) -1;
+					int flag = basis->push_back(fun, new_list_index);
+					if (flag==0) {continue;} //it is possible that the basis function already exists
+					assert(flag==1); //we should only alter newly created functions here
+
+					const CharmsQ1BasisFun& FUN = (*basis)[new_list_index];
+					assert(FUN.list_index==basis->size()-1);
+					assert(FUN.list_index==new_list_index);
+					
+					
+					// (*basis)[new_list_index].list_index = new_list_index;
+
+					//add the new basis to basis_s list of all support elements
+					for (int l=0; l<(*basis)[new_list_index].cursor_support; l++)
+					{
+						size_t s_idx = (*basis)[new_list_index].support[l];
+						(*elements)[s_idx].insert_basis_s(new_list_index);
+					}
+
+					//add the new basis function as a child of this function
+					this->insert_child(new_list_index);
+
+					//add this function as a parent of the new basis function
+					(*basis)[new_list_index].insert_parent(this->list_index);
+				}
+			}
+		}
+	}
+
+	template <class Particle_t, size_t n_data>
+	void CharmsQ1BasisFun::subdivide(const gv::geometry::Assembly<Particle_t,n_data> &assembly, const gv::geometry::AssemblyMeshOptions &opts, std::vector<int> &new_markers)
+	{
+		if (this->is_subdivided) {return;}
+		this->is_subdivided = true;
+
+		//subdivide each support element if necessary
+		for (int i=0; i<this->cursor_support; i++)
+		{
+			CharmsQ1Element& ELEM = (*elements)[this->support[i]];
+			ELEM.subdivide(assembly, opts, new_markers);
+			// std::cout << "subdivide support element " << i << "/" << this->cursor_support << ": " << new_markers.size() << " new elements" << std::endl;
+		}
+
+		//create detail basis functions (up to 27)
+		Point_t H = 0.5*(*elements)[this->support[0]].H();
+		for (int i=-1; i<2; i++){
+			for (int j=-1; j<2; j++){
+				for (int k=-1; k<2; k++){
+
+					//get coordinate and index for the location of the new basis function
+					Point_t new_coord = this->coord() + H * Point_t{i,j,k};
+					size_t  new_coord_idx = vertices->find(new_coord);
+					if(new_coord_idx >= vertices->size()) //happens near domain boundary
+					{
+						// Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
+						// if (domain.contains(new_coord)) {std::cout << "WARNING: could not find vertex at " << new_coord << std::endl;}
+						continue;
+					}
+
+					//initialize the new basis function
+					bool new_fun_is_odd = true;
+					if (i==0 and j==0 and k==0) {new_fun_is_odd=false;}
+					CharmsQ1BasisFun fun(*this, new_coord_idx, new_fun_is_odd);
+					int n_support_elems = fun.set_support();
+
+					//possibly a basis function belongs in a coarse mesh, but the basis function at the same coordinate does not belong to the refinement.
+					//this can happen when refining near a curved boundary
+					if (n_support_elems==0) {continue;} 
+
 
 					//add the new basis function to the list
 					size_t new_list_index = (size_t) -1;
@@ -602,6 +681,34 @@ namespace gv::charms
 			const CharmsQ1Element& ELEM = (*elements)[new_list_index];
 			assert(ELEM.list_index==new_list_index);
 			this->insert_child(ELEM.list_index);
+		}
+	}
+
+	template <class Particle_t, size_t n_data>
+	void CharmsQ1Element::subdivide(const gv::geometry::Assembly<Particle_t,n_data> &assembly, const gv::geometry::AssemblyMeshOptions &opts, std::vector<int> &new_markers)
+	{
+		if(this->is_subdivided) {return;}
+		this->is_subdivided = true;
+
+		for (int i=0; i<8; i++)
+		{
+			Box_t bbox((*vertices)[node[i]], center());
+			int marker;
+			bool include_element;
+			assembly.check_voxel(bbox, opts, marker, include_element);
+
+			if (include_element)
+			{
+				CharmsQ1Element elem(*this, i); //updates vertex list, sets basis_a[], basis_s[], and node[]
+				size_t new_list_index = (size_t) -1;
+				int flag = elements->push_back(elem,new_list_index);
+				assert(flag==1); //elements should always be newly created when this routine is called
+				const CharmsQ1Element& ELEM = (*elements)[new_list_index];
+				assert(ELEM.list_index==new_list_index);
+				this->insert_child(ELEM.list_index);
+
+				new_markers.push_back(marker);
+			}
 		}
 	}
 
