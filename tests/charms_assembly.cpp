@@ -20,33 +20,33 @@ void print_mesh_info(const Mesh_t &mesh)
 	std::cout << "n_fine_elements= " << mesh.fine_elements.size() << std::endl;
 }
 
-template <class Mesh_t>
-void print_integrating_matrix_values(const Mesh_t &mesh)
-{
-	//create mass and stiffness matrices
-	std::vector<size_t> basis_idx = mesh.active_coarse_basis();
-	Eigen::SparseMatrix<double> massMat, stifMat;
-	Eigen::VectorXd ones(basis_idx.size());
-	Eigen::VectorXd x(basis_idx.size());
-	ones.fill(0.0);
-	x.fill(0.0);
-	for (size_t i=0; i<basis_idx.size(); i++)
-	{
-		size_t b_idx = basis_idx[i];
-		if (mesh.coarse_basis[b_idx].depth==0)
-		{
-			ones[b_idx] = 1.0;
-			x[b_idx]    = mesh.coarse_basis[b_idx].coord()[0];
-		}
-	}
+// template <class Mesh_t>
+// void print_integrating_matrix_values(const Mesh_t &mesh)
+// {
+// 	//create mass and stiffness matrices
+// 	std::vector<size_t> basis_idx = mesh.active_coarse_basis();
+// 	Eigen::SparseMatrix<double> massMat, stifMat;
+// 	Eigen::VectorXd ones(basis_idx.size());
+// 	Eigen::VectorXd x(basis_idx.size());
+// 	ones.fill(0.0);
+// 	x.fill(0.0);
+// 	for (size_t i=0; i<basis_idx.size(); i++)
+// 	{
+// 		size_t b_idx = basis_idx[i];
+// 		if (mesh.coarse_basis[b_idx].depth==0)
+// 		{
+// 			ones[b_idx] = 1.0;
+// 			x[b_idx]    = mesh.coarse_basis[b_idx].coord()[0];
+// 		}
+// 	}
 
 
-	gv::charms::make_mass_matrix(massMat, mesh);
-	std::cout << "1*M*1= " << ones.transpose()*(massMat*ones) << std::endl;
+// 	gv::charms::make_mass_matrix(massMat, mesh);
+// 	std::cout << "1*M*1= " << ones.transpose()*(massMat*ones) << std::endl;
 
-	// mesh.make_stiff_matrix(stifMat);
-	// std::cout << "x*A*x= " << x.transpose()*(stifMat*x) << std::endl;
-}
+// 	// mesh.make_stiff_matrix(stifMat);
+// 	// std::cout << "x*A*x= " << x.transpose()*(stifMat*x) << std::endl;
+// }
 
 
 
@@ -54,7 +54,7 @@ void print_integrating_matrix_values(const Mesh_t &mesh)
 int main(int argc, char const *argv[])
 {
 	//set domain parameters
-	std::string filename = "testdata/sphere.txt";
+	std::string filename = "testdata/particles_100.txt";
 	gv::geometry::Assembly<gv::geometry::SuperEllipsoid,8> assembly(filename, "-rrr-eps-xyz-q");
 
 	gv::geometry::AssemblyMeshOptions opts;
@@ -62,7 +62,7 @@ int main(int argc, char const *argv[])
 	opts.include_interface = true;
 	opts.include_solid = true;
 	opts.check_centroid = false;
-	opts.N = gv::util::Point<3,size_t> {4,4,4};
+	opts.N = gv::util::Point<3,size_t> {16,16,16};
 	opts.void_marker = 0;
 	opts.solid_marker = 1;
 	opts.interface_marker = 2;
@@ -78,7 +78,7 @@ int main(int argc, char const *argv[])
 
 	//print coarse mesh info
 	print_mesh_info(mesh);
-	print_integrating_matrix_values(mesh);
+	// print_integrating_matrix_values(mesh);
 	mesh.save_as("./outfiles/assembly_charms_mesh_refined_0.vtk");
 
 	//refine mesh
@@ -89,7 +89,7 @@ int main(int argc, char const *argv[])
 		
 		inner_start = next_inner_start;
 		next_inner_start = mesh.nElems();
-		std::cout << "refine depth: " << i << " (" << next_inner_start-inner_start << " elements)" << std::endl;
+		std::cout << "\n\nrefine depth: " << i << " (" << next_inner_start-inner_start << " elements)" << std::endl;
 
 		for (size_t j=inner_start; j<next_inner_start; j++)
 		{
@@ -101,7 +101,7 @@ int main(int argc, char const *argv[])
 		}
 
 		print_mesh_info(mesh);
-		print_integrating_matrix_values(mesh);
+		// print_integrating_matrix_values(mesh);
 		mesh.save_as("./outfiles/assembly_charms_mesh_refined_" + std::to_string(i+1) + ".vtk");
 	}
 	std::cout << "refined mesh" << std::endl;
