@@ -17,12 +17,12 @@ namespace gv::geometry{
 		using Quat_t = gv::util::Quaternion<double>;
 
 		Particle() {}
-		Particle(const Point_t &radii, const Point_t &center, const Quat_t &quaternion, double eps1, double eps2) :
+		Particle(const Point_t &radii, const Point_t &center, const Quat_t &quaternion, double eps0, double eps1) :
 			_radii(radii),
 			_center(center),
 			_quaternion(quaternion),
-			_eps1(eps1),
-			_eps2(eps2)
+			_eps0(eps0),
+			_eps1(eps1)
 			{}
 		
 		//parameters that ANY particle might need
@@ -30,8 +30,8 @@ namespace gv::geometry{
 		Point_t _radii {1,1,1};
 		Point_t _center {0,0,0};
 		Quat_t  _quaternion {1,0,0,0};
+		double _eps0 = 1;
 		double _eps1 = 1;
-		double _eps2 = 1;
 
 
 		//access methods.
@@ -97,8 +97,8 @@ namespace gv::geometry{
 		using Quat_t = gv::util::Quaternion<double>;
 
 		Prism() : Particle() {}
-		Prism(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps1=1, const double eps2=1):
-			Particle(radii, center, quaternion, eps1, eps2) {}
+		Prism(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps0=1, const double eps1=1):
+			Particle(radii, center, quaternion, eps0, eps1) {}
 
 		Point_t support(const Point_t &direction) const override
 		{
@@ -127,8 +127,8 @@ namespace gv::geometry{
 		using Quat_t = gv::util::Quaternion<double>;
 
 		Ellipsoid() : Particle() {}
-		Ellipsoid(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps1=1, const double eps2=1):
-			Particle(radii, center, quaternion, eps1, eps2) {}
+		Ellipsoid(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps0=1, const double eps1=1):
+			Particle(radii, center, quaternion, eps0, eps1) {}
 
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t support(const Point_t &direction) const override
@@ -152,8 +152,8 @@ namespace gv::geometry{
 		using Quat_t = gv::util::Quaternion<double>;
 
 		Cylinder() : Particle() {}
-		Cylinder(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps1=1, const double eps2=1):
-			Particle(radii, center, quaternion, eps1, eps2) {}
+		Cylinder(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps0=1, const double eps1=1):
+			Particle(radii, center, quaternion, eps0, eps1) {}
 
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t support(const Point_t &direction) const override
@@ -186,21 +186,21 @@ namespace gv::geometry{
 		using Quat_t = gv::util::Quaternion<double>;
 
 		SuperEllipsoid() : Particle() {}
-		SuperEllipsoid(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps1=1, const double eps2=1):
-			Particle(radii, center, quaternion, eps1, eps2) {}
+		SuperEllipsoid(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps0=1, const double eps1=1):
+			Particle(radii, center, quaternion, eps0, eps1) {}
 
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t support(const Point_t &direction) const override
 		{
 			Point_t rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
 			//get omega
-			double x = gv::util::sgn(rotated_direction[0])*std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps2));
-			double y = gv::util::sgn(rotated_direction[1])*std::pow(gv::util::abs(rotated_direction[1]), 1.0/(2.0-_eps2));
+			double x = gv::util::sgn(rotated_direction[0])*std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps1));
+			double y = gv::util::sgn(rotated_direction[1])*std::pow(gv::util::abs(rotated_direction[1]), 1.0/(2.0-_eps1));
 			double omega = std::atan2(y, x); //in [-pi,pi]
 
 			//get eta
-			x = std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps1));
-			y = gv::util::sgn(rotated_direction[2]) * std::pow( gv::util::abs( rotated_direction[2]*cos_pow(omega,2.0-_eps2) ) , 1.0/(2.0-_eps1));
+			x = std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps0));
+			y = gv::util::sgn(rotated_direction[2]) * std::pow( gv::util::abs( rotated_direction[2]*cos_pow(omega,2.0-_eps1) ) , 1.0/(2.0-_eps0));
 
 			double eta = atan2(y, x); //in [-pi/2,pi/2] because x >= 0
 
@@ -225,19 +225,19 @@ namespace gv::geometry{
 		}
 
 		//evaluate level set function
-		virtual double _eval_level_set(const Point_t &localpoint) const
+		double _eval_level_set(const Point_t &localpoint) const override
 		{
-			double a = std::pow(localpoint[0]*localpoint[0], 1.0/_eps1) + std::pow(localpoint[1]*localpoint[1], 1.0/_eps2);
-			return std::pow(a, _eps2/_eps1) + std::pow(localpoint[2]*localpoint[2], 1.0/_eps1);
+			double a = std::pow(localpoint[0]*localpoint[0], 1.0/_eps1) + std::pow(localpoint[1]*localpoint[1], 1.0/_eps1);
+			return std::pow(a, _eps1/_eps0) + std::pow(localpoint[2]*localpoint[2], 1.0/_eps0);
 		}
 
 		//get point in local coordinates from the parametric representation of the particle surface
 		Point_t _parametric(const double eta, const double omega) const{
 			//compute sines and cosines
-			double C_eta   = cos_pow(eta, _eps1);
-			double S_eta   = sin_pow(eta, _eps1);
-			double C_omega = cos_pow(omega, _eps2);
-			double S_omega = sin_pow(omega, _eps2);
+			double C_eta   = cos_pow(eta, _eps0);
+			double S_eta   = sin_pow(eta, _eps0);
+			double C_omega = cos_pow(omega, _eps1);
+			double S_omega = sin_pow(omega, _eps1);
 
 			Point_t localpoint = Point_t {C_eta*C_omega, C_eta*S_omega, S_eta};
 			return localpoint;
@@ -251,8 +251,8 @@ namespace gv::geometry{
 		if (left._center!=right._center) {return false;}
 		if (left._radii!=right._radii) {return false;}
 		if (left._quaternion!=right._quaternion) {return false;}
+		if (left._eps0!=right._eps0) {return false;}
 		if (left._eps1!=right._eps1) {return false;}
-		if (left._eps2!=right._eps2) {return false;}
 		return true;
 	}
 }

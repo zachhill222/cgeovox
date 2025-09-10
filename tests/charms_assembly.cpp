@@ -1,6 +1,7 @@
 #include "charms/assembly_charmsQ1.hpp"
 #include "util/octree_util.hpp"
 #include "geometry/assembly.hpp"
+#include "util/point.hpp"
 
 #include <Eigen/SparseCore>
 
@@ -15,10 +16,17 @@ void print_mesh_info(const Mesh_t &mesh)
 {
 	std::cout << "n_vertices= " << mesh.vertices.size() << std::endl;
 	std::cout << "n_coarse_basis_functions= " << mesh.coarse_basis.size() << std::endl;
-	std::cout << "n_fine_basis_functions= " << mesh.fine_basis.size() << std::endl;
+	std::cout << "n_active_coarse_basis_functions= " << mesh.coarse_basis_active2all.size() << std::endl;
 	std::cout << "n_coarse_elements= " << mesh.coarse_elements.size() << std::endl;
+	std::cout << "n_active_coarse_elements= " << mesh.coarse_elem_active2all.size() << std::endl;
+
+	std::cout << "n_fine_basis_functions= " << mesh.fine_basis.size() << std::endl;
+	
 	std::cout << "n_fine_elements= " << mesh.fine_elements.size() << std::endl;
 }
+
+double fun(const gv::util::Point<3,double> point) {return 1;}
+
 
 // template <class Mesh_t>
 // void print_integrating_matrix_values(const Mesh_t &mesh)
@@ -54,11 +62,11 @@ void print_mesh_info(const Mesh_t &mesh)
 int main(int argc, char const *argv[])
 {
 	//set domain parameters
-	std::string filename = "testdata/particles_100.txt";
+	std::string filename = "testdata/sphere.txt";
 	gv::geometry::Assembly<gv::geometry::SuperEllipsoid,8> assembly(filename, "-rrr-eps-xyz-q");
 
 	gv::geometry::AssemblyMeshOptions opts;
-	opts.include_void = false;
+	opts.include_void = true;
 	opts.include_interface = true;
 	opts.include_solid = true;
 	opts.check_centroid = false;
@@ -69,7 +77,7 @@ int main(int argc, char const *argv[])
 
 
 	//initialize coarsest mesh
-	gv::charms::AssemblyCharmsQ1Mesh mesh(assembly.bbox(), opts, assembly);
+	gv::charms::AssemblyCharmsQ1Mesh mesh(2*assembly.bbox(), opts, assembly);
 	std::cout << "initialized mesh" << std::endl;
 
 	size_t n = 0;
@@ -77,6 +85,8 @@ int main(int argc, char const *argv[])
 
 
 	//print coarse mesh info
+	mesh.get_active_indices();
+	mesh._init_coarse_scalar_field(mesh.p, fun);
 	print_mesh_info(mesh);
 	// print_integrating_matrix_values(mesh);
 	mesh.save_as("./outfiles/assembly_charms_mesh_refined_0.vtk");
@@ -84,11 +94,11 @@ int main(int argc, char const *argv[])
 	//refine mesh
 	size_t inner_start=0;
 	size_t next_inner_start=0;
-	for (size_t i=0; i<n; i++)
+	for (size_t i=1; i<=n; i++)
 	{
 		
 		inner_start = next_inner_start;
-		next_inner_start = mesh.nElems();
+		next_inner_start = mesh.coarse_elements.size();
 		std::cout << "\n\nrefine depth: " << i << " (" << next_inner_start-inner_start << " elements)" << std::endl;
 
 		for (size_t j=inner_start; j<next_inner_start; j++)
@@ -100,9 +110,10 @@ int main(int argc, char const *argv[])
 			}
 		}
 
+		mesh.get_active_indices();
 		print_mesh_info(mesh);
 		// print_integrating_matrix_values(mesh);
-		mesh.save_as("./outfiles/assembly_charms_mesh_refined_" + std::to_string(i+1) + ".vtk");
+		mesh.save_as("./outfiles/assembly_charms_mesh_refined_" + std::to_string(i) + ".vtk");
 	}
 	std::cout << "refined mesh" << std::endl;
 	

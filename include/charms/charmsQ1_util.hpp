@@ -625,13 +625,17 @@ namespace gv::charms
 			{
 				//create voxel and determine which index this basis function corresponds to
 				int idx=0;
-				gv::mesh::Voxel voxel;
 				for (int j=0; j<8; j++)
 				{
-					voxel.nodes[j] = &(*vertices)[ELEM.node[j]];
+					// voxel.nodes[j] = &(*vertices)[ELEM.node[j]];
 					if (ELEM.node[j] == node_index) {idx=j;}
 				}
-				return voxel.eval_basis(idx, point);
+
+				//map point back to reference element
+				Point_t ref_point = (point - ELEM.center()) / (0.5*ELEM.H());
+
+				gv::mesh::Voxel voxel;
+				return voxel.eval_basis(idx, ref_point);
 			}
 		}
 

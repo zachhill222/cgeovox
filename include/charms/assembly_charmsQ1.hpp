@@ -14,6 +14,7 @@
 #include <sstream>
 #include <fstream>
 #include <vector>
+#include <algorithm>
 
 namespace gv::charms
 {
@@ -30,6 +31,8 @@ namespace gv::charms
 		using Box_t         = gv::util::Box<3>;
 		using Index_t       = gv::util::Point<3,size_t>;
 		using MeshOpts      = gv::geometry::AssemblyMeshOptions;	
+		using ScalarFun_t   = double (*)(Point_t); //function from Point_t to double
+		using VectorFun_t   = Point_t (*)(Point_t); //function from Point_t to Point_t
 
 		const Box_t   domain;
 		VertexList_t  vertices;
@@ -41,6 +44,17 @@ namespace gv::charms
 		const Assembly_t&   assembly;
 		std::vector<int> coarse_element_marker;
 
+		//track indices of active basis functions and elements
+		std::vector<size_t> coarse_basis_active2all;
+		std::vector<size_t> coarse_basis_all2active;
+		std::vector<size_t> coarse_elem_active2all;
+		std::vector<size_t> coarse_elem_all2active;
+
+		//scalar variables to maintain while refining (coefficients of active basis functions)
+		std::vector<double> u; //fine basis
+		std::vector<double> v; //fine basis
+		std::vector<double> w; //fine basis
+		std::vector<double> p; //coarse basis
 
 		//constructor for creating a uniform mesh of a box
 		AssemblyCharmsQ1Mesh(const Box_t &domain, const MeshOpts &opts, const Assembly_t &assembly) :
@@ -107,19 +121,124 @@ namespace gv::charms
 
 		
 		//convenient functions
-		size_t nNodes() const {return vertices.size();}
-		size_t nElems() const {return coarse_elements.size();}
-		size_t nBasis() const {return coarse_basis.size();}
+		// size_t coarse_basis.size() const {return vertices.size();}
+		// size_t coarse_elements.size() const {return coarse_elements.size();}
+		// size_t coarse_basis.size() const {return coarse_basis.size();}
 
-		std::vector<size_t> active_coarse_basis() const
+		//scalar field evaluations and assignments (call get_active_indices() ahead of time!)
+		void _init_coarse_scalar_field(std::vector<double> &scalar, ScalarFun_t fun)
 		{
-			std::vector<size_t> result;
-			result.reserve(coarse_basis.size());
+			scalar.resize(coarse_basis_active2all.size());
+			std::fill(scalar.begin(), scalar.end(), 0);
+
+			//evaluate active depth 0 functions and calculate total depth
+			size_t max_depth = 0;
+			for (size_t i=0; i<coarse_basis_active2all.size(); i++)
+			{
+				const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[i]];
+				assert(FUN.is_active);
+
+				max_depth = std::max(max_depth,FUN.depth);
+				if (FUN.depth==0)
+				{
+					scalar[i] = fun(FUN.coord());
+					std::cout << FUN.coord() << " |--> " << scalar[i] << std::endl;
+				}
+			}
+
+			//evaluate the remainder of the basis functions
+			for (size_t d=1; d<=max_depth; d++)
+			{
+				for (size_t i=0; i<coarse_basis_active2all.size(); i++)
+				{	
+					const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[i]];
+					assert(FUN.is_active);
+
+					if (FUN.depth==d)
+					{
+						//TODO: replace _interpolate with a more efficient function (only need to evaluate at mesh vertices)
+						assert(scalar[i]==0);
+						scalar[i] = fun(FUN.coord()) - _interpolate_coarse_scalar_field(scalar, FUN.coord()); 
+					}
+				}
+			}
+		}
+
+		double _interpolate_coarse_scalar_field(const std::vector<double> &scalar, const Point_t &point) const
+		{
+			//note the point is not required to be a mesh vertex
+
+			//get coarse element(s) associated with the point and then get indices to active basis functions
+			//whose support contains the point
+			std::vector<size_t> coarse_elem_ind = coarse_elements.get_data_indices(point);
+			std::vector<size_t> basis_ind;
+			for (size_t i=0; i<coarse_elem_ind.size(); i++)
+			{
+				const Element_t& ELEM = coarse_elements[coarse_elem_ind[i]];
+				if (ELEM.is_active and ELEM.contains(point))
+				{
+					//check ancestor and same basis functions
+					for (int j=0; j<ELEM.cursor_basis_a; j++) {basis_ind.push_back(ELEM.basis_a[j]);}
+					for (int j=0; j<ELEM.cursor_basis_s; j++) {basis_ind.push_back(ELEM.basis_s[j]);}
+				}
+			}
+
+			//get unique basis indices to check
+			std::sort(basis_ind.begin(), basis_ind.end());
+			auto it = std::unique(basis_ind.begin(), basis_ind.end());
+			basis_ind.resize(std::distance(basis_ind.begin(), it));
+			assert(basis_ind.size() > 0);
+
+			//evaluate active basis functions
+			double result = 0;
+			for (size_t i=0; i<basis_ind.size(); i++)
+			{
+				const BasisFun_t &FUN = coarse_basis[basis_ind[i]];
+				if (FUN.is_active)
+				{
+					size_t active_idx = coarse_basis_all2active[basis_ind[i]];
+					result += scalar[active_idx] * FUN.eval(point);
+				}
+			}
+
+			return result;
+		}
+
+		void get_active_indices()
+		{
+			//coarse basis indices
+			coarse_basis_active2all.clear();
+			coarse_basis_active2all.reserve(coarse_basis.size());
+
+			coarse_basis_all2active.clear();
+			coarse_basis_all2active.resize(coarse_basis.size());
+
 			for (size_t i=0; i<coarse_basis.size(); i++)
 			{
-				if (coarse_basis[i].is_active) {result.push_back(i);}
+				if (coarse_basis[i].is_active)
+				{
+					coarse_basis_all2active[i] = coarse_basis_active2all.size();
+					coarse_basis_active2all.push_back(i);
+				}
+				else {coarse_basis_all2active[i] = (size_t) -1;}
 			}
-			return result;
+
+			//coarse element indices
+			coarse_elem_active2all.clear();
+			coarse_elem_active2all.reserve(coarse_elements.size());
+
+			coarse_elem_all2active.clear();
+			coarse_elem_all2active.resize(coarse_elements.size());
+
+			for (size_t i=0; i<coarse_elements.size(); i++)
+			{
+				if (coarse_elements[i].is_active)
+				{
+					coarse_elem_all2active[i] = coarse_elem_active2all.size();
+					coarse_elem_active2all.push_back(i);
+				}
+				else {coarse_elem_all2active[i] = (size_t) -1;}
+			}
 		}
 
 		//file io
@@ -134,14 +253,6 @@ namespace gv::charms
 		int q_refine(const size_t basis_idx); //de-activate the specified basis function and activate its children
 		void q_unrefine(const size_t basis_idx); //activate the specified basis function and de-activate its children
 		void refine(const size_t element_idx); //refine all basis functions in basis_s of the specified element
-
-
-		//matrix generation (Q1)
-		// template<int Format_t>
-		// void make_mass_matrix(Eigen::SparseMatrix<double,Format_t> &mat) const;
-
-		// template<int Format_t>
-		// void make_stiff_matrix(Eigen::SparseMatrix<double,Format_t> &mat) const;
 	};
 
 
@@ -149,7 +260,7 @@ namespace gv::charms
 	template <class Assembly_t>
 	void AssemblyCharmsQ1Mesh<Assembly_t>::h_refine(const size_t basis_idx)
 	{
-		assert(basis_idx<nBasis());
+		assert(basis_idx<coarse_basis.size());
 		
 		//verify that this basis function can be refined
 		assert(!coarse_basis[basis_idx].is_refined);
@@ -175,7 +286,7 @@ namespace gv::charms
 	template <class Assembly_t>
 	void AssemblyCharmsQ1Mesh<Assembly_t>::h_unrefine(const size_t basis_idx) //remove the detail functions
 	{
-		assert(basis_idx<nBasis());
+		assert(basis_idx<coarse_basis.size());
 		if (!coarse_basis[basis_idx].is_active) {return;}
 
 		//verify that this basis function is allowed to be un-refined
@@ -215,7 +326,7 @@ namespace gv::charms
 	template <class Assembly_t>
 	int AssemblyCharmsQ1Mesh<Assembly_t>::q_refine(const size_t basis_idx)
 	{
-		assert(basis_idx<nBasis());
+		assert(basis_idx<coarse_basis.size());
 		
 		//verify that this basis function can be refined
 		// assert(!coarse_basis[basis_idx].is_refined);
@@ -265,7 +376,7 @@ namespace gv::charms
 	template <class Assembly_t>
 	void AssemblyCharmsQ1Mesh<Assembly_t>::q_unrefine(const size_t basis_idx)
 	{
-		assert(basis_idx<nBasis());
+		assert(basis_idx<coarse_basis.size());
 		if (coarse_basis[basis_idx].is_active) {return;} //for quasi-hierarchical unrefinement, the "center" basis must be de-activated
 
 		//verify that this basis function is allowed to be un-refined
@@ -306,6 +417,10 @@ namespace gv::charms
 	template <class Assembly_t>
 	void AssemblyCharmsQ1Mesh<Assembly_t>::vtkprint(std::ostream &os) const
 	{
+		//ensure the active basis and element lists are up to date
+		// get_active_indices();
+
+
 		//write to buffer and flush buffer to the stream
 		std::stringstream buffer;
 
@@ -316,15 +431,15 @@ namespace gv::charms
 		buffer << "DATASET UNSTRUCTURED_GRID\n";
 
 		//POINTS
-		buffer << "POINTS " << nNodes() << " float\n";
-		for (size_t i=0; i<nNodes(); i++) { buffer << vertices[i] << "\n";}
+		buffer << "POINTS " << vertices.size() << " float\n";
+		for (size_t i=0; i<vertices.size(); i++) { buffer << vertices[i] << "\n";}
 		buffer << "\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENTS
-		buffer << "CELLS " << nElems() << " " << (1+8)*nElems() << "\n";
-		for (size_t i=0; i<nElems(); i++)
+		buffer << "CELLS " << coarse_elements.size() << " " << (1+8)*coarse_elements.size() << "\n";
+		for (size_t i=0; i<coarse_elements.size(); i++)
 		{
 			buffer << 8 << " "; //8 nodes per element
 			for (size_t j=0; j<8; j++)
@@ -338,8 +453,8 @@ namespace gv::charms
 		buffer.str("");
 
 		//VTK IDs
-		buffer << "CELL_TYPES " << nElems() << "\n";
-		for (size_t i=0; i<nElems(); i++) {buffer << coarse_elements[i].vtk_id << " ";}
+		buffer << "CELL_TYPES " << coarse_elements.size() << "\n";
+		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].vtk_id << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
@@ -347,71 +462,82 @@ namespace gv::charms
 
 
 		//MESH INFORMATION AT EACH CELL
-		buffer << "CELL_DATA " << nElems() << "\n";
-		buffer << "FIELD mesh_element_info 7\n";
+		buffer << "CELL_DATA " << coarse_elements.size() << "\n";
+		buffer << "FIELD mesh_element_info 8\n";
 
 		//ELEMENT INDEX
-		buffer << "index 1 " << nElems() << " integer\n";
-		for (size_t i=0; i<nElems(); i++) {buffer << coarse_elements[i].list_index << " ";}
+		buffer << "index 1 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++)
+		{
+			assert(coarse_elements[i].list_index == i);
+			buffer << coarse_elements[i].list_index << " ";
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//ELEMENT ACTIVE INDEX
+		buffer << "active_index 1 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++)
+		{
+			if (coarse_elements[i].is_active) {buffer << coarse_elem_all2active[i] << " ";}
+			else {buffer << "-1 ";}
+		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT TYPE MARKER
-		buffer << "marker 1 " << nElems() << " integer\n";
-		for (size_t i=0; i<nElems(); i++) {buffer << coarse_element_marker[i] << " ";}
+		buffer << "marker 1 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_element_marker[i] << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT DEPTH
-		buffer << "depth 1 " << nElems() << " integer\n";
-		for (size_t i=0; i<nElems(); i++) {buffer << coarse_elements[i].depth << " ";}
+		buffer << "depth 1 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].depth << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT ACTIVE MARKER
-		buffer << "is_active 1 " << nElems() << " integer\n";
-		for (size_t i=0; i<nElems(); i++) {buffer << coarse_elements[i].is_active << " ";}
+		buffer << "is_active 1 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].is_active << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT IS_SUBDIVIDED MARKER
-		buffer << "is_subdivided 1 " << nElems() << " integer\n";
-		for (size_t i=0; i<nElems(); i++) {buffer << coarse_elements[i].is_subdivided << " ";}
+		buffer << "is_subdivided 1 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].is_subdivided << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT BASIS_S
-		buffer << "basis_s 8 " << nElems() << " integer\n";
-		for (size_t i=0; i<nElems(); i++) {to_stream(buffer, coarse_elements[i].basis_s, 8);}
+		buffer << "basis_s 8 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++) {to_stream(buffer, coarse_elements[i].basis_s, 8);}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT BASIS_A
-		buffer << "basis_a[0:7] 8 " << nElems() << " integer\n";
-		for (size_t i=0; i<nElems(); i++) {to_stream(buffer, coarse_elements[i].basis_a, 8);}
+		buffer << "basis_a[0:7] 8 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++) {to_stream(buffer, coarse_elements[i].basis_a, 8);}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
-		
 
 
 
-		//MESH INFORMATION AT EACH VERTEX (active_basis_index, active_basis_depth, support)
-		buffer << "POINT_DATA " << nNodes() << "\n";
-		buffer << "FIELD mesh_vertex_info 6\n";
-
-		//loop through vertices to get index of active basis function
-		size_t* active_basis_index = new size_t[nNodes()];
-		for (size_t i=0; i<nNodes(); i++)
+		//MESH INFORMATION AT EACH VERTEX
+		//map vertex index to active basis index
+		std::vector<size_t> vertex2active_basis;
+		vertex2active_basis.resize(vertices.size());
+		for (size_t i=0; i<vertices.size(); i++)
 		{
-			active_basis_index[i] = 0;
 			std::vector<size_t> basis_total = coarse_basis.get_data_indices(vertices[i]);
 			int count = 0;
 			for (auto it=basis_total.begin(); it!=basis_total.end(); ++it)
@@ -419,47 +545,54 @@ namespace gv::charms
 				if (coarse_basis[*it].is_active and coarse_basis[*it].coord()==vertices[i])
 				{
 					count++;
-					active_basis_index[i] = *it;
+					vertex2active_basis[i] = coarse_basis_all2active[*it];
+					assert(vertex2active_basis[i]<coarse_basis_active2all.size());
 				}
 			}
 			assert(count<=1);
-			if (count==0) {active_basis_index[i] = (size_t) -1;}
+			if (count==0) {vertex2active_basis[i] = (size_t) -1;}
 		}
 
-		//VERTEX ACTIVE BASIS INDEX
-		buffer << "index 1 " << nNodes() << " integer\n";
-		for (size_t i=0; i<nNodes(); i++)
-		{
-			if (active_basis_index[i]<nBasis()) {buffer << active_basis_index[i] << " ";}
-			else {buffer << -1 << " ";}
+
+
+
+
+		buffer << "POINT_DATA " << vertices.size() << "\n";
+		buffer << "FIELD mesh_vertex_info 6\n";
+
+		//VERTEX ACTIVE BASIS DEPTH
+		buffer << "index 1 " << vertices.size() << " integer\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{	
+			size_t active_basis_idx = vertex2active_basis[i];
+			if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
+			else {buffer << coarse_basis[coarse_basis_active2all[active_basis_idx]].depth << " ";}
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
-		//VERTEX ACTIVE BASIS DEPTH
-		buffer << "depth 1 " << nNodes() << " integer\n";
-		for (size_t i=0; i<nNodes(); i++)
-		{
-			if (active_basis_index[i]==(size_t)-1) {buffer << -1 << " ";}
-			else
-			{
-				const BasisFun_t& FUN = coarse_basis[active_basis_index[i]];
-				buffer << FUN.depth << " ";
-			}
+		//VERTEX ACTIVE BASIS INDEX
+		buffer << "active_index 1 " << vertices.size() << " integer\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{	
+			size_t active_basis_idx = vertex2active_basis[i];
+			if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
+			else {buffer << active_basis_idx << " ";}
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//VERTEX ACTIVE BASIS SUPPORT
-		buffer << "support 8 " << nNodes() << " integer\n";
-		for (size_t i=0; i<nNodes(); i++)
-		{
-			if (active_basis_index[i]==(size_t)-1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 ";}
+		buffer << "support 8 " << vertices.size() << " integer\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{	
+			size_t active_basis_idx = vertex2active_basis[i];
+			if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 ";}
 			else
 			{
-				const BasisFun_t& FUN = coarse_basis[active_basis_index[i]];
+				const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[active_basis_idx]];
 				to_stream(buffer, FUN.support, 8);
 			}
 		}
@@ -468,13 +601,14 @@ namespace gv::charms
 		buffer.str("");
 
 		//VERTEX ACTIVE BASIS PARENTS
-		buffer << "parent 27 " << nNodes() << " integer\n";
-		for (size_t i=0; i<nNodes(); i++)
-		{
-			if (active_basis_index[i]==(size_t)-1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
+		buffer << "parent 27 " << vertices.size() << " integer\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{	
+			size_t active_basis_idx = vertex2active_basis[i];
+			if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
 			else
 			{
-				const BasisFun_t& FUN = coarse_basis[active_basis_index[i]];
+				const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[active_basis_idx]];
 				to_stream(buffer, FUN.parent, 27);
 			}
 		}
@@ -482,14 +616,15 @@ namespace gv::charms
 		os << buffer.rdbuf();
 		buffer.str("");
 
-		//VERTEX ACTIVE BASIS PARENTS
-		buffer << "child 27 " << nNodes() << " integer\n";
-		for (size_t i=0; i<nNodes(); i++)
-		{
-			if (active_basis_index[i]==(size_t)-1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
+		//VERTEX ACTIVE BASIS CHILDREN
+		buffer << "child 27 " << vertices.size() << " integer\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{	
+			size_t active_basis_idx = vertex2active_basis[i];
+			if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
 			else
 			{
-				const BasisFun_t& FUN = coarse_basis[active_basis_index[i]];
+				const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[active_basis_idx]];
 				to_stream(buffer, FUN.child, 27);
 			}
 		}
@@ -499,16 +634,26 @@ namespace gv::charms
 
 
 		//VERTEX TEST DATA
-		buffer << "testdata 2 " << nNodes() << " float\n";
-		for (size_t i=0; i<nNodes(); i++)
+		if (p.size() == coarse_basis_active2all.size())
 		{
-			buffer << vertices[i][0] << " " << 1 << " ";
+			buffer << "p 1 " << vertices.size() << " float\n";
+			for (size_t i=0; i<vertices.size(); i++)
+			{
+				buffer << _interpolate_coarse_scalar_field(p, vertices[i]) << " ";
+			}
 		}
+		else
+		{
+			buffer << "test_data 1 " << vertices.size() << " float\n";
+			for (size_t i=0; i<vertices.size(); i++)
+			{
+				buffer << 0 << " ";
+			}
+		}
+		
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
-
-		delete[] active_basis_index;
 	}
 
 	//save mesh implementation
@@ -528,161 +673,4 @@ namespace gv::charms
 		vtkprint(meshfile);
 		meshfile.close();
 	}
-
-	//mass matrix assembly implementation
-	// template <int Format_t, class Assembly_t>
-	// void make_mass_matrix(Eigen::SparseMatrix<double,Format_t> &mat, const AssemblyCharmsQ1Mesh<Assembly_t> &mesh)
-	// {
-	// 	//pre-process to determine matrix structure so that the integration loop can be done in parallel
-	// 	using Triplet = Eigen::Triplet<double>;
-	// 	std::vector<Triplet> coo_structure;
-	// 	for (size_t e_idx=0; e_idx<mesh.coarse_elements.size(); e_idx++) //loop over active elements
-	// 	{
-	// 		const typename AssemblyCharmsQ1Mesh<Assembly_t>::Element_t& ELEM = mesh.coarse_elements[e_idx];
-	// 		if (!ELEM.is_active) {continue;}
-
-	// 		assert(ELEM.cursor_basis_s>0); //any active element should be a support element for at least one basis function
-	// 		for (int i=0; i<ELEM.cursor_basis_s; i++) //loop over basis functions for which this element is a support element
-	// 		{
-	// 			size_t basis_i = ELEM.basis_s[i];
-	// 			coo_structure.push_back(Triplet(basis_i, basis_i, 0)); //diagonal entry
-
-	// 			//check for interaction between basis functions on the same level
-	// 			for (int j=i+1; j<ELEM.cursor_basis_s; j++)
-	// 			{
-	// 				size_t basis_j = ELEM.basis_s[j];
-	// 				coo_structure.push_back(Triplet(basis_i, basis_j, 0)); //off-diagonal entry
-	// 				coo_structure.push_back(Triplet(basis_j, basis_i, 0)); //symmetric off-diagonal entry
-	// 			}
-
-	// 			//check for interaction with coarser basis functions
-	// 			for (int j=0; j<ELEM.cursor_basis_a; j++)
-	// 			{
-	// 				size_t basis_j = ELEM.basis_a[j];
-	// 				coo_structure.push_back(Triplet(basis_i, basis_j, 0)); //off-diagonal entry
-	// 				coo_structure.push_back(Triplet(basis_j, basis_i, 0)); //symmetric off-diagonal entry
-	// 			}
-	// 		}
-	// 	}
-
-	// 	//create matrix
-	// 	std::vector<size_t> basis = mesh.active_coarse_basis();
-	// 	mat.setZero();
-	// 	mat.resize(basis.size(), basis.size());
-	// 	mat.setFromTriplets(coo_structure.begin(), coo_structure.end()); //all zeros, but structure is known
-
-	// 	//populate matrix
-	// 	for (size_t e_idx=0; e_idx<mesh.coarse_elements.size(); e_idx++) //loop over active elements
-	// 	{
-	// 		const typename AssemblyCharmsQ1Mesh<Assembly_t>::Element_t& ELEM = mesh.coarse_elements[e_idx];
-	// 		if (!ELEM.is_active) {continue;}
-
-	// 		assert(ELEM.cursor_basis_s>0); //any active element should be a support element for at least one basis function
-	// 		for (int i=0; i<ELEM.cursor_basis_s; i++) //loop over basis functions for which this element is a support element
-	// 		{
-	// 			size_t basis_i = ELEM.basis_s[i];
-	// 			//temporary: testing using mass lumped
-	// 			typename AssemblyCharmsQ1Mesh<Assembly_t>::Point_t H = ELEM.H();
-	// 			double volume = H[0]*H[1]*H[2];
-	// 			mat.coeffRef(basis_i,basis_i) += volume*mesh.coarse_basis[basis_i].eval(ELEM.center())*mesh.coarse_basis[basis_i].eval(ELEM.center());
-
-	// 			//check for interaction between basis functions on the same level
-	// 			for (int j=i+1; j<ELEM.cursor_basis_s; j++)
-	// 			{
-	// 				size_t basis_j = ELEM.basis_s[j];
-	// 				double val = volume*mesh.coarse_basis[basis_i].eval(ELEM.center())*mesh.coarse_basis[basis_j].eval(ELEM.center());
-	// 				mat.coeffRef(basis_i,basis_j) += val;
-	// 				mat.coeffRef(basis_j,basis_i) += val;
-	// 			}
-
-	// 			//check for interaction with coarser basis functions
-	// 			for (int j=0; j<ELEM.cursor_basis_a; j++)
-	// 			{
-	// 				size_t basis_j = ELEM.basis_a[j];
-	// 				double val = volume*mesh.coarse_basis[basis_i].eval(ELEM.center())*mesh.coarse_basis[basis_j].eval(ELEM.center());
-	// 				mat.coeffRef(basis_i,basis_j) += val;
-	// 				mat.coeffRef(basis_j,basis_i) += val;
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-
-	//stiffness matrix assembly implementation
-	// template <int Format_t, class Assembly_t>
-	// void AssemblyCharmsQ1Mesh<Assembly_t>::make_stiff_matrix(Eigen::SparseMatrix<double,Format_t> &mat) const
-	// {
-	// 	//pre-process to determine matrix structure so that the integration loop can be done in parallel
-	// 	using Triplet = Eigen::Triplet<double>;
-	// 	std::vector<Triplet> coo_structure;
-	// 	for (size_t e_idx=0; e_idx<coarse_elements.size(); e_idx++) //loop over active elements
-	// 	{
-	// 		const Element_t& ELEM = elements[e_idx];
-	// 		if (!ELEM.is_active) {continue;}
-
-	// 		assert(ELEM.cursor_basis_s>0); //any active element should be a support element for at least one basis function
-	// 		for (int i=0; i<ELEM.cursor_basis_s; i++) //loop over basis functions for which this element is a support element
-	// 		{
-	// 			size_t basis_i = ELEM.basis_s[i];
-	// 			coo_structure.push_back(Triplet(basis_i, basis_i, 0)); //diagonal entry
-
-	// 			//check for interaction between basis functions on the same level
-	// 			for (int j=i+1; j<ELEM.cursor_basis_s; j++)
-	// 			{
-	// 				size_t basis_j = ELEM.basis_s[j];
-	// 				coo_structure.push_back(Triplet(basis_i, basis_j, 0)); //off-diagonal entry
-	// 				coo_structure.push_back(Triplet(basis_j, basis_i, 0)); //symmetric off-diagonal entry
-	// 			}
-
-	// 			//check for interaction with coarser basis functions
-	// 			for (int j=0; j<ELEM.cursor_basis_a; j++)
-	// 			{
-	// 				size_t basis_j = ELEM.basis_a[j];
-	// 				coo_structure.push_back(Triplet(basis_i, basis_j, 0)); //off-diagonal entry
-	// 				coo_structure.push_back(Triplet(basis_j, basis_i, 0)); //symmetric off-diagonal entry
-	// 			}
-	// 		}
-	// 	}
-
-	// 	//create matrix
-	// 	std::vector<size_t> basis = active_coarse_basis();
-	// 	mat.setZero();
-	// 	mat.resize(basis.size(), basis.size());
-	// 	mat.setFromTriplets(coo_structure.begin(), coo_structure.end()); //all zeros, but structure is known
-
-	// 	//populate matrix
-	// 	for (size_t e_idx=0; e_idx<elements.size(); e_idx++) //loop over active elements
-	// 	{
-	// 		const Element_t& ELEM = elements[e_idx];
-	// 		if (!ELEM.is_active) {continue;}
-
-	// 		assert(ELEM.cursor_basis_s>0); //any active element should be a support element for at least one basis function
-	// 		for (int i=0; i<ELEM.cursor_basis_s; i++) //loop over basis functions for which this element is a support element
-	// 		{
-	// 			size_t basis_i = ELEM.basis_s[i];
-	// 			//temporary: testing using mass lumped
-	// 			Point_t H = ELEM.H();
-	// 			double volume = H[0]*H[1]*H[2];
-	// 			mat.coeffRef(basis_i,basis_i) += volume*gv::util::dot(basis[basis_i].grad(ELEM.center()),basis[basis_i].grad(ELEM.center()));
-
-	// 			//check for interaction between basis functions on the same level
-	// 			for (int j=i+1; j<ELEM.cursor_basis_s; j++)
-	// 			{
-	// 				size_t basis_j = ELEM.basis_s[j];
-	// 				double val = volume*gv::util::dot(basis[basis_i].grad(ELEM.center()),basis[basis_j].grad(ELEM.center()));
-	// 				mat.coeffRef(basis_i,basis_j) += val;
-	// 				mat.coeffRef(basis_j,basis_i) += val;
-	// 			}
-
-	// 			//check for interaction with coarser basis functions
-	// 			for (int j=0; j<ELEM.cursor_basis_a; j++)
-	// 			{
-	// 				size_t basis_j = ELEM.basis_a[j];
-	// 				double val = volume*gv::util::dot(basis[basis_i].grad(ELEM.center()),basis[basis_j].grad(ELEM.center()));
-	// 				mat.coeffRef(basis_i,basis_j) += val;
-	// 				mat.coeffRef(basis_j,basis_i) += val;
-	// 			}
-	// 		}
-	// 	}
-	// }
 }
