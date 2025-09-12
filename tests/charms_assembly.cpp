@@ -25,7 +25,7 @@ void print_mesh_info(const Mesh_t &mesh)
 	std::cout << "n_fine_elements= " << mesh.fine_elements.size() << std::endl;
 }
 
-double fun(const gv::util::Point<3,double> point) {return 1;}
+double fun(const gv::util::Point<3,double> point) {return point[1]+point[2];}
 
 
 // template <class Mesh_t>
@@ -111,6 +111,7 @@ int main(int argc, char const *argv[])
 		}
 
 		mesh.get_active_indices();
+		// mesh._init_coarse_scalar_field(mesh.p, fun);
 		print_mesh_info(mesh);
 		// print_integrating_matrix_values(mesh);
 		mesh.save_as("./outfiles/assembly_charms_mesh_refined_" + std::to_string(i) + ".vtk");

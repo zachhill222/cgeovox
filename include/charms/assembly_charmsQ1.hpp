@@ -51,6 +51,7 @@ namespace gv::charms
 		std::vector<size_t> coarse_elem_all2active;
 
 		//scalar variables to maintain while refining (coefficients of active basis functions)
+		//the length of these vectors should be the same as the total basis size (active+inactive)
 		std::vector<double> u; //fine basis
 		std::vector<double> v; //fine basis
 		std::vector<double> w; //fine basis
@@ -128,7 +129,7 @@ namespace gv::charms
 		//scalar field evaluations and assignments (call get_active_indices() ahead of time!)
 		void _init_coarse_scalar_field(std::vector<double> &scalar, ScalarFun_t fun)
 		{
-			scalar.resize(coarse_basis_active2all.size());
+			scalar.resize(coarse_basis.size());
 			std::fill(scalar.begin(), scalar.end(), 0);
 
 			//evaluate active depth 0 functions and calculate total depth
@@ -141,8 +142,8 @@ namespace gv::charms
 				max_depth = std::max(max_depth,FUN.depth);
 				if (FUN.depth==0)
 				{
-					scalar[i] = fun(FUN.coord());
-					std::cout << FUN.coord() << " |--> " << scalar[i] << std::endl;
+					scalar[coarse_basis_active2all[i]] = fun(FUN.coord());
+					// std::cout << FUN.coord() << " |--> " << scalar[i] << std::endl;
 				}
 			}
 
@@ -157,8 +158,8 @@ namespace gv::charms
 					if (FUN.depth==d)
 					{
 						//TODO: replace _interpolate with a more efficient function (only need to evaluate at mesh vertices)
-						assert(scalar[i]==0);
-						scalar[i] = fun(FUN.coord()) - _interpolate_coarse_scalar_field(scalar, FUN.coord()); 
+						assert(scalar[FUN.list_index]==0);
+						scalar[FUN.list_index] = fun(FUN.coord()) - _interpolate_coarse_scalar_field(scalar, FUN.coord()); 
 					}
 				}
 			}
@@ -196,8 +197,8 @@ namespace gv::charms
 				const BasisFun_t &FUN = coarse_basis[basis_ind[i]];
 				if (FUN.is_active)
 				{
-					size_t active_idx = coarse_basis_all2active[basis_ind[i]];
-					result += scalar[active_idx] * FUN.eval(point);
+					// size_t active_idx = coarse_basis_all2active[basis_ind[i]];
+					result += scalar[basis_ind[i]] * FUN.eval(point);
 				}
 			}
 
@@ -245,81 +246,10 @@ namespace gv::charms
 		void vtkprint(std::ostream &os) const; //write coarse mesh (as unstructured non-conforming voxels) in vtk format to specified stream
 		void save_as(std::string filename) const; //save coarse mesh information to file, uses vtkprint()
 
-		//hierarchical refinement
-		void h_refine(const size_t basis_idx); //add detail functions
-		void h_unrefine(const size_t basis_idx); //remove detail functions
-
 		//quasi-hierarchical refinement
 		int q_refine(const size_t basis_idx); //de-activate the specified basis function and activate its children
-		void q_unrefine(const size_t basis_idx); //activate the specified basis function and de-activate its children
 		void refine(const size_t element_idx); //refine all basis functions in basis_s of the specified element
 	};
-
-
-	//hierarchical refinement
-	template <class Assembly_t>
-	void AssemblyCharmsQ1Mesh<Assembly_t>::h_refine(const size_t basis_idx)
-	{
-		assert(basis_idx<coarse_basis.size());
-		
-		//verify that this basis function can be refined
-		assert(!coarse_basis[basis_idx].is_refined);
-
-		while (vertices.capacity() < vertices.size()+125) {vertices.reserve(2*vertices.capacity());}
-		while (coarse_elements.capacity() < coarse_elements.size()+64) {coarse_elements.reserve(2*coarse_elements.capacity());}
-		while (coarse_basis.capacity() < coarse_basis.size()+27) {coarse_basis.reserve(2*coarse_basis.capacity());}
-		
-		//create candidate basis functions and elements
-		coarse_basis[basis_idx].subdivide();
-	
-		for (int i=0; i<coarse_basis[basis_idx].cursor_child; i++)
-		{
-			size_t c_idx = coarse_basis[basis_idx].child[i];
-			if (coarse_basis[c_idx].is_odd) {coarse_basis[c_idx].activate();}
-		}
-
-		//mark this basis function as refined
-		coarse_basis[basis_idx].is_refined = true;
-	}
-
-	//hierarchical un-refinement
-	template <class Assembly_t>
-	void AssemblyCharmsQ1Mesh<Assembly_t>::h_unrefine(const size_t basis_idx) //remove the detail functions
-	{
-		assert(basis_idx<coarse_basis.size());
-		if (!coarse_basis[basis_idx].is_active) {return;}
-
-		//verify that this basis function is allowed to be un-refined
-		assert(coarse_basis[basis_idx].is_refined);
-
-		//verify that no children functions are refined
-		for (int i=0; i<coarse_basis[basis_idx].cursor_child; i++)
-		{
-			size_t c_idx = coarse_basis[basis_idx].child[i];
-			assert(!coarse_basis[c_idx].is_refined);
-			if (coarse_basis[c_idx].is_odd and coarse_basis[c_idx].is_active) {coarse_basis[c_idx].deactivate();}
-		}
-
-		//ensure all support elements are active
-		for (int i=0; i<coarse_basis[basis_idx].cursor_support; i++)
-		{
-			size_t s_idx = coarse_basis[basis_idx].support[i];
-
-			//check if there are any active descendent elements
-			std::vector<size_t> desc_elems = coarse_elements[s_idx].descendent_elements();
-			bool has_active_descendent = false;
-			for (auto it=desc_elems.begin(); it!=desc_elems.end(); ++it)
-			{
-				has_active_descendent = coarse_elements[*it].is_active;
-				if (has_active_descendent) {break;}
-			}
-			
-			if (!has_active_descendent) {coarse_elements[s_idx].is_active = true;}
-		}
-
-		//mark this basis function as not refined
-		coarse_basis[basis_idx].is_refined = false;
-	}
 
 
 	//quasi-hierarchical refinement (basis function)
@@ -336,26 +266,61 @@ namespace gv::charms
 		while (coarse_elements.capacity() < coarse_elements.size()+64) {coarse_elements.reserve(2*coarse_elements.capacity());}
 		while (coarse_basis.capacity() < coarse_basis.size()+27) {coarse_basis.reserve(2*coarse_basis.capacity());}
 		
+		//convenient references
+		BasisFun_t& FUN = coarse_basis[basis_idx];
+
 		//create candidate basis functions and elements
 		std::vector<int> new_coarse_element_marker;
 		coarse_basis[basis_idx].subdivide(assembly, opts, new_coarse_element_marker);
 		
-		//deactivate current basis
-		coarse_basis[basis_idx].deactivate();
+		//deactivate current basis function
+		FUN.deactivate();
 
+		//activate new basis functions and evaluate p at their coordinate
+		// std::vector<double> new_p_coefs;
+		// std::vector<size_t> new_active_idx;
+
+		//get number of new basis functions
+		int n_new_basis = 0;
 		for (int i=0; i<coarse_basis[basis_idx].cursor_child; i++)
 		{
-			size_t c_idx = coarse_basis[basis_idx].child[i];
-			coarse_basis[c_idx].activate();
+			if (!coarse_basis[FUN.child[i]].is_active) {n_new_basis+=1;}
+		}
+		// std::cout << "refine basis " << basis_idx << " -> " << n_new_basis << " new basis functions\n";
+
+		
+		for (int i=0; i<coarse_basis[basis_idx].cursor_child; i++)
+		{
+			BasisFun_t& CHILD = coarse_basis[FUN.child[i]];
+			assert(CHILD.list_index >= p.size());
+			assert(!CHILD.is_active);
+
+			CHILD.activate();
+			assert(CHILD.list_index == p.size());
+			p.push_back(FUN.eval(CHILD.coord()));
+			// new_active_idx.push_back(CHILD.list_index);
 		}
 
 		//mark this basis function as refined
-		coarse_basis[basis_idx].is_refined = true;
+		FUN.is_refined = true;
 
 		//track new element markers
 		for (size_t i=0; i<new_coarse_element_marker.size(); i++) {coarse_element_marker.push_back(new_coarse_element_marker[i]);}
 		assert(coarse_element_marker.size() == coarse_elements.size());
+
+
+		//update p
+		// p.resize(coarse_basis.size());
+		// for (int i=0; i<coarse_basis[basis_idx].cursor_child; i++)
+		// {
+		// 	// size_t c_idx = coarse_basis[basis_idx].child[i];
+		// 	// std::cout << p[basis_idx] * coarse_basis[basis_idx].eval(coarse_basis[c_idx].coord()) << std::endl;
+		// 	// p[c_idx] = new_p_coefs[i]; //p[basis_idx] * coarse_basis[basis_idx].eval(coarse_basis[c_idx].coord());
+		// }
+
 		return 0;
+
+
 	}
 
 
@@ -370,46 +335,6 @@ namespace gv::charms
 			// std::cout << "refine basis " << coarse_elements[element_idx].basis_s[j] << " (" << j << "/" << coarse_elements[element_idx].cursor_basis_s << ")" << std::endl;
 			q_refine(coarse_elements[element_idx].basis_s[j]);
 		}
-	}
-
-	//quasi-hierarchical un-refinement
-	template <class Assembly_t>
-	void AssemblyCharmsQ1Mesh<Assembly_t>::q_unrefine(const size_t basis_idx)
-	{
-		assert(basis_idx<coarse_basis.size());
-		if (coarse_basis[basis_idx].is_active) {return;} //for quasi-hierarchical unrefinement, the "center" basis must be de-activated
-
-		//verify that this basis function is allowed to be un-refined
-		assert(coarse_basis[basis_idx].is_refined);
-
-		//verify that no children functions are refined and de-activate all children
-		for (int i=0; i<coarse_basis[basis_idx].cursor_child; i++)
-		{
-			size_t c_idx = coarse_basis[basis_idx].child[i];
-			assert(!coarse_basis[c_idx].is_refined);
-			if (coarse_basis[c_idx].is_active) {coarse_basis[c_idx].deactivate();}
-		}
-
-		//ensure all support elements are active
-		for (int i=0; i<coarse_basis[basis_idx].cursor_support; i++)
-		{
-			size_t s_idx = coarse_basis[basis_idx].support[i];
-
-			//check if there are any active descendent elements
-			std::vector<size_t> desc_elems = coarse_elements[s_idx].descendent_elements();
-			bool has_active_descendent = false;
-			for (auto it=desc_elems.begin(); it!=desc_elems.end(); ++it)
-			{
-				has_active_descendent = coarse_elements[*it].is_active;
-				if (has_active_descendent) {break;}
-			}
-			
-			if (!has_active_descendent) {coarse_elements[s_idx].is_active = true;}
-		}
-
-		//mark this basis function as not refined and activate it
-		coarse_basis[basis_idx].is_refined = false;
-		coarse_basis[basis_idx].activate();
 	}
 
 	
@@ -558,10 +483,10 @@ namespace gv::charms
 
 
 		buffer << "POINT_DATA " << vertices.size() << "\n";
-		buffer << "FIELD mesh_vertex_info 6\n";
+		buffer << "FIELD mesh_vertex_info 7\n";
 
 		//VERTEX ACTIVE BASIS DEPTH
-		buffer << "index 1 " << vertices.size() << " integer\n";
+		buffer << "depth 1 " << vertices.size() << " integer\n";
 		for (size_t i=0; i<vertices.size(); i++)
 		{	
 			size_t active_basis_idx = vertex2active_basis[i];
@@ -579,6 +504,18 @@ namespace gv::charms
 			size_t active_basis_idx = vertex2active_basis[i];
 			if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
 			else {buffer << active_basis_idx << " ";}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//VERTEX ACTIVE BASIS P COEF
+		buffer << "p_coef 1 " << vertices.size() << " float\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{	
+			size_t active_basis_idx = vertex2active_basis[i];
+			if (active_basis_idx==(size_t) -1) {buffer << "0 ";}
+			else {buffer << p[coarse_basis_active2all[active_basis_idx]] << " ";}
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
@@ -634,7 +571,7 @@ namespace gv::charms
 
 
 		//VERTEX TEST DATA
-		if (p.size() == coarse_basis_active2all.size())
+		if (p.size() == coarse_basis.size())
 		{
 			buffer << "p 1 " << vertices.size() << " float\n";
 			for (size_t i=0; i<vertices.size(); i++)
@@ -650,10 +587,27 @@ namespace gv::charms
 				buffer << 0 << " ";
 			}
 		}
-		
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
+
+
+		//ACTIVE BASIS EVALUATION
+		// buffer << "basis_evaluation " << coarse_basis_active2all.size() << " float\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {
+		// 	for (size_t j=0; j<coarse_basis_active2all.size(); j++)
+		// 	{
+		// 		const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[j]];
+		// 		buffer << FUN.eval(vertices[i]) << " ";
+		// 	}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
+		
+		
+		
 	}
 
 	//save mesh implementation

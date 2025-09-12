@@ -430,6 +430,8 @@ namespace gv::charms
 					int n_support_elems = fun.set_support();
 					assert(n_support_elems>0);
 
+					//
+
 					//add the new basis function to the list
 					size_t new_list_index = (size_t) -1;
 					int flag = basis->push_back(fun, new_list_index);
@@ -500,6 +502,13 @@ namespace gv::charms
 					//this can happen when refining near a curved boundary
 					if (n_support_elems==0) {continue;} 
 
+					//check if the basis function already exists
+					size_t existing_basis_idx = basis->find(fun);
+					if (existing_basis_idx < basis->size())
+					{
+						(*basis)[existing_basis_idx].insert_parent(this->list_index);
+						continue;
+					}
 
 					//add the new basis function to the list
 					size_t new_list_index = (size_t) -1;
