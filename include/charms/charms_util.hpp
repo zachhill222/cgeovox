@@ -193,9 +193,9 @@ namespace gv::charms
 		}
 
 
-		inline void insert_support(const size_t value) {insert(value, support, cursor_support, SUPPORT_SIZE);}
-		inline void insert_child(const size_t value)   {insert(value, child, cursor_child, CHILD_SIZE);}
-		inline void insert_parent(const size_t value)  {insert(value, parent, cursor_parent, PARENT_SIZE);}
+		void insert_support(const size_t value) {insert(value, support, cursor_support, SUPPORT_SIZE);}
+		void insert_child(const size_t value)   {insert(value, child, cursor_child, CHILD_SIZE);}
+		void insert_parent(const size_t value)  {insert(value, parent, cursor_parent, PARENT_SIZE);}
 
 		bool operator==(const CharmsBasisFun& other) const
 		{

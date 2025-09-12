@@ -21,13 +21,13 @@ namespace gv::geometry{
 
 	//class for storing octrees efficiently
 	template <typename Particle_t, size_t n_data=8>
-	class ParticleOctree : public gv::util::BasicOctree<Particle_t, 3, n_data> {
+	class ParticleOctree : public gv::util::BasicOctree_Vol<Particle_t, 3, n_data> {
 	public:
 		using Point_t = gv::util::Point<3,double>;
 		using Box_t = gv::util::Box<3,double>;
 
-		ParticleOctree() : gv::util::BasicOctree<Particle_t, 3, n_data>() {}
-		ParticleOctree(const Box_t &bbox) : gv::util::BasicOctree<Particle_t, 3, n_data>(bbox, 64) {}
+		ParticleOctree() : gv::util::BasicOctree_Vol<Particle_t, 3, n_data>() {}
+		ParticleOctree(const Box_t &bbox) : gv::util::BasicOctree_Vol<Particle_t, 3, n_data>(bbox, 64) {}
 
 		//check if a point is in any particle
 		bool is_in_particle(const Point_t &point) const
@@ -442,106 +442,33 @@ namespace gv::geometry{
 	void Assembly<Particle_t, n_data>::create_voxel_mesh_Q1(gv::mesh::VoxelMeshQ1 &out_mesh, const Box_t &box, const AssemblyMeshOptions &opts) const
 	{
 		out_mesh.set_bbox(Box_t{opts.scale*box.low(), opts.scale*box.high()});
-		out_mesh.reserve((opts.N[0]+1)*(opts.N[1]+1)*(opts.N[2]+1));
-
-		//COMPUTE SPACING
-		Point_t H = box.sidelength()/Point_t(opts.N);
+		out_mesh.reserve_nodes((opts.N[0]+1)*(opts.N[1]+1)*(opts.N[2]+1));
 
 		//CONSTRUCT ELEMENTS
-		for (size_t  k=0; k<opts.N[2]; k++)
-		{
-			for (size_t  j=0; j<opts.N[1]; j++)
-			{
-				for (size_t  i=0; i<opts.N[0]; i++)
-				{
-					//create element
-					const Point_t low = box.low() + H*Point_t{i,j,k};
-					const Point_t high = box.low() + H*Point_t{i+1,j+1,k+1};
-					const Box_t element_box(low,high);
-					bool add_element = false;
-					int elem_marker;
+		Point_t H = box.sidelength() / Point_t(opts.N);
+		for (size_t i=0; i<opts.N[0]; i++) {
+			for (size_t j=0; j<opts.N[1]; j++) {
+				for (size_t k=0; k<opts.N[2]; k++) {
+					Point_t low  = box.low() + Point_t{i,j,k} * H;
+					Point_t high = box.low() + Point_t{i+1,j+1,k+1} * H;
+					Box_t   voxel  {low, high};
 
-					//get number of vertices contained in particles
-					int n_vert = 0;
-					for (int n=0; n<8; n++)
-					{
-						if (this->is_in_particle(element_box[n])) {n_vert += 1;}
-					}
 
-					//determine if the element should be added to the mesh and what marker it gets
-					switch (n_vert)
-					{
-					case 0:
-						if (opts.include_void)
-						{
-							// out_mesh.add_element(&new_elem);
-							// out_mesh.elem_marker.push_back(opts.void_marker);
-							add_element = true;
-							elem_marker = opts.void_marker;
-						}
-						break;
+					//check if the element should be marked as void, solid, or interface
+					int marker;
+					bool include_element;
+					check_voxel(voxel, opts, marker, include_element);
 
-					case 8:
-						if (opts.include_solid)
-						{
-							// out_mesh.add_element(&new_elem);
-							// out_mesh.elem_marker.push_back(opts.solid_marker);
-							add_element = true;
-							elem_marker = opts.solid_marker;
-						}
-						break;
-
-					default:
-						if (opts.include_interface)
-						{
-							//check centroid if needed
-							if (opts.check_centroid)
-							{	
-							const Point_t centroid = element_box.center();
-								bool is_solid = this->is_in_particle(centroid);
-								if (is_solid and opts.include_solid)
-								{
-									// out_mesh.add_element(&new_elem);
-									// out_mesh.elem_marker.push_back(opts.interface_marker);
-									add_element = true;
-									elem_marker = opts.interface_marker;
-								}
-								else if ((!is_solid) and opts.include_void)
-								{
-									// out_mesh.add_element(&new_elem);
-									// out_mesh.elem_marker.push_back(opts.interface_marker);
-									add_element = true;
-									elem_marker = opts.interface_marker;
-								}
-							}
-							else
-							{
-								// out_mesh.add_element(&new_elem);
-								// out_mesh.elem_marker.push_back(opts.interface_marker);
-								add_element = true;
-								elem_marker = opts.interface_marker;
-							}
-						}
-						break;
-					}
-
-					//add element to the mesh
-					if (add_element)
+					//add the element to the mesh
+					if (include_element)
 					{
 						Point_t elem[8];
-						for (int i=0; i<8; i++) {elem[i] = opts.scale * element_box.voxelvertex(i);}
+						for (int i=0; i<8; i++) {elem[i] = opts.scale * voxel.voxelvertex(i);}
 						out_mesh.add_element(elem);
-						out_mesh.elem_marker.push_back(elem_marker);
+						out_mesh.elem_marker.push_back(marker);
 					}
 				}
 			}
 		}
-
-		//print vertices
-		// std::cout << "MESH NODES:\n";
-		// for (size_t i=0; i<out_mesh.nNodes(); i++)
-		// {
-		// 	std::cout << i << ": " << out_mesh.node(i) << std::endl;
-		// }
 	}
 }

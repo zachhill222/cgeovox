@@ -147,7 +147,9 @@ void test_octree_structured(size_t N=128, double L=1.0)
                 // std::cout << "Element: " << Index_t{i,j,k} << ": " << element << std::endl;
                 for (int l=0; l<8; l++)
                 {
-                    int flag = octree.push_back(element.voxelvertex(l));
+                    size_t idx=-1;
+                    int flag = octree.push_back(element.voxelvertex(l), idx);
+                    assert(octree[idx]==element.voxelvertex(l));
                     // std::cout << "\t" << l << " (" << element.voxelijk(l) << "): Point " << element.voxelvertex(l);
 
                     // switch (flag)
@@ -206,7 +208,7 @@ int main(int argc, char* argv[])
 	int N = 10;
 	if (argc>1) {N=atoi(argv[1]);}
 
-	test_octree_structured(N,0.0001);
+	test_octree_structured(N,0.000001);
 	// test_octree_random(N);
 
 	return 0;

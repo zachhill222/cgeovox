@@ -37,6 +37,7 @@ void test_mesh(std::string filename, size_t N[3])
 	opts.N[0] = N[0];
 	opts.N[1] = N[1];
 	opts.N[2] = N[2];
+	opts.scale = 1;
 
 	assembly.create_voxel_mesh_Q1(mesh, mesh_box, opts);
 	std::cout << "\tnNodes= " << mesh.nNodes() << std::endl;

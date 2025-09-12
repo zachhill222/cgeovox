@@ -17,8 +17,8 @@
 #include <iostream>
 
 #define CHARMS_Q1_BASIS_SUPPORT_SIZE 8
-#define CHARMS_Q1_BASIS_CHILD_SIZE   27
-#define CHARMS_Q1_BASIS_PARENT_SIZE  27
+#define CHARMS_Q1_BASIS_CHILD_SIZE   125 //27
+#define CHARMS_Q1_BASIS_PARENT_SIZE  125 //27
 
 #define CHARMS_Q1_ELEMENT_NODE_SIZE    8
 #define CHARMS_Q1_ELEMENT_CHILD_SIZE   8
@@ -128,6 +128,7 @@ namespace gv::charms
 
 		//populate the support of this basis function. the elements[] list must be updated first.
 		int set_support();
+		bool in_support(const Point_t& coord) const; //check if a point is in the support of this basis function
 
 		//add this function to the appropriate basis_s and basis_a of the elements.
 		void update_element_basis_lists();
@@ -315,21 +316,23 @@ namespace gv::charms
 
 
 	//Octree definitions
-	class CharmsQ1BasisFunOctree : public gv::util::BasicOctree<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>
+	class CharmsQ1BasisFunOctree : public gv::util::BasicOctree_Point<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>
 	{
 	public:
 		CharmsQ1BasisFunOctree(const gv::util::Box<3> &domain) : 
-			gv::util::BasicOctree<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>(domain,64) {}
+			gv::util::BasicOctree_Point<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>(domain,64) {}
 
 		int push_back(CharmsQ1BasisFun &val)
 		{
-			size_t idx;
-			return this->push_back(val, idx);
+			size_t idx = -1;
+			int result = gv::util::BasicOctree_Point<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>::push_back(std::move(val), idx);
+			(*this)[idx].list_index = idx;
+			return result;
 		}
 
 		int push_back(CharmsQ1BasisFun &val, size_t &idx)
 		{
-			int result = gv::util::BasicOctree<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>::push_back(std::move(val), idx);
+			int result = gv::util::BasicOctree_Point<CharmsQ1BasisFun,3,CHARMS_Q1_BASIS_OCTREE_DATA_PER_LEAF>::push_back(std::move(val), idx);
 			(*this)[idx].list_index = idx;
 			return result;
 		}
@@ -340,21 +343,23 @@ namespace gv::charms
 	};
 
 
-	class CharmsQ1ElementOctree : public gv::util::BasicOctree<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>
+	class CharmsQ1ElementOctree : public gv::util::BasicOctree_Vol<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>
 	{
 	public:
 		CharmsQ1ElementOctree(const gv::util::Box<3> &domain) : 
-			gv::util::BasicOctree<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>(domain,64) {}
+			gv::util::BasicOctree_Vol<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>(domain,64) {}
 
 		int push_back(CharmsQ1Element &val)
 		{
-			size_t idx;
-			return this->push_back(val, idx);
+			size_t idx = -1;
+			int result = gv::util::BasicOctree_Vol<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>::push_back(std::move(val), idx);
+			(*this)[idx].list_index = idx;
+			return result;
 		}
 
 		int push_back(CharmsQ1Element &val, size_t &idx)
 		{
-			int result = gv::util::BasicOctree<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>::push_back(std::move(val), idx);
+			int result = gv::util::BasicOctree_Vol<CharmsQ1Element,3,CHARMS_Q1_ELEMENT_OCTREE_DATA_PER_LEAF>::push_back(std::move(val), idx);
 			(*this)[idx].list_index = idx;
 			return result;
 		}
@@ -375,6 +380,15 @@ namespace gv::charms
 		}
 		// assert(this->cursor_support>0);
 		return this->cursor_support;
+	}
+
+	bool CharmsQ1BasisFun::in_support(const Point_t& coord) const
+	{
+		for (int i=0; i<cursor_support; i++)
+		{
+			if ((*elements)[support[i]].contains(coord)) {return true;}
+		}
+		return false;
 	}
 
 	void CharmsQ1BasisFun::update_element_basis_lists()
@@ -442,8 +456,6 @@ namespace gv::charms
 					assert(FUN.list_index==basis->size()-1);
 					assert(FUN.list_index==new_list_index);
 					
-					
-					// (*basis)[new_list_index].list_index = new_list_index;
 
 					//add the new basis to basis_s list of all support elements
 					for (int l=0; l<(*basis)[new_list_index].cursor_support; l++)
@@ -496,19 +508,23 @@ namespace gv::charms
 					bool new_fun_is_odd = true;
 					if (i==0 and j==0 and k==0) {new_fun_is_odd=false;}
 					CharmsQ1BasisFun fun(*this, new_coord_idx, new_fun_is_odd);
-					int n_support_elems = fun.set_support();
+					// int n_support_elems = fun.set_support();
+					for (int depth0_idx=0; depth0_idx<this->cursor_support; depth0_idx++)
+					{
+						const CharmsQ1Element& ELEM0 = (*elements)[this->support[depth0_idx]];
+						for (int depth1_idx=0; depth1_idx<ELEM0.cursor_child; depth1_idx++)
+						{
+							const CharmsQ1Element& ELEM1 = (*elements)[ELEM0.child[depth1_idx]];
+							if (ELEM1.contains(fun.coord()))
+							{
+								fun.insert_support(ELEM1.list_index);
+							}
+						}
+					}
 
 					//possibly a basis function belongs in a coarse mesh, but the basis function at the same coordinate does not belong to the refinement.
 					//this can happen when refining near a curved boundary
-					if (n_support_elems==0) {continue;} 
-
-					//check if the basis function already exists
-					size_t existing_basis_idx = basis->find(fun);
-					if (existing_basis_idx < basis->size())
-					{
-						(*basis)[existing_basis_idx].insert_parent(this->list_index);
-						continue;
-					}
+					if (fun.cursor_support==0) {continue;}
 
 					//add the new basis function to the list
 					size_t new_list_index = (size_t) -1;
@@ -516,25 +532,47 @@ namespace gv::charms
 					if (flag==0) {continue;} //it is possible that the basis function already exists
 					assert(flag==1); //we should only alter newly created functions here
 
-					const CharmsQ1BasisFun& FUN = (*basis)[new_list_index];
-					assert(FUN.list_index==basis->size()-1);
-					assert(FUN.list_index==new_list_index);
+					CharmsQ1BasisFun& CHILD = (*basis)[new_list_index];
+					assert(CHILD.list_index==basis->size()-1);
+					assert(CHILD.list_index==new_list_index);
 					
-					
-					// (*basis)[new_list_index].list_index = new_list_index;
-
 					//add the new basis to basis_s list of all support elements
-					for (int l=0; l<(*basis)[new_list_index].cursor_support; l++)
+					for (int l=0; l<CHILD.cursor_support; l++)
 					{
-						size_t s_idx = (*basis)[new_list_index].support[l];
+						size_t s_idx = CHILD.support[l];
 						(*elements)[s_idx].insert_basis_s(new_list_index);
 					}
 
-					//add the new basis function as a child of this function
-					this->insert_child(new_list_index);
+					//update parents and children
+					if (this->cursor_parent==0)
+					{
+						this->insert_child(CHILD.list_index);
+						CHILD.insert_parent(this->list_index);
+					}
+					else
+					{
+						for (int p_idx=0; p_idx<this->cursor_parent; p_idx++)
+						{
+							// size_t parent_idx = this->parent[p_idx];
+							const CharmsQ1BasisFun& PARENT = (*basis)[this->parent[p_idx]];
+							for (int s_idx=0; s_idx<PARENT.cursor_child; s_idx++)
+							{
+								// size_t sibling_idx = (*basis)[parent_idx].child[s_idx];
+								CharmsQ1BasisFun& SIBLING = (*basis)[PARENT.child[s_idx]];
+								if (SIBLING.in_support(CHILD.coord()))
+								{
+									assert(CHILD.depth == SIBLING.depth+1);
+									CHILD.insert_parent(SIBLING.list_index);
+									SIBLING.insert_child(CHILD.list_index);
+								}
+							}
+						}
+					}
 
-					//add this function as a parent of the new basis function
-					(*basis)[new_list_index].insert_parent(this->list_index);
+
+					// this->insert_child(CHILD.list_index);
+					// CHILD.insert_parent(this->list_index);
+
 				}
 			}
 		}
@@ -591,14 +629,14 @@ namespace gv::charms
 		if (!this->is_active) {return;}
 
 		//ensure that any/all children basis functions are not active
-		bool any_child_active = false;
-		for (int i=0; i<this->cursor_child; i++)
-		{
-			size_t c_idx = this->child[i];
-			any_child_active = any_child_active or (*basis)[c_idx].is_active;
-		}
-		assert(!any_child_active);
-		if (any_child_active) {return;}
+		// bool any_child_active = false;
+		// for (int i=0; i<this->cursor_child; i++)
+		// {
+		// 	size_t c_idx = this->child[i];
+		// 	any_child_active = any_child_active or (*basis)[c_idx].is_active;
+		// }
+		// assert(!any_child_active);
+		// if (any_child_active) {return;}
 
 
 		//we are allowed to de-activate this basis function
@@ -626,7 +664,7 @@ namespace gv::charms
 	//evaluate this basis function
 	double  CharmsQ1BasisFun::eval(const Point_t &point) const
 	{
-		//loop through support elements and create voxel
+		//loop through support elements
 		for (int i=0; i<cursor_support; i++)
 		{
 			const CharmsQ1Element& ELEM = (*elements)[support[i]];
@@ -636,12 +674,11 @@ namespace gv::charms
 				int idx=0;
 				for (int j=0; j<8; j++)
 				{
-					// voxel.nodes[j] = &(*vertices)[ELEM.node[j]];
 					if (ELEM.node[j] == node_index) {idx=j;}
 				}
 
 				//map point back to reference element
-				Point_t ref_point = (point - ELEM.center()) / (0.5*ELEM.H());
+				Point_t ref_point = 2.0 * (point - ELEM.center()) / ELEM.H();
 
 				gv::mesh::Voxel voxel;
 				return voxel.eval_basis(idx, ref_point);

@@ -57,11 +57,14 @@ namespace gv::mesh
 
 
 		///reserve space for _elem2node
-		void reserve(size_t nNewElems)
+		void reserve_elems(const size_t nElems)
 		{
-			assert(nNewElems>=nElems());
-			if (nNewElems>_nodes.size()) {_nodes.reserve(nNewElems);} //approximation
-			_elem2node.reserve(referenceElement.nNodes*nNewElems);
+			_elem2node.reserve(referenceElement.nNodes*nElems);
+		}
+
+		void reserve_nodes(const size_t nNodes)
+		{
+			_nodes.reserve(nNodes);
 		}
 
 		///copy node global indices for element "idx" into array "element"
@@ -161,11 +164,14 @@ void HomoMesh<Element_t>::get_element(const size_t idx, size_t (&element)[refere
 template <typename Element_t>
 void HomoMesh<Element_t>::add_element(const Point_t (&element)[referenceElement.nNodes])
 {
+	if (_nodes.capacity() < _nodes.size()+8) {_nodes.reserve(std::max(2*_nodes.size(), _nodes.size()+8));}
+
 	for (size_t i=0; i<referenceElement.nNodes; i++)
 	{
 		size_t global_idx;
 		int flag = _nodes.push_back(element[i], global_idx);
 		assert(flag!=-1);
+		assert(_nodes[global_idx] == element[i]);
 		_elem2node.push_back(global_idx);
 	}
 

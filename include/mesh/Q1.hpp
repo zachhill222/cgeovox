@@ -29,7 +29,8 @@ namespace gv::mesh
 		//mesh a box region uniformly
 		VoxelMeshQ1(Point_t length, Index_t N) : HomoMesh<gv::mesh::Voxel>(Box_t(Point_t(0), length))
 		{
-			reserve(N[0]*N[1]*N[2]);
+			reserve_elems(N[0]*N[1]*N[2]);
+			reserve_nodes((N[0]+1)*(N[1]+1)*(N[2]+1));
 
 			gv::util::Point<3,double> H {length[0]/((double) N[0]), length[1]/((double) N[1]), length[2]/((double) N[2])};
 			gv::util::Point<3,double> LOW;

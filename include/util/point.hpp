@@ -32,8 +32,13 @@ namespace gv::util {
 		Point (std::initializer_list<U> init) : _data(new T[dim])
 		{
 			int i=0;
-			for (auto it=init.begin(); it!=init.end(); ++it){
-				_data[i++] = (T) *it;
+			for (auto it=init.begin(); it!=init.end() && i<dim; ++it, ++i){
+				_data[i] = (T) *it;
+			}
+
+			for (; i<dim; ++i)
+			{
+				_data[i] = T{};
 			}
 		}
 		
@@ -51,15 +56,19 @@ namespace gv::util {
 		}
 
 		//destructor
+		// ~Point()
+		// {
+		// 	if (_data!=nullptr) {delete[] _data; _data=nullptr;}
+		// }
+
 		~Point()
 		{
-			if (_data!=nullptr) {delete[] _data; _data=nullptr;}
+			delete[] _data;
 		}
 
 		//move constructor (must be correct type obviously)
-		Point (Point<dim,T>&& other) noexcept : _data(nullptr)
+		Point (Point<dim,T>&& other) noexcept : _data(other._data)
 		{
-			_data = other._data;
 			other._data = nullptr;
 		}
 
@@ -80,7 +89,10 @@ namespace gv::util {
 		//copy assignment
 		constexpr Point& operator=( const Point<dim,T>& other)
 		{
-			for (int i=0; i<dim; i++) {_data[i]=other._data[i];}
+			if (this != &other)
+			{
+				for (int i=0; i<dim; i++) {_data[i]=other._data[i];}
+			}
 			return *this;
 		}
 
@@ -366,7 +378,7 @@ namespace gv::util {
 	T min(const Point<dim,T> &point)
 	{
 		T result = point[0];
-		for (int i=1; i<dim; i++) {result = min(result,point[i]);}
+		for (int i=1; i<dim; i++) {result = std::min(result,point[i]);}
 		return result;
 	}
 

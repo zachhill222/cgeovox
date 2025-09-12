@@ -276,29 +276,11 @@ namespace gv::charms
 		//deactivate current basis function
 		FUN.deactivate();
 
-		//activate new basis functions and evaluate p at their coordinate
-		// std::vector<double> new_p_coefs;
-		// std::vector<size_t> new_active_idx;
-
-		//get number of new basis functions
-		int n_new_basis = 0;
-		for (int i=0; i<coarse_basis[basis_idx].cursor_child; i++)
-		{
-			if (!coarse_basis[FUN.child[i]].is_active) {n_new_basis+=1;}
-		}
-		// std::cout << "refine basis " << basis_idx << " -> " << n_new_basis << " new basis functions\n";
-
-		
-		for (int i=0; i<coarse_basis[basis_idx].cursor_child; i++)
+		p.resize(coarse_basis.size());
+		for (int i=0; i<FUN.cursor_child; i++)
 		{
 			BasisFun_t& CHILD = coarse_basis[FUN.child[i]];
-			assert(CHILD.list_index >= p.size());
-			assert(!CHILD.is_active);
-
 			CHILD.activate();
-			assert(CHILD.list_index == p.size());
-			p.push_back(FUN.eval(CHILD.coord()));
-			// new_active_idx.push_back(CHILD.list_index);
 		}
 
 		//mark this basis function as refined
@@ -307,16 +289,6 @@ namespace gv::charms
 		//track new element markers
 		for (size_t i=0; i<new_coarse_element_marker.size(); i++) {coarse_element_marker.push_back(new_coarse_element_marker[i]);}
 		assert(coarse_element_marker.size() == coarse_elements.size());
-
-
-		//update p
-		// p.resize(coarse_basis.size());
-		// for (int i=0; i<coarse_basis[basis_idx].cursor_child; i++)
-		// {
-		// 	// size_t c_idx = coarse_basis[basis_idx].child[i];
-		// 	// std::cout << p[basis_idx] * coarse_basis[basis_idx].eval(coarse_basis[c_idx].coord()) << std::endl;
-		// 	// p[c_idx] = new_p_coefs[i]; //p[basis_idx] * coarse_basis[basis_idx].eval(coarse_basis[c_idx].coord());
-		// }
 
 		return 0;
 
@@ -388,7 +360,7 @@ namespace gv::charms
 
 		//MESH INFORMATION AT EACH CELL
 		buffer << "CELL_DATA " << coarse_elements.size() << "\n";
-		buffer << "FIELD mesh_element_info 8\n";
+		buffer << "FIELD mesh_element_info 9\n";
 
 		//ELEMENT INDEX
 		buffer << "index 1 " << coarse_elements.size() << " integer\n";
@@ -412,6 +384,16 @@ namespace gv::charms
 		os << buffer.rdbuf();
 		buffer.str("");
 
+		//ELEMENT IS_ACTIVE
+		buffer << "is_active 1 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++)
+		{
+			buffer << coarse_elements[i].is_active << " ";
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
 		//ELEMENT TYPE MARKER
 		buffer << "marker 1 " << coarse_elements.size() << " integer\n";
 		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_element_marker[i] << " ";}
@@ -426,19 +408,44 @@ namespace gv::charms
 		os << buffer.rdbuf();
 		buffer.str("");
 
-		//ELEMENT ACTIVE MARKER
-		buffer << "is_active 1 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].is_active << " ";}
+		//ELEMENT PARENT
+		buffer << "parent 1 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++)
+		{
+			if (coarse_elements[i].parent < coarse_elements.size())
+			{
+				buffer << coarse_elements[i].parent << " ";
+			}
+			else {buffer << "-1 ";}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		//ELEMENT CHILDREN
+		buffer << "children 8 " << coarse_elements.size() << " integer\n";
+		for (size_t i=0; i<coarse_elements.size(); i++)
+		{
+			for (int j=0; j<coarse_elements[i].cursor_child; j++)
+			{
+				buffer << coarse_elements[i].child[j] << " ";
+			}
+
+			for (int j=coarse_elements[i].cursor_child; j<8; j++)
+			{
+				buffer << "-1 ";
+			}
+		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT IS_SUBDIVIDED MARKER
-		buffer << "is_subdivided 1 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].is_subdivided << " ";}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "is_subdivided 1 " << coarse_elements.size() << " integer\n";
+		// for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].is_subdivided << " ";}
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//ELEMENT BASIS_S
 		buffer << "basis_s 8 " << coarse_elements.size() << " integer\n";
@@ -497,6 +504,18 @@ namespace gv::charms
 		os << buffer.rdbuf();
 		buffer.str("");
 
+		//VERTEX BASIS INDEX
+		buffer << "index 1 " << vertices.size() << " integer\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{	
+			size_t active_basis_idx = vertex2active_basis[i];
+			if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
+			else {buffer << coarse_basis_active2all[active_basis_idx] << " ";}
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
 		//VERTEX ACTIVE BASIS INDEX
 		buffer << "active_index 1 " << vertices.size() << " integer\n";
 		for (size_t i=0; i<vertices.size(); i++)
@@ -509,17 +528,17 @@ namespace gv::charms
 		os << buffer.rdbuf();
 		buffer.str("");
 
-		//VERTEX ACTIVE BASIS P COEF
-		buffer << "p_coef 1 " << vertices.size() << " float\n";
-		for (size_t i=0; i<vertices.size(); i++)
-		{	
-			size_t active_basis_idx = vertex2active_basis[i];
-			if (active_basis_idx==(size_t) -1) {buffer << "0 ";}
-			else {buffer << p[coarse_basis_active2all[active_basis_idx]] << " ";}
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// //VERTEX ACTIVE BASIS P COEF
+		// buffer << "p_coef 1 " << vertices.size() << " float\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {	
+		// 	size_t active_basis_idx = vertex2active_basis[i];
+		// 	if (active_basis_idx==(size_t) -1) {buffer << "0 ";}
+		// 	else {buffer << p[coarse_basis_active2all[active_basis_idx]] << " ";}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//VERTEX ACTIVE BASIS SUPPORT
 		buffer << "support 8 " << vertices.size() << " integer\n";
@@ -590,21 +609,6 @@ namespace gv::charms
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
-
-
-		//ACTIVE BASIS EVALUATION
-		// buffer << "basis_evaluation " << coarse_basis_active2all.size() << " float\n";
-		// for (size_t i=0; i<vertices.size(); i++)
-		// {
-		// 	for (size_t j=0; j<coarse_basis_active2all.size(); j++)
-		// 	{
-		// 		const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[j]];
-		// 		buffer << FUN.eval(vertices[i]) << " ";
-		// 	}
-		// }
-		// buffer << "\n\n";
-		// os << buffer.rdbuf();
-		// buffer.str("");
 		
 		
 		

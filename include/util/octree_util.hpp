@@ -21,7 +21,8 @@ namespace gv::util
 
 		//initialize mesh
 		gv::mesh::HomoMesh<gv::mesh::Voxel> octree_mesh(octree.bbox());
-		octree_mesh.reserve(nElems);
+		octree_mesh.reserve_elems(nElems);
+		octree_mesh.reserve_nodes(8*nodes.size());
 
 		//create an element for each node
 		for (size_t idx=0; idx<nElems; idx++)
