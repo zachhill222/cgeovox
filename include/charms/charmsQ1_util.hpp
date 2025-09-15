@@ -17,8 +17,8 @@
 #include <iostream>
 
 #define CHARMS_Q1_BASIS_SUPPORT_SIZE 8
-#define CHARMS_Q1_BASIS_CHILD_SIZE   125 //27
-#define CHARMS_Q1_BASIS_PARENT_SIZE  125 //27
+#define CHARMS_Q1_BASIS_CHILD_SIZE   125
+#define CHARMS_Q1_BASIS_PARENT_SIZE  27
 
 #define CHARMS_Q1_ELEMENT_NODE_SIZE    8
 #define CHARMS_Q1_ELEMENT_CHILD_SIZE   8
@@ -66,7 +66,7 @@ namespace gv::charms
 
 		//constructor for creating a new basis function using information from a parent basis function
 		//parent[], child[], and support[] are initialized but only filled with NO_DATA (i.e. (size_t) -1)
-		CharmsQ1BasisFun(const CharmsQ1BasisFun& some_parent, const size_t node_index, const bool is_odd) :
+		CharmsQ1BasisFun(const CharmsQ1BasisFun& some_parent, const size_t node_index, const bool is_odd):
 			CharmsQ1BasisFun_BASE(node_index, some_parent.depth+1, is_odd, false, false, false),
 			vertices(some_parent.vertices),
 			elements(some_parent.elements),
@@ -141,6 +141,9 @@ namespace gv::charms
 
 		//activate a basis function and any necessary elements
 		void activate();
+
+		template <class Particle_t, size_t n_data>
+		void activate(const gv::geometry::Assembly<Particle_t,n_data> &assembly, const gv::geometry::AssemblyMeshOptions &opts);
 
 		//deactivate a basis function and any unused elements
 		void deactivate();
@@ -441,10 +444,20 @@ namespace gv::charms
 					bool new_fun_is_odd = true;
 					if (i==0 and j==0 and k==0) {new_fun_is_odd=false;}
 					CharmsQ1BasisFun fun(*this, new_coord_idx, new_fun_is_odd);
-					int n_support_elems = fun.set_support();
-					assert(n_support_elems>0);
-
-					//
+					for (int depth0_idx=0; depth0_idx<this->cursor_support; depth0_idx++)
+					{
+						const CharmsQ1Element& ELEM0 = (*elements)[this->support[depth0_idx]];
+						for (int depth1_idx=0; depth1_idx<ELEM0.cursor_child; depth1_idx++)
+						{
+							const CharmsQ1Element& ELEM1 = (*elements)[ELEM0.child[depth1_idx]];
+							if (ELEM1.contains(fun.coord()))
+							{
+								fun.insert_support(ELEM1.list_index);
+							}
+						}
+					}
+					// assert(fun.cursor_support>0);
+					if (fun.cursor_support==0) {std::cout<< fun << std::endl;}
 
 					//add the new basis function to the list
 					size_t new_list_index = (size_t) -1;
@@ -452,23 +465,33 @@ namespace gv::charms
 					if (flag==0) {continue;} //it is possible that the basis function already exists
 					assert(flag==1); //we should only alter newly created functions here
 
-					const CharmsQ1BasisFun& FUN = (*basis)[new_list_index];
-					assert(FUN.list_index==basis->size()-1);
-					assert(FUN.list_index==new_list_index);
+					CharmsQ1BasisFun& CHILD = (*basis)[new_list_index];
+					assert(CHILD.list_index==basis->size()-1);
+					assert(CHILD.list_index==new_list_index);
 					
-
 					//add the new basis to basis_s list of all support elements
-					for (int l=0; l<(*basis)[new_list_index].cursor_support; l++)
+					for (int l=0; l<CHILD.cursor_support; l++)
 					{
-						size_t s_idx = (*basis)[new_list_index].support[l];
+						size_t s_idx = CHILD.support[l];
 						(*elements)[s_idx].insert_basis_s(new_list_index);
 					}
 
-					//add the new basis function as a child of this function
-					this->insert_child(new_list_index);
 
-					//add this function as a parent of the new basis function
-					(*basis)[new_list_index].insert_parent(this->list_index);
+					//update parents and children
+					//support[i].basis_s[j] is a sibling (or this element) and could be a parent of this function's children
+					for (int i=0; i<this->cursor_support; i++)
+					{
+						const CharmsQ1Element& ELEM = (*elements)[this->support[i]];
+						for (int j=0; j<ELEM.cursor_basis_s; j++)
+						{
+							CharmsQ1BasisFun& SIBLING = (*basis)[ELEM.basis_s[j]];
+							if (SIBLING.in_support(CHILD.coord()))
+							{
+								CHILD.insert_parent(SIBLING.list_index);
+								SIBLING.insert_child(CHILD.list_index);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -508,7 +531,6 @@ namespace gv::charms
 					bool new_fun_is_odd = true;
 					if (i==0 and j==0 and k==0) {new_fun_is_odd=false;}
 					CharmsQ1BasisFun fun(*this, new_coord_idx, new_fun_is_odd);
-					// int n_support_elems = fun.set_support();
 					for (int depth0_idx=0; depth0_idx<this->cursor_support; depth0_idx++)
 					{
 						const CharmsQ1Element& ELEM0 = (*elements)[this->support[depth0_idx]];
@@ -543,36 +565,22 @@ namespace gv::charms
 						(*elements)[s_idx].insert_basis_s(new_list_index);
 					}
 
+
 					//update parents and children
-					if (this->cursor_parent==0)
+					//support[i].basis_s[j] is a sibling (or this element) and could be a parent of this function's children
+					for (int i=0; i<this->cursor_support; i++)
 					{
-						this->insert_child(CHILD.list_index);
-						CHILD.insert_parent(this->list_index);
-					}
-					else
-					{
-						for (int p_idx=0; p_idx<this->cursor_parent; p_idx++)
+						const CharmsQ1Element& ELEM = (*elements)[this->support[i]];
+						for (int j=0; j<ELEM.cursor_basis_s; j++)
 						{
-							// size_t parent_idx = this->parent[p_idx];
-							const CharmsQ1BasisFun& PARENT = (*basis)[this->parent[p_idx]];
-							for (int s_idx=0; s_idx<PARENT.cursor_child; s_idx++)
+							CharmsQ1BasisFun& SIBLING = (*basis)[ELEM.basis_s[j]];
+							if (SIBLING.in_support(CHILD.coord()))
 							{
-								// size_t sibling_idx = (*basis)[parent_idx].child[s_idx];
-								CharmsQ1BasisFun& SIBLING = (*basis)[PARENT.child[s_idx]];
-								if (SIBLING.in_support(CHILD.coord()))
-								{
-									assert(CHILD.depth == SIBLING.depth+1);
-									CHILD.insert_parent(SIBLING.list_index);
-									SIBLING.insert_child(CHILD.list_index);
-								}
+								CHILD.insert_parent(SIBLING.list_index);
+								SIBLING.insert_child(CHILD.list_index);
 							}
 						}
 					}
-
-
-					// this->insert_child(CHILD.list_index);
-					// CHILD.insert_parent(this->list_index);
-
 				}
 			}
 		}
@@ -619,6 +627,36 @@ namespace gv::charms
 				// {
 				// 	(*elements)[*it].insert_basis_a(this->list_index);
 				// }
+			}
+		}
+	}
+
+	template <class Particle_t, size_t n_data>
+	void CharmsQ1BasisFun::activate(const gv::geometry::Assembly<Particle_t,n_data> &assembly, const gv::geometry::AssemblyMeshOptions &opts)
+	{
+		if (this->is_active) {return;}
+		
+		//deactivate all ancestor elements
+		std::vector<size_t> ancestor_elems = (*elements)[this->support[0]].ancestor_elements();
+		for (auto it=ancestor_elems.begin(); it!=ancestor_elems.end(); ++it)
+		{
+			(*elements)[*it].is_active = false;
+		}
+
+		for (int i=0; i<this->cursor_support; i++)
+		{
+			size_t s_idx = this->support[i];
+			if (!(*elements)[s_idx].is_subdivided) //activate support elements if they are not already active
+			{
+				//this assumes that the domain is covered by active elements at all times with no overlap
+				bool include_element = true;
+				int marker = opts.interface_marker;
+				assembly.check_voxel((*elements)[s_idx].bbox(), opts, marker, include_element);
+				if (include_element)
+				{
+					(*elements)[s_idx].is_active = true;
+					this->is_active = true; //this basis function can only be active if it has at least one active support element
+				}
 			}
 		}
 	}
@@ -743,11 +781,12 @@ namespace gv::charms
 		for (int i=0; i<8; i++)
 		{
 			Box_t bbox((*vertices)[node[i]], center());
-			int marker;
-			bool include_element;
+			int marker = opts.interface_marker;
+			bool include_element = true;
 			assembly.check_voxel(bbox, opts, marker, include_element);
 
-			if (include_element)
+			// if (include_element)
+			if (true)
 			{
 				CharmsQ1Element elem(*this, i); //updates vertex list, sets basis_a[], basis_s[], and node[]
 				size_t new_list_index = (size_t) -1;

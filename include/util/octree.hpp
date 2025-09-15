@@ -13,7 +13,6 @@
 
 #include <cassert>
 #include <vector>
-// #include <memory>
 
 namespace gv::util
 {

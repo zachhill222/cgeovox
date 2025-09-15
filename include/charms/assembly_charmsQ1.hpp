@@ -86,8 +86,8 @@ namespace gv::charms
 
 
 						//check if the element should be marked as void, solid, or interface
-						int marker;
-						bool include_element;
+						int marker=opts.interface_marker;
+						bool include_element=true;
 						assembly.check_voxel(bbox, opts, marker, include_element);
 
 						//add the element to the mesh
@@ -188,7 +188,7 @@ namespace gv::charms
 			std::sort(basis_ind.begin(), basis_ind.end());
 			auto it = std::unique(basis_ind.begin(), basis_ind.end());
 			basis_ind.resize(std::distance(basis_ind.begin(), it));
-			assert(basis_ind.size() > 0);
+			// assert(basis_ind.size() > 0);
 
 			//evaluate active basis functions
 			double result = 0;
@@ -271,7 +271,7 @@ namespace gv::charms
 
 		//create candidate basis functions and elements
 		std::vector<int> new_coarse_element_marker;
-		coarse_basis[basis_idx].subdivide(assembly, opts, new_coarse_element_marker);
+		FUN.subdivide(assembly, opts, new_coarse_element_marker);
 		
 		//deactivate current basis function
 		FUN.deactivate();
@@ -280,7 +280,8 @@ namespace gv::charms
 		for (int i=0; i<FUN.cursor_child; i++)
 		{
 			BasisFun_t& CHILD = coarse_basis[FUN.child[i]];
-			CHILD.activate();
+			CHILD.activate(assembly, opts); //activate all valid support elements and this function (if it has at least one valid support element)
+			if (CHILD.is_active) {p[CHILD.list_index] += p[FUN.list_index]*FUN.eval(CHILD.coord());}
 		}
 
 		//mark this basis function as refined

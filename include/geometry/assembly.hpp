@@ -37,7 +37,24 @@ namespace gv::geometry{
 			return false;
 		}
 
+		bool collides_with_particle(const Box_t &voxel) const
+		{
+			if (!this->bbox().intersects(voxel)) {return false;}
+
+			std::vector<size_t> d_idx = this->get_data_indices(voxel);
+			for (size_t i=0; i<d_idx.size(); i++)
+			{
+				const Particle_t& P = (*this)[d_idx[i]];
+				if (gv::geometry::collides_GJK(voxel,P))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
 	private:
+		// bool is_data_valid(Box_t const &box, Particle_t const &P) const override {return P.bbox().intersects(box);}
 		bool is_data_valid(Box_t const &box, Particle_t const &P) const override {return gv::geometry::collides_GJK(box,P);}
 	};
 
@@ -63,6 +80,7 @@ namespace gv::geometry{
 		int void_marker = 0;
 		int solid_marker = 1;
 		int interface_marker = 2;
+		// int unknown_marker = -1; //eg if a voxel encloses a particle but no vertex intersects the particle
 
 		gv::util::Point<3,size_t> N {32, 32, 32};
 		double scale = 1.0; //TODO: implement functionality to scale/change length units.
@@ -89,6 +107,12 @@ namespace gv::geometry{
 			return _particles.is_in_particle(point);
 		}
 
+		bool collides_with_particle(const Box_t &voxel) const
+		{
+			if (!_particles.bbox().intersects(voxel)) {return false;}
+			return _particles.collides_with_particle(voxel);
+		}
+
 		//read particles from file with specified format. TODO: read format from start of file.
 		void readfile(const std::string filename, const std::string columns);
 
@@ -111,7 +135,7 @@ namespace gv::geometry{
 		//check if a voxel should be meshed and what its marker should be (given mesh options)
 		void check_voxel(const Box_t &voxel, const AssemblyMeshOptions &opts, int &marker, bool &include) const;
 
-	private:
+	// private:
 		ParticleList_t _particles;
 	};
 
@@ -123,7 +147,11 @@ namespace gv::geometry{
 		int n_vert = 0; //number of vertices in the solid phase
 		for (int i=0; i<8; i++) {if (is_in_particle(voxel.voxelvertex(i))) {n_vert += 1;}}
 
-		if (n_vert==0) {marker = opts.void_marker;}
+		if (n_vert==0)
+		{
+			if (collides_with_particle(voxel)) {return;} //cannot assess if the voxel should be included
+			else {marker = opts.void_marker;}
+		}
 		else if (n_vert==8) {marker = opts.solid_marker;}
 		else {marker = opts.interface_marker;}
 
@@ -145,7 +173,7 @@ namespace gv::geometry{
 				if (center_in_solid and opts.include_solid) {include_element=true;} //center is in the solid, include element as interface (mostly solid)
 				else if (!center_in_solid and opts.include_void) {include_element=true;} //center is in the void, include element as interface (mostly void)
 			}
-			else {include_element = true;} //include the interface without checking the center
+			else {include_element=true;} //include the interface without checking the center
 		}
 	}
 

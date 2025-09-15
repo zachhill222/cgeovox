@@ -26,24 +26,7 @@ namespace gv::charms
 
 		CharmsGalerkinMatrixConstructor() {}
 		
-		//get list of active basis functions or elements (and its inverse)
-		template <typename List_t>
-		void get_active(std::vector<size_t> &active2all, std::vector<size_t> &all2active, const List_t &list) const
-		{
-			active2all.reserve(list.size()); //upper bound
-			all2active.resize(list.size(), (size_t) -1); //exact
-			for (size_t i=0; i<list.size(); i++)
-			{
-				if (list[i].is_active)
-				{
-					all2active[i] = active2all.size();
-					active2all.push_back(i);
-				}
-			}
-		}
-
-
-
+		
 		//construct Galerkin mass matrix
 		template <int Format_t>
 		void make_mass_matrix(Eigen::SparseMatrix<double,Format_t> &mat, const BasisList_t &basis, const ElementList_t &elements)

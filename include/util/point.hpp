@@ -96,9 +96,9 @@ namespace gv::util {
 			return *this;
 		}
 
-		T& operator[](const int idx) {return _data[idx];}
+		T& operator[](const int idx) {assert(0<=idx and idx<dim); return _data[idx];}
 		
-		T  operator[](const int idx) const {return _data[idx];}
+		T  operator[](const int idx) const {assert(0<=idx and idx<dim); return _data[idx];}
 		
 		T  at(const int idx) const
 		{
