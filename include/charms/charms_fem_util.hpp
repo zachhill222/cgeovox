@@ -27,6 +27,12 @@ namespace gv::charms
 		using ScalarFun_t   = double (*)(Point_t); //function from Point_t to double
 		using VectorFun_t   = Point_t (*)(Point_t); //function from Point_t to Point_t
 
+		CharmsGalerkinMatrixConstructor() {}
+		CharmsGalerkinMatrixConstructor(const Mesh_t& mesh) {}
+
+
+
+
 		std::vector<double> gauss_locations {-0.7745966692414834, 0, 0.7745966692414834};
 		std::vector<double> gauss_weights {0.5555555555555556, 0.8888888888888888, 0.5555555555555556};
 
@@ -85,7 +91,7 @@ namespace gv::charms
 		}
 
 
-		CharmsGalerkinMatrixConstructor() {}
+		
 		
 		//construct Galerkin mass matrix
 		template <int Format_t>
@@ -295,5 +301,42 @@ namespace gv::charms
 			mat.resize(basis_active2all.size(), basis_active2all.size());
 			mat.setFromTriplets(coo_structure.begin(), coo_structure.end());
 		}
+
+
+		//set rows for Dirichlet BC
+		void set_dirichlet_bc(Eigen::SparseMatrix<double, Eigen::RowMajor> &mat, const std::vector<size_t> &nodes)
+		{
+			//prepare matrix to shorten loops. note for an integrating matrix the diagonals will never be 0 and will never be cleared here.
+			mat.makeCompressed();
+
+			//loop through rows and zero them out
+			#pragma omp parallel
+			for (size_t n_idx=0; n_idx<nodes.size(); n_idx++)
+			{
+				//get start of row storage
+				size_t row_idx   = nodes[n_idx];
+				size_t idx_start = mat.outerIndexPtr()[row_idx];
+				size_t idx_stop  = mat.outerIndexPtr()[row_idx+1]; //this stop index only works when mat is compressed
+
+				//zero out row
+				for (size_t j=idx_start; j<idx_stop; j++)
+				{
+					mat.valuePtr()[j] = 0.0;
+				}
+			}
+
+			//loop through rows and set main diagonal entry to 1
+			// #pragma omp parallel
+			for (size_t n_idx=0; n_idx<nodes.size(); n_idx++)
+			{
+				size_t row_idx = nodes[n_idx];
+				mat.coeffRef(row_idx, row_idx) = 1.0;
+			}
+
+			//compress matrix to free storage
+			mat.prune(0.0);
+			mat.makeCompressed();
+		}
+
 	};
 }

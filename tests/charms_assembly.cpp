@@ -149,7 +149,7 @@ int main(int argc, char const *argv[])
 	mesh.p.resize(mesh.coarse_basis_active2all.size());
 	mesh._init_coarse_scalar_field(mesh.p, fun_const);
 	print_mesh_info(mesh);
-	print_integrating_matrix_values(mesh);
+	// print_integrating_matrix_values(mesh);
 	mesh.save_as("./outfiles/assembly_charms_mesh_refined_0.vtk");
 
 	//refine mesh
@@ -176,7 +176,7 @@ int main(int argc, char const *argv[])
 		print_mesh_info(mesh);
 		double percent = (double) mesh.coarse_elem_active2all.size() / (double) std::pow( (double) N * std::pow(2,i), 3);
 		std::cout << "ratio= " << percent << std::endl;
-		print_integrating_matrix_values(mesh);
+		// print_integrating_matrix_values(mesh);
 		mesh.save_as("./outfiles/assembly_charms_mesh_refined_" + std::to_string(i) + ".vtk");
 	}
 	std::cout << "refined mesh" << std::endl;

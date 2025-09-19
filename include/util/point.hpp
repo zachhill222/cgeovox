@@ -4,6 +4,7 @@
 #include <initializer_list>
 #include <cmath>
 #include <limits>
+#include <cassert>
 
 namespace gv::util {
 	///Class for points in space.

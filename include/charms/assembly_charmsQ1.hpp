@@ -120,12 +120,6 @@ namespace gv::charms
 			}
 		}
 
-		
-		//convenient functions
-		// size_t coarse_basis.size() const {return vertices.size();}
-		// size_t coarse_elements.size() const {return coarse_elements.size();}
-		// size_t coarse_basis.size() const {return coarse_basis.size();}
-
 		//scalar field evaluations and assignments (call get_active_indices() ahead of time!)
 		template< typename Vector_t>
 		void _init_coarse_scalar_field(Vector_t &scalar, ScalarFun_t fun)
@@ -256,6 +250,48 @@ namespace gv::charms
 				}
 				else {coarse_elem_all2active[i] = (size_t) -1;}
 			}
+		}
+
+		//get interior boundary (total basis index, not active basis index)
+		std::vector<size_t> active_coarse_basis_interior_boundary() const
+		{
+			std::vector<size_t> result;
+
+			//loop over active interface elements
+			for (size_t e_idx=0; e_idx<coarse_elem_active2all.size(); e_idx++)
+			{
+				const Element_t& ELEM = coarse_elements[coarse_elem_active2all[e_idx]];
+				if (coarse_element_marker[ELEM.list_index] != opts.interface_marker) {continue;}
+
+				//check basis_s
+				for (int i=0; i<ELEM.cursor_basis_s; i++)
+				{
+					const BasisFun_t& FUN = coarse_basis[ELEM.basis_s[i]];
+					if (!FUN.is_active) {continue;}
+
+					int n_active = 0;
+					for (int j=0; j<FUN.cursor_support; j++)
+					{
+						if (coarse_elements[FUN.support[j]].is_active) {n_active++;}
+					}
+					if (n_active < 8) {result.push_back(FUN.list_index);}
+				}
+
+				//check basis_a
+				for (int i=0; i<ELEM.cursor_basis_a; i++)
+				{
+					const BasisFun_t& FUN = coarse_basis[ELEM.basis_a[i]];
+					if (!FUN.is_active) {continue;}
+					int n_active = 0;
+					for (int j=0; j<FUN.cursor_support; j++)
+					{
+						if (coarse_elements[FUN.support[j]].is_active) {n_active++;}
+					}
+					if (n_active < 8) {result.push_back(FUN.list_index);}
+				}
+			}
+
+			return result;
 		}
 
 		//file io
@@ -507,7 +543,7 @@ namespace gv::charms
 
 
 		buffer << "POINT_DATA " << vertices.size() << "\n";
-		buffer << "FIELD mesh_vertex_info 7\n";
+		buffer << "FIELD mesh_vertex_info 8\n";
 
 		//VERTEX ACTIVE BASIS DEPTH
 		buffer << "depth 1 " << vertices.size() << " integer\n";
@@ -544,18 +580,6 @@ namespace gv::charms
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
-
-		// //VERTEX ACTIVE BASIS P COEF
-		// buffer << "p_coef 1 " << vertices.size() << " float\n";
-		// for (size_t i=0; i<vertices.size(); i++)
-		// {	
-		// 	size_t active_basis_idx = vertex2active_basis[i];
-		// 	if (active_basis_idx==(size_t) -1) {buffer << "0 ";}
-		// 	else {buffer << p[coarse_basis_active2all[active_basis_idx]] << " ";}
-		// }
-		// buffer << "\n\n";
-		// os << buffer.rdbuf();
-		// buffer.str("");
 
 		//VERTEX ACTIVE BASIS SUPPORT
 		buffer << "support 8 " << vertices.size() << " integer\n";
@@ -627,7 +651,25 @@ namespace gv::charms
 		os << buffer.rdbuf();
 		buffer.str("");
 		
-		
+		//VERTEX BOUNDARY INDICATOR
+		std::vector<size_t> boundary_basis = active_coarse_basis_interior_boundary();
+		int boundary_vertex[vertices.size()] {0};
+		for (size_t i=0; i<boundary_basis.size(); i++)
+		{
+			const BasisFun_t& FUN = coarse_basis[boundary_basis[i]];
+			boundary_vertex[FUN.node_index] = 1;
+		}
+
+
+
+		buffer << "boundary 1 " << vertices.size() << " integer\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{	
+			buffer << boundary_vertex[i] << " ";
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
 		
 	}
 
@@ -648,4 +690,22 @@ namespace gv::charms
 		vtkprint(meshfile);
 		meshfile.close();
 	}
+
+
+	//print mesh info
+	template <class Assembly_t>
+	std::ostream& operator<<(std::ostream& os, const AssemblyCharmsQ1Mesh<Assembly_t>& mesh)
+	{
+		os << "n_vertices= " << mesh.vertices.size() << std::endl;
+		os << "n_coarse_basis_functions= " << mesh.coarse_basis.size() << std::endl;
+		os << "n_active_coarse_basis_functions= " << mesh.coarse_basis_active2all.size() << std::endl;
+		os << "n_coarse_elements= " << mesh.coarse_elements.size() << std::endl;
+		os << "n_active_coarse_elements= " << mesh.coarse_elem_active2all.size() << std::endl;
+
+		os << "n_fine_basis_functions= " << mesh.fine_basis.size() << std::endl;
+		
+		os << "n_fine_elements= " << mesh.fine_elements.size() << std::endl;
+
+		return os;
+		}
 }
