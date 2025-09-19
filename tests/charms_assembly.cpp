@@ -2,14 +2,17 @@
 #include "util/octree_util.hpp"
 #include "geometry/assembly.hpp"
 #include "util/point.hpp"
+#include "charms/charms_fem_util.hpp"
 
 #include <Eigen/SparseCore>
 
 #include <iostream>
 #include <string>
+#include <vector>
+#include <functional>
 
 //uncomment to disable assert()
-#define NDEBUG
+// #define NDEBUG
 
 template <class Mesh_t>
 void print_mesh_info(const Mesh_t &mesh)
@@ -25,36 +28,85 @@ void print_mesh_info(const Mesh_t &mesh)
 	std::cout << "n_fine_elements= " << mesh.fine_elements.size() << std::endl;
 }
 
-double fun(const gv::util::Point<3,double> point) {return 1.0;}
+double fun_const(const gv::util::Point<3,double> point) {return 1.0;}
+double fun_x(const gv::util::Point<3,double> point) {return point[0];}
+
+template <class Mesh_t>
+void print_integrating_matrix_values(Mesh_t &mesh)
+{
+	//create mass and stiffness matrices
+	mesh.get_active_indices();
+	gv::charms::CharmsGalerkinMatrixConstructor<Mesh_t> matrix_constructor;
 
 
-// template <class Mesh_t>
-// void print_integrating_matrix_values(const Mesh_t &mesh)
-// {
-// 	//create mass and stiffness matrices
-// 	std::vector<size_t> basis_idx = mesh.active_coarse_basis();
-// 	Eigen::SparseMatrix<double> massMat, stifMat;
-// 	Eigen::VectorXd ones(basis_idx.size());
-// 	Eigen::VectorXd x(basis_idx.size());
-// 	ones.fill(0.0);
-// 	x.fill(0.0);
-// 	for (size_t i=0; i<basis_idx.size(); i++)
-// 	{
-// 		size_t b_idx = basis_idx[i];
-// 		if (mesh.coarse_basis[b_idx].depth==0)
-// 		{
-// 			ones[b_idx] = 1.0;
-// 			x[b_idx]    = mesh.coarse_basis[b_idx].coord()[0];
-// 		}
-// 	}
+	Eigen::SparseMatrix<double> massMat, stifMat;
+	Eigen::VectorXd ones(mesh.coarse_basis_active2all.size());
+	Eigen::VectorXd x(mesh.coarse_basis_active2all.size());
+	
+
+	std::vector<double> one_vec, x_vec;
+
+	one_vec.resize(mesh.coarse_basis.size());
+	mesh._init_coarse_scalar_field(one_vec, fun_const);
+
+	x_vec.resize(mesh.coarse_basis.size());
+	mesh._init_coarse_scalar_field(x_vec, fun_x);
+
+	for (size_t i=0; i<mesh.coarse_basis_active2all.size(); i++)
+	{
+		size_t b_idx = mesh.coarse_basis_active2all[i];
+		ones[i]  = one_vec[b_idx];
+		x[i] = x_vec[b_idx];
+	}
+
+	std::cout << "creating coarse mass matrix" << std::endl;
+	matrix_constructor.make_mass_matrix(massMat,
+		mesh.coarse_basis,
+		mesh.coarse_basis_active2all,
+		mesh.coarse_basis_all2active,
+		mesh.coarse_elements,
+		mesh.coarse_elem_active2all,
+		mesh.coarse_elem_all2active);
+
+	std::cout << "creating coarse stiffness matrix" << std::endl;
+	matrix_constructor.make_stiff_matrix(stifMat,
+		mesh.coarse_basis,
+		mesh.coarse_basis_active2all,
+		mesh.coarse_basis_all2active,
+		mesh.coarse_elements,
+		mesh.coarse_elem_active2all,
+		mesh.coarse_elem_all2active);
+
+	//compute actual volume of active elements at each depth
+	std::vector<double> volume;
+	for (size_t i=0; i<mesh.coarse_elem_active2all.size(); i++)
+	{
+		typename Mesh_t::Element_t ELEM = mesh.coarse_elements[mesh.coarse_elem_active2all[i]];
+		typename Mesh_t::Point_t H = ELEM.H();
+		if (ELEM.depth<volume.size()) {volume[ELEM.depth] += H[0]*H[1]*H[2];}
+		else {volume.push_back(H[0]*H[1]*H[2]);}
+	}
+
+	std::cout << "volume of active elements: " << std::endl;
+	double total = 0;
+	for (size_t i=0; i<volume.size(); i++)
+	{
+		std::cout << "\tdepth " << i << " :\t" << volume[i] << std::endl;
+		total += volume[i];
+	}
+	std::cout << "\t------------------------------\n";
+	std::cout <<      "\ttotal   :\t" << total << std::endl;
 
 
-// 	gv::charms::make_mass_matrix(massMat, mesh);
-// 	std::cout << "1*M*1= " << ones.transpose()*(massMat*ones) << std::endl;
+	double mass_vol = ones.transpose()*(massMat*ones);
+	std::cout << "1*M*1= " << mass_vol << " (error = " << total-mass_vol << ")" << std::endl;
 
-// 	// mesh.make_stiff_matrix(stifMat);
-// 	// std::cout << "x*A*x= " << x.transpose()*(stifMat*x) << std::endl;
-// }
+	double stiff_vol = x.transpose()*(stifMat*x);
+	std::cout << "x*A*x= " << stiff_vol << " (error = " << total-stiff_vol << ")" << std::endl;
+
+	double zero_val = x.transpose()*(stifMat*ones);
+	std::cout << "x*A*1= " << zero_val << " (error = " << zero_val << ")" << std::endl;
+}
 
 
 
@@ -72,14 +124,14 @@ int main(int argc, char const *argv[])
 
 
 	//set domain parameters
-	std::string filename = "testdata/particles_100.txt";
+	std::string filename = "testdata/sphere.txt";
 	gv::geometry::Assembly<gv::geometry::SuperEllipsoid,8> assembly(filename, "-rrr-eps-xyz-q");
 
 	gv::geometry::AssemblyMeshOptions opts;
-	opts.include_void = true;
+	opts.include_void = false;
 	opts.include_interface = true;
 	opts.include_solid = true;
-	opts.check_centroid = true;
+	opts.check_centroid = false;
 	opts.N = gv::util::Point<3,size_t> {N,N,N};
 	opts.void_marker = 0;
 	opts.solid_marker = 1;
@@ -94,9 +146,10 @@ int main(int argc, char const *argv[])
 
 	//print coarse mesh info
 	mesh.get_active_indices();
-	mesh._init_coarse_scalar_field(mesh.p, fun);
+	mesh.p.resize(mesh.coarse_basis_active2all.size());
+	mesh._init_coarse_scalar_field(mesh.p, fun_const);
 	print_mesh_info(mesh);
-	// print_integrating_matrix_values(mesh);
+	print_integrating_matrix_values(mesh);
 	mesh.save_as("./outfiles/assembly_charms_mesh_refined_0.vtk");
 
 	//refine mesh
@@ -119,11 +172,11 @@ int main(int argc, char const *argv[])
 		}
 
 		mesh.get_active_indices();
-		// mesh._init_coarse_scalar_field(mesh.p, fun);
+		// mesh._init_coarse_scalar_field(mesh.p, fun_const);
 		print_mesh_info(mesh);
 		double percent = (double) mesh.coarse_elem_active2all.size() / (double) std::pow( (double) N * std::pow(2,i), 3);
 		std::cout << "ratio= " << percent << std::endl;
-		// print_integrating_matrix_values(mesh);
+		print_integrating_matrix_values(mesh);
 		mesh.save_as("./outfiles/assembly_charms_mesh_refined_" + std::to_string(i) + ".vtk");
 	}
 	std::cout << "refined mesh" << std::endl;

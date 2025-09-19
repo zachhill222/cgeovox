@@ -127,10 +127,11 @@ namespace gv::charms
 		// size_t coarse_basis.size() const {return coarse_basis.size();}
 
 		//scalar field evaluations and assignments (call get_active_indices() ahead of time!)
-		void _init_coarse_scalar_field(std::vector<double> &scalar, ScalarFun_t fun)
+		template< typename Vector_t>
+		void _init_coarse_scalar_field(Vector_t &scalar, ScalarFun_t fun)
 		{
-			scalar.resize(coarse_basis.size());
-			std::fill(scalar.begin(), scalar.end(), 0);
+			// scalar.resize(coarse_basis.size());
+			// std::fill(scalar.begin(), scalar.end(), 0);
 
 			//evaluate active depth 0 functions and calculate total depth
 			size_t max_depth = 0;
@@ -165,7 +166,8 @@ namespace gv::charms
 			}
 		}
 
-		double _interpolate_coarse_scalar_field(const std::vector<double> &scalar, const Point_t &point) const
+		template<typename Vector_t>
+		double _interpolate_coarse_scalar_field(const Vector_t &scalar, const Point_t &point) const
 		{
 			//note the point is not required to be a mesh vertex
 
@@ -179,8 +181,22 @@ namespace gv::charms
 				if (ELEM.is_active and ELEM.contains(point))
 				{
 					//check ancestor and same basis functions
-					for (int j=0; j<ELEM.cursor_basis_a; j++) {basis_ind.push_back(ELEM.basis_a[j]);}
-					for (int j=0; j<ELEM.cursor_basis_s; j++) {basis_ind.push_back(ELEM.basis_s[j]);}
+					for (int j=0; j<ELEM.cursor_basis_a; j++)
+					{
+						if (coarse_basis[ELEM.basis_a[j]].is_active)
+						{
+							basis_ind.push_back(ELEM.basis_a[j]);
+						}
+
+					}
+
+					for (int j=0; j<ELEM.cursor_basis_s; j++)
+					{
+						if (coarse_basis[ELEM.basis_s[j]].is_active)
+						{
+							basis_ind.push_back(ELEM.basis_s[j]);
+						}
+					}
 				}
 			}
 

@@ -730,7 +730,7 @@ namespace gv::charms
 	//evaluate the gradient of this function (should only be called on interior points)
 	CharmsQ1BasisFun::Point_t CharmsQ1BasisFun::grad(const Point_t &point) const
 	{
-		//loop through support elements and create voxel
+		//loop through support elements
 		for (int i=0; i<cursor_support; i++)
 		{
 			const CharmsQ1Element& ELEM = (*elements)[support[i]];
@@ -738,13 +738,16 @@ namespace gv::charms
 			{
 				//create voxel and determine which index this basis function corresponds to
 				int idx=0;
-				gv::mesh::Voxel voxel;
 				for (int j=0; j<8; j++)
 				{
-					voxel.nodes[j] = &(*vertices)[ELEM.node[j]];
 					if (ELEM.node[j] == node_index) {idx=j;}
 				}
-				return voxel.eval_grad_basis(idx, point);
+
+				//map point back to reference element
+				Point_t ref_point = 2.0 * (point - ELEM.center()) / ELEM.H();
+
+				gv::mesh::Voxel voxel;
+				return voxel.eval_grad_basis(idx, ref_point) / (0.5*ELEM.H());
 			}
 		}
 
