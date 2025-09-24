@@ -9,6 +9,7 @@
 #include <vector>
 #include <array>
 #include <functional>
+#include <omp.h>
 
 namespace gv::charms
 {
@@ -300,6 +301,243 @@ namespace gv::charms
 			mat.setZero();
 			mat.resize(basis_active2all.size(), basis_active2all.size());
 			mat.setFromTriplets(coo_structure.begin(), coo_structure.end());
+		}
+
+
+		//construct both Galerkin mass and stiffness matrices
+		template <int Format_m, int Format_s>
+		void make_integrating_matrices(Eigen::SparseMatrix<double,Format_m> &mat_m, Eigen::SparseMatrix<double,Format_s> &mat_s,
+			const BasisList_t& basis,
+			const std::vector<size_t> basis_active2all,
+			const std::vector<size_t> basis_all2active,
+			const ElementList_t& elements,
+			const std::vector<size_t> elem_active2all,
+			const std::vector<size_t> elem_all2active)
+		{
+			//compute the structure of both matrices
+			using Triplet = Eigen::Triplet<double>;
+			std::vector<Triplet> coo_structure;
+
+
+			//loop over active elements and record the interaction of active basis functions
+			for (size_t e_idx=0; e_idx<elem_active2all.size(); e_idx++)
+			{
+				//reference to current active element
+				const Element_t& ELEM = elements[elem_active2all[e_idx]];
+
+				//interaction between basis_s functions with other basis_s and basis_a functions
+				for (int i=0; i<ELEM.cursor_basis_s; i++)
+				{
+					const BasisFun_t& FUN_i = basis[ELEM.basis_s[i]];
+					if (!FUN_i.is_active) {continue;}
+					const size_t global_i = basis_all2active[FUN_i.list_index]; //DOF and matrix index
+					assert(global_i<basis_active2all.size());
+
+					//integrate grad(FUN_i) * grad(FUN_i)
+					// std::function<Point_t(Point_t)> fun_i = [&FUN_i](Point_t point) -> Point_t {return FUN_i.grad(point);};
+					// double integral = gauss_quad(fun_i, fun_i, ELEM.bbox());
+					coo_structure.push_back(Triplet(global_i, global_i, 0));
+
+					//loop though the other basis_s functions
+					for (int j=i+1; j<ELEM.cursor_basis_s; j++)
+					{
+						const BasisFun_t& FUN_j = basis[ELEM.basis_s[j]];
+						if (!FUN_j.is_active) {continue;}
+						const size_t global_j = basis_all2active[FUN_j.list_index]; //DOF and matrix index
+						assert(global_j<basis_active2all.size());
+
+						//integrate FUN_i * FUN_j
+						// std::function<Point_t(Point_t)> fun_j = [&FUN_j](Point_t point) -> Point_t {return FUN_j.grad(point);};
+						// auto fun_j = [&FUN_j](Point_t point) -> double {return FUN_j.eval(point);};
+						// integral = gauss_quad(fun_i, fun_j, ELEM.bbox());
+						coo_structure.push_back(Triplet(global_i, global_j, 0));
+						coo_structure.push_back(Triplet(global_j, global_i, 0));
+					}
+
+					//loop through any ancestor basis_a functions
+					for (int j=0; j<ELEM.cursor_basis_a; j++)
+					{
+						const BasisFun_t& FUN_j = basis[ELEM.basis_a[j]];
+						if (!FUN_j.is_active) {continue;}
+						const size_t global_j = basis_all2active[FUN_j.list_index]; //DOF and matrix index
+						assert(global_j<basis_active2all.size());
+
+						//integrate FUN_i * FUN_j
+						// std::function<Point_t(Point_t)> fun_j = [&FUN_j](Point_t point) -> Point_t {return FUN_j.grad(point);};
+						// integral = gauss_quad(fun_i, fun_j, ELEM.bbox());
+						coo_structure.push_back(Triplet(global_i, global_j, 0));
+						coo_structure.push_back(Triplet(global_j, global_i, 0));
+					}
+				}
+
+				//interaction between basis_a functions and other basis_a functions
+				for (int i=0; i<ELEM.cursor_basis_a; i++)
+				{
+					const BasisFun_t& FUN_i = basis[ELEM.basis_a[i]];
+					if (!FUN_i.is_active) {continue;}
+					const size_t global_i = basis_all2active[FUN_i.list_index]; //DOF and matrix index
+					assert(global_i<basis_active2all.size());
+
+					//integrate FUN_i * FUN_i
+					// std::function<Point_t(Point_t)> fun_i = [&FUN_i](Point_t point) -> Point_t {return FUN_i.grad(point);};
+					// double integral = gauss_quad(fun_i, fun_i, ELEM.bbox());
+					coo_structure.push_back(Triplet(global_i, global_i, 0));
+
+					//loop through any ancestor basis_a functions
+					for (int j=i+1; j<ELEM.cursor_basis_a; j++)
+					{
+						const BasisFun_t& FUN_j = basis[ELEM.basis_a[j]];
+						if (!FUN_j.is_active) {continue;}
+						const size_t global_j = basis_all2active[FUN_j.list_index]; //DOF and matrix index
+						assert(global_j<basis_active2all.size());
+
+						//integrate FUN_i * FUN_j
+						// std::function<Point_t(Point_t)> fun_j = [&FUN_j](Point_t point) -> Point_t {return FUN_j.grad(point);};
+						// integral = gauss_quad(fun_i, fun_j, ELEM.bbox());
+						coo_structure.push_back(Triplet(global_i, global_j, 0));
+						coo_structure.push_back(Triplet(global_j, global_i, 0));
+					}
+				}
+			}
+
+
+			//initialize matrices with correct structure
+			mat_m.setZero();
+			mat_m.resize(basis_active2all.size(), basis_active2all.size());
+			mat_m.setFromTriplets(coo_structure.begin(), coo_structure.end());
+
+			mat_s.setZero();
+			mat_s.resize(basis_active2all.size(), basis_active2all.size());
+			mat_s.setFromTriplets(coo_structure.begin(), coo_structure.end());
+
+
+
+			//set the values in the matrices
+
+
+			//loop over active elements and integrate interacting basis functions
+			#pragma omp parallel for
+			for (size_t e_idx=0; e_idx<elem_active2all.size(); e_idx++)
+			{
+				//reference to current active element
+				const Element_t& ELEM = elements[elem_active2all[e_idx]];
+
+				//interaction between basis_s functions with other basis_s and basis_a functions
+				for (int i=0; i<ELEM.cursor_basis_s; i++)
+				{
+					const BasisFun_t& FUN_i = basis[ELEM.basis_s[i]];
+					if (!FUN_i.is_active) {continue;}
+					const size_t global_i = basis_all2active[FUN_i.list_index]; //DOF and matrix index
+					assert(global_i<basis_active2all.size());
+
+					//integrate FUN_i * FUN_i
+					std::function<double(Point_t)> fun_i = [&FUN_i](Point_t point) -> double {return FUN_i.eval(point);};
+					double integral_m = gauss_quad(fun_i, fun_i, ELEM.bbox());
+					mat_m.coeffRef(global_i,global_i) += integral_m;
+					// coo_structure.push_back(Triplet(global_i, global_i, integral));
+
+					//integrate grad(FUN_i) * grad(FUN_i)
+					std::function<Point_t(Point_t)> grad_fun_i = [&FUN_i](Point_t point) -> Point_t {return FUN_i.grad(point);};
+					double integral_s = gauss_quad(grad_fun_i, grad_fun_i, ELEM.bbox());
+					mat_s.coeffRef(global_i,global_i) += integral_s;
+
+					//loop though the other basis_s functions
+					for (int j=i+1; j<ELEM.cursor_basis_s; j++)
+					{
+						const BasisFun_t& FUN_j = basis[ELEM.basis_s[j]];
+						if (!FUN_j.is_active) {continue;}
+						const size_t global_j = basis_all2active[FUN_j.list_index]; //DOF and matrix index
+						assert(global_j<basis_active2all.size());
+
+						//integrate FUN_i * FUN_j
+						std::function<double(Point_t)> fun_j = [&FUN_j](Point_t point) -> double {return FUN_j.eval(point);};
+						integral_m = gauss_quad(fun_i, fun_j, ELEM.bbox());
+						mat_m.coeffRef(global_i,global_j) += integral_m;
+						mat_m.coeffRef(global_j,global_i) += integral_m;
+						// coo_structure.push_back(Triplet(global_i, global_j, integral));
+						// coo_structure.push_back(Triplet(global_j, global_i, integral));
+
+						//integrate grad(FUN_i) * grad(FUN_j)
+						std::function<Point_t(Point_t)> grad_fun_j = [&FUN_j](Point_t point) -> Point_t {return FUN_j.grad(point);};
+						integral_s = gauss_quad(grad_fun_i, grad_fun_j, ELEM.bbox());
+						mat_s.coeffRef(global_i,global_j) += integral_s;
+						mat_s.coeffRef(global_j,global_i) += integral_s;
+						// coo_structure.push_back(Triplet(global_i, global_j, integral));
+						// coo_structure.push_back(Triplet(global_j, global_i, integral));
+					}
+
+					//loop through any ancestor basis_a functions
+					for (int j=0; j<ELEM.cursor_basis_a; j++)
+					{
+						const BasisFun_t& FUN_j = basis[ELEM.basis_a[j]];
+						if (!FUN_j.is_active) {continue;}
+						const size_t global_j = basis_all2active[FUN_j.list_index]; //DOF and matrix index
+						assert(global_j<basis_active2all.size());
+
+						//integrate FUN_i * FUN_j
+						std::function<double(Point_t)> fun_j = [&FUN_j](Point_t point) -> double {return FUN_j.eval(point);};
+						integral_m = gauss_quad(fun_i, fun_j, ELEM.bbox());
+						mat_m.coeffRef(global_i,global_j) += integral_m;
+						mat_m.coeffRef(global_j,global_i) += integral_m;
+						// coo_structure.push_back(Triplet(global_i, global_j, integral));
+						// coo_structure.push_back(Triplet(global_j, global_i, integral));
+
+						//integrate grad(FUN_i) * grad(FUN_j)
+						std::function<Point_t(Point_t)> grad_fun_j = [&FUN_j](Point_t point) -> Point_t {return FUN_j.grad(point);};
+						integral_s = gauss_quad(grad_fun_i, grad_fun_j, ELEM.bbox());
+						mat_s.coeffRef(global_i,global_j) += integral_s;
+						mat_s.coeffRef(global_j,global_i) += integral_s;
+						// coo_structure.push_back(Triplet(global_i, global_j, integral));
+						// coo_structure.push_back(Triplet(global_j, global_i, integral));
+					}
+				}
+
+				//interaction between basis_a functions and other basis_a functions
+				for (int i=0; i<ELEM.cursor_basis_a; i++)
+				{
+					const BasisFun_t& FUN_i = basis[ELEM.basis_a[i]];
+					if (!FUN_i.is_active) {continue;}
+					const size_t global_i = basis_all2active[FUN_i.list_index]; //DOF and matrix index
+					assert(global_i<basis_active2all.size());
+
+					//integrate FUN_i * FUN_i
+					std::function<double(Point_t)> fun_i = [&FUN_i](Point_t point) -> double {return FUN_i.eval(point);};
+					double integral_m = gauss_quad(fun_i, fun_i, ELEM.bbox());
+					mat_m.coeffRef(global_i,global_i) += integral_m;
+					// coo_structure.push_back(Triplet(global_i, global_i, integral));
+
+					//integrate grad(FUN_i) * grad(FUN_i)
+					std::function<Point_t(Point_t)> grad_fun_i = [&FUN_i](Point_t point) -> Point_t {return FUN_i.grad(point);};
+					double integral_s = gauss_quad(grad_fun_i, grad_fun_i, ELEM.bbox());
+					mat_s.coeffRef(global_i,global_i) += integral_s;
+					// coo_structure.push_back(Triplet(global_i, global_i, integral));
+
+					//loop through any ancestor basis_a functions
+					for (int j=i+1; j<ELEM.cursor_basis_a; j++)
+					{
+						const BasisFun_t& FUN_j = basis[ELEM.basis_a[j]];
+						if (!FUN_j.is_active) {continue;}
+						const size_t global_j = basis_all2active[FUN_j.list_index]; //DOF and matrix index
+						assert(global_j<basis_active2all.size());
+
+						//integrate FUN_i * FUN_j
+						std::function<double(Point_t)> fun_j = [&FUN_j](Point_t point) -> double {return FUN_j.eval(point);};
+						integral_m = gauss_quad(fun_i, fun_j, ELEM.bbox());
+						mat_m.coeffRef(global_i,global_j) += integral_m;
+						mat_m.coeffRef(global_j,global_i) += integral_m;
+						// coo_structure.push_back(Triplet(global_i, global_j, integral));
+						// coo_structure.push_back(Triplet(global_j, global_i, integral));
+
+						//integrate grad(FUN_i) * grad(FUN_j)
+						std::function<Point_t(Point_t)> grad_fun_j = [&FUN_j](Point_t point) -> Point_t {return FUN_j.grad(point);};
+						integral_s = gauss_quad(grad_fun_i, grad_fun_j, ELEM.bbox());
+						mat_s.coeffRef(global_i,global_j) += integral_s;
+						mat_s.coeffRef(global_j,global_i) += integral_s;
+						// coo_structure.push_back(Triplet(global_i, global_j, integral));
+						// coo_structure.push_back(Triplet(global_j, global_i, integral));
+					}
+				}
+			}
 		}
 
 

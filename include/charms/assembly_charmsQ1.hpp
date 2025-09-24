@@ -15,6 +15,7 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <omp.h>
 
 namespace gv::charms
 {
@@ -31,51 +32,43 @@ namespace gv::charms
 		using Box_t         = gv::util::Box<3>;
 		using Index_t       = gv::util::Point<3,size_t>;
 		using MeshOpts      = gv::geometry::AssemblyMeshOptions;	
-		using ScalarFun_t   = double (*)(Point_t); //function from Point_t to double
-		using VectorFun_t   = Point_t (*)(Point_t); //function from Point_t to Point_t
+		using ScalarFun_t   = std::function<double(Point_t)>; //double (*)(Point_t); //function from Point_t to double
+		using VectorFun_t   = std::function<Point_t(Point_t)>; //Point_t (*)(Point_t); //function from Point_t to Point_t
 
 		const Box_t   domain;
 		VertexList_t  vertices;
-		ElementList_t coarse_elements;
-		ElementList_t fine_elements;
-		BasisList_t   coarse_basis;
-		BasisList_t   fine_basis;
+		ElementList_t elements;
+		BasisList_t   basis;
 		MeshOpts      opts;
 		const Assembly_t&   assembly;
-		std::vector<int> coarse_element_marker;
+		std::vector<int> element_marker;
 
 		//track indices of active basis functions and elements
-		std::vector<size_t> coarse_basis_active2all;
-		std::vector<size_t> coarse_basis_all2active;
-		std::vector<size_t> coarse_elem_active2all;
-		std::vector<size_t> coarse_elem_all2active;
+		std::vector<size_t> basis_active2all;
+		std::vector<size_t> basis_all2active;
+		std::vector<size_t> elem_active2all;
+		std::vector<size_t> elem_all2active;
+		bool active_indices_up_to_date = false;
 
 		//scalar variables to maintain while refining (coefficients of active basis functions)
 		//the length of these vectors should be the same as the total basis size (active+inactive)
-		std::vector<double> u; //fine basis
-		std::vector<double> v; //fine basis
-		std::vector<double> w; //fine basis
-		std::vector<double> p; //coarse basis
+		// std::vector<double> p; //coarse basis
 
 		//constructor for creating a uniform mesh of a box
 		AssemblyCharmsQ1Mesh(const Box_t &domain, const MeshOpts &opts, const Assembly_t &assembly) :
 			domain(domain),
 			vertices(domain),
-			coarse_elements(domain),
-			fine_elements(domain),
-			coarse_basis(domain),
-			fine_basis(domain),
+			elements(domain),
+			basis(domain),
 			opts(opts),
 			assembly(assembly)
 		{
 			//reserve space
 			vertices.reserve((opts.N[0]+1)*(opts.N[1]+1)*(opts.N[2]+1));
-			coarse_elements.reserve(opts.N[0]*opts.N[1]*opts.N[2]);
-			coarse_basis.reserve(vertices.capacity());
-			// fine_elements
-			// fine_basis
+			elements.reserve(opts.N[0]*opts.N[1]*opts.N[2]);
+			basis.reserve(vertices.capacity());
 
-			//construct coarse elements
+			//construct elements
 			Point_t H = domain.sidelength() / Point_t(opts.N);
 			for (size_t i=0; i<opts.N[0]; i++) {
 				for (size_t j=0; j<opts.N[1]; j++) {
@@ -93,9 +86,9 @@ namespace gv::charms
 						//add the element to the mesh
 						if (include_element)
 						{
-							Element_t elem(&vertices, &coarse_elements, &coarse_basis, Box_t{low, high}); //this adds the appropriate vertices to the vertex list
-							coarse_elements.push_back(elem); //add element to mesh
-							coarse_element_marker.push_back(marker);
+							Element_t elem(&vertices, &elements, &basis, Box_t{low, high}); //this adds the appropriate vertices to the vertex list
+							elements.push_back(elem); //add element to mesh
+							element_marker.push_back(marker);
 						}
 					}
 				}
@@ -104,40 +97,39 @@ namespace gv::charms
 			//construct basis functions and add references to elements. in the coarsest mesh, each vertex corresponds to a basis function.
 			for (size_t v_idx=0; v_idx<vertices.size(); v_idx++)
 			{
-				BasisFun_t fun(&vertices, &coarse_elements, &coarse_basis, v_idx);
+				BasisFun_t fun(&vertices, &elements, &basis, v_idx);
 				fun.set_support(); //TODO: speed this up or remove from here.
 
 				size_t fun_idx = (size_t) -1;
-				int flag = coarse_basis.push_back(fun, fun_idx);
+				int flag = basis.push_back(fun, fun_idx);
 				assert(flag==1);
-				assert(coarse_basis[fun_idx].list_index == fun_idx);
+				assert(basis[fun_idx].list_index == fun_idx);
 
 				//add basis fucntion to basis_s of all support elements
-				for (int i=0; i<coarse_basis[fun_idx].cursor_support; i++)
+				for (int i=0; i<basis[fun_idx].cursor_support; i++)
 				{
-					coarse_elements[coarse_basis[fun_idx].support[i]].insert_basis_s(fun_idx);
+					elements[basis[fun_idx].support[i]].insert_basis_s(fun_idx);
 				}
 			}
 		}
 
 		//scalar field evaluations and assignments (call get_active_indices() ahead of time!)
-		template< typename Vector_t>
-		void _init_coarse_scalar_field(Vector_t &scalar, ScalarFun_t fun)
+		void _init_scalar_field(std::vector<double> &scalar, ScalarFun_t fun)
 		{
-			// scalar.resize(coarse_basis.size());
-			// std::fill(scalar.begin(), scalar.end(), 0);
+			assert(active_indices_up_to_date);
+			assert(scalar.size() == basis.size());
 
 			//evaluate active depth 0 functions and calculate total depth
 			size_t max_depth = 0;
-			for (size_t i=0; i<coarse_basis_active2all.size(); i++)
+			for (size_t i=0; i<basis_active2all.size(); i++)
 			{
-				const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[i]];
+				const BasisFun_t& FUN = basis[basis_active2all[i]];
 				assert(FUN.is_active);
 
 				max_depth = std::max(max_depth,FUN.depth);
 				if (FUN.depth==0)
 				{
-					scalar[coarse_basis_active2all[i]] = fun(FUN.coord());
+					scalar[basis_active2all[i]] = fun(FUN.coord());
 					// std::cout << FUN.coord() << " |--> " << scalar[i] << std::endl;
 				}
 			}
@@ -145,48 +137,47 @@ namespace gv::charms
 			//evaluate the remainder of the basis functions
 			for (size_t d=1; d<=max_depth; d++)
 			{
-				for (size_t i=0; i<coarse_basis_active2all.size(); i++)
+				for (size_t i=0; i<basis_active2all.size(); i++)
 				{	
-					const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[i]];
+					const BasisFun_t& FUN = basis[basis_active2all[i]];
 					assert(FUN.is_active);
 
 					if (FUN.depth==d)
 					{
 						//TODO: replace _interpolate with a more efficient function (only need to evaluate at mesh vertices)
 						assert(scalar[FUN.list_index]==0);
-						scalar[FUN.list_index] = fun(FUN.coord()) - _interpolate_coarse_scalar_field(scalar, FUN.coord()); 
+						scalar[FUN.list_index] = fun(FUN.coord()) - _interpolate_scalar_field(scalar, FUN.coord()); 
 					}
 				}
 			}
 		}
 
 		template<typename Vector_t>
-		double _interpolate_coarse_scalar_field(const Vector_t &scalar, const Point_t &point) const
+		double _interpolate_scalar_field(const Vector_t &scalar, const Point_t &point) const
 		{
 			//note the point is not required to be a mesh vertex
 
-			//get coarse element(s) associated with the point and then get indices to active basis functions
+			//get element(s) associated with the point and then get indices to active basis functions
 			//whose support contains the point
-			std::vector<size_t> coarse_elem_ind = coarse_elements.get_data_indices(point);
+			std::vector<size_t> coarse_elem_ind = elements.get_data_indices(point);
 			std::vector<size_t> basis_ind;
 			for (size_t i=0; i<coarse_elem_ind.size(); i++)
 			{
-				const Element_t& ELEM = coarse_elements[coarse_elem_ind[i]];
+				const Element_t& ELEM = elements[coarse_elem_ind[i]];
 				if (ELEM.is_active and ELEM.contains(point))
 				{
 					//check ancestor and same basis functions
 					for (int j=0; j<ELEM.cursor_basis_a; j++)
 					{
-						if (coarse_basis[ELEM.basis_a[j]].is_active)
+						if (basis[ELEM.basis_a[j]].is_active)
 						{
 							basis_ind.push_back(ELEM.basis_a[j]);
 						}
-
 					}
 
 					for (int j=0; j<ELEM.cursor_basis_s; j++)
 					{
-						if (coarse_basis[ELEM.basis_s[j]].is_active)
+						if (basis[ELEM.basis_s[j]].is_active)
 						{
 							basis_ind.push_back(ELEM.basis_s[j]);
 						}
@@ -204,10 +195,10 @@ namespace gv::charms
 			double result = 0;
 			for (size_t i=0; i<basis_ind.size(); i++)
 			{
-				const BasisFun_t &FUN = coarse_basis[basis_ind[i]];
+				const BasisFun_t &FUN = basis[basis_ind[i]];
 				if (FUN.is_active)
 				{
-					// size_t active_idx = coarse_basis_all2active[basis_ind[i]];
+					// size_t active_idx = basis_all2active[basis_ind[i]];
 					result += scalar[basis_ind[i]] * FUN.eval(point);
 				}
 			}
@@ -217,62 +208,67 @@ namespace gv::charms
 
 		void get_active_indices()
 		{
-			//coarse basis indices
-			coarse_basis_active2all.clear();
-			coarse_basis_active2all.reserve(coarse_basis.size());
+			if (active_indices_up_to_date) {return;}
+			active_indices_up_to_date = true;
 
-			coarse_basis_all2active.clear();
-			coarse_basis_all2active.resize(coarse_basis.size());
+			//basis indices
+			basis_active2all.clear();
+			basis_active2all.reserve(basis.size());
 
-			for (size_t i=0; i<coarse_basis.size(); i++)
+			basis_all2active.clear();
+			basis_all2active.resize(basis.size());
+
+			for (size_t i=0; i<basis.size(); i++)
 			{
-				if (coarse_basis[i].is_active)
+				if (basis[i].is_active)
 				{
-					coarse_basis_all2active[i] = coarse_basis_active2all.size();
-					coarse_basis_active2all.push_back(i);
+					basis_all2active[i] = basis_active2all.size();
+					basis_active2all.push_back(i);
 				}
-				else {coarse_basis_all2active[i] = (size_t) -1;}
+				else {basis_all2active[i] = (size_t) -1;}
 			}
 
-			//coarse element indices
-			coarse_elem_active2all.clear();
-			coarse_elem_active2all.reserve(coarse_elements.size());
+			//element indices
+			elem_active2all.clear();
+			elem_active2all.reserve(elements.size());
 
-			coarse_elem_all2active.clear();
-			coarse_elem_all2active.resize(coarse_elements.size());
+			elem_all2active.clear();
+			elem_all2active.resize(elements.size());
 
-			for (size_t i=0; i<coarse_elements.size(); i++)
+			for (size_t i=0; i<elements.size(); i++)
 			{
-				if (coarse_elements[i].is_active)
+				if (elements[i].is_active)
 				{
-					coarse_elem_all2active[i] = coarse_elem_active2all.size();
-					coarse_elem_active2all.push_back(i);
+					elem_all2active[i] = elem_active2all.size();
+					elem_active2all.push_back(i);
 				}
-				else {coarse_elem_all2active[i] = (size_t) -1;}
+				else {elem_all2active[i] = (size_t) -1;}
 			}
 		}
 
 		//get interior boundary (total basis index, not active basis index)
-		std::vector<size_t> active_coarse_basis_interior_boundary() const
+		std::vector<size_t> active_basis_interior_boundary() const
 		{
+			assert(active_indices_up_to_date);
+
 			std::vector<size_t> result;
 
 			//loop over active interface elements
-			for (size_t e_idx=0; e_idx<coarse_elem_active2all.size(); e_idx++)
+			for (size_t e_idx=0; e_idx<elem_active2all.size(); e_idx++)
 			{
-				const Element_t& ELEM = coarse_elements[coarse_elem_active2all[e_idx]];
-				if (coarse_element_marker[ELEM.list_index] != opts.interface_marker) {continue;}
+				const Element_t& ELEM = elements[elem_active2all[e_idx]];
+				if (element_marker[ELEM.list_index] != opts.interface_marker) {continue;}
 
 				//check basis_s
 				for (int i=0; i<ELEM.cursor_basis_s; i++)
 				{
-					const BasisFun_t& FUN = coarse_basis[ELEM.basis_s[i]];
+					const BasisFun_t& FUN = basis[ELEM.basis_s[i]];
 					if (!FUN.is_active) {continue;}
 
 					int n_active = 0;
 					for (int j=0; j<FUN.cursor_support; j++)
 					{
-						if (coarse_elements[FUN.support[j]].is_active) {n_active++;}
+						if (elements[FUN.support[j]].is_active) {n_active++;}
 					}
 					if (n_active < 8) {result.push_back(FUN.list_index);}
 				}
@@ -280,12 +276,12 @@ namespace gv::charms
 				//check basis_a
 				for (int i=0; i<ELEM.cursor_basis_a; i++)
 				{
-					const BasisFun_t& FUN = coarse_basis[ELEM.basis_a[i]];
+					const BasisFun_t& FUN = basis[ELEM.basis_a[i]];
 					if (!FUN.is_active) {continue;}
 					int n_active = 0;
 					for (int j=0; j<FUN.cursor_support; j++)
 					{
-						if (coarse_elements[FUN.support[j]].is_active) {n_active++;}
+						if (elements[FUN.support[j]].is_active) {n_active++;}
 					}
 					if (n_active < 8) {result.push_back(FUN.list_index);}
 				}
@@ -294,54 +290,75 @@ namespace gv::charms
 			return result;
 		}
 
+		//get volume of active elements
+		double volume() const
+		{
+			assert(active_indices_up_to_date);
+
+			double result = 0;
+			#pragma omp parallel for reduction(+:result)
+			for (size_t e_idx=0; e_idx<elem_active2all.size(); e_idx++)
+			{
+				const Element_t& ELEM = elements[elem_active2all[e_idx]];
+				assert(ELEM.is_active);
+				const Point_t H = ELEM.H();
+				result += H[0]*H[1]*H[2];
+			}
+
+			return result;
+		}
+
 		//file io
-		void vtkprint(std::ostream &os) const; //write coarse mesh (as unstructured non-conforming voxels) in vtk format to specified stream
-		void save_as(std::string filename) const; //save coarse mesh information to file, uses vtkprint()
+		void vtkprint(std::ostream &os, const std::vector<double>& scalar_field = std::vector<double>() ) const; //write mesh (as unstructured non-conforming voxels) in vtk format to specified stream
+		void save_as(std::string filename, const std::vector<double>& scalar_field = std::vector<double>()) const; //save mesh information to file, uses vtkprint()
 
 		//quasi-hierarchical refinement
-		int q_refine(const size_t basis_idx); //de-activate the specified basis function and activate its children
-		void refine(const size_t element_idx); //refine all basis functions in basis_s of the specified element
+		int q_refine(const size_t basis_idx, std::vector<double>& scalar_field); //de-activate the specified basis function and activate its children
+		void refine(const size_t element_idx, std::vector<double>& scalar_field); //refine all basis functions in basis_s of the specified element
 	};
 
 
 	//quasi-hierarchical refinement (basis function)
 	template <class Assembly_t>
-	int AssemblyCharmsQ1Mesh<Assembly_t>::q_refine(const size_t basis_idx)
+	int AssemblyCharmsQ1Mesh<Assembly_t>::q_refine(const size_t basis_idx, std::vector<double>& scalar_field)
 	{
-		assert(basis_idx<coarse_basis.size());
+		assert(scalar_field.size() == basis.size());
+		assert(basis_idx<basis.size());
 		
+		active_indices_up_to_date = false;
+
 		//verify that this basis function can be refined
-		// assert(!coarse_basis[basis_idx].is_refined);
-		if (coarse_basis[basis_idx].is_refined) {return 1;}
+		// assert(!basis[basis_idx].is_refined);
+		if (basis[basis_idx].is_refined) {return 1;}
 
 		while (vertices.capacity() < vertices.size()+125) {vertices.reserve(2*vertices.capacity());}
-		while (coarse_elements.capacity() < coarse_elements.size()+64) {coarse_elements.reserve(2*coarse_elements.capacity());}
-		while (coarse_basis.capacity() < coarse_basis.size()+27) {coarse_basis.reserve(2*coarse_basis.capacity());}
+		while (elements.capacity() < elements.size()+64) {elements.reserve(2*elements.capacity());}
+		while (basis.capacity() < basis.size()+27) {basis.reserve(2*basis.capacity());}
 		
 		//convenient references
-		BasisFun_t& FUN = coarse_basis[basis_idx];
+		BasisFun_t& FUN = basis[basis_idx];
 
 		//create candidate basis functions and elements
-		std::vector<int> new_coarse_element_marker;
-		FUN.subdivide(assembly, opts, new_coarse_element_marker);
+		std::vector<int> new_element_marker;
+		FUN.subdivide(assembly, opts, new_element_marker);
 		
 		//deactivate current basis function
 		FUN.deactivate();
 
-		p.resize(coarse_basis.size());
+		scalar_field.resize(basis.size());
 		for (int i=0; i<FUN.cursor_child; i++)
 		{
-			BasisFun_t& CHILD = coarse_basis[FUN.child[i]];
+			BasisFun_t& CHILD = basis[FUN.child[i]];
 			CHILD.activate(assembly, opts); //activate all valid support elements and this function (if it has at least one valid support element)
-			if (CHILD.is_active) {p[CHILD.list_index] += p[FUN.list_index]*FUN.eval(CHILD.coord());}
+			if (CHILD.is_active) {scalar_field[CHILD.list_index] += scalar_field[FUN.list_index]*FUN.eval(CHILD.coord());}
 		}
 
 		//mark this basis function as refined
 		FUN.is_refined = true;
 
 		//track new element markers
-		for (size_t i=0; i<new_coarse_element_marker.size(); i++) {coarse_element_marker.push_back(new_coarse_element_marker[i]);}
-		assert(coarse_element_marker.size() == coarse_elements.size());
+		for (size_t i=0; i<new_element_marker.size(); i++) {element_marker.push_back(new_element_marker[i]);}
+		assert(element_marker.size() == elements.size());
 
 		return 0;
 
@@ -350,25 +367,28 @@ namespace gv::charms
 
 
 	//quasi-hierarchical refinement (all basis functions in an element)
+	//extend the coefficients in scalar_field so that it can be interpolated in the refined basis
 	template <class Assembly_t>
-	void AssemblyCharmsQ1Mesh<Assembly_t>::refine(const size_t element_idx)
+	void AssemblyCharmsQ1Mesh<Assembly_t>::refine(const size_t element_idx, std::vector<double>& scalar_field)
 	{
-		// Element_t &ELEM = coarse_elements[element_idx];
-		// std::cout << coarse_elements[element_idx].cursor_basis_s << std::endl;
-		for (int j=0; j<coarse_elements[element_idx].cursor_basis_s; j++)
+		active_indices_up_to_date = false;
+
+		// Element_t &ELEM = elements[element_idx];
+		// std::cout << elements[element_idx].cursor_basis_s << std::endl;
+		for (int j=0; j<elements[element_idx].cursor_basis_s; j++)
 		{
-			// std::cout << "refine basis " << coarse_elements[element_idx].basis_s[j] << " (" << j << "/" << coarse_elements[element_idx].cursor_basis_s << ")" << std::endl;
-			q_refine(coarse_elements[element_idx].basis_s[j]);
+			// std::cout << "refine basis " << elements[element_idx].basis_s[j] << " (" << j << "/" << elements[element_idx].cursor_basis_s << ")" << std::endl;
+			q_refine(elements[element_idx].basis_s[j], scalar_field);
 		}
 	}
 
 	
 	//vtkprint implementation
 	template <class Assembly_t>
-	void AssemblyCharmsQ1Mesh<Assembly_t>::vtkprint(std::ostream &os) const
+	void AssemblyCharmsQ1Mesh<Assembly_t>::vtkprint(std::ostream &os, const std::vector<double>& scalar_field) const
 	{
 		//ensure the active basis and element lists are up to date
-		// get_active_indices();
+		assert(active_indices_up_to_date);
 
 
 		//write to buffer and flush buffer to the stream
@@ -388,13 +408,13 @@ namespace gv::charms
 		buffer.str("");
 
 		//ELEMENTS
-		buffer << "CELLS " << coarse_elements.size() << " " << (1+8)*coarse_elements.size() << "\n";
-		for (size_t i=0; i<coarse_elements.size(); i++)
+		buffer << "CELLS " << elements.size() << " " << (1+8)*elements.size() << "\n";
+		for (size_t i=0; i<elements.size(); i++)
 		{
 			buffer << 8 << " "; //8 nodes per element
 			for (size_t j=0; j<8; j++)
 			{
-				buffer << coarse_elements[i].node[j] << " ";
+				buffer << elements[i].node[j] << " ";
 			}
 			buffer << "\n";
 		}
@@ -403,8 +423,8 @@ namespace gv::charms
 		buffer.str("");
 
 		//VTK IDs
-		buffer << "CELL_TYPES " << coarse_elements.size() << "\n";
-		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].vtk_id << " ";}
+		buffer << "CELL_TYPES " << elements.size() << "\n";
+		for (size_t i=0; i<elements.size(); i++) {buffer << elements[i].vtk_id << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
@@ -412,25 +432,25 @@ namespace gv::charms
 
 
 		//MESH INFORMATION AT EACH CELL
-		buffer << "CELL_DATA " << coarse_elements.size() << "\n";
+		buffer << "CELL_DATA " << elements.size() << "\n";
 		buffer << "FIELD mesh_element_info 9\n";
 
 		//ELEMENT INDEX
-		buffer << "index 1 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++)
+		buffer << "index 1 " << elements.size() << " integer\n";
+		for (size_t i=0; i<elements.size(); i++)
 		{
-			assert(coarse_elements[i].list_index == i);
-			buffer << coarse_elements[i].list_index << " ";
+			assert(elements[i].list_index == i);
+			buffer << elements[i].list_index << " ";
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT ACTIVE INDEX
-		buffer << "active_index 1 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++)
+		buffer << "active_index 1 " << elements.size() << " integer\n";
+		for (size_t i=0; i<elements.size(); i++)
 		{
-			if (coarse_elements[i].is_active) {buffer << coarse_elem_all2active[i] << " ";}
+			if (elements[i].is_active) {buffer << elem_all2active[i] << " ";}
 			else {buffer << "-1 ";}
 		}
 		buffer << "\n\n";
@@ -438,36 +458,36 @@ namespace gv::charms
 		buffer.str("");
 
 		//ELEMENT IS_ACTIVE
-		buffer << "is_active 1 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++)
+		buffer << "is_active 1 " << elements.size() << " integer\n";
+		for (size_t i=0; i<elements.size(); i++)
 		{
-			buffer << coarse_elements[i].is_active << " ";
+			buffer << elements[i].is_active << " ";
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT TYPE MARKER
-		buffer << "marker 1 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_element_marker[i] << " ";}
+		buffer << "marker 1 " << elements.size() << " integer\n";
+		for (size_t i=0; i<elements.size(); i++) {buffer << element_marker[i] << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT DEPTH
-		buffer << "depth 1 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].depth << " ";}
+		buffer << "depth 1 " << elements.size() << " integer\n";
+		for (size_t i=0; i<elements.size(); i++) {buffer << elements[i].depth << " ";}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT PARENT
-		buffer << "parent 1 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++)
+		buffer << "parent 1 " << elements.size() << " integer\n";
+		for (size_t i=0; i<elements.size(); i++)
 		{
-			if (coarse_elements[i].parent < coarse_elements.size())
+			if (elements[i].parent < elements.size())
 			{
-				buffer << coarse_elements[i].parent << " ";
+				buffer << elements[i].parent << " ";
 			}
 			else {buffer << "-1 ";}
 		}
@@ -476,15 +496,15 @@ namespace gv::charms
 		buffer.str("");
 
 		//ELEMENT CHILDREN
-		buffer << "children 8 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++)
+		buffer << "children 8 " << elements.size() << " integer\n";
+		for (size_t i=0; i<elements.size(); i++)
 		{
-			for (int j=0; j<coarse_elements[i].cursor_child; j++)
+			for (int j=0; j<elements[i].cursor_child; j++)
 			{
-				buffer << coarse_elements[i].child[j] << " ";
+				buffer << elements[i].child[j] << " ";
 			}
 
-			for (int j=coarse_elements[i].cursor_child; j<8; j++)
+			for (int j=elements[i].cursor_child; j<8; j++)
 			{
 				buffer << "-1 ";
 			}
@@ -494,22 +514,22 @@ namespace gv::charms
 		buffer.str("");
 
 		//ELEMENT IS_SUBDIVIDED MARKER
-		// buffer << "is_subdivided 1 " << coarse_elements.size() << " integer\n";
-		// for (size_t i=0; i<coarse_elements.size(); i++) {buffer << coarse_elements[i].is_subdivided << " ";}
+		// buffer << "is_subdivided 1 " << elements.size() << " integer\n";
+		// for (size_t i=0; i<elements.size(); i++) {buffer << elements[i].is_subdivided << " ";}
 		// buffer << "\n\n";
 		// os << buffer.rdbuf();
 		// buffer.str("");
 
 		//ELEMENT BASIS_S
-		buffer << "basis_s 8 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++) {to_stream(buffer, coarse_elements[i].basis_s, 8);}
+		buffer << "basis_s 8 " << elements.size() << " integer\n";
+		for (size_t i=0; i<elements.size(); i++) {to_stream(buffer, elements[i].basis_s, 8);}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
 
 		//ELEMENT BASIS_A
-		buffer << "basis_a[0:7] 8 " << coarse_elements.size() << " integer\n";
-		for (size_t i=0; i<coarse_elements.size(); i++) {to_stream(buffer, coarse_elements[i].basis_a, 8);}
+		buffer << "basis_a[0:7] 8 " << elements.size() << " integer\n";
+		for (size_t i=0; i<elements.size(); i++) {to_stream(buffer, elements[i].basis_a, 8);}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
@@ -523,15 +543,15 @@ namespace gv::charms
 		vertex2active_basis.resize(vertices.size());
 		for (size_t i=0; i<vertices.size(); i++)
 		{
-			std::vector<size_t> basis_total = coarse_basis.get_data_indices(vertices[i]);
+			std::vector<size_t> basis_total = basis.get_data_indices(vertices[i]);
 			int count = 0;
 			for (auto it=basis_total.begin(); it!=basis_total.end(); ++it)
 			{
-				if (coarse_basis[*it].is_active and coarse_basis[*it].coord()==vertices[i])
+				if (basis[*it].is_active and basis[*it].coord()==vertices[i])
 				{
 					count++;
-					vertex2active_basis[i] = coarse_basis_all2active[*it];
-					assert(vertex2active_basis[i]<coarse_basis_active2all.size());
+					vertex2active_basis[i] = basis_all2active[*it];
+					assert(vertex2active_basis[i]<basis_active2all.size());
 				}
 			}
 			assert(count<=1);
@@ -551,7 +571,7 @@ namespace gv::charms
 		{	
 			size_t active_basis_idx = vertex2active_basis[i];
 			if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
-			else {buffer << coarse_basis[coarse_basis_active2all[active_basis_idx]].depth << " ";}
+			else {buffer << basis[basis_active2all[active_basis_idx]].depth << " ";}
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
@@ -563,7 +583,7 @@ namespace gv::charms
 		{	
 			size_t active_basis_idx = vertex2active_basis[i];
 			if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
-			else {buffer << coarse_basis_active2all[active_basis_idx] << " ";}
+			else {buffer << basis_active2all[active_basis_idx] << " ";}
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
@@ -589,7 +609,7 @@ namespace gv::charms
 			if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 ";}
 			else
 			{
-				const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[active_basis_idx]];
+				const BasisFun_t& FUN = basis[basis_active2all[active_basis_idx]];
 				to_stream(buffer, FUN.support, 8);
 			}
 		}
@@ -605,7 +625,7 @@ namespace gv::charms
 			if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
 			else
 			{
-				const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[active_basis_idx]];
+				const BasisFun_t& FUN = basis[basis_active2all[active_basis_idx]];
 				to_stream(buffer, FUN.parent, 27);
 			}
 		}
@@ -621,7 +641,7 @@ namespace gv::charms
 			if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
 			else
 			{
-				const BasisFun_t& FUN = coarse_basis[coarse_basis_active2all[active_basis_idx]];
+				const BasisFun_t& FUN = basis[basis_active2all[active_basis_idx]];
 				to_stream(buffer, FUN.child, 27);
 			}
 		}
@@ -631,12 +651,12 @@ namespace gv::charms
 
 
 		//VERTEX TEST DATA
-		if (p.size() == coarse_basis.size())
+		if (scalar_field.size() == basis.size())
 		{
-			buffer << "p 1 " << vertices.size() << " float\n";
+			buffer << "u 1 " << vertices.size() << " float\n";
 			for (size_t i=0; i<vertices.size(); i++)
 			{
-				buffer << _interpolate_coarse_scalar_field(p, vertices[i]) << " ";
+				buffer << (float) _interpolate_scalar_field(scalar_field, vertices[i]) << " ";
 			}
 		}
 		else
@@ -652,11 +672,11 @@ namespace gv::charms
 		buffer.str("");
 		
 		//VERTEX BOUNDARY INDICATOR
-		std::vector<size_t> boundary_basis = active_coarse_basis_interior_boundary();
+		std::vector<size_t> boundary_basis = active_basis_interior_boundary();
 		int boundary_vertex[vertices.size()] {0};
 		for (size_t i=0; i<boundary_basis.size(); i++)
 		{
-			const BasisFun_t& FUN = coarse_basis[boundary_basis[i]];
+			const BasisFun_t& FUN = basis[boundary_basis[i]];
 			boundary_vertex[FUN.node_index] = 1;
 		}
 
@@ -675,7 +695,7 @@ namespace gv::charms
 
 	//save mesh implementation
 	template <class Assembly_t>
-	void AssemblyCharmsQ1Mesh<Assembly_t>::save_as(std::string filename) const
+	void AssemblyCharmsQ1Mesh<Assembly_t>::save_as(std::string filename, const std::vector<double>& scalar_field) const
 	{
 		//open and check file
 		std::ofstream meshfile(filename);
@@ -687,7 +707,7 @@ namespace gv::charms
 		}
 
 		//print mesh to file
-		vtkprint(meshfile);
+		vtkprint(meshfile, scalar_field);
 		meshfile.close();
 	}
 
@@ -697,15 +717,11 @@ namespace gv::charms
 	std::ostream& operator<<(std::ostream& os, const AssemblyCharmsQ1Mesh<Assembly_t>& mesh)
 	{
 		os << "n_vertices= " << mesh.vertices.size() << std::endl;
-		os << "n_coarse_basis_functions= " << mesh.coarse_basis.size() << std::endl;
-		os << "n_active_coarse_basis_functions= " << mesh.coarse_basis_active2all.size() << std::endl;
-		os << "n_coarse_elements= " << mesh.coarse_elements.size() << std::endl;
-		os << "n_active_coarse_elements= " << mesh.coarse_elem_active2all.size() << std::endl;
-
-		os << "n_fine_basis_functions= " << mesh.fine_basis.size() << std::endl;
-		
-		os << "n_fine_elements= " << mesh.fine_elements.size() << std::endl;
+		os << "n_basis_functions= " << mesh.basis.size() << std::endl;
+		os << "n_active_basis_functions= " << mesh.basis_active2all.size() << std::endl;
+		os << "n_elements= " << mesh.elements.size() << std::endl;
+		os << "n_active_elements= " << mesh.elem_active2all.size() << std::endl;
 
 		return os;
-		}
+	}
 }

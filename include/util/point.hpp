@@ -423,7 +423,16 @@ namespace gv::util {
 
 	///L-infinity norm
 	template <int dim=3, typename T=double>
-	T norminfty(const Point<dim,T> &point) {return max(abs(point));}
+	T norminfty(const Point<dim,T> &point)
+	{
+		double result = 0;
+		for (int i=0; i<dim; i++)
+		{
+			if (abs(point[i])>result) {result=abs(point[i]);}
+		}
+		return result;
+		// return max(abs(point));
+	}
 
 
 	///Normalize (without modification)

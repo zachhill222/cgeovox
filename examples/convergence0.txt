@@ -1,0 +1,303 @@
+
+===== UNIT SPHERE START (n_start=1, n_refine= 6) =====
+refine boundary using CHARMS
+saving to: ./outfiles/
+prefix: unitSphere_refine0
+===== coarse mesh =====
+n_vertices= 8
+n_basis_functions= 8
+n_active_basis_functions= 0
+n_elements= 1
+n_active_elements= 0
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0731596
+
+===== refinement 1 =====
+n_vertices= 27
+n_basis_functions= 35
+n_active_basis_functions= 8
+n_elements= 9
+n_active_elements= 1
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.046875
+
+===== refinement 2 =====
+n_vertices= 125
+n_basis_functions= 160
+n_active_basis_functions= 27
+n_elements= 73
+n_active_elements= 8
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0702917
+
+===== refinement 3 =====
+n_vertices= 729
+n_basis_functions= 888
+n_active_basis_functions= 125
+n_elements= 585
+n_active_elements= 64
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0373241
+
+===== refinement 4 =====
+n_vertices= 4887
+n_basis_functions= 5284
+n_active_basis_functions= 613
+n_elements= 4617
+n_active_elements= 408
+
+making integrating matrices (1 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0185107
+
+===== refinement 5 =====
+n_vertices= 28767
+n_basis_functions= 26624
+n_active_basis_functions= 3273
+n_elements= 28233
+n_active_elements= 2672
+
+making integrating matrices (2 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00925417
+
+===== refinement 6 =====
+n_vertices= 135783
+n_basis_functions= 118236
+n_active_basis_functions= 15781
+n_elements= 134601
+n_active_elements= 14280
+
+making integrating matrices (10 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00443079
+
+ summary:
+Deg. of Freedom: 8, 27, 125, 613, 3273, 15781, 69789
+Mean L1 Error  : 0.0731596, 0.046875, 0.0702917, 0.0373241, 0.0185107, 0.00925417, 0.00443079
+===== UNIT SPHERE END (31 seconds) =====
+
+
+===== AXIAL PRISM START (n_start=1, n_refine= 6) =====
+refine boundary using CHARMS
+saving to: ./outfiles/
+prefix: axialPrism_refine0
+===== coarse mesh =====
+n_vertices= 8
+n_basis_functions= 8
+n_active_basis_functions= 0
+n_elements= 1
+n_active_elements= 0
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.187533
+
+===== refinement 1 =====
+n_vertices= 27
+n_basis_functions= 35
+n_active_basis_functions= 8
+n_elements= 9
+n_active_elements= 1
+
+making integrating matrices (1 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.103582
+
+===== refinement 2 =====
+n_vertices= 125
+n_basis_functions= 160
+n_active_basis_functions= 27
+n_elements= 73
+n_active_elements= 8
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0437758
+
+===== refinement 3 =====
+n_vertices= 729
+n_basis_functions= 888
+n_active_basis_functions= 125
+n_elements= 585
+n_active_elements= 64
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0563503
+
+===== refinement 4 =====
+n_vertices= 4597
+n_basis_functions= 5072
+n_active_basis_functions= 729
+n_elements= 4169
+n_active_elements= 512
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.059679
+
+===== refinement 5 =====
+n_vertices= 24785
+n_basis_functions= 25384
+n_active_basis_functions= 4309
+n_elements= 23113
+n_active_elements= 3648
+
+making integrating matrices (2 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0158787
+
+===== refinement 6 =====
+n_vertices= 146447
+n_basis_functions= 126554
+n_active_basis_functions= 15759
+n_elements= 144649
+n_active_elements= 14456
+
+making integrating matrices (13 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0158731
+
+ summary:
+Deg. of Freedom: 8, 27, 125, 729, 4309, 15759, 83755
+Mean L1 Error  : 0.187533, 0.103582, 0.0437758, 0.0563503, 0.059679, 0.0158787, 0.0158731
+===== AXIAL PRISM END (28 seconds) =====
+
+
+===== PRISM START (n_start=1, n_refine= 6) =====
+refine boundary using CHARMS
+saving to: ./outfiles/
+prefix: prism_refine0
+===== coarse mesh =====
+n_vertices= 8
+n_basis_functions= 8
+n_active_basis_functions= 0
+n_elements= 1
+n_active_elements= 0
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.319631
+
+===== refinement 1 =====
+n_vertices= 27
+n_basis_functions= 35
+n_active_basis_functions= 8
+n_elements= 9
+n_active_elements= 1
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.351429
+
+===== refinement 2 =====
+n_vertices= 125
+n_basis_functions= 160
+n_active_basis_functions= 27
+n_elements= 73
+n_active_elements= 8
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.21638
+
+===== refinement 3 =====
+n_vertices= 729
+n_basis_functions= 851
+n_active_basis_functions= 105
+n_elements= 585
+n_active_elements= 48
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.133051
+
+===== refinement 4 =====
+n_vertices= 4537
+n_basis_functions= 4457
+n_active_basis_functions= 425
+n_elements= 4265
+n_active_elements= 248
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0810378
+
+===== refinement 5 =====
+n_vertices= 23235
+n_basis_functions= 20845
+n_active_basis_functions= 1995
+n_elements= 22985
+n_active_elements= 1412
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (1 seconds)
+mean L1 error= 0.0406704
+
+===== refinement 6 =====
+n_vertices= 106443
+n_basis_functions= 91649
+n_active_basis_functions= 10249
+n_elements= 106569
+n_active_elements= 8564
+
+making integrating matrices (5 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0178482
+
+ summary:
+Deg. of Freedom: 8, 27, 105, 425, 1995, 10249, 48679
+Mean L1 Error  : 0.319631, 0.351429, 0.21638, 0.133051, 0.0810378, 0.0406704, 0.0178482
+===== PRISM END (22 seconds) =====
+

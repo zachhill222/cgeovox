@@ -16,6 +16,7 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
+#include <initializer_list>
 
 namespace gv::geometry{
 
@@ -99,6 +100,18 @@ namespace gv::geometry{
 
 		Assembly() : _particles() {};
 		Assembly(const std::string filename, const std::string columns) : _particles() {readfile(filename, columns);}
+		Assembly(std::initializer_list<Particle_t> list) : _particles()
+		{
+			//get bounding box
+			assert(list.size()>0);
+
+			Box_t bbox = (*list.begin()).bbox();
+			for (auto it = list.begin(); it != list.end(); ++it) {bbox.combine((*it).bbox());}
+
+			//add particles to the octree
+			_particles.set_bbox(bbox);
+			for (auto it = list.begin(); it != list.end(); ++it) {_particles.push_back(*it);}
+		}
 
 		//check if a point is in any particle
 		bool is_in_particle(const Point_t &point) const
@@ -149,7 +162,8 @@ namespace gv::geometry{
 
 		if (n_vert==0)
 		{
-			if (collides_with_particle(voxel)) {return;} //cannot assess if the voxel should be included
+			// if (collides_with_particle(voxel)) {return;} //cannot assess if the voxel should be included
+			if (is_in_particle(voxel.center())) {return;}
 			else {marker = opts.void_marker;}
 		}
 		else if (n_vert==8) {marker = opts.solid_marker;}

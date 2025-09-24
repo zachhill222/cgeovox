@@ -13,14 +13,14 @@ namespace gv::geometry{
 	{
 	public:
 		using Point_t = gv::util::Point<3,double>;
-		using Box_t = gv::util::Box<3,double>;
-		using Quat_t = gv::util::Quaternion<double>;
+		using Box_t   = gv::util::Box<3,double>;
+		using Quat_t  = gv::util::Quaternion<double>;
 
 		Particle() {}
 		Particle(const Point_t &radii, const Point_t &center, const Quat_t &quaternion, double eps0, double eps1) :
 			_radii(radii),
 			_center(center),
-			_quaternion(quaternion),
+			_quaternion(quaternion), //controls rotation from global to local coordinates
 			_eps0(eps0),
 			_eps1(eps1)
 			{}
@@ -65,26 +65,27 @@ namespace gv::geometry{
 				direction[i] = 1;
 				high[i] = support(direction)[i];
 			}
-			// std::cout << (Box_t {low, high}).tostr();
 			return Box_t {low, high};
 		}
 
 		//check if point is inside particle
 		bool contains(const Point_t &point) const
 		{
-			Point_t localpoint = tolocal(point);
-			if (gv::util::norminfty<3,double>(localpoint) <= 1) {return _eval_level_set(localpoint) <= 1;}
-			return false;
+			// Point_t localpoint = tolocal(point);
+			// if (gv::util::norminfty<3,double>(localpoint) <= 1) {return _eval_level_set(localpoint) <= 1;}
+			// return false;
+
+			return eval_level_set(point) <= 1;
 		}
 
 
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
-		virtual Point_t support(const Point_t &direction) const {assert(false); return Point_t {0,0,0};}
+		virtual Point_t support(const Point_t &direction) const = 0;
 
 
 	protected:
 		//evaluate level set function at specified point in normalized local coordinates
-		virtual double _eval_level_set(const Point_t &localpoint) const {assert(false); return 0;}
+		virtual double _eval_level_set(const Point_t &localpoint) const = 0;
 	};
 
 
@@ -93,8 +94,8 @@ namespace gv::geometry{
 	{
 	public:
 		using Point_t = gv::util::Point<3,double>;
-		using Box_t = gv::util::Box<3,double>;
-		using Quat_t = gv::util::Quaternion<double>;
+		using Box_t   = gv::util::Box<3,double>;
+		using Quat_t  = gv::util::Quaternion<double>;
 
 		Prism() : Particle() {}
 		Prism(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps0=1, const double eps1=1):
@@ -102,7 +103,7 @@ namespace gv::geometry{
 
 		Point_t support(const Point_t &direction) const override
 		{
-			Point_t rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
+			Point_t rotated_direction = this->_quaternion.rotate(direction)/this->_radii;
 			Point_t localpoint {1,1,1};
 			for (int i=0; i<3; i++)
 				{
@@ -123,8 +124,8 @@ namespace gv::geometry{
 	{
 	public:
 		using Point_t = gv::util::Point<3,double>;
-		using Box_t = gv::util::Box<3,double>;
-		using Quat_t = gv::util::Quaternion<double>;
+		using Box_t   = gv::util::Box<3,double>;
+		using Quat_t  = gv::util::Quaternion<double>;
 
 		Ellipsoid() : Particle() {}
 		Ellipsoid(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps0=1, const double eps1=1):
@@ -133,7 +134,7 @@ namespace gv::geometry{
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t support(const Point_t &direction) const override
 		{
-			Point_t rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
+			Point_t rotated_direction = this->_quaternion.rotate(direction)/this->_radii;
 			Point_t localpoint = gv::util::normalize(rotated_direction);
 			return this->toglobal(localpoint);
 		}
@@ -148,8 +149,8 @@ namespace gv::geometry{
 	{
 	public:
 		using Point_t = gv::util::Point<3,double>;
-		using Box_t = gv::util::Box<3,double>;
-		using Quat_t = gv::util::Quaternion<double>;
+		using Box_t   = gv::util::Box<3,double>;
+		using Quat_t  = gv::util::Quaternion<double>;
 
 		Cylinder() : Particle() {}
 		Cylinder(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps0=1, const double eps1=1):
@@ -158,15 +159,15 @@ namespace gv::geometry{
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t support(const Point_t &direction) const override
 		{
-			Point_t rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
+			Point_t rotated_direction = this->_quaternion.rotate(direction)/this->_radii;
 			Point_t localpoint {0,0,1};
 			if (rotated_direction[2] < 0) {localpoint[2] = -1;}
-			
+
 			double R = std::sqrt(rotated_direction[0]*rotated_direction[0] + rotated_direction[1]*rotated_direction[1]);
 			if (R>0)
 			{
-				localpoint[0]/=R;
-				localpoint[1]/=R;
+				localpoint[0] = rotated_direction[0]/R;
+				localpoint[1] = rotated_direction[1]/R;
 			}
 
 			return this->toglobal(localpoint);
@@ -182,8 +183,8 @@ namespace gv::geometry{
 	{
 	public:
 		using Point_t = gv::util::Point<3,double>;
-		using Box_t = gv::util::Box<3,double>;
-		using Quat_t = gv::util::Quaternion<double>;
+		using Box_t   = gv::util::Box<3,double>;
+		using Quat_t  = gv::util::Quaternion<double>;
 
 		SuperEllipsoid() : Particle() {}
 		SuperEllipsoid(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps0=1, const double eps1=1):
@@ -192,7 +193,7 @@ namespace gv::geometry{
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t support(const Point_t &direction) const override
 		{
-			Point_t rotated_direction = this->_quaternion.rotate(direction)*this->_radii;
+			Point_t rotated_direction = this->_quaternion.rotate(direction)/this->_radii;
 			//get omega
 			double x = gv::util::sgn(rotated_direction[0])*std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps1));
 			double y = gv::util::sgn(rotated_direction[1])*std::pow(gv::util::abs(rotated_direction[1]), 1.0/(2.0-_eps1));

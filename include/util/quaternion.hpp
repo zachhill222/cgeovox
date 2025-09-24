@@ -33,13 +33,13 @@ namespace gv::util{
 
 		///// ARITHMETIC
 		Quaternion* operator+=(const Quaternion& other);
-		Quaternion operator+(const Quaternion& other) const;
+		Quaternion  operator+(const Quaternion& other) const;
 		Quaternion* operator-=(const Quaternion& other);
-		Quaternion operator-(const Quaternion& other) const;
+		Quaternion  operator-(const Quaternion& other) const;
 		Quaternion* operator*=(const Quaternion& other);
-		Quaternion operator*(const Quaternion& other) const;
+		Quaternion  operator*(const Quaternion& other) const;
 		Quaternion* operator/=(const Quaternion& other);
-		Quaternion operator/(const Quaternion& other) const;
+		Quaternion  operator/(const Quaternion& other) const;
 		bool operator==(const Quaternion& other) const;
 		inline bool operator!=(const Quaternion& other) const { return !(operator==(other));}
 		
@@ -85,7 +85,7 @@ namespace gv::util{
 
 	template <typename T>
 	T Quaternion<T>::squaredNorm() const{
-		return _q0*_q0 + _qv.squaredNorm();
+		return _q0*_q0 + gv::util::squaredNorm(_qv);
 	}
 
 	template <typename T>
