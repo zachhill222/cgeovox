@@ -6,7 +6,7 @@ OBJ        = $(SRC:.cpp=.o)
 TARGETS    = $(SRC:.cpp=)
 
 #-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/)
-CC         = g++ -fopenmp -g -pg
+CC         = g++ -std=c++20 -fopenmp -g -pg 
 CFLAGS     = -Wall -O3
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
@@ -41,6 +41,11 @@ util :
 charms_assembly :
 	$(CC) $(CFLAGS) $(INC_DIR) -c charms_assembly.cpp -o charms_assembly.o
 	$(CC) charms_assembly.o -o charms_assembly
+
+.PHONY: matrix
+matrix :
+	$(CC) $(CFLAGS) $(INC_DIR) -c matrix.cpp -o matrix.o
+	$(CC) matrix.o -o matrix
 
 
 .PHONY: clean

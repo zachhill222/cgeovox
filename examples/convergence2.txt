@@ -1,0 +1,95 @@
+
+===== UNIT SPHERE START (n_start=4, n_refine= 6) =====
+refine boundary using CHARMS
+saving to: ./outfiles/
+prefix: unitSphere_refine0
+===== coarse mesh =====
+n_vertices= 125
+n_basis_functions= 125
+n_active_basis_functions= 0
+n_elements= 64
+n_active_elements= 0
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0702917
+
+===== refinement 1 =====
+n_vertices= 729
+n_basis_functions= 853
+n_active_basis_functions= 125
+n_elements= 576
+n_active_elements= 64
+
+making integrating matrices (1 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0373241
+
+===== refinement 2 =====
+n_vertices= 4887
+n_basis_functions= 5249
+n_active_basis_functions= 613
+n_elements= 4608
+n_active_elements= 408
+
+making integrating matrices (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0185107
+
+===== refinement 3 =====
+n_vertices= 28767
+n_basis_functions= 26589
+n_active_basis_functions= 3273
+n_elements= 28224
+n_active_elements= 2672
+
+making integrating matrices (2 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00925417
+
+===== refinement 4 =====
+n_vertices= 135783
+n_basis_functions= 118201
+n_active_basis_functions= 15781
+n_elements= 134592
+n_active_elements= 14280
+
+making integrating matrices (9 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00443079
+
+===== refinement 5 =====
+n_vertices= 584871
+n_basis_functions= 496469
+n_active_basis_functions= 69789
+n_elements= 582528
+n_active_elements= 66392
+
+making integrating matrices (41 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00213077
+
+===== refinement 6 =====
+n_vertices= 2411655
+n_basis_functions= 2026065
+n_active_basis_functions= 294353
+n_elements= 2406912
+n_active_elements= 287152
+
+making integrating matrices (203 seconds)
+computing boundary (1 seconds)
+applying Dirichlet BC (0 seconds)
+solving (2 seconds)
+mean L1 error= 0.000974016

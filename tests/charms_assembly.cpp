@@ -51,24 +51,6 @@ void print_integrating_matrix_values(Mesh_t &mesh)
 		x[i] = x_vec[b_idx];
 	}
 
-	// std::cout << "creating coarse mass matrix" << std::endl;
-	// matrix_constructor.make_mass_matrix(massMat,
-	// 	mesh.basis,
-	// 	mesh.basis_active2all,
-	// 	mesh.basis_all2active,
-	// 	mesh.elements,
-	// 	mesh.elem_active2all,
-	// 	mesh.elem_all2active);
-
-	// std::cout << "creating coarse stiffness matrix" << std::endl;
-	// matrix_constructor.make_stiff_matrix(stifMat,
-	// 	mesh.basis,
-	// 	mesh.basis_active2all,
-	// 	mesh.basis_all2active,
-	// 	mesh.elements,
-	// 	mesh.elem_active2all,
-	// 	mesh.elem_all2active);
-
 	std::cout << "creating integrating matrices" << std::endl;
 	matrix_constructor.make_integrating_matrices(massMat, stifMat,
 		mesh.basis,
@@ -77,16 +59,6 @@ void print_integrating_matrix_values(Mesh_t &mesh)
 		mesh.elements,
 		mesh.elem_active2all,
 		mesh.elem_all2active);
-
-	//compute actual volume of active elements at each depth
-	// std::vector<double> volume;
-	// for (size_t i=0; i<mesh.elem_active2all.size(); i++)
-	// {
-	// 	typename Mesh_t::Element_t ELEM = mesh.elements[mesh.elem_active2all[i]];
-	// 	typename Mesh_t::Point_t H = ELEM.H();
-	// 	if (ELEM.depth<volume.size()) {volume[ELEM.depth] += H[0]*H[1]*H[2];}
-	// 	else {volume.push_back(H[0]*H[1]*H[2]);}
-	// }
 
 	double total = mesh.volume();
 	std::cout << "volume of active elements: " << total << std::endl;
@@ -119,10 +91,10 @@ int main(int argc, char const *argv[])
 
 	//set domain parameters
 	std::string filename = "testdata/sphere.txt";
-	gv::geometry::Assembly<gv::geometry::Prism,8> assembly(filename, "-rrr-eps-xyz-q");
+	gv::geometry::Assembly<gv::geometry::SuperEllipsoid,8> assembly(filename, "-rrr-eps-xyz-q");
 
 	gv::geometry::AssemblyMeshOptions opts;
-	opts.include_void = false;
+	opts.include_void = true;
 	opts.include_interface = true;
 	opts.include_solid = true;
 	opts.check_centroid = false;
@@ -130,16 +102,20 @@ int main(int argc, char const *argv[])
 	opts.void_marker = 0;
 	opts.solid_marker = 1;
 	opts.interface_marker = 2;
-	// opts.unknown_marker = -1;
 
 	//initialize coarsest mesh
-	gv::charms::AssemblyCharmsQ1Mesh mesh(assembly.bbox(), opts, assembly);
+	gv::charms::AssemblyCharmsQ1Mesh mesh(2*assembly.bbox(), opts, assembly);
+
+	//define signed distance function to the first particle
+	const gv::geometry::SuperEllipsoid particle = assembly._particles[0];
+	std::function<double(gv::util::Point<3,double>)> sgndist = [particle](const gv::util::Point<3,double>& point)->double {return particle.signed_distance(point);};
+
 
 	//print coarse mesh info
 	mesh.get_active_indices();
 	std::vector<double> u;
-	u.resize(mesh.basis_active2all.size());
-	mesh._init_scalar_field(u, fun_x);
+	u.resize(mesh.basis.size());
+	mesh._init_scalar_field(u, sgndist);
 	std::cout << "coarse mesh" << std::endl;
 	print_mesh_info(mesh);
 	// print_integrating_matrix_values(mesh);
@@ -165,6 +141,8 @@ int main(int argc, char const *argv[])
 		}
 
 		mesh.get_active_indices();
+		std::fill(u.begin(), u.end(), 0.0);
+		mesh._init_scalar_field(u, sgndist);
 		// mesh._init_scalar_field(mesh.p, fun_const);
 		print_mesh_info(mesh);
 		// print_integrating_matrix_values(mesh);
@@ -175,6 +153,6 @@ int main(int argc, char const *argv[])
 	// gv::util::view_octree_vtk(mesh.elements, "./outfiles/charms_element_octree.vtk");
 	// gv::util::view_octree_vtk(mesh.vertices, "./outfiles/vertices_octree.vtk");
 	// gv::util::view_octree_vtk(mesh.basis,    "./outfiles/basis_octree.vtk");
-	// gv::util::view_octree_vtk(assembly._particles, "./outfiles/assembly_octree.vtk");
+	gv::util::view_octree_vtk(assembly._particles, "./outfiles/assembly_octree.vtk");
 	return 0;
 }

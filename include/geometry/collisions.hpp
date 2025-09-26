@@ -4,7 +4,7 @@
 #include "util/point.hpp"
 #include "util/plane.hpp"
 
-#define GJK_DBL_TOL 0
+#define GJK_DBL_TOL 1E-12
 #define MAX_GJK_ITERATIONS 16
 
 template <typename T>
