@@ -27,18 +27,18 @@ namespace gv::util{
 		Quaternion inv() const;
 		T squaredNorm() const;
 		T norm() const;
-		Quaternion* normalize(); //normalize this quaternion to a rotation quaternion
-		Quaternion* setrotation(const T& theta, const Point<3,T>& axis);
+		Quaternion& normalize(); //normalize this quaternion to a rotation quaternion
+		Quaternion& setrotation(const T& theta, const Point<3,T>& axis);
 		Point<3,T> rotate(const Point<3,T>& point) const; //rotate point
 
 		///// ARITHMETIC
-		Quaternion* operator+=(const Quaternion& other);
+		Quaternion& operator+=(const Quaternion& other);
 		Quaternion  operator+(const Quaternion& other) const;
-		Quaternion* operator-=(const Quaternion& other);
+		Quaternion& operator-=(const Quaternion& other);
 		Quaternion  operator-(const Quaternion& other) const;
-		Quaternion* operator*=(const Quaternion& other);
+		Quaternion& operator*=(const Quaternion& other);
 		Quaternion  operator*(const Quaternion& other) const;
-		Quaternion* operator/=(const Quaternion& other);
+		Quaternion& operator/=(const Quaternion& other);
 		Quaternion  operator/(const Quaternion& other) const;
 		bool operator==(const Quaternion& other) const;
 		inline bool operator!=(const Quaternion& other) const { return !(operator==(other));}
@@ -94,18 +94,18 @@ namespace gv::util{
 	}
 
 	template <typename T>
-	Quaternion<T>* Quaternion<T>::normalize(){
+	Quaternion<T>& Quaternion<T>::normalize(){
 		T C = 1.0/norm();
 		_q0*=C;
 		_qv*=C;
-		return this;
+		return *this;
 	}
 
 	template <typename T>
-	Quaternion<T>* Quaternion<T>::setrotation(const T& theta, const Point<3,T>& axis){
+	Quaternion<T>& Quaternion<T>::setrotation(const T& theta, const Point<3,T>& axis){
 		_q0 = std::cos(0.5*theta);
 		_qv = std::sin(0.5*theta)*axis.normalized();
-		return this;
+		return *this;
 	}
 
 	template <typename T>
@@ -117,10 +117,10 @@ namespace gv::util{
 
 	///// ARITHMETIC
 	template <typename T>
-	Quaternion<T>* Quaternion<T>::operator+=(const Quaternion& other){
+	Quaternion<T>& Quaternion<T>::operator+=(const Quaternion& other){
 		_q0+=other.q0();
 		_qv+=other.qv();
-		return this;
+		return *this;
 	}
 
 	template <typename T>
@@ -129,10 +129,10 @@ namespace gv::util{
 	}
 
 	template <typename T>
-	Quaternion<T>* Quaternion<T>::operator-=(const Quaternion& other){
+	Quaternion<T>& Quaternion<T>::operator-=(const Quaternion& other){
 		_q0-=other.q0();
 		_qv-=other.qv();
-		return this;
+		return *this;
 	}
 
 	template <typename T>
@@ -141,11 +141,11 @@ namespace gv::util{
 	}
 
 	template <typename T>
-	Quaternion<T>* Quaternion<T>::operator*=(const Quaternion& other){
+	Quaternion<T>& Quaternion<T>::operator*=(const Quaternion& other){
 		T Q0 = _q0*other.q0() - dot(_qv,other.qv());
 		_qv = _q0*other.qv() + other.q0()*_qv + cross(_qv,other.qv());
 		_q0 = Q0;
-		return this;
+		return *this;
 	}
 
 	template <typename T>
@@ -156,9 +156,9 @@ namespace gv::util{
 	}
 
 	template <typename T>
-	Quaternion<T>* Quaternion<T>::operator/=(const Quaternion& other){
+	Quaternion<T>& Quaternion<T>::operator/=(const Quaternion& other){
 		operator*=(other.inv());
-		return this;
+		return *this;
 	}
 
 	template <typename T>

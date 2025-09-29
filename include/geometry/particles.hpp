@@ -5,8 +5,10 @@
 #include "util/box.hpp"
 #include "util/matrix.hpp"
 
-#include <cmath>
+#include "optimization/newton.hpp"
 
+#include <cmath>
+#include <functional>
 
 namespace gv::geometry{
 	//base shape for particles. includes rotatable prism bounding box.
@@ -40,10 +42,13 @@ namespace gv::geometry{
 		Point_t center() const {return _center;}
 
 		//return point in local normalized coordinates
-		Point_t tolocal(const Point_t &point) const {return (_quaternion.rotate(point-_center))/_radii;}
+		Point_t tolocal(const Point_t &point) const {return (_quaternion.rotate(point-_center));}
 
 		//convert point in local normalized coordinates to global coordinates
-		Point_t toglobal(const Point_t &point) const {return _quaternion.conj().rotate(point*_radii)+_center;}
+		Point_t toglobal(const Point_t &point) const {return _quaternion.conj().rotate(point)+_center;}
+
+		//convert a direction vector from global coordinates to local
+		Point_t to_local_direction(const Point_t &direction) const {return _quaternion.rotate(direction);}
 
 		//check if point in global coordinates is in the bounding box aligned with the local axes
 		bool is_in_bbox(const Point_t &point) const {return gv::util::norminfty<3,double>(tolocal(point)) <= 1;}
@@ -71,126 +76,20 @@ namespace gv::geometry{
 		//check if point is inside particle
 		bool contains(const Point_t &point) const
 		{
-			// Point_t localpoint = tolocal(point);
-			// if (gv::util::norminfty<3,double>(localpoint) <= 1) {return _eval_level_set(localpoint) <= 1;}
-			// return false;
-
 			return eval_level_set(point) <= 1;
-		}
-
-		//get the point on the surface that intersects a line segment from a point inside the particle to a point outside
-		Point_t segment2surface(Point_t inside, Point_t outside) const
-		{
-			assert(contains(inside));
-			assert(!contains(outside));
-
-			Point_t current;
-			for (int i=0; i<100; i++)
-			{
-				current = 0.5*(inside+outside);
-				if (contains(current)) {inside=current;}
-				else {outside=current;}
-
-				if (gv::util::norminfty(outside-inside) < 1E-10) {break;}
-			}
-
-			return inside;
-		}
-
-		Point_t line2surface(Point_t p1, Point_t p2) const
-		{
-			double L1 = eval_level_set(p1);
-			double L2 = eval_level_set(p2);
-
-			if (L1>L2)
-			{
-				double tmp = L1;
-				L1=L2; L2=tmp;
-
-				Point_t TMP = p1;
-				p1=p2; p1=TMP;
-			}
-
-
-			//now L1<=L2
-			if (!contains(p2) and contains(p1)) {return segment2surface(p1,p2);}
-			if (contains(p1) and contains(p2))
-			{
-				Point_t dir = gv::util::normalize(p2-p1);
-				p2 = p1 + 2.0*gv::util::norminfty(_radii)*dir;
-				assert(!contains(p2));
-				return segment2surface(p1,p2);
-			}
-
-			//both outside. find closest point on the line to the center
-			Point_t dir = p2-p1;
-			double t = gv::util::dot(_center-p1,dir) / gv::util::squaredNorm(dir);
-			Point_t inner = p1 + t*dir;
-			if (!contains(inner)) {return p1;}
-			return segment2surface(inner,p1);
 		}
 
 		//get the point on the surface closest to the specified point
 		Point_t closest_point(const Point_t& globalpoint) const
 		{
-			// if (contains(globalpoint)) {return globalpoint;}
-
-			// Point_t current = segment2surface(_center, globalpoint);
-			// Point_t support_point = support(globalpoint - current);
-
-			// // std::cout << "START:";
-			// int i;
-			// for (i=0; i<16; i++)
-			// {
-			// 	// std::cout << "\t" << gv::util::norm2(current-globalpoint) << std::flush;
-			// 	Point_t next = segment2surface(0.5*current + 0.5*support_point, globalpoint);
-			// 	if (gv::util::norminfty(current-next) < 1E-10) {break;}
-			// 	support_point = support(globalpoint - current);
-			// }
-
-			// std::cout << std::endl;
-			// std::cout << "END: " << grad(current)/(globalpoint-current) << std::endl;
-
-			// return current;
-
+			std::function<double(Point_t)> fun = [this](const Point_t& point) -> double {return this->_eval_level_set(point)-1.0;};
+			std::function<Point_t(Point_t)> gradient = [this](const Point_t& point) -> Point_t {return this->_grad(point);};
+			Point_t x0 = tolocal(globalpoint);
+			Point_t x  = toglobal(gv::optimization::minimum_distanceNewtonBFGS(fun, gradient, x0, x0));
 			
-			//get initial point on the surface
-			Point_t current = line2surface(_center, globalpoint);
-			// if (contains(globalpoint))
-			// {
-			// 	Point_t direction = globalpoint - _center;
-			// 	current = globalpoint + 2.0 * gv::util::norminfty(_radii) * direction;
-			// 	assert(!contains(current));
-			// 	current = segment2surface(globalpoint,current);
-			// }
-			// else {current = segment2surface(_center,globalpoint);}
+			// std::cout << this->grad(x) / (globalpoint - x) << std::endl;
 
-
-			//refine current guess
-			int i;
-			for (i=0; i<64; i++)
-			{
-				Point_t normal = gv::util::normalize(grad(current));
-				Point_t ideal_direction = globalpoint - current;
-
-				// std::cout << "i=" << i << std::endl;
-
-				//get component of the ideal direction tangent to the surface
-				Point_t normal_component = gv::util::dot(normal, ideal_direction) * normal;
-				Point_t tangent_component = ideal_direction - normal_component;
-
-				if (gv::util::norminfty(tangent_component) < 1E-10) {break;}
-				current += tangent_component;
-				current = line2surface(current, globalpoint);
-			}
-
-			// std::cout << "END: " << grad(current)/(globalpoint-current) << std::endl;
-			//ensure that the gradient is parallel to the direction to the specified point
-			Point_t constant = grad(current)/(globalpoint-current);
-			constant -= gv::util::norminfty(constant) * Point_t{1,1,1};
-			// std::cout << i << "\t" << gv::util::norminfty(constant) << std::endl;
-			// assert(gv::util::norminfty(constant) < 1E-10);
-			return current;
+			return x;
 		}
 
 
@@ -201,7 +100,7 @@ namespace gv::geometry{
 		Point_t grad(const Point_t& globalpoint) const
 		{
 			Point_t localgrad = _grad(tolocal(globalpoint));
-			return _quaternion.conj().rotate(localgrad*_radii);
+			return _quaternion.conj().rotate(localgrad);
 		}
 
 		//get the signed distance from the specified point to the surface
@@ -238,12 +137,12 @@ namespace gv::geometry{
 
 		Point_t support(const Point_t &direction) const override
 		{
-			Point_t rotated_direction = this->_quaternion.rotate(direction)/this->_radii;
-			Point_t localpoint {1,1,1};
+			Point_t rotated_direction = to_local_direction(direction);
+			Point_t localpoint = _radii;
 			for (int i=0; i<3; i++)
 				{
 					if (rotated_direction[i]<0)
-					localpoint[i] = -1;
+					localpoint[i] *= -1;
 				}
 			return toglobal(localpoint);
 		}
@@ -251,20 +150,21 @@ namespace gv::geometry{
 		
 
 	protected:
-		double _eval_level_set(const Point_t &localpoint) const override {return gv::util::norminfty<3,double>(localpoint);}
+		double _eval_level_set(const Point_t &localpoint) const override {return gv::util::norminfty(localpoint/_radii);}
 
 		Point_t _grad(const Point_t &localpoint) const override
 		{
 			if (gv::util::squaredNorm(localpoint)==0) {return Point_t{0,0,0};}
 
 			//get maximum component and indices
-			double max_val = gv::util::norminfty(localpoint);
+			Point_t normalized = localpoint/_radii;
+			double max_val = gv::util::norminfty(normalized);
 			Point_t result {0,0,0};
 
 			//the level set only increases only when moving in the direction with largest coordinate value
 			for (int i=0; i<3; i++) {
-				if (gv::util::abs(localpoint[i])==max_val) {
-					result[i] = gv::util::sgn(localpoint[i]);
+				if (gv::util::abs(normalized[i])==max_val) {
+					result[i] = gv::util::sgn(localpoint[i])/_radii[i];
 				}
 			}
 
@@ -289,20 +189,21 @@ namespace gv::geometry{
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t support(const Point_t &direction) const override
 		{
-			Point_t rotated_direction = this->_quaternion.rotate(direction)/this->_radii;
-			Point_t localpoint = gv::util::normalize(rotated_direction);
-			return this->toglobal(localpoint);
+			Point_t rotated_direction = to_local_direction(direction);
+			Point_t localpoint = _radii*_radii*rotated_direction;
+			double c = gv::util::norm2(_radii*rotated_direction);
+			return toglobal(localpoint/c);
 		}
 
 		
 
 	protected:
-		double _eval_level_set(const Point_t &localpoint) const override {return gv::util::squaredNorm(localpoint);}
+		double _eval_level_set(const Point_t &localpoint) const override {return gv::util::squaredNorm(localpoint/_radii);}
 
 		//evaluate the gradient in local coordinates
 		Point_t _grad(const Point_t &localpoint) const override
 		{
-			return 2.0*localpoint;
+			return 2.0*localpoint/(_radii*_radii);
 		}
 	};
 
@@ -322,44 +223,52 @@ namespace gv::geometry{
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t support(const Point_t &direction) const override
 		{
-			Point_t rotated_direction = this->_quaternion.rotate(direction)/this->_radii;
-			Point_t localpoint {0,0,1};
-			if (rotated_direction[2] < 0) {localpoint[2] = -1;}
+			Point_t rotated_direction = to_local_direction(direction);
+			Point_t normalized {0,0,1};
+			if (rotated_direction[2] < 0) {normalized[2] = -1;}
 
 			double R = std::sqrt(rotated_direction[0]*rotated_direction[0] + rotated_direction[1]*rotated_direction[1]);
 			if (R>0)
 			{
-				localpoint[0] = rotated_direction[0]/R;
-				localpoint[1] = rotated_direction[1]/R;
+				normalized[0] = rotated_direction[0]/R;
+				normalized[1] = rotated_direction[1]/R;
 			}
 
-			return this->toglobal(localpoint);
+			return this->toglobal(normalized*_radii);
 		}
 
 		
 
 	protected:
-		double _eval_level_set(const Point_t &localpoint) const override{return std::max(localpoint[0]*localpoint[0]+localpoint[1]*localpoint[1], gv::util::abs(localpoint[2]));}
+		double _eval_level_set(const Point_t &localpoint) const override
+		{
+			Point_t normalized = localpoint/_radii;
+			
+			double R2 = normalized[0]*normalized[0]+normalized[1]*normalized[1];
+			double H  = gv::util::abs(normalized[2]);
+			return std::max(R2, H*H);
+		}
 
 		//evaluate the gradient in local coordinates
 		Point_t _grad(const Point_t &localpoint) const override
 		{
+			
+			Point_t normalized = localpoint/_radii;
 			Point_t result {0,0,0};
 			
-			double R2 = localpoint[0]*localpoint[0] + localpoint[1]*localpoint[1];
-			double H  = gv::util::abs(localpoint[2]);
+			double R2 = normalized[0]*normalized[0] + normalized[1]*normalized[1];
+			double H  = gv::util::abs(normalized[2]);
 
 			if (R2>=H)
 			{
-				result[0] = 2.0*localpoint[0];
-				result[1] = 2.0*localpoint[0];
+				result[0] = 2.0*localpoint[0]/(_radii[0]*_radii[0]);
+				result[1] = 2.0*localpoint[1]/(_radii[1]*_radii[1]);
 			}
 
 			if (H>=R2)
 			{
-				result[2] = gv::util::sgn(localpoint[2]);
+				result[2] = 2.0*localpoint[2]/(_radii[2]*_radii[2]);
 			}
-
 			return result;
 		}
 	};
@@ -380,52 +289,22 @@ namespace gv::geometry{
 		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
 		Point_t support(const Point_t &direction) const override
 		{
-			Point_t rotated_direction = this->_quaternion.rotate(direction)/this->_radii;
+			Point_t rotated_direction = to_local_direction(direction)*_radii;
+			
 			//get omega
-			double x = gv::util::sgn(rotated_direction[0])*std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps1));
-			double y = gv::util::sgn(rotated_direction[1])*std::pow(gv::util::abs(rotated_direction[1]), 1.0/(2.0-_eps1));
-			double omega = std::atan2(y, x); //in [-pi,pi]
+			double c = gv::util::sgn(rotated_direction[0])*std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps1));
+			double s = gv::util::sgn(rotated_direction[1])*std::pow(gv::util::abs(rotated_direction[1]), 1.0/(2.0-_eps1));
+			double omega = std::atan2(s, c); //in [-pi,pi]
 
 			//get eta
-			x = std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps0));
-			y = gv::util::sgn(rotated_direction[2]) * std::pow( gv::util::abs( rotated_direction[2]*cos_pow(omega,2.0-_eps1) ) , 1.0/(2.0-_eps0));
+			c = std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps0));
+			s = gv::util::sgn(rotated_direction[2]) * std::pow( gv::util::abs( rotated_direction[2]*cos_pow(omega,2.0-_eps1)), 1.0/(2.0-_eps0));
 
-			double eta = atan2(y, x); //in [-pi/2,pi/2] because x >= 0
+			double eta = atan2(s, c); //in [-pi/2,pi/2] because x >= 0
 
 			//get normal in global coordinates
 			Point_t localpoint = _parametric(eta, omega);
-			
 			return this->toglobal(localpoint);
-		}
-
-		
-
-		//evaluate the hessian in local coordinates
-		Hessian_t hess(const Point_t& localpoint) const
-		{
-			//various constants
-			double A = 2.0*(_eps1-_eps0)/(_eps1*_eps0);
-			double B = (2.0-_eps1)/_eps1;
-			double C = 2.0/_eps0;
-			double a  = std::pow(localpoint[0]*localpoint[0], 1.0/_eps1) + std::pow(localpoint[1]*localpoint[1], 1.0/_eps1);
-			double ETA = std::pow(a, (_eps1-_eps0)/_eps0);
-			double ETA_XY_TEMP =  A*std::pow(a, (_eps1-2.0*_eps0)/_eps0);
-			double ETA_X = ETA_XY_TEMP * std::pow(gv::util::abs(localpoint[0]), B) * gv::util::sgn(localpoint[0]);
-			double ETA_Y = ETA_XY_TEMP * std::pow(gv::util::abs(localpoint[1]), B) * gv::util::sgn(localpoint[1]);
-
-			//assemble hessian
-			Hessian_t H; //all zeros
-			H(0,0) = C * ETA_X * std::pow(gv::util::abs(localpoint[0]), B) * gv::util::sgn(localpoint[0]) + ETA * B * std::pow(localpoint[0]*localpoint[0], (1.0-_eps1)/_eps1);
-			H(1,1) = C * ETA_Y * std::pow(gv::util::abs(localpoint[1]), B) * gv::util::sgn(localpoint[1]) + ETA * B * std::pow(localpoint[1]*localpoint[1], (1.0-_eps1)/_eps1);
-			H(0,1) = C * ETA_Y * std::pow(gv::util::abs(localpoint[0]), B) * gv::util::sgn(localpoint[0]);
-			H(1,0) = C * ETA_X * std::pow(gv::util::abs(localpoint[1]), B) * gv::util::sgn(localpoint[1]);
-			
-			H(2,2) = C * (C-1.0) * std::pow(localpoint[2]*localpoint[2], (1.0-_eps0)/_eps0);
-
-			// assert(H(0,1)==H(1,0));
-			if (H(0,1)!=H(1,0)) {std::cout << "hessian at " << localpoint << "\n" << H << std::endl;}
-
-			return H;
 		}
 
 		
@@ -448,24 +327,28 @@ namespace gv::geometry{
 		//evaluate level set function
 		double _eval_level_set(const Point_t &localpoint) const override
 		{
-			double a = std::pow(localpoint[0]*localpoint[0], 1.0/_eps1) + std::pow(localpoint[1]*localpoint[1], 1.0/_eps1);
-			return std::pow(a, _eps1/_eps0) + std::pow(localpoint[2]*localpoint[2], 1.0/_eps0);
+			Point_t normalized = localpoint/_radii;
+
+			double a = std::pow(normalized[0]*normalized[0], 1.0/_eps1) + std::pow(normalized[1]*normalized[1], 1.0/_eps1);
+			return std::pow(a, _eps1/_eps0) + std::pow(normalized[2]*normalized[2], 1.0/_eps0);
 		}
 
 		//evaluate the gradient in local coordinates
 		Point_t _grad(const Point_t &localpoint) const override
 		{
+			Point_t normalized = localpoint/_radii;
+
 			double C  = 2.0/_eps0;
-			double a  = std::pow(localpoint[0]*localpoint[0], 1.0/_eps1) + std::pow(localpoint[1]*localpoint[1], 1.0/_eps1);
+			double a  = std::pow(normalized[0]*normalized[0], 1.0/_eps1) + std::pow(normalized[1]*normalized[1], 1.0/_eps1);
 			double ETA = std::pow(a, (_eps1-_eps0)/_eps0);
-			Point_t result {C*ETA*std::pow(gv::util::abs(localpoint[0]), (2.0-_eps1)/_eps1),
-							C*ETA*std::pow(gv::util::abs(localpoint[1]), (2.0-_eps1)/_eps1),
-							C*std::pow(gv::util::abs(localpoint[2]), (2.0-_eps1)/_eps1)
+			Point_t result {C*ETA*std::pow(gv::util::abs(normalized[0]), (2.0-_eps1)/_eps1),
+							C*ETA*std::pow(gv::util::abs(normalized[1]), (2.0-_eps1)/_eps1),
+							C*std::pow(gv::util::abs(normalized[2]), (2.0-_eps1)/_eps1)
 						};
 
-			for (int i=0; i<3; i++) {result[i] *= gv::util::sgn(localpoint[i]);} //correct for taking the absolute value before evaluating the exponential
+			for (int i=0; i<3; i++) {result[i] *= gv::util::sgn(normalized[i]);} //correct for taking the absolute value before evaluating the exponential
 
-			return result;
+			return result/_radii;
 		}
 
 		//get point in local coordinates from the parametric representation of the particle surface
@@ -477,7 +360,7 @@ namespace gv::geometry{
 			double S_omega = sin_pow(omega, _eps1);
 
 			Point_t localpoint = Point_t {C_eta*C_omega, C_eta*S_omega, S_eta};
-			return localpoint;
+			return localpoint*_radii;
 		}
 	};
 

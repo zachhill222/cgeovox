@@ -90,8 +90,9 @@ int main(int argc, char const *argv[])
 
 
 	//set domain parameters
-	std::string filename = "testdata/sphere.txt";
-	gv::geometry::Assembly<gv::geometry::SuperEllipsoid,8> assembly(filename, "-rrr-eps-xyz-q");
+	std::string filename = "testdata/particles_50.txt";
+	using Particle_t = gv::geometry::SuperEllipsoid;
+	gv::geometry::Assembly<Particle_t,8> assembly(filename, "-rrr-eps-xyz-q");
 
 	gv::geometry::AssemblyMeshOptions opts;
 	opts.include_void = true;
@@ -104,18 +105,18 @@ int main(int argc, char const *argv[])
 	opts.interface_marker = 2;
 
 	//initialize coarsest mesh
-	gv::charms::AssemblyCharmsQ1Mesh mesh(2*assembly.bbox(), opts, assembly);
+	gv::charms::AssemblyCharmsQ1Mesh mesh(assembly.bbox(), opts, assembly);
 
 	//define signed distance function to the first particle
-	const gv::geometry::SuperEllipsoid particle = assembly._particles[0];
-	std::function<double(gv::util::Point<3,double>)> sgndist = [particle](const gv::util::Point<3,double>& point)->double {return particle.signed_distance(point);};
+	// const Particle_t particle = assembly._particles[0];
+	// std::function<double(gv::util::Point<3,double>)> sgndist = [particle](const gv::util::Point<3,double>& point)->double {return particle.signed_distance(point);};
 
 
 	//print coarse mesh info
 	mesh.get_active_indices();
 	std::vector<double> u;
 	u.resize(mesh.basis.size());
-	mesh._init_scalar_field(u, sgndist);
+	mesh._init_scalar_field(u, fun_x);
 	std::cout << "coarse mesh" << std::endl;
 	print_mesh_info(mesh);
 	// print_integrating_matrix_values(mesh);
@@ -141,8 +142,6 @@ int main(int argc, char const *argv[])
 		}
 
 		mesh.get_active_indices();
-		std::fill(u.begin(), u.end(), 0.0);
-		mesh._init_scalar_field(u, sgndist);
 		// mesh._init_scalar_field(mesh.p, fun_const);
 		print_mesh_info(mesh);
 		// print_integrating_matrix_values(mesh);

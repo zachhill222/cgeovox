@@ -433,29 +433,29 @@ namespace gv::charms
 
 		//MESH INFORMATION AT EACH CELL
 		buffer << "CELL_DATA " << elements.size() << "\n";
-		buffer << "FIELD mesh_element_info 9\n";
+		buffer << "FIELD mesh_element_info 2\n";
 
 		//ELEMENT INDEX
-		buffer << "index 1 " << elements.size() << " integer\n";
-		for (size_t i=0; i<elements.size(); i++)
-		{
-			assert(elements[i].list_index == i);
-			buffer << elements[i].list_index << " ";
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "index 1 " << elements.size() << " integer\n";
+		// for (size_t i=0; i<elements.size(); i++)
+		// {
+		// 	assert(elements[i].list_index == i);
+		// 	buffer << elements[i].list_index << " ";
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//ELEMENT ACTIVE INDEX
-		buffer << "active_index 1 " << elements.size() << " integer\n";
-		for (size_t i=0; i<elements.size(); i++)
-		{
-			if (elements[i].is_active) {buffer << elem_all2active[i] << " ";}
-			else {buffer << "-1 ";}
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "active_index 1 " << elements.size() << " integer\n";
+		// for (size_t i=0; i<elements.size(); i++)
+		// {
+		// 	if (elements[i].is_active) {buffer << elem_all2active[i] << " ";}
+		// 	else {buffer << "-1 ";}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//ELEMENT IS_ACTIVE
 		buffer << "is_active 1 " << elements.size() << " integer\n";
@@ -475,43 +475,43 @@ namespace gv::charms
 		buffer.str("");
 
 		//ELEMENT DEPTH
-		buffer << "depth 1 " << elements.size() << " integer\n";
-		for (size_t i=0; i<elements.size(); i++) {buffer << elements[i].depth << " ";}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "depth 1 " << elements.size() << " integer\n";
+		// for (size_t i=0; i<elements.size(); i++) {buffer << elements[i].depth << " ";}
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//ELEMENT PARENT
-		buffer << "parent 1 " << elements.size() << " integer\n";
-		for (size_t i=0; i<elements.size(); i++)
-		{
-			if (elements[i].parent < elements.size())
-			{
-				buffer << elements[i].parent << " ";
-			}
-			else {buffer << "-1 ";}
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "parent 1 " << elements.size() << " integer\n";
+		// for (size_t i=0; i<elements.size(); i++)
+		// {
+		// 	if (elements[i].parent < elements.size())
+		// 	{
+		// 		buffer << elements[i].parent << " ";
+		// 	}
+		// 	else {buffer << "-1 ";}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//ELEMENT CHILDREN
-		buffer << "children 8 " << elements.size() << " integer\n";
-		for (size_t i=0; i<elements.size(); i++)
-		{
-			for (int j=0; j<elements[i].cursor_child; j++)
-			{
-				buffer << elements[i].child[j] << " ";
-			}
+		// buffer << "children 8 " << elements.size() << " integer\n";
+		// for (size_t i=0; i<elements.size(); i++)
+		// {
+		// 	for (int j=0; j<elements[i].cursor_child; j++)
+		// 	{
+		// 		buffer << elements[i].child[j] << " ";
+		// 	}
 
-			for (int j=elements[i].cursor_child; j<8; j++)
-			{
-				buffer << "-1 ";
-			}
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// 	for (int j=elements[i].cursor_child; j<8; j++)
+		// 	{
+		// 		buffer << "-1 ";
+		// 	}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//ELEMENT IS_SUBDIVIDED MARKER
 		// buffer << "is_subdivided 1 " << elements.size() << " integer\n";
@@ -521,129 +521,175 @@ namespace gv::charms
 		// buffer.str("");
 
 		//ELEMENT BASIS_S
-		buffer << "basis_s 8 " << elements.size() << " integer\n";
-		for (size_t i=0; i<elements.size(); i++) {to_stream(buffer, elements[i].basis_s, 8);}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "basis_s 8 " << elements.size() << " integer\n";
+		// for (size_t i=0; i<elements.size(); i++) {to_stream(buffer, elements[i].basis_s, 8);}
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//ELEMENT BASIS_A
-		buffer << "basis_a[0:7] 8 " << elements.size() << " integer\n";
-		for (size_t i=0; i<elements.size(); i++) {to_stream(buffer, elements[i].basis_a, 8);}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "basis_a[0:7] 8 " << elements.size() << " integer\n";
+		// for (size_t i=0; i<elements.size(); i++) {to_stream(buffer, elements[i].basis_a, 8);}
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 
 
 
 		//MESH INFORMATION AT EACH VERTEX
 		//map vertex index to active basis index
-		std::vector<size_t> vertex2active_basis;
-		vertex2active_basis.resize(vertices.size());
-		for (size_t i=0; i<vertices.size(); i++)
-		{
-			std::vector<size_t> basis_total = basis.get_data_indices(vertices[i]);
-			int count = 0;
-			for (auto it=basis_total.begin(); it!=basis_total.end(); ++it)
-			{
-				if (basis[*it].is_active and basis[*it].coord()==vertices[i])
-				{
-					count++;
-					vertex2active_basis[i] = basis_all2active[*it];
-					assert(vertex2active_basis[i]<basis_active2all.size());
-				}
-			}
-			assert(count<=1);
-			if (count==0) {vertex2active_basis[i] = (size_t) -1;}
-		}
+		// std::vector<size_t> vertex2active_basis;
+		// vertex2active_basis.resize(vertices.size());
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {
+		// 	std::vector<size_t> basis_total = basis.get_data_indices(vertices[i]);
+		// 	int count = 0;
+		// 	for (auto it=basis_total.begin(); it!=basis_total.end(); ++it)
+		// 	{
+		// 		if (basis[*it].is_active and basis[*it].coord()==vertices[i])
+		// 		{
+		// 			count++;
+		// 			vertex2active_basis[i] = basis_all2active[*it];
+		// 			assert(vertex2active_basis[i]<basis_active2all.size());
+		// 		}
+		// 	}
+		// 	assert(count<=1);
+		// 	if (count==0) {vertex2active_basis[i] = (size_t) -1;}
+		// }
 
 
 
 
 
 		buffer << "POINT_DATA " << vertices.size() << "\n";
-		buffer << "FIELD mesh_vertex_info 8\n";
+		buffer << "FIELD mesh_vertex_info 3\n";
 
 		//VERTEX ACTIVE BASIS DEPTH
-		buffer << "depth 1 " << vertices.size() << " integer\n";
-		for (size_t i=0; i<vertices.size(); i++)
-		{	
-			size_t active_basis_idx = vertex2active_basis[i];
-			if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
-			else {buffer << basis[basis_active2all[active_basis_idx]].depth << " ";}
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "depth 1 " << vertices.size() << " integer\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {	
+		// 	size_t active_basis_idx = vertex2active_basis[i];
+		// 	if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
+		// 	else {buffer << basis[basis_active2all[active_basis_idx]].depth << " ";}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//VERTEX BASIS INDEX
-		buffer << "index 1 " << vertices.size() << " integer\n";
-		for (size_t i=0; i<vertices.size(); i++)
-		{	
-			size_t active_basis_idx = vertex2active_basis[i];
-			if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
-			else {buffer << basis_active2all[active_basis_idx] << " ";}
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "index 1 " << vertices.size() << " integer\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {	
+		// 	size_t active_basis_idx = vertex2active_basis[i];
+		// 	if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
+		// 	else {buffer << basis_active2all[active_basis_idx] << " ";}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//VERTEX ACTIVE BASIS INDEX
-		buffer << "active_index 1 " << vertices.size() << " integer\n";
-		for (size_t i=0; i<vertices.size(); i++)
-		{	
-			size_t active_basis_idx = vertex2active_basis[i];
-			if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
-			else {buffer << active_basis_idx << " ";}
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "active_index 1 " << vertices.size() << " integer\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {	
+		// 	size_t active_basis_idx = vertex2active_basis[i];
+		// 	if (active_basis_idx==(size_t) -1) {buffer << "-1 ";}
+		// 	else {buffer << active_basis_idx << " ";}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//VERTEX ACTIVE BASIS SUPPORT
-		buffer << "support 8 " << vertices.size() << " integer\n";
-		for (size_t i=0; i<vertices.size(); i++)
-		{	
-			size_t active_basis_idx = vertex2active_basis[i];
-			if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 ";}
-			else
-			{
-				const BasisFun_t& FUN = basis[basis_active2all[active_basis_idx]];
-				to_stream(buffer, FUN.support, 8);
-			}
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "support 8 " << vertices.size() << " integer\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {	
+		// 	size_t active_basis_idx = vertex2active_basis[i];
+		// 	if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 ";}
+		// 	else
+		// 	{
+		// 		const BasisFun_t& FUN = basis[basis_active2all[active_basis_idx]];
+		// 		to_stream(buffer, FUN.support, 8);
+		// 	}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//VERTEX ACTIVE BASIS PARENTS
-		buffer << "parent 27 " << vertices.size() << " integer\n";
-		for (size_t i=0; i<vertices.size(); i++)
-		{	
-			size_t active_basis_idx = vertex2active_basis[i];
-			if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
-			else
-			{
-				const BasisFun_t& FUN = basis[basis_active2all[active_basis_idx]];
-				to_stream(buffer, FUN.parent, 27);
-			}
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		// buffer << "parent 27 " << vertices.size() << " integer\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {	
+		// 	size_t active_basis_idx = vertex2active_basis[i];
+		// 	if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
+		// 	else
+		// 	{
+		// 		const BasisFun_t& FUN = basis[basis_active2all[active_basis_idx]];
+		// 		to_stream(buffer, FUN.parent, 27);
+		// 	}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		//VERTEX ACTIVE BASIS CHILDREN
-		buffer << "child 27 " << vertices.size() << " integer\n";
+		// buffer << "child 27 " << vertices.size() << " integer\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {	
+		// 	size_t active_basis_idx = vertex2active_basis[i];
+		// 	if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
+		// 	else
+		// 	{
+		// 		const BasisFun_t& FUN = basis[basis_active2all[active_basis_idx]];
+		// 		to_stream(buffer, FUN.child, 27);
+		// 	}
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
+
+		//VERTEX SIGNED DISTANCE TO ASSEMBLY
+		// double distance[vertices.size()] {0};
+
+		// for (size_t i=0; i<elem_active2all.size(); i++)
+		// {
+		// 	const Element_t& ELEM = elements[elem_active2all[i]];
+		// 	if (element_marker[i]==opts.solid_marker)
+		// 	{
+		// 		for (int j=0; j<ELEM.cursor_node; j++) {distance[ELEM.node[j]] = -1;}
+		// 	}
+		// 	else if (element_marker[i]==opts.void_marker)
+		// 	{
+		// 		for (int j=0; j<ELEM.cursor_node; j++) {distance[ELEM.node[j]] = 1;}
+		// 	}
+		// }
+
+		// for (size_t i=0; i<elem_active2all.size(); i++)
+		// {
+		// 	const Element_t& ELEM = elements[elem_active2all[i]];
+		// 	if (element_marker[i]==opts.interface_marker)
+		// 	{
+		// 		for (int j=0; j<ELEM.cursor_node; j++) {
+		// 			size_t v_idx = ELEM.node[j];
+		// 			distance[v_idx] = assembly.signed_distance(vertices[v_idx]);
+		// 			// std::cout << "v_idx= " << v_idx << ": " << vertices[v_idx] << "\t " << distance[v_idx] << std::endl;
+		// 		}
+		// 	}
+		// }
+
+
+		double distance[vertices.size()];
+		#pragma omp parallel for
 		for (size_t i=0; i<vertices.size(); i++)
-		{	
-			size_t active_basis_idx = vertex2active_basis[i];
-			if (active_basis_idx==(size_t) -1) {buffer << "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 ";}
-			else
-			{
-				const BasisFun_t& FUN = basis[basis_active2all[active_basis_idx]];
-				to_stream(buffer, FUN.child, 27);
-			}
+		{
+			distance[i] = assembly.signed_distance(vertices[i]);
+		}
+
+		buffer << "signed_distance 1 " << vertices.size() << " float\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{
+			buffer << distance[i] << " ";
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();

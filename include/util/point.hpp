@@ -5,13 +5,9 @@
 #include <cmath>
 #include <limits>
 #include <cassert>
-#include <concepts>
+#include "concepts.hpp"
 
 namespace gv::util {
-	template<typename T>
-	concept Scalar = std::integral<T> || std::floating_point<T>;
-
-
 	///Class for points in space.
 	/** Points are partially ordered by using the positive quadrant/octant cone. The data type T must be totally ordered, for example double or float.
 	 * Note that the initialization Point p {1,2,3} gives p the type Point<3,int> while the initialization Point p {1.0, 2.0, 3.0} give p the type Point<3,double>.*/
@@ -277,6 +273,12 @@ namespace gv::util {
 		return left;
 	}
 
+	///Division by a scalar
+	template <int dim=3, Scalar T=double>
+	Point<dim, T> operator/(const Point<dim,T> &left, const T &right)
+	{
+		return ( ((T)1) / right)*left;
+	}
 
 	///Point less than comparison.
 	template <int dim=3, Scalar T=double>

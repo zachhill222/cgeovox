@@ -5,12 +5,14 @@
 
 #include "util/point.hpp"
 
+#include "concepts.hpp"
+
 #include <iostream>
 #include <cassert>
 
 namespace gv::util
 {
-	//Scalar is defined in point.hpp
+	//Scalar is defined in concepts.hpp
 	//note that inverses and such will not work for integral types
 
 	template <int n, int m, Scalar Scalar_t>
@@ -42,6 +44,18 @@ namespace gv::util
 		Scalar_t operator[](int k) const {return _data[k];}
 		Scalar_t& operator[](int k) {return _data[k];}
 
+		//set identity along the main diagonal and zeros elsewhere
+		void eye()
+		{
+			for (int i=0; i<n; i++)
+			{
+				for (int j=0; j<m; j++)
+				{
+					if (i==j) {(*this)(i,j)=1;}
+					else {(*this)(i,j)=0;}
+				}
+			}
+		}
 
 		//row and column access
 		Row_t row(int i) const
@@ -104,6 +118,20 @@ namespace gv::util
 		return result;
 	}
 
+	//vector-vector outer product
+	template<int n, int m, Scalar Scalar_t>
+	Matrix<n,m,Scalar_t> outer(const gv::util::Point<n,Scalar_t> &left, const gv::util::Point<m,Scalar_t> &right)
+	{
+		Matrix<n,m,Scalar_t> result;
+		for (int i=0; i<n; i++)
+		{
+			for (int j=0; j<m; j++)
+			{
+				result(i,j) = left[i]*right[j];
+			}
+		}
+		return result;
+	}
 	
 	template<int n, int m, Scalar Scalar_t>
 	gv::util::Point<m,Scalar_t> operator*(const gv::util::Point<n,Scalar_t> &vector, const Matrix<n,m,Scalar_t> &matrix)
@@ -134,7 +162,6 @@ namespace gv::util
 
 	//matrix least squares solution (must columns must be linearly independent)
 	template<int n, int m, Scalar Scalar_t>
-
 	typename Matrix<n,m,Scalar_t>::Row_t operator/(const Matrix<n,m,Scalar_t> A, const typename Matrix<n,m,Scalar_t>::Col_t &b)
 	{
 		Matrix<n,m,Scalar_t> Q;
@@ -143,8 +170,6 @@ namespace gv::util
 
 		return solve_upper(R,Q.tr()*b);
 	}
-
-
 
 	//matrix-matrix addition
 	template<int n, int m, Scalar Scalar_t>
@@ -155,6 +180,36 @@ namespace gv::util
 		return result;
 	}
 
+	template<int n, int m, Scalar Scalar_t>
+	Matrix<n,m,Scalar_t>& operator+=(Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right)
+	{
+		for (int k=0; k<n*m; k++) {left[k]+=right[k];}
+		return left;
+	}
+
+	//matrix-matrix subtraction
+	template<int n, int m, Scalar Scalar_t>
+	Matrix<n,m,Scalar_t> operator-(const Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right)
+	{
+		Matrix<n,m,Scalar_t> result;
+		for (int k=0; k<n*m; k++) {result[k] = left[k]-right[k];}
+		return result;
+	}
+
+	template<int n, int m, Scalar Scalar_t>
+	Matrix<n,m,Scalar_t>& operator-=(Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right)
+	{
+		for (int k=0; k<n*m; k++) {left[k]-=right[k];}
+		return left;
+	}
+
+	template<int n, int m, Scalar Scalar_t>
+	Matrix<n,m,Scalar_t> operator-(const Matrix<n,m,Scalar_t> &right)
+	{
+		Matrix<n,m,Scalar_t> result;
+		for (int k=0; k<n*m; k++) {result[k]=-right[k];}
+		return result;
+	}
 
 	//triangular matrix solve Ux=b with U upper triangular
 	template<int n, Scalar Scalar_t>
@@ -211,6 +266,7 @@ namespace gv::util
 			}
 
 			R(k,k) = gv::util::norm2(Q.col(k));
+			if (!(R(k,k)>ZERO_TOL)) {std::cout << A << std::endl;}
 			assert(R(k,k)>ZERO_TOL);
 
 			Scalar_t C = ((Scalar_t) 1)/R(k,k);

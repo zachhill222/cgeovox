@@ -54,6 +54,33 @@ namespace gv::geometry{
 			return false;
 		}
 
+		double signed_distance(const Point_t& point) const
+		{
+			assert(this->size()>0);
+
+			//set up initial box to search
+			Point_t H = 0.001*this->bbox().sidelength();
+			Box_t search_box(point-H,point+H);
+			while (!this->bbox().intersects(search_box))
+			{
+				search_box *= 2.0;
+			}
+
+			std::vector<size_t> d_idx;
+			while (d_idx.size()==0)
+			{
+				search_box *= 2.0;
+				d_idx = this->get_data_indices(search_box);
+			}
+
+			double result = (*this)[d_idx[0]].signed_distance(point);
+			for (size_t i=1; i<d_idx.size(); i++)
+			{
+				result = std::min(result, (*this)[d_idx[i]].signed_distance(point));
+			}
+			return result;
+		}
+
 	private:
 		// bool is_data_valid(Box_t const &box, Particle_t const &P) const override {return P.bbox().intersects(box);}
 		bool is_data_valid(Box_t const &box, Particle_t const &P) const override {return gv::geometry::collides_GJK(box,P);}
@@ -126,6 +153,8 @@ namespace gv::geometry{
 			return _particles.collides_with_particle(voxel);
 		}
 
+		double signed_distance(const Point_t &point) const {return _particles.signed_distance(point);}
+
 		//read particles from file with specified format. TODO: read format from start of file.
 		void readfile(const std::string filename, const std::string columns);
 
@@ -162,8 +191,8 @@ namespace gv::geometry{
 
 		if (n_vert==0)
 		{
-			// if (collides_with_particle(voxel)) {return;} //cannot assess if the voxel should be included
-			if (is_in_particle(voxel.center())) {return;}
+			if (collides_with_particle(voxel)) {return;} //cannot assess if the voxel should be included
+			// if (is_in_particle(voxel.center())) {return;}
 			else {marker = opts.void_marker;}
 		}
 		else if (n_vert==8) {marker = opts.solid_marker;}
@@ -303,7 +332,10 @@ namespace gv::geometry{
 					}
 				}
 
-				Particle_t P(Point_t {rx,ry,rz}, Point_t {x,y,z}, gv::util::Quaternion<double>(qw,-qx,-qy,-qz), eps[0], eps[1]);
+				gv::util::Quaternion<double> quat(qw,-qx,-qy,-qz);
+				quat.normalize();
+				Particle_t P(Point_t {rx,ry,rz}, Point_t {x,y,z}, quat, eps[0], eps[1]);
+				// std::cout << P.bbox() << std::endl;
 				temp_particles.push_back(P);
 			}
 		}
