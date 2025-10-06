@@ -81,6 +81,90 @@ namespace gv::geometry{
 			return result;
 		}
 
+
+		double heaviside(const Point_t &point, const double eps) const
+		{
+			//return 0 if sgndist(point) < -eps (inside a particle)
+			//return 1 if sgndist(point) > eps (outside all particles)
+			assert(eps>0);
+
+			//find all particles that intersect the epsilon box
+			Box_t search_box(point-Point_t{eps,eps,eps}, point+Point_t{eps,eps,eps});
+			if (!search_box.intersects(this->bbox())) {return 1;}
+
+			//the search box does not collide with any particle
+			std::vector<size_t> d_idx = this->get_data_indices(search_box);
+			if (d_idx.size()==0) {return 1;}
+
+			//see if the search box is contained in a single particle
+			for (size_t i=0; i<d_idx.size(); i++)
+			{
+				const Particle_t &PARTICLE = (*this)[d_idx[i]];
+				int n_vert = 0;
+				for (int j=0; j<8; j++)
+				{
+					if (PARTICLE.contains(search_box.voxelvertex(j))) {n_vert+=1;}
+				}
+
+				if (n_vert==8) {return 0;}
+			}
+
+			//the search box intersects an interface
+			double min_dist = (*this)[d_idx[0]].signed_distance(point);
+			for (size_t i=1; i<d_idx.size(); i++)
+			{
+				const Particle_t &PARTICLE = (*this)[d_idx[i]];
+				min_dist = std::min(min_dist, PARTICLE.signed_distance(point));
+			}
+
+			if (min_dist < -eps) {return 0;}
+			if (min_dist > eps) {return 1;}
+
+			double ratio = min_dist/eps;
+			return 0.5*(1.0 + ratio + 0.15915494309 * std::sin(3.14159265359*ratio));
+		}
+
+		double dirac_delta(const Point_t &point, const double eps) const
+		{
+			//return 0 if |sgndist(point)| > eps (heaviside function is constant)
+			assert(eps>0);
+
+			//find all particles that intersect the epsilon box
+			Box_t search_box(point-Point_t{eps,eps,eps}, point+Point_t{eps,eps,eps});
+			if (!search_box.intersects(this->bbox())) {return 1;}
+
+			//the search box does not collide with any particle
+			std::vector<size_t> d_idx = this->get_data_indices(search_box);
+			if (d_idx.size()==0) {return 0;}
+
+			//see if the search box is contained in a single particle
+			for (size_t i=0; i<d_idx.size(); i++)
+			{
+				const Particle_t &PARTICLE = (*this)[d_idx[i]];
+				int n_vert = 0;
+				for (int j=0; j<8; j++)
+				{
+					if (PARTICLE.contains(search_box.voxelvertex(j))) {n_vert+=1;}
+				}
+
+				if (n_vert==8) {return 0;}
+			}
+
+			//the search box intersects an interface
+			double min_dist = (*this)[d_idx[0]].signed_distance(point);
+			for (size_t i=1; i<d_idx.size(); i++)
+			{
+				const Particle_t &PARTICLE = (*this)[d_idx[i]];
+				min_dist = std::min(min_dist, PARTICLE.signed_distance(point));
+			}
+
+			if (min_dist < -eps) {return 0;}
+			if (min_dist > eps) {return 0;}
+
+			double ratio = 1.0/eps;
+			return 0.5*ratio*( 1.0 + std::cos(3.14159265359*min_dist*ratio));
+		}
+
 	private:
 		// bool is_data_valid(Box_t const &box, Particle_t const &P) const override {return P.bbox().intersects(box);}
 		bool is_data_valid(Box_t const &box, Particle_t const &P) const override {return gv::geometry::collides_GJK(box,P);}
@@ -154,6 +238,8 @@ namespace gv::geometry{
 		}
 
 		double signed_distance(const Point_t &point) const {return _particles.signed_distance(point);}
+		double heaviside(const Point_t &point, const double eps) const {return _particles.heaviside(point,eps);}
+		double dirac_delta(const Point_t &point, const double eps) const {return _particles.dirac_delta(point,eps);}
 
 		//read particles from file with specified format. TODO: read format from start of file.
 		void readfile(const std::string filename, const std::string columns);

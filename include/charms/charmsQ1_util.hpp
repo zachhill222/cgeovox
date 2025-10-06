@@ -183,7 +183,7 @@ namespace gv::charms
 			elements(elements),
 			basis(basis)
 		{
-			size_t node_idx;
+			size_t node_idx = (size_t) -1;
 			for (int i=0; i<8; i++)
 			{
 				vertices->push_back(bbox.voxelvertex(i), node_idx);

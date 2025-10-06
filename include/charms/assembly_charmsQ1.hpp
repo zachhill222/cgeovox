@@ -32,16 +32,17 @@ namespace gv::charms
 		using Box_t         = gv::util::Box<3>;
 		using Index_t       = gv::util::Point<3,size_t>;
 		using MeshOpts      = gv::geometry::AssemblyMeshOptions;	
-		using ScalarFun_t   = std::function<double(Point_t)>; //double (*)(Point_t); //function from Point_t to double
-		using VectorFun_t   = std::function<Point_t(Point_t)>; //Point_t (*)(Point_t); //function from Point_t to Point_t
+		using ScalarFun_t   = std::function<double(Point_t)>;  //function from Point_t to double
+		using VectorFun_t   = std::function<Point_t(Point_t)>; //function from Point_t to Point_t
 
 		const Box_t   domain;
 		VertexList_t  vertices;
 		ElementList_t elements;
 		BasisList_t   basis;
 		MeshOpts      opts;
-		const Assembly_t&   assembly;
+		const Assembly_t& assembly;
 		std::vector<int> element_marker;
+		std::vector<double> max_dist; //track the maximum distance from a point in the 
 
 		//track indices of active basis functions and elements
 		std::vector<size_t> basis_active2all;
@@ -563,7 +564,7 @@ namespace gv::charms
 
 
 		buffer << "POINT_DATA " << vertices.size() << "\n";
-		buffer << "FIELD mesh_vertex_info 3\n";
+		buffer << "FIELD mesh_vertex_info 4\n";
 
 		//VERTEX ACTIVE BASIS DEPTH
 		// buffer << "depth 1 " << vertices.size() << " integer\n";
@@ -679,17 +680,30 @@ namespace gv::charms
 		// }
 
 
-		double distance[vertices.size()];
+		double heaviside[vertices.size()];
+		double dirac[vertices.size()];
+
+		const double eps = 0.03125 * gv::util::norm2(domain.sidelength());
 		#pragma omp parallel for
 		for (size_t i=0; i<vertices.size(); i++)
 		{
-			distance[i] = assembly.signed_distance(vertices[i]);
+			heaviside[i] = assembly.heaviside(vertices[i], eps);
+			dirac[i] = assembly.dirac_delta(vertices[i], eps);
 		}
 
-		buffer << "signed_distance 1 " << vertices.size() << " float\n";
+		buffer << "heaviside 1 " << vertices.size() << " float\n";
 		for (size_t i=0; i<vertices.size(); i++)
 		{
-			buffer << distance[i] << " ";
+			buffer << heaviside[i] << " ";
+		}
+		buffer << "\n\n";
+		os << buffer.rdbuf();
+		buffer.str("");
+
+		buffer << "dirac_delta 1 " << vertices.size() << " float\n";
+		for (size_t i=0; i<vertices.size(); i++)
+		{
+			buffer << dirac[i] << " ";
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();

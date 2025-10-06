@@ -5,8 +5,8 @@ SRC        = $(wildcard *.cpp)
 OBJ        = $(SRC:.cpp=.o)
 TARGETS    = $(SRC:.cpp=)
 
-CC         = g++ -fopenmp -g
-CFLAGS     = -Wall -O2
+CC         = g++ -std=c++20 -fopenmp -g
+CFLAGS     = -Wall -O3
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
 
@@ -25,6 +25,11 @@ poisson_standard :
 poisson_charms :
 	$(CC) $(CFLAGS) $(INC_DIR) -c poisson_charms.cpp -o poisson_charms.o
 	$(CC) poisson_charms.o -o poisson_charms
+
+.PHONY: poisson_charms_interface
+poisson_charms_interface :
+	$(CC) $(CFLAGS) $(INC_DIR) -c poisson_charms_interface.cpp -o poisson_charms_interface.o
+	$(CC) poisson_charms_interface.o -o poisson_charms_interface
 
 .PHONY: clean
 clean:

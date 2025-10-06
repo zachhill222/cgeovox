@@ -80,7 +80,7 @@ namespace gv::geometry{
 		}
 
 		//get the point on the surface closest to the specified point
-		Point_t closest_point(const Point_t& globalpoint) const
+		virtual Point_t closest_point(const Point_t& globalpoint) const
 		{
 			std::function<double(Point_t)> fun = [this](const Point_t& point) -> double {return this->_eval_level_set(point)-1.0;};
 			std::function<Point_t(Point_t)> gradient = [this](const Point_t& point) -> Point_t {return this->_grad(point);};
@@ -169,6 +169,43 @@ namespace gv::geometry{
 			}
 
 			return result;
+		}
+	};
+
+
+	//sphere class
+	class Sphere : public Particle
+	{
+	public:
+		using Point_t = gv::util::Point<3,double>;
+		using Box_t   = gv::util::Box<3,double>;
+		using Quat_t  = gv::util::Quaternion<double>;
+
+		Sphere() : Particle() {}
+		//same constructor signature. only radii[0] is used.
+		Sphere(const Point_t &radii, const Point_t &center, const Quat_t quaternion = Quat_t {1,0,0,0}, const double eps0=1, const double eps1=1):
+			Particle(radii, center, quaternion, eps0, eps1) {}
+
+		//get a supporting point of the supporting hyperplane in specified direction in global coordinates. this maximizes dot(x,direction) over x in the particle.
+		Point_t support(const Point_t &direction) const override
+		{
+			return _radii[0] * gv::util::normalize(direction);
+		}
+
+		Point_t closest_point(const Point_t& globalpoint) const override
+		{
+			Point_t direction = globalpoint - _center;
+			return support(direction);
+		}
+
+
+	protected:
+		double _eval_level_set(const Point_t &localpoint) const override {return gv::util::squaredNorm(localpoint/_radii);}
+
+		//evaluate the gradient in local coordinates
+		Point_t _grad(const Point_t &localpoint) const override
+		{
+			return 2.0*localpoint/_radii[0];
 		}
 	};
 

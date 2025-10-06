@@ -10,20 +10,15 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <functional>
 
 #include <Eigen/SparseCore>
 #include <Eigen/IterativeLinearSolvers>
 
 
-void unit_sphere(const uint n_start, const uint n_refine, const int refine_case)
+void unit_sphere(const uint n_start, const uint n_refine)
 {
 	std::cout << "\n===== UNIT SPHERE START (n_start=" << n_start << ", n_refine= " << n_refine << ") =====" << std::endl;
-	switch (refine_case)
-	{
-		case 0: std::cout << "refine boundary using CHARMS" << std::endl; break;
-		case 1: std::cout << "refine all elements" << std::endl; break;
-		default: assert(false);
-	}
 
 	//set up timer
 	std::time_t start = std::time(nullptr);
@@ -34,7 +29,7 @@ void unit_sphere(const uint n_start, const uint n_refine, const int refine_case)
 
 	using Point_t = gv::util::Point<3,double>;
 	using Particle_t = gv::geometry::SuperEllipsoid;
-	std::string experiment_name = "unitSphere_refine" + std::to_string(refine_case);
+	std::string experiment_name = "charms_unitSphere";
 	std::string outdirectory = "./outfiles/";
 
 	std::cout << "saving to: " << outdirectory << std::endl;
@@ -75,11 +70,7 @@ void unit_sphere(const uint n_start, const uint n_refine, const int refine_case)
 	{
 		std::cout << "\n===== refinement " << i << " =====" << std::endl;
 
-		switch (refine_case)
-		{
-		case 0: problem.refine_interface(); break;
-		case 1: problem.refine_all(); break;
-		}
+		problem.refine_interface();
 		std::cout << problem.mesh << std::endl;
 
 		problem.solve(1);
@@ -106,16 +97,9 @@ void unit_sphere(const uint n_start, const uint n_refine, const int refine_case)
 }
 
 
-void axial_prism(const uint n_start, const uint n_refine, const int refine_case)
+void axial_prism(const uint n_start, const uint n_refine)
 {
 	std::cout << "\n===== AXIAL PRISM START (n_start=" << n_start << ", n_refine= " << n_refine << ") =====" << std::endl;
-	switch (refine_case)
-	{
-		case 0: std::cout << "refine boundary using CHARMS" << std::endl; break;
-		case 1: std::cout << "refine all elements" << std::endl; break;
-		default: assert(false);
-	}
-
 
 	//set up timer
 	std::time_t start = std::time(nullptr);
@@ -126,7 +110,7 @@ void axial_prism(const uint n_start, const uint n_refine, const int refine_case)
 
 	using Point_t = gv::util::Point<3,double>;
 	using Particle_t = gv::geometry::Prism;
-	std::string experiment_name = "axialPrism_refine" + std::to_string(refine_case);;
+	std::string experiment_name = "charms_axialPrism";
 	std::string outdirectory = "./outfiles/";
 
 	std::cout << "saving to: " << outdirectory << std::endl;
@@ -162,7 +146,7 @@ void axial_prism(const uint n_start, const uint n_refine, const int refine_case)
 	gv::pde::PoissonCharms problem(1.1*assembly.bbox(), assembly, opts); //defualt homogeneous BC and f(x)=1 on the RHS
 
 	const double C = gv::util::squaredNorm(1.570796327*radius_inv);
-	problem.rhs_fun = [C, radius_inv](Point_t point) -> double
+	problem.rhs_fun = [C, radius_inv](Point_t point)
 	{
 		Point_t cos_args = 1.570796327 * radius_inv * point;
 		return C * std::cos(cos_args[0]) * std::cos(cos_args[1]) * std::cos(cos_args[2]);
@@ -181,11 +165,8 @@ void axial_prism(const uint n_start, const uint n_refine, const int refine_case)
 	for (uint i=1; i<=n_refine; i++)
 	{
 		std::cout << "\n===== refinement " << i << " =====" << std::endl;
-		switch (refine_case)
-		{
-		case 0: problem.refine_interface(); break;
-		case 1: problem.refine_all(); break;
-		}
+
+		problem.refine_interface();
 		std::cout << problem.mesh << std::endl;
 
 		problem.solve(1);
@@ -213,18 +194,11 @@ void axial_prism(const uint n_start, const uint n_refine, const int refine_case)
 
 
 
-void prism(const uint n_start, const uint n_refine, const int refine_case)
+void prism(const uint n_start, const uint n_refine)
 {
 	std::cout << "\n===== PRISM START (n_start=" << n_start << ", n_refine= " << n_refine << ") =====" << std::endl;
-	switch (refine_case)
-	{
-		case 0: std::cout << "refine boundary using CHARMS" << std::endl; break;
-		case 1: std::cout << "refine all elements" << std::endl; break;
-		default: assert(false);
-	}
 
-
-	std::string experiment_name = "prism_refine" + std::to_string(refine_case);
+	std::string experiment_name = "charms_prism";
 	std::string outdirectory = "./outfiles/";
 
 	std::cout << "saving to: " << outdirectory << std::endl;
@@ -297,11 +271,8 @@ void prism(const uint n_start, const uint n_refine, const int refine_case)
 	for (uint i=1; i<=n_refine; i++)
 	{
 		std::cout << "\n===== refinement " << i << " =====" << std::endl;
-		switch (refine_case)
-		{
-		case 0: problem.refine_interface(); break;
-		case 1: problem.refine_all(); break;
-		}
+		
+		problem.refine_interface();
 		std::cout << problem.mesh << std::endl;
 
 		problem.solve(1);
@@ -340,16 +311,14 @@ int main(int argc, char* argv[])
 {
 	uint n_start = 4;
 	uint n_refine = 4;
-	int refine_case = 0;
 
 	if (argc>1) {n_start = atoi(argv[1]);}
 	if (argc>2) {n_refine = atoi(argv[2]);}
-	if (argc>3) {refine_case = atoi(argv[3]);}
 
 
-	unit_sphere(n_start, n_refine, refine_case);
-	axial_prism(n_start, n_refine, refine_case);
-	prism(n_start, n_refine, refine_case);
+	unit_sphere(n_start, n_refine);
+	// axial_prism(n_start, n_refine);
+	// prism(n_start, n_refine);
 
 	return 0;
 }
