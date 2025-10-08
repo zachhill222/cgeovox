@@ -5,7 +5,7 @@ SRC        = $(wildcard *.cpp)
 OBJ        = $(SRC:.cpp=.o)
 TARGETS    = $(SRC:.cpp=)
 
-CC         = g++ -std=c++20 -fopenmp -g
+CC         = g++ -std=c++20 -fopenmp #-g
 CFLAGS     = -Wall -O3
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 

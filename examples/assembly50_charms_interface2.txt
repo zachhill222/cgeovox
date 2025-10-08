@@ -1,0 +1,45 @@
+
+===== ASSEMBLY START (n_start=4, n_refine= 2) =====
+saving to: ./outfiles/
+prefix: charms_interface_assembly
+getting assembly from: assemblies/particles_50.txt
+===== coarse mesh =====
+n_vertices= 125
+n_basis_functions= 125
+n_active_basis_functions= 125
+n_elements= 64
+n_active_elements= 64
+
+making stiffness matrix with weak Dirichlet BC (1 seconds)
+epsilon= 3.28303	 penalty= 16
+assembling rhs vector (0 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+
+===== refinement 1 ===== (0 seconds to refine) =====
+n_vertices= 404
+n_basis_functions= 339
+n_active_basis_functions= 313
+n_elements= 280
+n_active_elements= 253
+
+making stiffness matrix with weak Dirichlet BC (1 seconds)
+epsilon= 1.64152	 penalty= 32
+assembling rhs vector (0 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+
+===== refinement 2 ===== (0 seconds to refine) =====
+n_vertices= 1001
+n_basis_functions= 674
+n_active_basis_functions= 622
+n_elements= 784
+n_active_elements= 694
+
+making stiffness matrix with weak Dirichlet BC (4 seconds)
+epsilon= 0.820758	 penalty= 64
+assembling rhs vector (0 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+===== ASSEMBLY END (6 seconds) =====
+

@@ -219,11 +219,12 @@ namespace gv::charms
 			for (int i=0; i<parent.cursor_basis_a; i++) {this->insert_basis_a(parent.basis_a[i]);}
 
 			Box_t bbox((*vertices)[parent.node[sibling_number]], parent.center());
-			size_t node_idx;
+			size_t node_idx = (size_t) -1;
 			for (int i=0; i<8; i++)
 			{
-				int flag = vertices->push_back(bbox.voxelvertex(i), node_idx);
+				[[maybe_unused]] int flag = vertices->push_back(bbox.voxelvertex(i), node_idx);
 				assert(flag!=-1);
+				assert(node_index != (size_t) -1);
 				this->insert_node(node_idx);
 			}
 		}
@@ -767,7 +768,7 @@ namespace gv::charms
 			CharmsQ1Element elem(*this, i); //updates vertex list, sets basis_a[], basis_s[], and node[]
 
 			size_t new_list_index = (size_t) -1;
-			int flag = elements->push_back(elem,new_list_index);
+			[[maybe_unused]] int flag = elements->push_back(elem,new_list_index);
 			assert(flag==1); //elements should always be newly created when this routine is called
 			const CharmsQ1Element& ELEM = (*elements)[new_list_index];
 			assert(ELEM.list_index==new_list_index);
@@ -793,7 +794,7 @@ namespace gv::charms
 			{
 				CharmsQ1Element elem(*this, i); //updates vertex list, sets basis_a[], basis_s[], and node[]
 				size_t new_list_index = (size_t) -1;
-				int flag = elements->push_back(elem,new_list_index);
+				[[maybe_unused]] int flag = elements->push_back(elem,new_list_index);
 				assert(flag==1); //elements should always be newly created when this routine is called
 				const CharmsQ1Element& ELEM = (*elements)[new_list_index];
 				assert(ELEM.list_index==new_list_index);

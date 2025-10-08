@@ -1,0 +1,73 @@
+Spheres are separated
+
+
+===== ASSEMBLY START (n_start=4, n_refine= 4) =====
+saving to: ./outfiles/
+prefix: charms_interface_assembly
+getting assembly from: ./assemblies/doubleSphere.txt
+===== coarse mesh =====
+n_vertices= 125
+n_basis_functions= 125
+n_active_basis_functions= 125
+n_elements= 64
+n_active_elements= 64
+
+making stiffness matrix with weak Dirichlet BC (1 seconds)
+epsilon= 1.68581	 penalty= 16
+assembling rhs vector (0 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+
+===== refinement 1 ===== (0 seconds to refine) =====
+n_vertices= 729
+n_basis_functions= 721
+n_active_basis_functions= 642
+n_elements= 576
+n_active_elements= 512
+
+making stiffness matrix with weak Dirichlet BC (5 seconds)
+epsilon= 0.842906	 penalty= 32
+assembling rhs vector (0 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+
+===== refinement 2 ===== (0 seconds to refine) =====
+n_vertices= 3349
+n_basis_functions= 2576
+n_active_basis_functions= 2326
+n_elements= 3008
+n_active_elements= 2640
+
+making stiffness matrix with weak Dirichlet BC (19 seconds)
+epsilon= 0.421453	 penalty= 64
+assembling rhs vector (1 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+
+===== refinement 3 ===== (0 seconds to refine) =====
+n_vertices= 11876
+n_basis_functions= 9338
+n_active_basis_functions= 8426
+n_elements= 11344
+n_active_elements= 9934
+
+making stiffness matrix with weak Dirichlet BC (81 seconds)
+epsilon= 0.210727	 penalty= 128
+assembling rhs vector (7 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+
+===== refinement 4 ===== (2 seconds to refine) =====
+n_vertices= 41705
+n_basis_functions= 33910
+n_active_basis_functions= 30545
+n_elements= 40984
+n_active_elements= 35869
+
+making stiffness matrix with weak Dirichlet BC (378 seconds)
+epsilon= 0.105363	 penalty= 256
+assembling rhs vector (30 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+===== ASSEMBLY END (527 seconds) =====
+

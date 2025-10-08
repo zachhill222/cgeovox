@@ -49,6 +49,7 @@ namespace gv::charms
 		std::vector<size_t> basis_all2active;
 		std::vector<size_t> elem_active2all;
 		std::vector<size_t> elem_all2active;
+		std::vector<double> coarse_heaviside_vector;
 		bool active_indices_up_to_date = false;
 
 		//scalar variables to maintain while refining (coefficients of active basis functions)
@@ -102,7 +103,7 @@ namespace gv::charms
 				fun.set_support(); //TODO: speed this up or remove from here.
 
 				size_t fun_idx = (size_t) -1;
-				int flag = basis.push_back(fun, fun_idx);
+				[[maybe_unused]] int flag = basis.push_back(fun, fun_idx);
 				assert(flag==1);
 				assert(basis[fun_idx].list_index == fun_idx);
 
@@ -111,7 +112,37 @@ namespace gv::charms
 				{
 					elements[basis[fun_idx].support[i]].insert_basis_s(fun_idx);
 				}
+
+				//all basis functions should be active in the coarsest mesh
+				basis[fun_idx].activate(assembly, opts);
 			}
+		}
+
+		double _coarse_heaviside(const Point_t& point) const
+		{
+			std::vector<size_t> e_idx = elements.get_data_indices(point);
+			assert(e_idx.size()>0);
+
+			for (size_t i=0; i<e_idx.size(); i++)
+			{
+				const Element_t& ELEM = elements[e_idx[i]];
+				if (element_marker[ELEM.list_index] == opts.solid_marker) {return 0;}
+				else if (element_marker[ELEM.list_index] == opts.void_marker) {return 1;}
+			}
+			return assembly.heaviside(point, elements[e_idx[0]].bbox().sidelength()[0]);
+		}
+
+		void _init_coarse_heaviside()
+		{
+			coarse_heaviside_vector.resize(basis.size());
+			std::fill(coarse_heaviside_vector.begin(), coarse_heaviside_vector.end(), 0);
+			ScalarFun_t heaviside = [this](const Point_t& point) {return this->_coarse_heaviside(point);};
+			_init_scalar_field(coarse_heaviside_vector, heaviside);
+		}
+
+		double coarse_heaviside(const Point_t& point) const
+		{
+			return _interpolate_scalar_field(coarse_heaviside_vector, point);
 		}
 
 		//scalar field evaluations and assignments (call get_active_indices() ahead of time!)
@@ -310,8 +341,8 @@ namespace gv::charms
 		}
 
 		//file io
-		void vtkprint(std::ostream &os, const std::vector<double>& scalar_field = std::vector<double>() ) const; //write mesh (as unstructured non-conforming voxels) in vtk format to specified stream
-		void save_as(std::string filename, const std::vector<double>& scalar_field = std::vector<double>()) const; //save mesh information to file, uses vtkprint()
+		void vtkprint(std::ostream &os, const std::vector<double>& scalar_field = std::vector<double>(), double eps=-1 ) const; //write mesh (as unstructured non-conforming voxels) in vtk format to specified stream
+		void save_as(std::string filename, const std::vector<double>& scalar_field = std::vector<double>(), double eps=-1) const; //save mesh information to file, uses vtkprint()
 
 		//quasi-hierarchical refinement
 		int q_refine(const size_t basis_idx, std::vector<double>& scalar_field); //de-activate the specified basis function and activate its children
@@ -362,8 +393,6 @@ namespace gv::charms
 		assert(element_marker.size() == elements.size());
 
 		return 0;
-
-
 	}
 
 
@@ -386,7 +415,7 @@ namespace gv::charms
 	
 	//vtkprint implementation
 	template <class Assembly_t>
-	void AssemblyCharmsQ1Mesh<Assembly_t>::vtkprint(std::ostream &os, const std::vector<double>& scalar_field) const
+	void AssemblyCharmsQ1Mesh<Assembly_t>::vtkprint(std::ostream &os, const std::vector<double>& scalar_field, double eps) const
 	{
 		//ensure the active basis and element lists are up to date
 		assert(active_indices_up_to_date);
@@ -683,7 +712,8 @@ namespace gv::charms
 		double heaviside[vertices.size()];
 		double dirac[vertices.size()];
 
-		const double eps = 0.03125 * gv::util::norm2(domain.sidelength());
+		if (eps<0) {eps = 0.03125 * gv::util::norm2(domain.sidelength());}
+
 		#pragma omp parallel for
 		for (size_t i=0; i<vertices.size(); i++)
 		{
@@ -699,6 +729,15 @@ namespace gv::charms
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
+
+		// buffer << "coarse_heaviside 1 " << vertices.size() << " float\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {
+		// 	buffer << coarse_heaviside(vertices[i]) << " ";
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 
 		buffer << "dirac_delta 1 " << vertices.size() << " float\n";
 		for (size_t i=0; i<vertices.size(); i++)
@@ -755,7 +794,7 @@ namespace gv::charms
 
 	//save mesh implementation
 	template <class Assembly_t>
-	void AssemblyCharmsQ1Mesh<Assembly_t>::save_as(std::string filename, const std::vector<double>& scalar_field) const
+	void AssemblyCharmsQ1Mesh<Assembly_t>::save_as(std::string filename, const std::vector<double>& scalar_field, double eps) const
 	{
 		//open and check file
 		std::ofstream meshfile(filename);
@@ -767,7 +806,7 @@ namespace gv::charms
 		}
 
 		//print mesh to file
-		vtkprint(meshfile, scalar_field);
+		vtkprint(meshfile, scalar_field, eps);
 		meshfile.close();
 	}
 
@@ -776,6 +815,7 @@ namespace gv::charms
 	template <class Assembly_t>
 	std::ostream& operator<<(std::ostream& os, const AssemblyCharmsQ1Mesh<Assembly_t>& mesh)
 	{
+		assert(mesh.active_indices_up_to_date);
 		os << "n_vertices= " << mesh.vertices.size() << std::endl;
 		os << "n_basis_functions= " << mesh.basis.size() << std::endl;
 		os << "n_active_basis_functions= " << mesh.basis_active2all.size() << std::endl;

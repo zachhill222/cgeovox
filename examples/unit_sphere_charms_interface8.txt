@@ -1,0 +1,79 @@
+
+===== UNIT SPHERE START (n_start=4, n_refine= 4) =====
+saving to: ./outfiles/
+prefix: charms_interface_unitSphere
+===== coarse mesh =====
+n_vertices= 125
+n_basis_functions= 125
+n_active_basis_functions= 125
+n_elements= 64
+n_active_elements= 64
+
+making stiffness matrix with weak Dirichlet BC (1 seconds)
+epsilon= 1.4985	 penalty= 1.33467
+assembling rhs vector (0 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00974481
+
+===== refinement 1 ===== (0 seconds to refine) =====
+n_vertices= 729
+n_basis_functions= 762
+n_active_basis_functions= 681
+n_elements= 576
+n_active_elements= 512
+
+making stiffness matrix with weak Dirichlet BC (1 seconds)
+epsilon= 0.74925	 penalty= 2.66934
+assembling rhs vector (1 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00693986
+
+===== refinement 2 ===== (0 seconds to refine) =====
+n_vertices= 3405
+n_basis_functions= 2680
+n_active_basis_functions= 2421
+n_elements= 3072
+n_active_elements= 2696
+
+making stiffness matrix with weak Dirichlet BC (6 seconds)
+epsilon= 0.374625	 penalty= 5.33867
+assembling rhs vector (0 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00615572
+
+===== refinement 3 ===== (0 seconds to refine) =====
+n_vertices= 11199
+n_basis_functions= 8918
+n_active_basis_functions= 8049
+n_elements= 10752
+n_active_elements= 9416
+
+making stiffness matrix with weak Dirichlet BC (38 seconds)
+epsilon= 0.187313	 penalty= 10.6773
+assembling rhs vector (3 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00561331
+
+===== refinement 4 ===== (2 seconds to refine) =====
+n_vertices= 40299
+n_basis_functions= 32916
+n_active_basis_functions= 29661
+n_elements= 39744
+n_active_elements= 34784
+
+making stiffness matrix with weak Dirichlet BC (174 seconds)
+epsilon= 0.0936563	 penalty= 21.3547
+assembling rhs vector (17 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00493189
+
+summary:
+Deg. of Freedom:	125	681	2421	8049	29661	
+Mean L1 Error  :	0.00974481	0.00693986	0.00615572	0.00561331	0.00493189	
+===== UNIT SPHERE END (247 seconds) =====
+

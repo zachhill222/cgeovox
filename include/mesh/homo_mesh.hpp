@@ -169,7 +169,7 @@ void HomoMesh<Element_t>::add_element(const Point_t (&element)[referenceElement.
 	for (size_t i=0; i<referenceElement.nNodes; i++)
 	{
 		size_t global_idx;
-		int flag = _nodes.push_back(element[i], global_idx);
+		[[maybe_unused]] int flag = _nodes.push_back(element[i], global_idx);
 		assert(flag!=-1);
 		assert(_nodes[global_idx] == element[i]);
 		_elem2node.push_back(global_idx);

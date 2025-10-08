@@ -54,6 +54,8 @@ namespace gv::pde
 				u.resize(mesh.basis.size(), 0);
 			}
 
+		Box_t domain() const {return mesh.domain;}
+
 		void refine_interface()
 		{
 			//refine all active elements with the interface marker
@@ -246,7 +248,7 @@ namespace gv::pde
 
 		double epsilon; //used for interface width
 		double penalty; //used for Dirichlet BC
-
+		int domain_marker = 0; //used to determine if H or 1-H should be used as the heaviside function
 
 		PoissonCharmsInterface(const Box_t& domain, const Assembly_t& assembly, MeshOpts opts) :
 			mesh(domain, opts, assembly)
@@ -254,9 +256,11 @@ namespace gv::pde
 				assert(mesh.opts.include_interface); //the interface must be included for the mesh refinement
 				u.resize(mesh.basis.size(), 0);
 
-				epsilon = domain.sidelength()[0] / (double) opts.N[0];
+				epsilon = 1.5 * 0.333 * gv::util::norm1(domain.sidelength() / (Point_t) opts.N);
 				penalty = 1.0/epsilon;
 			}
+
+		Box_t domain() const {return mesh.domain;}
 
 		void refine_interface()
 		{
@@ -304,19 +308,32 @@ namespace gv::pde
 			Eigen::VectorXd F(mesh.basis_active2all.size());
 
 			//set up RHS and initial guess
-			std::vector<double> f_vec(mesh.basis.size());
-			mesh._init_scalar_field(f_vec, rhs_fun);
+			// std::vector<double> f_vec(mesh.basis.size());
+			// mesh._init_scalar_field(f_vec, rhs_fun);
 			for (size_t i=0; i<mesh.basis_active2all.size(); i++)
 			{
 				size_t b_idx = mesh.basis_active2all[i];
-				F[i]  = f_vec[b_idx];
+				// F[i]  = f_vec[b_idx];
 				U[i]  = u[b_idx];
 			}
 
 			if (verbose>0) {std::cout << "making stiffness matrix with weak Dirichlet BC " << std::flush; start = std::time(nullptr);}
 			
-			ScalarFun_t heaviside = [this](Point_t point) {return 1.0-this->mesh.assembly.heaviside(point, this->epsilon);};
-			ScalarFun_t dirac_delta = [this](Point_t point) {return -this->mesh.assembly.dirac_delta(point, this->epsilon);};
+			mesh._init_coarse_heaviside();
+			ScalarFun_t heaviside;
+			if (domain_marker==mesh.opts.solid_marker)
+			{
+				heaviside = [this](const Point_t& point) {return 1.0 - this->mesh.assembly.heaviside(point, this->epsilon);};
+			}else if (domain_marker==mesh.opts.void_marker)
+			{
+				heaviside = [this](const Point_t& point) {return this->mesh.assembly.heaviside(point, this->epsilon);};
+			}
+			else {assert(false);}
+
+			// ScalarFun_t heaviside = [this](const Point_t& point) {return 1.0 - this->mesh.coarse_heaviside(point);};
+			// ScalarFun_t heaviside = [this](const Point_t& point) {return 1.0-this->mesh.assembly.heaviside(point, this->epsilon);};
+			// ScalarFun_t penalty_kernel = [this](const Point_t& point) {return -this->mesh.assembly.dirac_delta(point, this->epsilon);}; //dirac delta, surface penalty
+			ScalarFun_t penalty_kernel = [heaviside](const Point_t& point){return 1.0 - heaviside(point);}; //volume penalty
 
 			// matrix_constructor.make_stiff_matrix(stifMat,
 			// 	mesh.basis,
@@ -335,13 +352,14 @@ namespace gv::pde
 				mesh.elem_active2all,
 				mesh.elem_all2active,
 				heaviside,
-				dirac_delta);
+				penalty_kernel);
 
 			if (verbose>0) {end = std::time(nullptr); std::cout << "(" << std::difftime(end,start) << " seconds)" << std::endl;}
 			if (verbose>0) {std::cout << "epsilon= " << this->epsilon << "\t penalty= " << this->penalty << std::endl;}
 
 			//create RHS vector
 			if (verbose>0) {std::cout << "assembling rhs vector " << std::flush; start = std::time(nullptr);}
+			ScalarFun_t rhs_fun_h = [heaviside, this](const Point_t& point) {return this->rhs_fun(point) * heaviside(point);};
 			matrix_constructor.integrate_fun(F, rhs_fun,
 				mesh.basis,
 				mesh.basis_active2all,
@@ -410,7 +428,7 @@ namespace gv::pde
 		void save_as(std::string filename) const
 		{
 			assert(u.size()==mesh.basis.size());
-			mesh.save_as(filename, u);
+			mesh.save_as(filename, u, epsilon);
 		}
 
 		double error_L1(const ScalarFun_t& exact) const
@@ -419,6 +437,8 @@ namespace gv::pde
 
 			std::vector<double> gauss_locations {-0.7745966692414834, 0, 0.7745966692414834};
 			std::vector<double> gauss_weights {0.5555555555555556, 0.8888888888888888, 0.5555555555555556};
+
+			ScalarFun_t heaviside = [this](Point_t point) {return 1.0-this->mesh.assembly.heaviside(point, 0.1*this->epsilon);};
 
 			double error = 0;
 			#pragma omp parallel for reduction(+:error)
@@ -437,7 +457,7 @@ namespace gv::pde
 						for (size_t k=0; k<gauss_locations.size(); k++) {
 							ref_point[2] = gauss_locations[k];
 							Point_t point = center + 0.5*H*ref_point;
-							local_err += gauss_weights[i]*gauss_weights[j]*gauss_weights[k] * std::fabs(mesh._interpolate_scalar_field(u,point) - exact(point));
+							local_err += gauss_weights[i]*gauss_weights[j]*gauss_weights[k] * std::fabs(mesh._interpolate_scalar_field(u,point) - exact(point)) * heaviside(point);
 						}
 					}
 				}

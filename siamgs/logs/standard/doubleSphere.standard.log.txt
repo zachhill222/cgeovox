@@ -1,0 +1,35 @@
+
+===== BEGIN (n_start=4, n_refine= 5) =====
+METHOD = CHARMS_STANDARD
+saving to: ./solutions/interface/
+prefix: doubleSphere
+getting assembly/domain from: ./assemblies/doubleSphere.txt
+===== coarse mesh =====
+n_vertices= 125
+n_basis_functions= 125
+n_active_basis_functions= 125
+n_elements= 64
+n_active_elements= 64
+
+making stiffness matrix (0 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+
+===== refinement 1 ===== (0 seconds to refine) =====
+n_vertices= 729
+n_basis_functions= 751
+n_active_basis_functions= 665
+n_elements= 576
+n_active_elements= 494
+
+making stiffness matrix (0 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+
+===== refinement 2 ===== 
+===== SYSTEM INFORMATION =====
+Date: Wed Oct  8 06:03:05 PM EDT 2025

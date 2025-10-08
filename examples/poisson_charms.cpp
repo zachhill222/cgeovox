@@ -15,6 +15,7 @@
 #include <Eigen/SparseCore>
 #include <Eigen/IterativeLinearSolvers>
 
+#define NDEBUG
 
 void unit_sphere(const uint n_start, const uint n_refine)
 {
