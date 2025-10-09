@@ -63,20 +63,54 @@ fi
 
 #run both programs on each assembly
 for assembly_file in "${ASSEMBLY_DIR}"/*; do
-	#skip anything that isn't a file
+	#skip anything that isn't a file or any files that were removed
 	if [ ! -f "$assembly_file" ]; then
 		continue
 	fi
 
 	#get the filename without the path
 	experiment_name=$(basename "$assembly_file" .txt)
-	outdirectory="${SOLUTION_DIR}/interface/"
 	
+
+	#run the standard program
+	echo "Running ${experiment_name} (standard)"
+	logfile="${LOG_DIR}/standard/${experiment_name}.standard.log.txt"
+	memfile="${LOG_DIR}/standard/${experiment_name}.standard.memory.txt"
+	outdirectory="${SOLUTION_DIR}/standard/"
+	/usr/bin/time -v ./${STANDARD_PROGRAM} ${N_START} ${N_REFINE} ${assembly_file} ${experiment_name} ${outdirectory} \
+		> ${logfile} \
+		2> ${memfile}
+		
+
+	#append time and system information to the log
+	{
+		echo ""
+		echo ""
+		echo "===== SYSTEM INFORMATION ====="
+		echo "Date        : $(date)"
+		echo "Hostname    : $(hostname)"
+		echo "CPU         : $(lscpu | grep 'Model name' | cut -d ':' -f 2 | xargs)"
+		echo "CPU cores   : $(nproc)"
+		echo "Total RAM   : $(free -h | grep Mem | awk '{print $2}')"
+
+		echo ""
+		echo "===== EXPERIMENT PARAMETERS ====="
+		echo "N_START     : ${N_START}"
+		echo "N_REFINE    : ${N_REFINE}"
+		echo "ASSEMBLY_DIR: ${ASSEMBLY_DIR}"
+		echo "SOLUTION_DIR: ${SOLUTION_DIR}"
+		echo "LOG_DIR     : ${LOG_DIR}"
+	} >> ${logfile}
+
+
+
+
 
 	#run the interface program
 	echo "Running ${experiment_name} (interface)"
 	logfile="${LOG_DIR}/interface/${experiment_name}.interface.log.txt"
 	memfile="${LOG_DIR}/interface/${experiment_name}.interface.memory.txt"
+	outdirectory="${SOLUTION_DIR}/interface/"
 
 	/usr/bin/time -v ./${INTERFACE_PROGRAM} ${N_START} ${N_REFINE} ${assembly_file} ${experiment_name} ${outdirectory} \
 		> ${logfile} \
@@ -85,47 +119,23 @@ for assembly_file in "${ASSEMBLY_DIR}"/*; do
 	#append time and system information to the log
 	{
 		echo ""
+		echo ""
 		echo "===== SYSTEM INFORMATION ====="
-		echo "Date: $(date)"
-		echo "Hostname: $(hostname)"
-		echo "CPU: $(lscpu | grep 'Model name' | cut -d ':' -f 2 | xargs)"
-		echo "CPU cores: $(nproc)"
-		echo "Total RAM: $(free -h | grep Mem | awk '{print $2}')"
+		echo "Date        : $(date)"
+		echo "Hostname    : $(hostname)"
+		echo "CPU         : $(lscpu | grep 'Model name' | cut -d ':' -f 2 | xargs)"
+		echo "CPU cores   : $(nproc)"
+		echo "Total RAM   : $(free -h | grep Mem | awk '{print $2}')"
 
 		echo ""
 		echo "===== EXPERIMENT PARAMETERS ====="
-		echo "N_START: ${N_START}"
-		echo "N_REFINE: ${N_REFINE}"
+		echo "N_START     : ${N_START}"
+		echo "N_REFINE    : ${N_REFINE}"
 		echo "ASSEMBLY_DIR: ${ASSEMBLY_DIR}"
 		echo "SOLUTION_DIR: ${SOLUTION_DIR}"
-		echo "LOG_DIR: ${LOG_DIR}"
+		echo "LOG_DIR     : ${LOG_DIR}"
 	} >> ${logfile}
 
-	#run the standard program
-	echo "Running ${experiment_name} (standard)"
-	logfile="${LOG_DIR}/standard/${experiment_name}.standard.log.txt"
-	memfile="${LOG_DIR}/standard/${experiment_name}.standard.memory.txt"
-	/usr/bin/time -v ./${STANDARD_PROGRAM} ${N_START} ${N_REFINE} ${assembly_file} ${experiment_name} ${outdirectory} \
-		> ${logfile} \
-		2> ${memfile}
-
-	#append time and system information to the log
-	{
-		echo ""
-		echo "===== SYSTEM INFORMATION ====="
-		echo "Date: $(date)"
-		echo "Hostname: $(hostname)"
-		echo "CPU: $(lscpu | grep 'Model name' | cut -d ':' -f 2 | xargs)"
-		echo "CPU cores: $(nproc)"
-		echo "Total RAM: $(free -h | grep Mem | awk '{print $2}')"
-
-		echo ""
-		echo "===== EXPERIMENT PARAMETERS ====="
-		echo "N_START: ${N_START}"
-		echo "N_REFINE: ${N_REFINE}"
-		echo "ASSEMBLY_DIR: ${ASSEMBLY_DIR}"
-		echo "SOLUTION_DIR: ${SOLUTION_DIR}"
-		echo "LOG_DIR: ${LOG_DIR}"
-	} >> ${logfile}
+	
 
 done

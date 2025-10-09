@@ -1,16 +1,16 @@
-	Command being timed: "./standard 4 5 ./assemblies/doubleSphere.txt doubleSphere ./solutions/standard/"
-	User time (seconds): 121.45
-	System time (seconds): 0.90
-	Percent of CPU this job got: 131%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:32.84
+	Command being timed: "./standard 4 5 ./assemblies/sphere.txt sphere ./solutions/standard/"
+	User time (seconds): 184.92
+	System time (seconds): 1.71
+	Percent of CPU this job got: 130%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:22.52
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 991392
+	Maximum resident set size (kbytes): 1543276
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 346391
+	Minor (reclaiming a frame) page faults: 591201
 	Voluntary context switches: 0
 	Involuntary context switches: 0
 	Swaps: 0

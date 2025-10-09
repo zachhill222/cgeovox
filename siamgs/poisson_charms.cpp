@@ -5,29 +5,12 @@
 #include <ctime>
 #include <iostream>
 #include <string>
-#include <filesystem>
 
 #include <Eigen/SparseCore>
 #include <Eigen/IterativeLinearSolvers>
 
-void prepare_directory(const std::string path)
-{
-	try { //empty directory if it exists
-		if (std::filesystem::exists(path)) {
-			for (const auto& entry : std::filesystem::directory_iterator(path)) {
-                std::filesystem::remove_all(entry.path());
-            }
-		}
-		else {
-			std::filesystem::create_directories(path);
-		}
-	}
-	catch (const std::filesystem::filesystem_error &e) {
-		std::cerr << "Error: " << e.what() << std::endl;
-	}
-}
 
-
+template <typename Particle_t, double pad=0, bool domain_is_void=true>
 void charms_interface(const uint n_start, const uint n_refine, const std::string filename, const std::string experiment_name, const std::string outdirectory)
 {
 	std::cout << "\n===== BEGIN (n_start=" << n_start << ", n_refine= " << n_refine << ") =====" << std::endl;
@@ -36,7 +19,6 @@ void charms_interface(const uint n_start, const uint n_refine, const std::string
 
 	//set up timer
 	std::time_t start = std::time(nullptr);
-	using Particle_t = gv::geometry::SuperEllipsoid;
 
 	std::cout << "saving to: " << outdirectory << std::endl;
 	std::cout << "prefix: " << experiment_name << std::endl;
@@ -48,22 +30,22 @@ void charms_interface(const uint n_start, const uint n_refine, const std::string
 
 	//set up meshing options
 	gv::geometry::AssemblyMeshOptions opts;
-	opts.include_void = true;
+	opts.include_void      = true;
 	opts.include_interface = true;
-	opts.include_solid = true;
-	opts.check_centroid = false;
+	opts.include_solid     = true;
+	opts.check_centroid    = false;
 	opts.N[0] = n_start;
 	opts.N[1] = n_start;
 	opts.N[2] = n_start;
-	opts.solid_marker = 1;
-	opts.void_marker = 0;
-	opts.interface_marker = 2;
+	opts.void_marker      = 0;
+	opts.interface_marker = 1;
+	opts.solid_marker     = 2;
 
 	//set up problem
-	gv::pde::PoissonCharmsInterface problem(1.5*assembly.bbox(), assembly, opts); //defualt homogeneous BC and f(x)=1 on the RHS
-	problem.domain_marker = opts.void_marker;
-	// problem.penalty = 16;
-
+	gv::pde::PoissonCharmsInterface problem((1.0+pad)*assembly.bbox(), assembly, opts); //defualt homogeneous BC and f(x)=1 on the RHS
+	if (domain_is_void) {problem.domain_marker = opts.void_marker;}
+	else {problem.domain_marker = opts.solid_marker;}
+	
 	//solve on coarsest mesh
 	std::cout << "===== coarse mesh =====" << std::endl;
 	problem.mesh.get_active_indices();
@@ -91,6 +73,7 @@ void charms_interface(const uint n_start, const uint n_refine, const std::string
 	std::cout << "===== END " << " (" << std::difftime(end,start) << " seconds) =====\n" << std::endl;
 }
 
+template <typename Particle_t, double pad=0, bool domain_is_void=true>
 void charms_standard(const uint n_start, const uint n_refine, const std::string filename, const std::string experiment_name, const std::string outdirectory)
 {
 	std::cout << "\n===== BEGIN (n_start=" << n_start << ", n_refine= " << n_refine << ") =====" << std::endl;
@@ -98,7 +81,6 @@ void charms_standard(const uint n_start, const uint n_refine, const std::string 
 
 	//set up timer
 	std::time_t start = std::time(nullptr);
-	using Particle_t = gv::geometry::SuperEllipsoid;
 
 	std::cout << "saving to: " << outdirectory << std::endl;
 	std::cout << "prefix: " << experiment_name << std::endl;
@@ -110,19 +92,20 @@ void charms_standard(const uint n_start, const uint n_refine, const std::string 
 
 	//set up meshing options
 	gv::geometry::AssemblyMeshOptions opts;
-	opts.include_void = true;
 	opts.include_interface = true;
-	opts.include_solid = false;
-	opts.check_centroid = false;
+	if (domain_is_void) { opts.include_solid = false; opts.include_void = true;}
+	else { opts.include_solid = true; opts.include_void = false;}
+
+	opts.check_centroid    = false;
 	opts.N[0] = n_start;
 	opts.N[1] = n_start;
 	opts.N[2] = n_start;
-	opts.solid_marker = 1;
-	opts.void_marker = 0;
-	opts.interface_marker = 2;
+	opts.void_marker      = 0;
+	opts.interface_marker = 1;
+	opts.solid_marker     = 2;
 
 	//set up problem
-	gv::pde::PoissonCharms problem(1.5*assembly.bbox(), assembly, opts); //defualt homogeneous BC and f(x)=1 on the RHS
+	gv::pde::PoissonCharms problem((1.0+pad)*assembly.bbox(), assembly, opts); //defualt homogeneous BC and f(x)=1 on the RHS
 
 	//solve on coarsest mesh
 	std::cout << "===== coarse mesh =====" << std::endl;
@@ -155,15 +138,19 @@ void charms_standard(const uint n_start, const uint n_refine, const std::string 
 
 int main(int argc, char* argv[])
 {
-	uint n_start = 4;
-	uint n_refine = 4;
-	std::string filename = "./assmblies/sphere.txt";
-	std::string experiment_name = "sphere";
+	uint n_start                 = 4;
+	uint n_refine                = 4;
+	std::string filename         = "./assmblies/sphere.txt";
+	std::string experiment_name  = "sphere";
 
-	if (argc>1) {n_start = atoi(argv[1]);}
-	if (argc>2) {n_refine = atoi(argv[2]);}
-	if (argc>3) {filename = argv[3];}
+	if (argc>1) {n_start         = atoi(argv[1]);}
+	if (argc>2) {n_refine        = atoi(argv[2]);}
+	if (argc>3) {filename        = argv[3];}
 	if (argc>4) {experiment_name = argv[4];}
+
+	using Particle_t = gv::geometry::Ellipsoid; //treat all particles as spheres. SuperEllipsoids seem to have a problem.
+	constexpr double pad = 0.5; //add 50% extra space around the particles
+	constexpr bool domain_is_void = true; //determine if the problem domain is the void+interface or solid+interface
 
 	//compile program to use the interface method
 	#ifdef INTERFACE
@@ -171,8 +158,12 @@ int main(int argc, char* argv[])
 		std::string outdirectory = "./charms_interface/" + experiment_name + "/";
 		if (argc>5) {outdirectory = argv[5];}
 
-		prepare_directory(outdirectory);
-		charms_interface(n_start, n_refine, filename, experiment_name, outdirectory);
+		try {
+			charms_interface<Particle_t,pad,domain_is_void>(n_start, n_refine, filename, experiment_name, outdirectory);
+		} catch (...) {
+			std::cout << "\n\tPROGRAM CRASHED!" << std::endl;
+			return 1;}
+		
 	#endif
 
 	//compile program to use the standard method
@@ -180,9 +171,14 @@ int main(int argc, char* argv[])
 		//set up directory for solutions
 		std::string outdirectory = "./charms_standard/" + experiment_name + "/";
 		if (argc>5) {outdirectory = argv[5];}
+
+		try {
+			charms_standard<Particle_t,pad,domain_is_void>(n_start, n_refine, filename, experiment_name, outdirectory);
+		} catch (...) {
+			std::cout << "\n\tPROGRAM CRASHED!" << std::endl;
+			return 1;
+		}
 		
-		prepare_directory(outdirectory);
-		charms_standard(n_start, n_refine, filename, experiment_name, outdirectory);
 	#endif
 	return 0;
 }

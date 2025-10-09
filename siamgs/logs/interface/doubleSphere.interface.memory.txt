@@ -1,17 +1,16 @@
-Command terminated by signal 2
 	Command being timed: "./interface 4 5 ./assemblies/doubleSphere.txt doubleSphere ./solutions/interface/"
-	User time (seconds): 315.07
-	System time (seconds): 0.15
-	Percent of CPU this job got: 924%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:34.10
+	User time (seconds): 19842.96
+	System time (seconds): 2.62
+	Percent of CPU this job got: 1014%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 32:35.33
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 22408
+	Maximum resident set size (kbytes): 1130496
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 8078
+	Minor (reclaiming a frame) page faults: 414313
 	Voluntary context switches: 0
 	Involuntary context switches: 0
 	Swaps: 0

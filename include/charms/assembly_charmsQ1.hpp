@@ -10,6 +10,7 @@
 
 #include <Eigen/SparseCore>
 
+#include <cmath>
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -593,7 +594,7 @@ namespace gv::charms
 
 
 		buffer << "POINT_DATA " << vertices.size() << "\n";
-		buffer << "FIELD mesh_vertex_info 4\n";
+		buffer << "FIELD mesh_vertex_info 3\n";
 
 		//VERTEX ACTIVE BASIS DEPTH
 		// buffer << "depth 1 " << vertices.size() << " integer\n";
@@ -709,8 +710,8 @@ namespace gv::charms
 		// }
 
 
-		double heaviside[vertices.size()];
-		double dirac[vertices.size()];
+		float heaviside[vertices.size()];
+		float dirac[vertices.size()];
 
 		if (eps<0) {eps = 0.03125 * gv::util::norm2(domain.sidelength());}
 
@@ -724,7 +725,9 @@ namespace gv::charms
 		buffer << "heaviside 1 " << vertices.size() << " float\n";
 		for (size_t i=0; i<vertices.size(); i++)
 		{
-			buffer << heaviside[i] << " ";
+			if (std::isnan(heaviside[i])) {buffer << -1 << " "; }
+			else {buffer << heaviside[i] << " "; }
+			
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
@@ -742,7 +745,8 @@ namespace gv::charms
 		buffer << "dirac_delta 1 " << vertices.size() << " float\n";
 		for (size_t i=0; i<vertices.size(); i++)
 		{
-			buffer << dirac[i] << " ";
+			if (std::isnan(dirac[i])) {buffer << -1 << " "; }
+			else {buffer << dirac[i] << " "; }
 		}
 		buffer << "\n\n";
 		os << buffer.rdbuf();
@@ -771,25 +775,24 @@ namespace gv::charms
 		buffer.str("");
 		
 		//VERTEX BOUNDARY INDICATOR
-		std::vector<size_t> boundary_basis = active_basis_interior_boundary();
-		int boundary_vertex[vertices.size()] {0};
-		for (size_t i=0; i<boundary_basis.size(); i++)
-		{
-			const BasisFun_t& FUN = basis[boundary_basis[i]];
-			boundary_vertex[FUN.node_index] = 1;
-		}
+		// std::vector<size_t> boundary_basis = active_basis_interior_boundary();
+		// int boundary_vertex[vertices.size()] {0};
+		// for (size_t i=0; i<boundary_basis.size(); i++)
+		// {
+		// 	const BasisFun_t& FUN = basis[boundary_basis[i]];
+		// 	boundary_vertex[FUN.node_index] = 1;
+		// }
 
 
 
-		buffer << "boundary 1 " << vertices.size() << " integer\n";
-		for (size_t i=0; i<vertices.size(); i++)
-		{	
-			buffer << boundary_vertex[i] << " ";
-		}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
-		
+		// buffer << "boundary 1 " << vertices.size() << " integer\n";
+		// for (size_t i=0; i<vertices.size(); i++)
+		// {	
+		// 	buffer << boundary_vertex[i] << " ";
+		// }
+		// buffer << "\n\n";
+		// os << buffer.rdbuf();
+		// buffer.str("");
 	}
 
 	//save mesh implementation
