@@ -69,18 +69,19 @@ for assembly_file in "${ASSEMBLY_DIR}"/*; do
 	fi
 
 	#get the filename without the path
-	experiment_name=$(basename "$assembly_file" .txt)
+	base_file=$(basename "$assembly_file" .txt)
 	
 
 	#run the standard program
-	echo "Running ${experiment_name} (standard)"
-	logfile="${LOG_DIR}/standard/${experiment_name}.standard.log.txt"
-	memfile="${LOG_DIR}/standard/${experiment_name}.standard.memory.txt"
+	experiment_name="${base_file}.standard"
+	echo "Running ${experiment_name}"
+	logfile="${LOG_DIR}/standard/${experiment_name}.log.txt"
+	memfile="${LOG_DIR}/standard/${experiment_name}.memory.txt"
 	outdirectory="${SOLUTION_DIR}/standard/"
 	/usr/bin/time -v ./${STANDARD_PROGRAM} ${N_START} ${N_REFINE} ${assembly_file} ${experiment_name} ${outdirectory} \
 		> ${logfile} \
 		2> ${memfile}
-		
+
 
 	#append time and system information to the log
 	{
@@ -107,9 +108,10 @@ for assembly_file in "${ASSEMBLY_DIR}"/*; do
 
 
 	#run the interface program
-	echo "Running ${experiment_name} (interface)"
-	logfile="${LOG_DIR}/interface/${experiment_name}.interface.log.txt"
-	memfile="${LOG_DIR}/interface/${experiment_name}.interface.memory.txt"
+	experiment_name="${base_file}.interface"
+	echo "Running ${experiment_name}"
+	logfile="${LOG_DIR}/interface/${experiment_name}.log.txt"
+	memfile="${LOG_DIR}/interface/${experiment_name}.memory.txt"
 	outdirectory="${SOLUTION_DIR}/interface/"
 
 	/usr/bin/time -v ./${INTERFACE_PROGRAM} ${N_START} ${N_REFINE} ${assembly_file} ${experiment_name} ${outdirectory} \

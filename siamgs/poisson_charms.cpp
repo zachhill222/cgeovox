@@ -25,8 +25,9 @@ void charms_interface(const uint n_start, const uint n_refine, const std::string
 
 
 	//define assembly 
+	const double scale = 1000;
 	std::cout << "getting assembly/domain from: " << filename << std::endl;
-	gv::geometry::Assembly<Particle_t,8> assembly(filename, "-rrr-eps-xyz-q");
+	gv::geometry::Assembly<Particle_t,8> assembly(filename, "-rrr-eps-xyz-q", scale);
 
 	//set up meshing options
 	gv::geometry::AssemblyMeshOptions opts;
@@ -43,6 +44,8 @@ void charms_interface(const uint n_start, const uint n_refine, const std::string
 
 	//set up problem
 	gv::pde::PoissonCharmsInterface problem((1.0+pad)*assembly.bbox(), assembly, opts); //defualt homogeneous BC and f(x)=1 on the RHS
+	// problem.penalty = 16;
+
 	if (domain_is_void) {problem.domain_marker = opts.void_marker;}
 	else {problem.domain_marker = opts.solid_marker;}
 	
@@ -87,8 +90,9 @@ void charms_standard(const uint n_start, const uint n_refine, const std::string 
 
 
 	//define assembly 
+	const double scale = 1000;
 	std::cout << "getting assembly/domain from: " << filename << std::endl;
-	gv::geometry::Assembly<Particle_t,8> assembly(filename, "-rrr-eps-xyz-q");
+	gv::geometry::Assembly<Particle_t,8> assembly(filename, "-rrr-eps-xyz-q", scale);
 
 	//set up meshing options
 	gv::geometry::AssemblyMeshOptions opts;

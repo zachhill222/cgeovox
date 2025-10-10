@@ -210,7 +210,7 @@ namespace gv::geometry{
 
 
 		Assembly() : _particles() {};
-		Assembly(const std::string filename, const std::string columns) : _particles() {readfile(filename, columns);}
+		Assembly(const std::string filename, const std::string columns, const double scale=1) : _particles() {readfile(filename, columns, scale);}
 		Assembly(std::initializer_list<Particle_t> list) : _particles()
 		{
 			//get bounding box
@@ -242,7 +242,7 @@ namespace gv::geometry{
 		double dirac_delta(const Point_t &point, const double eps) const {return _particles.dirac_delta(point,eps);}
 
 		//read particles from file with specified format. TODO: read format from start of file.
-		void readfile(const std::string filename, const std::string columns);
+		void readfile(const std::string filename, const std::string columns, const double scale=1);
 
 		//get bounding box
 		Box_t bbox() const {return _particles.bbox();}
@@ -311,7 +311,7 @@ namespace gv::geometry{
 
 	//add particles from a file to the current assembly. TODO: split into smaller functions.
 	template <typename Particle_t, size_t n_data>
-	void Assembly<Particle_t, n_data>::readfile(const std::string filename, const std::string columns)
+	void Assembly<Particle_t, n_data>::readfile(const std::string filename, const std::string columns, const double scale)
 	{
 		// COLUMN OPTIONS:
 		// -id (IDENTIFIER, int)
@@ -420,7 +420,7 @@ namespace gv::geometry{
 
 				gv::util::Quaternion<double> quat(qw,-qx,-qy,-qz);
 				quat.normalize();
-				Particle_t P(Point_t {rx,ry,rz}, Point_t {x,y,z}, quat, eps[0], eps[1]);
+				Particle_t P(Point_t {scale*rx,scale*ry,scale*rz}, Point_t {scale*x,scale*y,scale*z}, quat, eps[0], eps[1]);
 				// std::cout << P.bbox() << std::endl;
 				temp_particles.push_back(P);
 			}

@@ -91,8 +91,8 @@ int main(int argc, char const *argv[])
 
 	//set domain parameters
 	std::string filename = "testdata/particles_50.txt";
-	using Particle_t = gv::geometry::SuperEllipsoid;
-	gv::geometry::Assembly<Particle_t,8> assembly(filename, "-rrr-eps-xyz-q");
+	using Particle_t = gv::geometry::Ellipsoid;
+	gv::geometry::Assembly<Particle_t,8> assembly(filename, "-rrr-eps-xyz-q", 1000);
 
 	gv::geometry::AssemblyMeshOptions opts;
 	opts.include_void = true;
