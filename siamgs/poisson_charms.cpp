@@ -153,7 +153,7 @@ int main(int argc, char* argv[])
 	if (argc>4) {experiment_name = argv[4];}
 
 	using Particle_t = gv::geometry::Ellipsoid; //treat all particles as spheres. SuperEllipsoids seem to have a problem.
-	constexpr double pad = 0.5; //add 50% extra space around the particles
+	constexpr double pad = 0; //add extra space around the particles (0.5 for small assemblies and 0 for large)
 	constexpr bool domain_is_void = true; //determine if the problem domain is the void+interface or solid+interface
 
 	//compile program to use the interface method
