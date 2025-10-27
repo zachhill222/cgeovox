@@ -7,6 +7,7 @@
 #include "concepts.hpp"
 
 #include <vector>
+#include <set>
 #include <algorithm>
 
 #include <cassert>
@@ -30,9 +31,11 @@ namespace gv::mesh
 
 		///How many nodes define this type of element
 		const int nNodes;
-
-		///The color of this element in the overall mesh. Used to allow parallel operations.
-		int color;
+		/////////////////////////////////////////////////
+		/// The color of this element in the overall mesh. Used to allow parallel operations.
+		/// The color is used as an index of std::vector, so it is of type size_t. Uncolored elements should have color=(size_t) -1.
+		/////////////////////////////////////////////////
+		size_t color;
 
 		/// The index to the start of the list of nodes that define this element (i.e., _elem2node[nodeStart] is the first node of this element)
 		size_t nodeStart;
@@ -111,8 +114,7 @@ namespace gv::mesh
 		NodeList_t              _nodes;        //store the vertices/nodes and acompanying data
 		std::vector<ElemInfo_t> _elemInfo;     //track element types and which block of _elem2node belongs to each element
 		std::vector<size_t>     _elem2node;    //store the nodes for each element in a contiguous array
-		std::vector<int>        _uniqueColors; //track the unique colors in the mesh
-		std::vector<size_t>     _colorCount;   //track how many elements belong to each color group. Indices corresponding to each
+		std::vector<size_t>     _colorCount;   //track how many elements belong to each color group. The index is the color (converted from size_t to int).
 
 	public:
 		/// Default constructor.
@@ -268,6 +270,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// A method to insert a new element into the mesh. The element is constructed from specified existing nodes.
 		/// The existing nodes (e.g. _nodes[node_idx[i]] for 0 \leq i < N_NODES_PER_ELEMENT) will be updated but no new nodes will be created.
+		/// To color the element, call recolor(elem_idx) where elem_idx is the index of the inserted element afterwards. Immediatly after insertion, elem_idx=nElems()-1.
 		///
 		/// @param node_idx A reference to an existing array of the indices in _nodes that define the new element. These must be in the proper order.
 		/// @param vtkID The vtk identifier to track the type of element. Look up the vtk documentation to see which node order is required.
@@ -288,39 +291,19 @@ namespace gv::mesh
 
 
 		/////////////////////////////////////////////////
-		/// A method to split/refine an existing element at its centroid. The element that is split is not automatically deleted.
+		/// A method to split/refine an existing element. The element that is split is not automatically deleted.
 		/// However, the new elements may be colored as if the original element was deleted. The new elements are of the same type as the original.
-		/// Unless it was already in the mesh, a new node will be created at the centroid of the element. Otherwise, the existing node at the centroid will be updated.
+		/// New nodes will most likely be created and old nodes updated during this process.
 		/// For certain elements (i.e., hexahedrons) there will likely be more than one new node created and there is no guarentee that the mesh will be conformal.
-		/// This method simply computes the centroid and calls splitElement(elem_idx, centroid, colarAsDeleted).
 		///
 		/// @param elem_idx The element to be split.
 		/// @param colorAsDeleted When set to true, the new elements are colored as if the element elem_idx has been deleted. The user must delete this element later.
 		///                       It will be more efficient to delete many elements at once if many refinement operations are done at once.
 		///
-		/// @todo The centroid is approximated by the mean of the vertices. This is inaccurate for some element types, but these element types likely need specialized
-		///        methods to maintain good aspect ratios.
+		/// @todo Add support for more element types. Move the index logic to smaller functions to clean up the code?
 		/////////////////////////////////////////////////
 		void splitElement(const size_t elem_idx, const bool colorAsDeleted=true);
 		
-
-		/////////////////////////////////////////////////
-		/// A method to split/refine an existing element at the specified point. The element that is split is not automatically deleted.
-		/// However, the new elements may be colored as if the original element was deleted. The new elements are of the same type as the original.
-		/// Unless it was already in the mesh, a new node will be created at specified point. Otherwise, the existing node at the specified point will be updated.
-		/// It is the user's responsibility to ensure that the specified point is valid. Usually this simply means that the specified point is interior to the element.
-		/// For certain elements (i.e., hexahedrons) there will likely be more than one new node created and there is no guarentee that the mesh will be conformal.
-		///
-		/// @param elem_idx The element to be split.
-		/// @param new_point The coordinate where element will be split.
-		/// @param colorAsDeleted When set to true, the new elements are colored as if the element elem_idx has been deleted. The user must delete this element later.
-		///                       It will be more efficient to delete many elements at once if many refinement operations are done at once.
-		///
-		/// @todo Add suport for more element types.
-		/// @todo Should the element type be a template parameter (using enable_if) to get one function per element type? This would remove the switch case.
-		/////////////////////////////////////////////////
-		void splitElement(const size_t elem_idx, const Point_t& new_point, const bool colorAsDeleted=true);
-
 
 		/////////////////////////////////////////////////
 		/// Color or re-color the mesh.
@@ -367,7 +350,7 @@ namespace gv::mesh
 		///
 		/// @param os The output stream.
 		/////////////////////////////////////////////////
-		void print_mesh_details_ascii_vtk(std::ostream &os) const; //
+		void print_mesh_details_ascii_vtk(std::ostream &os) const;
 		
 
 		/////////////////////////////////////////////////
@@ -377,7 +360,19 @@ namespace gv::mesh
 		/// @param filename The name of the file (including the path and extension) of the file to which the mesh will be written.
 		/// @param include_details When set to true, the mesh details will be appended to the mesh topology. This should usually be set to false if any additional data will be appended to the file.
 		/////////////////////////////////////////////////
-		void save_as(const std::string filename, bool include_details=false) const; //save the mesh to a file with the option to include details for error checking
+		void save_as(const std::string filename, bool include_details=false) const;
+
+		/////////////////////////////////////////////////
+		/// Helper function to split VTK_VOXEL elements. Should not be called by the user.
+		///
+		/// @param mesh A reference to this mesh.
+		/// @param color_count_increasing A vector of the existing colors sorted by increasing count.
+		/// @param colorAsDeleted A flag when set to true colors the new elements as if the parent element (at elem_idx) has been deleted.
+		/// @param elem_idx The index of the element being split
+		/// @param sub_elem_idx The index of the element being created (from 0 to 7 for VTK_VOXEL elements)
+		/////////////////////////////////////////////////
+		friend void _SPLIT_VTK_VOXEL(TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T> &mesh,
+			size_t (&node_idx)[27], const std::vector<size_t> &color_count_increasing, const bool colorAsDeleted, const size_t elem_idx, const int sub_elem_idx);
 	};
 
 
@@ -410,22 +405,17 @@ namespace gv::mesh
 
 	template <int dim, int MAX_ELEMENT_PER_NODE, Float T>
 	void TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::countColors() {
-		_uniqueColors.clear();
 		_colorCount.clear();
 
 		//loop through all elements
 		for (size_t e_idx=0; e_idx<nElems(); e_idx++) {
 			const auto& ELEM = _elemInfo[elem_idx];
 
-			//check if the color of the current element already exists
-			auto it = std::find(_uniqueColors.begin(), _uniqueColors.end(), ELEM.color);
+			//if the color does not exist, append counts of 0 until the color does exist.
+			while ((size_t) ELEM.color >= _colorCount.size()) {_colorCount.push_back(0);}
 
-			//if the color of the current element already exists, then increment its count
-			if (it!=_uniqueColors.end()) {_colorCount[*it] += 1;}
-			else {
-				_uniqueColors.push_back(ELEM.color);
-				_colorCount.push_back(1);
-			}
+			//increment the color count
+			_colorCount[(size_t ELEM.color)] += 1;
 		}
 	}
 	
@@ -464,7 +454,7 @@ namespace gv::mesh
 	void TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::insertElement(const size_t (&node_idx)[N_NODES_PER_ELEMENT], const int vtkID) {
 		//construct the element information
 		using ElemInfo_t = typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::ElemInfo_t;
-		ElemInfo_t ELEM {vtkID, N_NODES_PER_ELEMENT, 0, _elem2node.size()};
+		ElemInfo_t ELEM {vtkID, N_NODES_PER_ELEMENT, -1, _elem2node.size()};
 		const elem_idx = nElems()-1;
 
 		//add the element to the mesh and update the existing nodes
@@ -479,9 +469,6 @@ namespace gv::mesh
 			NODE.elems[NODE.nElems] = elem_idx;
 			NODE.nElems += 1;
 		}
-
-		//color the new element
-		recolor(elem_idx);
 	}
 
 
@@ -505,7 +492,7 @@ namespace gv::mesh
 			node_idx[n] = n_idx;
 		}
 
-		//now that the nodes are initialized, insert and color the element.
+		//now that the nodes are initialized, insert the element.
 		//the nodes will be updated to link back to the new element.
 		insertElement(node_idx, vtkID);
 	}
@@ -513,40 +500,6 @@ namespace gv::mesh
 
 	template <int dim, int MAX_ELEMENT_PER_NODE, Float T>
 	void TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::splitElement(const size_t elem_idx, const bool colorAsDeleted) {
-		using Point_t    = typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::Point_t;
-		
-		const auto& ELEM = _elemInfo[elem_idx];
-
-		//compute the centroid
-		Point_t centroid(0);
-		switch (ELEM.vtkID) {
-		case 11: //VTK_VOXEL
-			assert(dim==3);
-			size_t n1 = _elem2node[ELEM.nodeStart];
-			size_t n2 = _elem2node[ELEM.nodeStart+7];
-			centroid  = 0.5*(_nodes[n1].vertex + _nodes[n2].vertex);
-			break;
-		case 8: //VTK_PIXEL
-			size_t n1 = _elem2node[ELEM.nodeStart];
-			size_t n2 = _elem2node[ELEM.nodeStart+3];
-			centroid  = 0.5*(_nodes[n1].vertex + _nodes[n2].vertex);
-			break;
-		default: //compute the average of the vertices
-			for (int n=0; n<ELEM.nNodes; n++) {
-				centroid += _nodes[ELEM.nodeStart + n].vertex;
-			}
-			centroid /= (T) ELEM.nNodes;
-			break;
-		}
-
-
-		//split the element
-		splitElement(elem_idx, centroid, colorAsDeleted);
-	}
-
-
-	template <int dim, int MAX_ELEMENT_PER_NODE, Float T>
-	void TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::splitElement(const size_t elem_idx, const typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::Point_t& new_point,  const bool colorAsDeleted) {
 		using ElemInfo_t = typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::ElemInfo_t;
 		using Point_t    = typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::Point_t;
 		using Node_t     = typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::Node_t;
@@ -558,12 +511,62 @@ namespace gv::mesh
 		case 11: //VTK_VOXEL
 			assert(dim==3);
 			//set up 27 vertices required for the refined elements
+			Point_t new_coords[27];
+			
+			//original (corners)
+			for (int n=0; n<8; n++) {new_coords[n] = _nodes[ELEM.nodeStart + n].vertex;}
 
+			//edge midpoints
+			new_coords[ 8] = 0.5*(new_coords[0]+new_coords[1]); //back face
+			new_coords[ 9] = 0.5*(new_coords[1]+new_coords[3]); //back face
+			new_coords[10] = 0.5*(new_coords[2]+new_coords[3]); //back face
+			new_coords[11] = 0.5*(new_coords[0]+new_coords[2]); //back face
 
+			new_coords[12] = 0.5*(new_coords[0]+new_coords[4]); //connecting edge
+			new_coords[13] = 0.5*(new_coords[2]+new_coords[6]); //connecting edge
+			new_coords[14] = 0.5*(new_coords[3]+new_coords[7]); //connecting edge
+			new_coords[15] = 0.5*(new_coords[1]+new_coords[5]); //connecting edge
+			
+			new_coords[16] = 0.5*(new_coords[4]+new_coords[5]); //front face
+			new_coords[17] = 0.5*(new_coords[5]+new_coords[7]); //front face
+			new_coords[18] = 0.5*(new_coords[6]+new_coords[7]); //front face
+			new_coords[19] = 0.5*(new_coords[4]+new_coords[6]); //front face
+
+			//face midpoints
+			new_coords[20] = 0.5*(new_coords[0]+new_coords[6]); //left face
+			new_coords[21] = 0.5*(new_coords[1]+new_coords[7]); //right face
+			new_coords[22] = 0.5*(new_coords[2]+new_coords[7]); //top face
+			new_coords[23] = 0.5*(new_coords[0]+new_coords[5]); //bottom face
+			new_coords[24] = 0.5*(new_coords[0]+new_coords[3]); //back face
+			new_coords[25] = 0.5*(new_coords[4]+new_coords[7]); //front face
+
+			//center
+			new_coords[26] = 0.5*(new_coords[0]+new_coords[7]);
+
+			//create the nodes and get their indices
+			size_t node_idx[27];
+			for (int i=0; i<27; i++)
+			{
+				Node_t NODE { {}, 0, -1, new_coords[i]};
+				int [[maybe_unused]] flag = _nodes.push_back(NODE, node_idx[i]); //existing nodes will not be overwritten
+				assert(flag>=0);
+			}
+
+			//insert and color the new elements
+			size_t elem_nodes[8]; //storage for element node indices
+			std::vector<size_t> neighbors; //storage for neighbor elements
+			std::vector<bool> unsorted_color_allowed; //storage for tracking if a color is allowed. refers to unsorted colors.
+
+			std::vector<size_t> color_count_increasing(_colorCount.size(), 0);
+			for (size_t i=0; i<_colorCount.size(); i++) {color_count_increasing[i]=i;} //increasing by color labels
+			auto color_count_compare = [_colorCount&](const size_t a, const size_t b) {return _colorCount[a]<_colorCount[b];} //comparator to sort by increasing color count
+			std::sort(color_count_increasing.begin(), color_count_increasing.end(), color_count_compare); //color_count_increasing is in increasing order now
+			
+			for (int i=0; i<8; i++) {_SPLIT_VTK_VOXEL(*this, node_idx, color_count_increasing, colorAsDeleted, elem_idx, i);}
 			break;
+
 		case 12: //VTK_HEXAHEDRON
 			assert(dim==3);
-
 			break;
 		case 8: //VTK_PIXEL
 			break;
@@ -571,12 +574,150 @@ namespace gv::mesh
 			break;
 
 		}
-
-
-
-
 	}
 
+	
 
+
+	/// Helper function for splitting an element of VTK_VOXEL type. This should not be called by the user.
+	template <int dim, int MAX_ELEMENT_PER_NODE, Float T>
+	void _SPLIT_VTK_VOXEL(TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>& mesh,
+		const size_t (&node_idx)[27],                      //indices of the nodes in the mesh that will define the new elements
+		const std::vector<size_t> &color_count_increasing, //colors sorted by increasing color count (before any new elements are added or colored)
+		const bool colorAsDeleted,                         //set to true if the child element can have the same color as the original
+		const size_t elem_idx,                             //index of element being split
+		const int sub_elem_idx)                            //which sub-element is being created
+	{
+		//define and insert the new element
+		size_t elem_nodes[8];
+		switch (sub_elem_idx) {
+			case (0): //voxel element containing original vertex 0
+				elem_nodes[0] = node_idx[ 0]; //0
+				elem_nodes[1] = node_idx[ 8]; //0-1
+				elem_nodes[2] = node_idx[11]; //0-2
+				elem_nodes[3] = node_idx[24]; //0-3
+				elem_nodes[4] = node_idx[12]; //0-4
+				elem_nodes[5] = node_idx[23]; //0-5
+				elem_nodes[6] = node_idx[20]; //0-6
+				elem_nodes[7] = node_idx[26]; //0-7
+				break;
+
+			case (1): //voxel element containing original vertex 1
+				elem_nodes[0] = node_idx[ 8]; //0-1
+				elem_nodes[1] = node_idx[ 1]; //1
+				elem_nodes[2] = node_idx[24]; //0-3
+				elem_nodes[3] = node_idx[ 9]; //1-3
+				elem_nodes[4] = node_idx[23]; //0-5
+				elem_nodes[5] = node_idx[15]; //1-5
+				elem_nodes[6] = node_idx[26]; //0-7
+				elem_nodes[7] = node_idx[21]; //1-7
+				break;
+
+			case (2): //voxel element containing original vertex 2
+				elem_nodes[0] = node_idx[11]; //0-2
+				elem_nodes[1] = node_idx[24]; //0-3
+				elem_nodes[2] = node_idx[ 2]; //2
+				elem_nodes[3] = node_idx[10]; //2-3
+				elem_nodes[4] = node_idx[20]; //0-6
+				elem_nodes[5] = node_idx[26]; //0-7
+				elem_nodes[6] = node_idx[13]; //2-6
+				elem_nodes[7] = node_idx[22]; //2-7
+				break;
+
+			case (3): //voxel element containing original vertex 3
+				elem_nodes[0] = node_idx[24]; //0-3
+				elem_nodes[1] = node_idx[ 9]; //1-3
+				elem_nodes[2] = node_idx[10]; //2-3
+				elem_nodes[3] = node_idx[ 3]; //3
+				elem_nodes[4] = node_idx[26]; //0-7
+				elem_nodes[5] = node_idx[21]; //1-7
+				elem_nodes[6] = node_idx[22]; //2-7
+				elem_nodes[7] = node_idx[14]; //3-7
+				break;
+
+			case (4): //voxel element containing original vertex 4
+				elem_nodes[0] = node_idx[12]; //0-4
+				elem_nodes[1] = node_idx[23]; //0-5
+				elem_nodes[2] = node_idx[20]; //0-6
+				elem_nodes[3] = node_idx[26]; //0-7
+				elem_nodes[4] = node_idx[ 4]; //4
+				elem_nodes[5] = node_idx[16]; //4-5
+				elem_nodes[6] = node_idx[19]; //4-6
+				elem_nodes[7] = node_idx[25]; //4-7
+				break;
+
+			case (5): //voxel element containing original vertex 5
+				elem_nodes[0] = node_idx[23]; //0-5
+				elem_nodes[1] = node_idx[15]; //1-5
+				elem_nodes[2] = node_idx[26]; //0-7
+				elem_nodes[3] = node_idx[21]; //1-7
+				elem_nodes[4] = node_idx[16]; //4-5
+				elem_nodes[5] = node_idx[ 5]; //5
+				elem_nodes[6] = node_idx[25]; //4-7
+				elem_nodes[7] = node_idx[17]; //5-7
+				break;
+
+			case (6): //voxel element containing original vertex 6
+				elem_nodes[0] = node_idx[20]; //0-6
+				elem_nodes[1] = node_idx[26]; //0-7
+				elem_nodes[2] = node_idx[13]; //2-6
+				elem_nodes[3] = node_idx[22]; //2-7
+				elem_nodes[4] = node_idx[19]; //4-6
+				elem_nodes[5] = node_idx[25]; //4-7
+				elem_nodes[6] = node_idx[ 6]; //6
+				elem_nodes[7] = node_idx[18]; //6-7
+				break;
+
+			case (7): //voxel element containing original vertex 7
+				elem_nodes[0] = node_idx[26]; //0-7
+				elem_nodes[1] = node_idx[21]; //1-7
+				elem_nodes[2] = node_idx[22]; //2-7
+				elem_nodes[3] = node_idx[14]; //3-7
+				elem_nodes[4] = node_idx[25]; //4-7
+				elem_nodes[5] = node_idx[17]; //5-7
+				elem_nodes[6] = node_idx[18]; //6-7
+				elem_nodes[7] = node_idx[ 7]; //7
+				break;
+		}
+		
+		mesh.insertElement(elem_nodes, 11);
+		auto &ELEM = mesh._elemInfo[mesh.nElems()-1];
+		
+
+		//get the neighbors of the new element
+		std::vector<size_t> neighbors;
+		getElementNeighbors(mesh.nElems()-1, neighbors);
+
+		//get which existing colors are allowed for the new element
+		std::vector<bool> unsorted_color_allowed(color_count_increasing.size(), true); //compute the allowed colors
+		size_t n_allowed = unsorted_color_allowed.size();
+		assert(n_allowed>0);
+		for (size_t i=0; i<neighbors.size(); i++) {
+			if (colorAsDeleted and neighbors[i]==elem_idx) {continue;} //the 'parent' element does not count as a neighbor
+			const auto NEIGHBOR = mesh._elemInfo[neighbors[i]];
+
+			//if a neighbor has color i, then color i is not allowed for this element
+			if (NEIGHBOR.color < color_count_increasing.size()) { //uncolored elements will be out of range and should be skipped
+				unsorted_color_allowed[NEIGHBOR.color] = false;
+				n_allowed -= 1;
+				if (n_allowed==0) {break;} //we need a new color. note that no other new element can share this color.
+			}
+		}
+
+		//color the new element
+		if (n_allowed==0) { //create a new color
+			ELEM.color = mesh._colorCount.size();
+			mesh._colorCount.push_back(1);
+		} else { //use the best existing color
+			for (size_t i=0; i<unsorted_color_allowed.size(); i++) {
+				if (unsorted_color_allowed[i]) {
+					size_t color_idx = color_count_increasing[i];
+					ELEM.color = color_idx;
+					mesh._colorCount[color_idx] += 1;
+					break;
+				}
+			}
+		}
+	}
 }
 
