@@ -292,10 +292,14 @@ namespace gv::mesh
 		/// However, the new elements may be colored as if the original element was deleted. The new elements are of the same type as the original.
 		/// Unless it was already in the mesh, a new node will be created at the centroid of the element. Otherwise, the existing node at the centroid will be updated.
 		/// For certain elements (i.e., hexahedrons) there will likely be more than one new node created and there is no guarentee that the mesh will be conformal.
+		/// This method simply computes the centroid and calls splitElement(elem_idx, centroid, colarAsDeleted).
 		///
 		/// @param elem_idx The element to be split.
 		/// @param colorAsDeleted When set to true, the new elements are colored as if the element elem_idx has been deleted. The user must delete this element later.
 		///                       It will be more efficient to delete many elements at once if many refinement operations are done at once.
+		///
+		/// @todo The centroid is approximated by the mean of the vertices. This is inaccurate for some element types, but these element types likely need specialized
+		///        methods to maintain good aspect ratios.
 		/////////////////////////////////////////////////
 		void splitElement(const size_t elem_idx, const bool colorAsDeleted=true);
 		
@@ -311,6 +315,9 @@ namespace gv::mesh
 		/// @param new_point The coordinate where element will be split.
 		/// @param colorAsDeleted When set to true, the new elements are colored as if the element elem_idx has been deleted. The user must delete this element later.
 		///                       It will be more efficient to delete many elements at once if many refinement operations are done at once.
+		///
+		/// @todo Add suport for more element types.
+		/// @todo Should the element type be a template parameter (using enable_if) to get one function per element type? This would remove the switch case.
 		/////////////////////////////////////////////////
 		void splitElement(const size_t elem_idx, const Point_t& new_point, const bool colorAsDeleted=true);
 
@@ -505,8 +512,7 @@ namespace gv::mesh
 
 
 	template <int dim, int MAX_ELEMENT_PER_NODE, Float T>
-	void TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::splitElement(const size_t elem_idx, const bool colorAsDeleted)
-	{
+	void TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::splitElement(const size_t elem_idx, const bool colorAsDeleted) {
 		using Point_t    = typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::Point_t;
 		
 		const auto& ELEM = _elemInfo[elem_idx];
@@ -537,6 +543,40 @@ namespace gv::mesh
 		//split the element
 		splitElement(elem_idx, centroid, colorAsDeleted);
 	}
+
+
+	template <int dim, int MAX_ELEMENT_PER_NODE, Float T>
+	void TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::splitElement(const size_t elem_idx, const typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::Point_t& new_point,  const bool colorAsDeleted) {
+		using ElemInfo_t = typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::ElemInfo_t;
+		using Point_t    = typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::Point_t;
+		using Node_t     = typename TopologicalMesh<dim,MAX_ELEMENT_PER_NODE,T>::Node_t;
+
+
+		//create 
+		const ElemInfo_t& ELEM = _elemInfo[elem_idx];
+		switch (ELEM.vtkID) {
+		case 11: //VTK_VOXEL
+			assert(dim==3);
+			//set up 27 vertices required for the refined elements
+
+
+			break;
+		case 12: //VTK_HEXAHEDRON
+			assert(dim==3);
+
+			break;
+		case 8: //VTK_PIXEL
+			break;
+		case 9: //VTK_QUAD
+			break;
+
+		}
+
+
+
+
+	}
+
 
 }
 
