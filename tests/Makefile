@@ -6,8 +6,8 @@ OBJ        = $(SRC:.cpp=.o)
 TARGETS    = $(SRC:.cpp=)
 
 #-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/)
-CC         = g++ -std=c++20 -fopenmp -g -pg 
-CFLAGS     = -Wall -O3
+CC         = g++ -std=c++20 -fopenmp -g -pg #-g for gdb, -pg for gprof (will create gmon.out)
+CFLAGS     = -Wall #O3
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
 
@@ -17,40 +17,33 @@ all: $(TARGETS)
 
 
 # RULES TO MAKE EACH TEST INDIVIDUALLY. listing individually helps autocomplete. using .PHONY forces re-build when header files have changed but not source files.
-.PHONY: assembly
-assembly :
-	$(CC) $(CFLAGS) $(INC_DIR) -c assembly.cpp -o assembly.o
-	$(CC) assembly.o -o assembly
+.PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh
 
-.PHONY: charmsQ1
-charmsQ1 :
-	$(CC) $(CFLAGS) $(INC_DIR) -c charmsQ1.cpp -o charmsQ1.o
-	$(CC) charmsQ1.o -o charmsQ1
+assembly:
+	$(CC) $(CFLAGS) $(INC_DIR) -c assembly.cpp assembly
 
-.PHONY: octree
-octree :
-	$(CC) $(CFLAGS) $(INC_DIR) -c octree.cpp -o octree.o
-	$(CC) octree.o -o octree
+charmsQ1:
+	$(CC) $(CFLAGS) $(INC_DIR) -c charmsQ1.cpp -o charmsQ1
 
-.PHONY: util
-util :
-	$(CC) $(CFLAGS) $(INC_DIR) -c util.cpp -o util.o
-	$(CC) util.o -o util
+octree:
+	$(CC) $(CFLAGS) $(INC_DIR) -c octree.cpp -o octree
 
-.PHONY: charms_assembly
-charms_assembly :
-	$(CC) $(CFLAGS) $(INC_DIR) -c charms_assembly.cpp -o charms_assembly.o
-	$(CC) charms_assembly.o -o charms_assembly
+util:
+	$(CC) $(CFLAGS) $(INC_DIR) -c util.cpp -o util
 
-.PHONY: matrix
-matrix :
-	$(CC) $(CFLAGS) $(INC_DIR) -c matrix.cpp -o matrix.o
-	$(CC) matrix.o -o matrix
+charms_assembly:
+	$(CC) $(CFLAGS) $(INC_DIR) -c charms_assembly.cpp -o charms_assembly
+
+matrix:
+	$(CC) $(CFLAGS) $(INC_DIR) -c matrix.cpp -o matrix
+
+mesh:
+	$(CC) $(CFLAGS) $(INC_DIR) mesh.cpp -o mesh
 
 
 .PHONY: clean
 clean:
-	rm -f $(TARGETS) $(OBJ)
+	rm -f $(TARGETS) *.o
 
 .PHONY: remove_tests
 remove_tests:
