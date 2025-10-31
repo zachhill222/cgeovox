@@ -29,7 +29,7 @@ namespace gv::util {
 			for (int i=0; i<dim; i++) {_data[i] = val;}
 		}
 
-		//initialize via braces {1,2,3} and converte types if needed
+		//initialize via braces {1,2,3} and convert types if needed
 		template <Scalar U>
 		Point (std::initializer_list<U> init) : _data(new T[dim])
 		{
@@ -43,7 +43,7 @@ namespace gv::util {
 				_data[i] = T{};
 			}
 		}
-		
+
 		//copy constructor
 		Point (const Point<dim,T> &other) : _data(new T[dim])
 		{
@@ -56,12 +56,6 @@ namespace gv::util {
 		{
 			for (int i=0; i<dim; i++) {_data[i] = (T) other[i];}
 		}
-
-		//destructor
-		// ~Point()
-		// {
-		// 	if (_data!=nullptr) {delete[] _data; _data=nullptr;}
-		// }
 
 		~Point()
 		{

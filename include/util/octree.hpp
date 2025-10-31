@@ -9,6 +9,7 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "compile_constants.hpp" //max octree depth
+#include "concepts.hpp"
 #include "basic_octree.hpp"
 
 #include <cassert>
@@ -18,20 +19,20 @@ namespace gv::util
 {
 	//OCTREE FOR POINT DATA TYPES
 	//store data in the first available node
-	template<typename Data_t, int dim=3, int n_data=64>
-	class BasicOctree_Point : public BasicOctree<Data_t,dim,n_data>
+	template<typename Data_t, int dim=3, int n_data=64, Float T=double>
+	class BasicOctree_Point : public BasicOctree<Data_t,dim,n_data,T>
 	{
 	public:
-		using Parent_t= BasicOctree<Data_t,dim,n_data>;
-		using Point_t = typename BasicOctree<Data_t,dim,n_data>::Point_t;
-		using Box_t   = typename BasicOctree<Data_t,dim,n_data>::Box_t;
-		using Node_t  = typename BasicOctree<Data_t,dim,n_data>::Node_t;
+		using Parent_t = BasicOctree<Data_t,dim,n_data,T>;
+		using Point_t  = typename Parent_t::Point_t;
+		using Box_t    = typename Parent_t::Box_t;
+		using Node_t   = typename Parent_t::Node_t;
 
 		//constructor if the bounding box and possibly capacity are unknown
-		BasicOctree_Point(const size_t capacity=64) : BasicOctree<Data_t,dim,n_data>(capacity) {};
+		BasicOctree_Point(const size_t capacity=64) : BasicOctree<Data_t,dim,n_data,T>(capacity) {};
 
 		//use this constructor if possible. the bounding box should be known ahead of time to avoid re-creating the octree structure.
-		BasicOctree_Point(const Box_t &bbox, const size_t capacity=64) : BasicOctree<Data_t,dim,n_data>(bbox, capacity) {}
+		BasicOctree_Point(const Box_t &bbox, const size_t capacity=64) : BasicOctree<Data_t,dim,n_data,T>(bbox, capacity) {}
 
 		virtual ~BasicOctree_Point() = default;
 
@@ -44,8 +45,8 @@ namespace gv::util
 			void divide(Node_t* const node) override; //divide a node into its children nodes
 	};
 
-	template<typename Data_t, int dim, int n_data>
-	bool BasicOctree_Point<Data_t,dim,n_data>::recursive_insert(Node_t* const node, const Data_t &val, const size_t idx)
+	template<typename Data_t, int dim, int n_data, Float T>
+	bool BasicOctree_Point<Data_t,dim,n_data,T>::recursive_insert(Node_t* const node, const Data_t &val, const size_t idx)
 	{
 		//insert data into ALL leaf nodes that are valid
 		//it is assumed that is_data_valid(node,val) is true
@@ -83,8 +84,8 @@ namespace gv::util
 
 	
 
-	template<typename Data_t, int dim, int n_data>
-	void BasicOctree_Point<Data_t,dim,n_data>::divide(Node_t* const node)
+	template<typename Data_t, int dim, int n_data, Float T>
+	void BasicOctree_Point<Data_t,dim,n_data,T>::divide(Node_t* const node)
 	{
 		//it is assumed that the node is not divided already and that we will not violate the maximum tree depth
 		assert(!is_divided(node));
@@ -106,20 +107,20 @@ namespace gv::util
 	//OCTREE FOR VOLUME DATA TYPES
 	//store data in every valid leaf node, but not in any other nodes
 
-	template<typename Data_t, int dim=3, int n_data=8>
-	class BasicOctree_Vol : public BasicOctree<Data_t,dim,n_data>
+	template<typename Data_t, int dim=3, int n_data=8, Float T=double>
+	class BasicOctree_Vol : public BasicOctree<Data_t,dim,n_data,T>
 	{
 	public:
-		using Parent_t= BasicOctree<Data_t,dim,n_data>;
-		using Point_t = typename BasicOctree<Data_t,dim,n_data>::Point_t;
-		using Box_t   = typename BasicOctree<Data_t,dim,n_data>::Box_t;
-		using Node_t  = typename BasicOctree<Data_t,dim,n_data>::Node_t;
+		using Parent_t = BasicOctree<Data_t,dim,n_data,T>;
+		using Point_t  = typename Parent_t::Point_t;
+		using Box_t    = typename Parent_t::Box_t;
+		using Node_t   = typename Parent_t::Node_t;
 
 		//constructor if the bounding box and possibly capacity are unknown
-		BasicOctree_Vol(const size_t capacity=64) : BasicOctree<Data_t,dim,n_data>(capacity) {};
+		BasicOctree_Vol(const size_t capacity=64) : BasicOctree<Data_t,dim,n_data,T>(capacity) {};
 
 		//use this constructor if possible. the bounding box should be known ahead of time to avoid re-creating the octree structure.
-		BasicOctree_Vol(const Box_t &bbox, const size_t capacity=64) : BasicOctree<Data_t,dim,n_data>(bbox, capacity) {}
+		BasicOctree_Vol(const Box_t &bbox, const size_t capacity=64) : BasicOctree<Data_t,dim,n_data,T>(bbox, capacity) {}
 
 		virtual ~BasicOctree_Vol() = default;
 
@@ -134,8 +135,8 @@ namespace gv::util
 
 	
 
-	template<typename Data_t, int dim, int n_data>
-	bool BasicOctree_Vol<Data_t,dim,n_data>::recursive_insert(Node_t* const node, const Data_t &val, const size_t idx)
+	template<typename Data_t, int dim, int n_data, Float T>
+	bool BasicOctree_Vol<Data_t,dim,n_data,T>::recursive_insert(Node_t* const node, const Data_t &val, const size_t idx)
 	{
 		//insert data into ALL leaf nodes that are valid
 		//it is assumed that is_data_valid(node,val) is true
@@ -172,8 +173,8 @@ namespace gv::util
 	}
 
 	
-	template<typename Data_t, int dim, int n_data>
-	void BasicOctree_Vol<Data_t,dim,n_data>::divide(Node_t* const node)
+	template<typename Data_t, int dim, int n_data, Float T>
+	void BasicOctree_Vol<Data_t,dim,n_data,T>::divide(Node_t* const node)
 	{
 		//it is assumed that the node is not divided already and that we will not violate the maximum tree depth
 		assert(!is_divided(node));

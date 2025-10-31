@@ -13,7 +13,9 @@
 
 #include "util/point.hpp"
 #include "util/box.hpp"
+
 #include "compile_constants.hpp" //max octree depth
+#include "concepts.hpp"
 
 #include <cassert>
 #include <vector>
@@ -26,16 +28,16 @@ namespace gv::util
 	//data indices are only stored in leaf nodes and a single index may be stored in multiple nodes
 	//this is useful when Data_t encloses a region rather than being located at a single point and mostly irrelevant if the data is located at a point
 
-	template<typename Data_t, int dim=3, int n_data=8>
+	template<typename Data_t, int dim=3, int n_data=8, Float T=double>
 	class OctreeNode
 	{
 	public:
 		//common typedefs and constants
 		static constexpr int _dim = dim;
 		static constexpr int n_children = std::pow(2,dim);
-		using Node_t  = OctreeNode<Data_t,dim,n_data>;
-		using Point_t = gv::util::Point<dim,double>;
-		using Box_t   = gv::util::Box<dim>;
+		using Node_t  = OctreeNode<Data_t,dim,n_data,T>;
+		using Point_t = gv::util::Point<dim,T>;
+		using Box_t   = gv::util::Box<dim,T>;
 
 		//constructor for initializing _root node
 		OctreeNode(const Box_t& bbox) :
@@ -82,11 +84,11 @@ namespace gv::util
 	};
 
 	//helpful functions to call on nodes
-	template<typename Data_t, int dim, int n_data>
-	bool is_divided(const OctreeNode<Data_t,dim,n_data>* const node) {return node->children[0]!=nullptr;}
+	template<typename Data_t, int dim, int n_data, Float T>
+	bool is_divided(const OctreeNode<Data_t,dim,n_data,T>* const node) {return node->children[0]!=nullptr;}
 
-	template<typename Data_t, int dim, int n_data>
-	void append_index(OctreeNode<Data_t,dim,n_data>* const node, const int idx)
+	template<typename Data_t, int dim, int n_data, Float T>
+	void append_index(OctreeNode<Data_t,dim,n_data,T>* const node, const int idx)
 	{
 		//it is assumed that there is room
 		assert(node->data_cursor<n_data);
@@ -97,16 +99,16 @@ namespace gv::util
 
 
 	//octree container. handles division of nodes, insertion and retrieval of data, storage of data, etc.
-	template<typename Data_t, int dim=3, int n_data=8>
+	template<typename Data_t, int dim=3, int n_data=8, Float T=double>
 	class BasicOctree
 	{
 	public:
 		//common typedefs and constants
 		static constexpr int _dim = dim;
 		static constexpr int n_children = std::pow(2,dim);
-		using Point_t = gv::util::Point<dim,double>;
-		using Box_t   = gv::util::Box<dim,double>;
-		using Node_t  = OctreeNode<Data_t,dim,n_data>; //this should not be exposed to standard use, but it is useful for other containers
+		using Point_t = gv::util::Point<dim,T>;
+		using Box_t   = gv::util::Box<dim,T>;
+		using Node_t  = OctreeNode<Data_t,dim,n_data,T>; //this should not be exposed to standard use, but it is useful for other containers
 	
 	protected:
 		//data and tree structure
@@ -184,27 +186,27 @@ namespace gv::util
 
 
 	//////////////////////// BASIC OCTREE IMPLEMENTATION ////////////////////////
-	template<typename Data_t, int dim, int n_data>
-	size_t BasicOctree<Data_t,dim,n_data>::find(const Data_t &val) const
+	template<typename Data_t, int dim, int n_data, Float T>
+	size_t BasicOctree<Data_t,dim,n_data,T>::find(const Data_t &val) const
 	{	
 		if (!is_data_valid(_root->bbox, val)) {return (size_t) -1;} //data is invalid so it is not in the octree.
 		return recursive_find(_root, val);
 	}
 
-	template<typename Data_t, int dim, int n_data>
-	bool BasicOctree<Data_t,dim,n_data>::contains(const Data_t &val) const {return find(val)!= (size_t) -1;}
+	template<typename Data_t, int dim, int n_data, Float T>
+	bool BasicOctree<Data_t,dim,n_data,T>::contains(const Data_t &val) const {return find(val)!= (size_t) -1;}
 
 	//copy push_back
-	template<typename Data_t, int dim, int n_data>
-	int BasicOctree<Data_t,dim,n_data>::push_back(const Data_t &val)
+	template<typename Data_t, int dim, int n_data, Float T>
+	int BasicOctree<Data_t,dim,n_data,T>::push_back(const Data_t &val)
 	{
 		size_t idx;
 		return push_back(val, idx);
 	}
 
 	//copy push_back
-	template<typename Data_t, int dim, int n_data>
-	int BasicOctree<Data_t,dim,n_data>::push_back(const Data_t &val, size_t &idx)
+	template<typename Data_t, int dim, int n_data, Float T>
+	int BasicOctree<Data_t,dim,n_data,T>::push_back(const Data_t &val, size_t &idx)
 	{
 		Data_t copy(val);
 		return push_back(std::move(copy),idx);
@@ -212,16 +214,16 @@ namespace gv::util
 
 
 	//move push_back
-	template<typename Data_t, int dim, int n_data>
-	int BasicOctree<Data_t,dim,n_data>::push_back(Data_t &&val)
+	template<typename Data_t, int dim, int n_data, Float T>
+	int BasicOctree<Data_t,dim,n_data,T>::push_back(Data_t &&val)
 	{
 		size_t idx;
 		return push_back(val, idx);
 	}
 
 	//move push_back
-	template<typename Data_t, int dim, int n_data>
-	int BasicOctree<Data_t,dim,n_data>::push_back(Data_t &&val, size_t &idx)
+	template<typename Data_t, int dim, int n_data, Float T>
+	int BasicOctree<Data_t,dim,n_data,T>::push_back(Data_t &&val, size_t &idx)
 	{
 		if (size()>=capacity()) {reserve(2*_capacity);} //increase storage size if needed
 		assert(size()<capacity());
@@ -247,8 +249,8 @@ namespace gv::util
 
 
 
-	template<typename Data_t, int dim, int n_data>
-	void BasicOctree<Data_t,dim,n_data>::reserve(const size_t new_capacity)
+	template<typename Data_t, int dim, int n_data, Float T>
+	void BasicOctree<Data_t,dim,n_data,T>::reserve(const size_t new_capacity)
 	{
 		assert(new_capacity>=size()); //make sure that the new capacity has enough room for the current data
 		
@@ -264,8 +266,8 @@ namespace gv::util
 		_capacity = new_capacity;
 	}
 
-	template<typename Data_t, int dim, int n_data>
-	void BasicOctree<Data_t,dim,n_data>::clear()
+	template<typename Data_t, int dim, int n_data, Float T>
+	void BasicOctree<Data_t,dim,n_data,T>::clear()
 	{
 		//delete current data and tree structure
 		if (_root!=nullptr)
@@ -282,8 +284,8 @@ namespace gv::util
 		}
 	}
 
-	template<typename Data_t, int dim, int n_data>
-	void BasicOctree<Data_t,dim,n_data>::set_bbox(const Box_t& new_bbox)
+	template<typename Data_t, int dim, int n_data, Float T>
+	void BasicOctree<Data_t,dim,n_data,T>::set_bbox(const Box_t& new_bbox)
 	{
 		//re-set the tree structure
 		delete _root;
@@ -308,8 +310,8 @@ namespace gv::util
 	}
 
 
-	template<typename Data_t, int dim, int n_data>
-	std::vector<size_t> BasicOctree<Data_t,dim,n_data>::get_data_indices(const Box_t &box) const
+	template<typename Data_t, int dim, int n_data, Float T>
+	std::vector<size_t> BasicOctree<Data_t,dim,n_data,T>::get_data_indices(const Box_t &box) const
 	{
 		assert(box.intersects(_root->bbox));
 		std::vector<size_t> result;
@@ -334,8 +336,8 @@ namespace gv::util
 		return result;
 	}
 
-	template<typename Data_t, int dim, int n_data>
-	std::vector<size_t> BasicOctree<Data_t,dim,n_data>::get_data_indices(const Point_t &coord) const
+	template<typename Data_t, int dim, int n_data, Float T>
+	std::vector<size_t> BasicOctree<Data_t,dim,n_data,T>::get_data_indices(const Point_t &coord) const
 	{
 		assert(_root->bbox.contains(coord));
 		std::vector<size_t> result;
@@ -360,16 +362,16 @@ namespace gv::util
 		return result;
 	}
 
-	template<typename Data_t, int dim, int n_data>
-	std::vector<const typename BasicOctree<Data_t,dim,n_data>::Node_t*> BasicOctree<Data_t,dim,n_data>::_get_node(const Point_t &coord) const
+	template<typename Data_t, int dim, int n_data, Float T>
+	std::vector<const typename BasicOctree<Data_t,dim,n_data,T>::Node_t*> BasicOctree<Data_t,dim,n_data,T>::_get_node(const Point_t &coord) const
 	{
 		std::vector<const Node_t*> result;
 		recursive_get_node(_root, result, coord);
 		return result;
 	}
 
-	template<typename Data_t, int dim, int n_data>
-	std::vector<const typename BasicOctree<Data_t,dim,n_data>::Node_t*> BasicOctree<Data_t,dim,n_data>::_get_node(const Box_t &box) const
+	template<typename Data_t, int dim, int n_data, Float T>
+	std::vector<const typename BasicOctree<Data_t,dim,n_data,T>::Node_t*> BasicOctree<Data_t,dim,n_data,T>::_get_node(const Box_t &box) const
 	{
 		std::vector<const Node_t*> result;
 		recursive_get_node(_root, result, box);
@@ -377,8 +379,8 @@ namespace gv::util
 	}
 
 
-	template<typename Data_t, int dim, int n_data>
-	void BasicOctree<Data_t,dim,n_data>::recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Point_t &coord) const
+	template<typename Data_t, int dim, int n_data, Float T>
+	void BasicOctree<Data_t,dim,n_data,T>::recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Point_t &coord) const
 	{
 		//it is assumed that we are in a valid node
 		assert(node->bbox.contains(coord));
@@ -397,8 +399,8 @@ namespace gv::util
 		}
 	}
 
-	template<typename Data_t, int dim, int n_data>
-	void BasicOctree<Data_t,dim,n_data>::recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Box_t &box) const
+	template<typename Data_t, int dim, int n_data, Float T>
+	void BasicOctree<Data_t,dim,n_data,T>::recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Box_t &box) const
 	{
 		//it is assumed that the current node intersect the specified box
 		assert(node->bbox.intersects(box));
@@ -418,8 +420,8 @@ namespace gv::util
 	}
 
 
-	template<typename Data_t, int dim, int n_data>
-	size_t BasicOctree<Data_t,dim,n_data>::recursive_find(Node_t* const node, const Data_t &val) const
+	template<typename Data_t, int dim, int n_data, Float T>
+	size_t BasicOctree<Data_t,dim,n_data,T>::recursive_find(Node_t* const node, const Data_t &val) const
 	{
 		//it is assumed that is_data_valid(node,val) is true
 		assert(is_data_valid(node->bbox, val));

@@ -15,8 +15,8 @@ namespace gv::util{
 	template <int dim=3, typename T=double>
 	class Box{
 	protected:
-		Point<dim,double> _low;
-		Point<dim,double> _high;
+		Point<dim,T> _low;
+		Point<dim,T> _high;
 
 	public:
 		using Point_t = gv::util::Point<dim,T>;

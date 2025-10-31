@@ -1,7 +1,9 @@
 #pragma once
 
+#include "mesh/vtk_elements.hpp"
+
 #include "util/point.hpp"
-#include "util/point_octree.hpp"
+#include "util/octree.hpp"
 #include "util/box.hpp"
 
 #include "concepts.hpp"
@@ -18,40 +20,10 @@
 
 #include <omp.h>
 
+#include <memory>
 
 namespace gv::mesh
 {
-	/////////////////////////////////////////////////
-	/// A container for tracking the element information. Because elements of different types are allowed, we cannot store the node indices here and keep contiguous storage.
-	/////////////////////////////////////////////////
-	struct Element {
-		///Element type defined in the VTK documentation.
-		int vtkID;
-
-		/// Which nodes define this element
-		std::vector<size_t> nodes;
-
-		/////////////////////////////////////////////////
-		/// The color of this element in the overall mesh. Used to allow parallel operations.
-		/// The color is used as an index of std::vector, so it is of type size_t. Uncolored elements should have color=(size_t) -1.
-		/////////////////////////////////////////////////
-		size_t color;
-
-		/// Which element is the parent of this element
-		size_t parent;
-
-		/// Which elements are children of this element
-		std::vector<size_t> children;
-
-		/// Track if the element is active
-		bool is_active;
-
-		/// Constructor when some information is known
-		Element(int vtkID, size_t nNodes, size_t color=-1, size_t parent=-1, size_t nChildren=0, bool is_active=true) : 
-			vtkID(vtkID), nodes(nNodes), color(color), parent(parent), children(nChildren), is_active(is_active) {}
-	};
-
-	
 	/////////////////////////////////////////////////
 	/// A container for tracking the node information.
 	/// Usually Point_t = gv::util::Point<3,double>, but 2-D meshes or different precisions are allowed.
@@ -84,19 +56,19 @@ namespace gv::mesh
 	/// A container for storing the nodes in an octree for more efficeint lookup. This is important as we must query if a node already exists in the mesh.
 	/// @todo Determine if a kd-tree is better.
 	/////////////////////////////////////////////////
-	template <typename Node_t, int dim=3, int n_data=64>
-	class NodeOctree : public gv::util::BasicOctree_Point<Node_t, dim, n_data>
+	template <typename Node_t, int dim=3, int n_data=64, Float T=double>
+	class NodeOctree : public gv::util::BasicOctree_Point<Node_t, dim, n_data, T>
 	{
 	public:
 		using Data_t = Node_t;
 		NodeOctree() : //if bounding box is unknown ahead of time
-			gv::util::BasicOctree_Point<Node_t, dim, n_data>(1024) {}
+			gv::util::BasicOctree_Point<Node_t, dim, n_data, T>(1024) {}
 
-		NodeOctree(const gv::util::Box<dim> &bbox, const size_t capacity=1024) :
-			gv::util::BasicOctree_Point<Data_t, dim, n_data>(bbox, capacity) {}
+		NodeOctree(const gv::util::Box<dim,T> &bbox, const size_t capacity=1024) :
+			gv::util::BasicOctree_Point<Data_t, dim, n_data, T>(bbox, capacity) {}
 
 	private:
-		bool is_data_valid(const gv::util::Box<dim> &box, const Data_t &data) const override {return box.contains(data.vertex);}
+		bool is_data_valid(const gv::util::Box<dim,T> &box, const Data_t &data) const override {return box.contains(data.vertex);}
 	};
 
 
@@ -106,28 +78,26 @@ namespace gv::mesh
 	/// There is no requirement or guarentee that the elements are conforming or that they do not overlap.
 	/// Be aware that overlapping elements (in space) are not topologically overlapping if they do not share a node and could have the same color.
 	///
-	/// @tparam dim The dimension of the space that the mesh is embedded in. Usually dim=3.
 	/// @tparam T The precision that the vertices are stored in. It may be completely unnecessary to store the vertices in double precision for some meshes.
 	///
 	/// @todo Add data and types to this description.
 	/////////////////////////////////////////////////
-	template <int dim, Float T=float>
+	template <Float T=float>
 	class TopologicalMesh
 	{
 	public:
 		//common typedefs
-		using Index_t     = gv::util::Point<dim,size_t>;
-		using Point_t     = gv::util::Point<dim,T>;
+		template <int n>
+		using Index       = gv::util::Point<n,size_t>;
+		using Point_t     = gv::util::Point<3,T>;
 		using Node_t      = Node<Point_t>;
-		using Element_t   = Element;
-		using Box_t       = gv::util::Box<dim,T>;
-		using NodeList_t  = NodeOctree<Node_t, dim, 64>;
-
+		using Box_t       = gv::util::Box<3,T>;
+		using Element_t   = BaseElement<T>;
 
 	protected:
-		NodeList_t              _nodes;        //store the vertices/nodes and acompanying data
-		std::vector<Element_t>  _elements;     //track element types and which block of _elem2node belongs to each element
-		std::vector<size_t>     _colorCount;   //track how many elements belong to each color group. The index is the color.
+		std::vector<std::unique_ptr<Element_t>> _elements;     //track element types and which block of _elem2node belongs to each element
+		NodeOctree<Node_t, 3, 64, T>			_nodes;        //store the vertices/nodes and acompanying data
+		std::vector<size_t>     				_colorCount;   //track how many elements belong to each color group. The index is the color.
 
 	public:
 		/// Default constructor.
@@ -147,8 +117,7 @@ namespace gv::mesh
 		/// @param bbox The region to be meshed.
 		/// @param N The number of elements along each coordinate axis.
 		/////////////////////////////////////////////////
-		template<int n=dim, std::enable_if_t<n==3, int> = 0>
-		TopologicalMesh(const Box_t& domain, const Index_t& N) : _nodes(domain) {
+		TopologicalMesh(const Box_t& domain, const Index<3>& N) : _nodes(domain) {
 			//reserve space
 			_nodes.reserve((N[0]+1) * (N[1]+1) * (N[2]+1));
 			_elements.reserve(N[0]*N[1]*N[2]);
@@ -182,24 +151,35 @@ namespace gv::mesh
 		/// @param bbox The region to be meshed.
 		/// @param N The number of elements along each coordinate axis.
 		/////////////////////////////////////////////////
-		template<int n=dim, std::enable_if_t<n==2, int> = 0>
-		TopologicalMesh(const Box_t& domain, const Index_t& N) : _nodes(domain) {
+		TopologicalMesh(const gv::util::Box<2,T>& domain, const Index<2>& N) {
+			Point_t low, high;
+			low[0] = domain.low()[0]; low[1] = domain.low()[1]; low[2]=-1.0;
+			high[0] = domain.high()[0]; high[1] = domain.high()[1]; high[2]=1.0;
+
+			_nodes.set_bbox(Box_t{low,high});
+
+			using Point2 = gv::util::Point<2,T>;
+
 			//reserve space
 			_nodes.reserve((N[0]+1) * (N[1]+1));
 			_elements.reserve(N[0]*N[1]);
 			
 			//construct the mesh
-			Point_t H = domain.sidelength() / Point_t(N);
+			Point2 H = domain.sidelength() / Point2(N);
 			for (size_t i=0; i<N[0]; i++) {
 				for (size_t j=0; j<N[1]; j++) {
 					//define element extents
-					Point_t low  = domain.low() + Point_t{i,j} * H;
-					Point_t high = domain.low() + Point_t{i+1,j+1} * H;
-					Box_t   elem  {low, high};
+					Point2 low  = domain.low() + Point2{i,j} * H;
+					Point2 high = domain.low() + Point2{i+1,j+1} * H;
+					gv::util::Box<2,T>   elem  {low, high};
 				
 					//assemble the list of vertices
 					Point_t element_vertices[4];
-					for ( int l=0; l<4; l++) {element_vertices[l] = elem.voxelvertex(l);}
+					for ( int l=0; l<4; l++) {
+						element_vertices[l][0] = elem.voxelvertex(l)[0];
+						element_vertices[l][1] = elem.voxelvertex(l)[1];
+						element_vertices[l][2] = 0.0;
+					}
 
 					//put the element into the mesh
 					insertElement(element_vertices, 8);
@@ -218,7 +198,7 @@ namespace gv::mesh
 			size_t count = 0;
 			#pragma omp parallel for reduction(+:count)
 			for (size_t i=0; i<_elements.size(); i++) {
-				if (_elements[i].children.size()==0) {count+=1;}
+				if (_elements[i]->children.size()==0) {count+=1;}
 			}
 			return count;
 		}
@@ -237,13 +217,24 @@ namespace gv::mesh
 
 
 		/////////////////////////////////////////////////
-		/// A method to get the ACTIVE elements that share a node with the specified element. This allows for the mesh to be refined and coarsened without changing the data structures.
+		/// A method to get the active elements that share a node with the specified element. This allows for the mesh to be refined and coarsened without changing the data structures.
+		/// The neighbors vector will be sorted and made unique before the method returns.
 		///
 		/// @param elem_idx The index of the requested element (i.e., _elements[elem_idx]).
-		/// @param neighbors A reference to an existing vector where the result will be stored (via neighbors.push_back(neighbor_elem_idx)).
+		/// @param neighbors A reference to an existing vector where the result will be stored (via neighbors.push_back()).
 		/// @param activeOnly Optionally, the user can count inactive elements as neighbors
 		/////////////////////////////////////////////////
 		void getElementNeighbors(const size_t elem_idx, std::vector<size_t> &neighbors, const bool activeOnly=true) const;
+
+
+		/////////////////////////////////////////////////
+		/// A method to get the descendent elements of the specified element.
+		///
+		/// @param elem_idx The index of the requested element (i.e., _elements[elem_idx]).
+		/// @param descendents A reference to an existing vector where the result will be stored
+		/// @param activeOnly Optionally, the user can get only the active descendents
+		/////////////////////////////////////////////////
+		void getElementDescendents(const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly=false) const;
 		
 		
 		/////////////////////////////////////////////////
@@ -271,7 +262,7 @@ namespace gv::mesh
 		/// @param ELEM The element to be inserted. The nodes must already be populated. The element will be appended to _elements via _elements.push_back(std::move(ELEM)).
 		/// @param useGreedy When set to true, the first available color will be used. Otherwise the color with the least number of elements will be used (balanced coloring)
 		/////////////////////////////////////////////////
-		void insertElement(Element_t &ELEM, const bool useGreedy=false);
+		void insertElement(std::unique_ptr<Element_t> ELEM, const bool useGreedy=false);
 
 
 		/////////////////////////////////////////////////
@@ -292,15 +283,26 @@ namespace gv::mesh
 		/// However, the new elements may be colored as if the original element was deleted. The new elements are of the same type as the original.
 		/// New nodes will most likely be created and old nodes updated during this process.
 		/// For certain elements (i.e., hexahedrons) there will likely be more than one new node created and there is no guarentee that the mesh will be conformal.
+		/// If the specified element has already been split and re-joined (i.e., the children exist), then the children are simply activated and no new elements are created in memory.
+		/// If this _elements[elem_idx].is_active is false, then the method returns without making any changes.
 		///
 		/// @param elem_idx The element to be split.
-		/// @param colorAsDeleted When set to true, the new elements are colored as if the element elem_idx has been deleted. The user must delete this element later.
-		///                       It will be more efficient to delete many elements at once if many refinement operations are done at once.
+		/// @param useGreedy Flag to use the greedy algorithm for coloring
 		///
-		/// @todo Add support for more element types. Move the index logic to smaller functions to clean up the code?
+		/// @todo Add support for more element types. Make VTK containers for each element type to clean up the code?
 		/////////////////////////////////////////////////
-		void splitElement(const size_t elem_idx);
+		void splitElement(const size_t elem_idx, const bool useGreedy=false);
 		
+
+		/////////////////////////////////////////////////
+		/// A method to join/unrefine previously split elements. If _elements[elem_idx] exists, then all of the descendents of that element are de-activated and the element is activated.
+		/// The de-activated elements are not deleted. The element is re-colored.
+		///
+		/// @param elem_idx The element whose descendents are to be joined.
+		/// @param useGreedy Flag to use the greedy algorithm for coloring
+		/////////////////////////////////////////////////
+		void joinDescendents(const size_t elem_idx, const bool useGreedy=false);
+
 
 		/////////////////////////////////////////////////
 		/// Color or re-color the active elements of the mesh. The elements will be colored such that no active elements that share a node will have the same color.
@@ -365,38 +367,47 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		void save_as(const std::string filename, const bool include_details=false, const bool activeOnly=true) const;
 
+	private:
+		std::unique_ptr<Element_t> defaultInitializeElementByVtkID(const int vtkID) const {
+			switch (vtkID) {
+			case (3):  return std::make_unique<VTK_LINE<T>>();
+			case (8):  return std::make_unique<VTK_PIXEL<T>>();
+			case (11): return std::make_unique<VTK_VOXEL<T>>();
+			default:
+				throw std::invalid_argument("unknown element type");
+			}
+		}
 
-		/////////////////////////////////////////////////
-		/// Helper function to split VTK_VOXEL elements. Should not be called by the user.
-		///
-		/// @param mesh A reference to this mesh.
-		/// @param color_count_increasing A vector of the existing colors sorted by increasing count.
-		/// @param elem_idx The index of the element being split
-		/// @param sub_elem_idx The index of the element being created (from 0 to 7 for VTK_VOXEL elements)
-		/////////////////////////////////////////////////
-		friend void _SPLIT_VTK_VOXEL<dim,T>(TopologicalMesh<dim,T> &mesh,
-			const size_t (&node_idx)[27], const std::vector<size_t> &color_count_increasing, const size_t elem_idx, const int sub_elem_idx);
+		std::unique_ptr<Element_t> createElementByVtkID(const int vtkID, const std::vector<size_t> &nodes) const {
+			switch (vtkID) {
+			case (3):  return std::make_unique<VTK_LINE<T>>(nodes);
+			case (8):  return std::make_unique<VTK_PIXEL<T>>(nodes);
+			case (11): return std::make_unique<VTK_VOXEL<T>>(nodes);
+			default:
+				throw std::invalid_argument("unknown element type");
+			}
+		}
 	};
 
 
 	
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::getElementNeighbors(const size_t elem_idx, std::vector<size_t> &neighbors, const bool activeOnly) const {
-		using Element_t = typename TopologicalMesh<dim,T>::Element_t;
-		using Node_t = typename TopologicalMesh<dim,T>::Node_t;
+	template <Float T>
+	void TopologicalMesh<T>::getElementNeighbors(const size_t elem_idx, std::vector<size_t> &neighbors, const bool activeOnly) const {
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+		using Node_t = typename TopologicalMesh<T>::Node_t;
 
-		const Element_t &ELEM = _elements[elem_idx];
+		const Element_t* ELEM = _elements[elem_idx].get();
 
 		//loop through the nodes of the current element
-		for (size_t n_idx=0; n_idx<ELEM.nodes.size(); n_idx++) {
-			const Node_t &NODE = _nodes[ELEM.nodes[n_idx]];
+		for (size_t n_idx=0; n_idx<ELEM->nodes.size(); n_idx++) {
+			const Node_t &NODE = _nodes[ELEM->nodes[n_idx]];
 
 			//loop through the elements of the current node
 			for (size_t m=0; m<NODE.elems.size(); m++) {
 				const size_t e_idx = NODE.elems[m];
 
 				//only leaf elements can be neighbors
-				if (e_idx!=elem_idx and (!activeOnly or _elements[e_idx].is_active)) {
+				if (e_idx!=elem_idx and (!activeOnly or _elements[e_idx]->is_active)) {
 					neighbors.push_back(e_idx);
 				}
 			}
@@ -409,47 +420,66 @@ namespace gv::mesh
 	}
 	
 
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::getAllElemTypes(std::vector<int> &vtkID, std::vector<size_t> &count) const {
-		using Element_t = typename TopologicalMesh<dim,T>::Element_t;
+	template <Float T>
+	void TopologicalMesh<T>::getElementDescendents(const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly) const {
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+		const Element_t* ELEM = _elements[elem_idx].get();
+
+		//loop through the children
+		for (size_t c_idx=0; c_idx<ELEM->children.size(); c_idx++) {
+			const size_t child_idx = ELEM->children[c_idx];
+			const Element_t* CHILD = _elements[child_idx].get();
+
+			//add the relevent children
+			if (!activeOnly or CHILD->is_active) {descendents.push_back(child_idx);}
+
+			//recurse if needed
+			if (CHILD->children.size()>0) {getElementDescendents(child_idx, descendents, activeOnly);}
+		}
+	}
+
+
+	template <Float T>
+	void TopologicalMesh<T>::getAllElemTypes(std::vector<int> &vtkID, std::vector<size_t> &count) const {
+		using Element_t = typename TopologicalMesh<T>::Element_t;
 
 		//loop through all elements
 		for (size_t e_idx=0; e_idx<nElems(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
+			const Element_t* ELEM = _elements[e_idx].get();
 
 			//check if the ID of the current element already exists
-			auto it = std::find(vtkID.begin(), vtkID.end(), ELEM.vtkID);
+			auto it = std::find(vtkID.begin(), vtkID.end(), ELEM->vtkID());
 
 			//if the ID of the current element already exists, then increment its count
 			if (it!=vtkID.end()) {count[*it] += 1;}
 			else {
-				vtkID.push_back(ELEM.vtkID);
+				vtkID.push_back(ELEM->vtkID());
 				count.push_back(1);
 			}
 		}
 	}
 
 
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::getElementTypeGroup(const int vtkID, std::vector<size_t> &elements) const {
-		using Element_t = typename TopologicalMesh<dim,T>::Element_t;
+	template <Float T>
+	void TopologicalMesh<T>::getElementTypeGroup(const int vtkID, std::vector<size_t> &elements) const {
+		using Element_t = typename TopologicalMesh<T>::Element_t;
 
 		//loop through all elements
 		for (size_t e_idx=0; e_idx<nElems(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			if (ELEM.vtkID == vtkID) {elements.push_back(e_idx);}
+			const Element_t* ELEM = _elements[e_idx].get();
+			if (ELEM->vtkID() == vtkID) {elements.push_back(e_idx);}
 		}
 	}
 
 
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::insertElement(typename TopologicalMesh<dim,T>::Element_t &ELEM, const bool useGreedy) {
+	template <Float T>
+	void TopologicalMesh<T>::insertElement(std::unique_ptr<typename TopologicalMesh<T>::Element_t> ELEM, const bool useGreedy) {
 		//add the element to the mesh
 		size_t e_idx = _elements.size(); //index of the new element
 		
 		//update existing nodes
-		for (size_t n=0; n<ELEM.nodes.size(); n++) {
-			size_t node_idx = ELEM.nodes[n];
+		for (size_t n=0; n<ELEM->nodes.size(); n++) {
+			size_t node_idx = ELEM->nodes[n];
 			_nodes[node_idx].elems.push_back(e_idx);
 		}
 
@@ -460,15 +490,16 @@ namespace gv::mesh
 	}
 
 
-	template <int dim, Float T>
+	template <Float T>
 	template <int N_NODES>
-	void TopologicalMesh<dim,T>::insertElement(const typename TopologicalMesh<dim,T>::Point_t (&vertices)[N_NODES], const int vtkID, const bool useGreedy) {
+	void TopologicalMesh<T>::insertElement(const typename TopologicalMesh<T>::Point_t (&vertices)[N_NODES], const int vtkID, const bool useGreedy) {
 		//construct the element information
-		using Element_t = typename TopologicalMesh<dim,T>::Element_t;
-		using Node_t    = typename TopologicalMesh<dim,T>::Node_t;
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+		using Node_t    = typename TopologicalMesh<T>::Node_t;
+
 
 		//initialize the new element
-		Element_t ELEM(vtkID, N_NODES);
+		std::unique_ptr<Element_t> ELEM = defaultInitializeElementByVtkID(vtkID);
 
 		//create new nodes as needed and aggregate their indices
 		for (int n=0; n<N_NODES; n++) {
@@ -479,31 +510,31 @@ namespace gv::mesh
 			assert(flag>=0);
 
 			assert(n_idx<_nodes.size());
-			ELEM.nodes[n]=n_idx;
+			ELEM->nodes[n]=n_idx;
 		}
 
 		//now that the nodes are initialized, insert the element.
 		//the nodes will be updated to link back to the new element.
-		insertElement(ELEM, useGreedy);
+		insertElement(std::move(ELEM), useGreedy);
 	}
 
 
 
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::recolor(const bool useGreedy) {
+	template <Float T>
+	void TopologicalMesh<T>::recolor(const bool useGreedy) {
 		_colorCount.clear();
 
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			if (_elements[e_idx].is_active) {recolor(e_idx, useGreedy);}
+			if (_elements[e_idx]->is_active) {recolor(e_idx, useGreedy);}
 		}
 	}
 
 
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::recolor(const size_t elem_idx, const bool useGreedy) {
+	template <Float T>
+	void TopologicalMesh<T>::recolor(const size_t elem_idx, const bool useGreedy) {
 		//if no colors are recorded, initialize _colorCount
 		if (_colorCount.size()==0) {
-			_elements[elem_idx].color = 0;
+			_elements[elem_idx]->color = 0;
 			_colorCount.push_back(1);
 			return;
 		}
@@ -515,7 +546,7 @@ namespace gv::mesh
 		//decide which colors are allowed
 		std::vector<bool> color_allowed(_colorCount.size(), true);
 		for (size_t n_idx=0; n_idx<neighbors.size(); n_idx++) {
-			size_t color = _elements[neighbors[n_idx]].color;
+			size_t color = _elements[neighbors[n_idx]]->color;
 			if (color_allowed[color]) {
 				color_allowed[color] = false;
 			}
@@ -528,7 +559,7 @@ namespace gv::mesh
 
 		//create a new color if needed
 		if (!free_color_exists) {
-			_elements[elem_idx].color = _colorCount.size();
+			_elements[elem_idx]->color = _colorCount.size();
 			_colorCount.push_back(1);
 			return;
 		}
@@ -537,7 +568,7 @@ namespace gv::mesh
 		if (useGreedy) {
 			for (size_t c_idx=0; c_idx<color_allowed.size(); c_idx++) {
 				if (useGreedy and color_allowed[c_idx]) {
-					_elements[elem_idx].color = c_idx;
+					_elements[elem_idx]->color = c_idx;
 					_colorCount[c_idx] += 1;
 					return;
 				}
@@ -552,15 +583,94 @@ namespace gv::mesh
 				color = c_idx;
 			}
 		}
-		_elements[elem_idx].color = color;
+		_elements[elem_idx]->color = color;
 		_colorCount[color] += 1;
 	}
 
 
+	template <Float T>
+	void TopologicalMesh<T>::joinDescendents(const size_t elem_idx, const bool useGreedy) {
+		//get the active descendents of the element
+		std::vector<size_t> descendents;
+		getElementDescendents(elem_idx, descendents, true);
 
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::print_topology_ascii_vtk(std::ostream &os, const bool activeOnly) const {
-		using Element_t = typename TopologicalMesh<dim,T>::Element_t;
+		//de-activate the descendents
+		for (size_t e_idx=0; e_idx<descendents.size(); e_idx++) {
+			_elements[descendents[e_idx]]->is_active = false;
+		}
+
+		//activate the element
+		_elements[elem_idx]->is_active = true;
+
+		//recolor the element
+		recolor(elem_idx,useGreedy);
+	}
+
+
+	template <Float T>
+	void TopologicalMesh<T>::splitElement(const size_t elem_idx, const bool useGreedy) {
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+		using Node_t    = typename TopologicalMesh<T>::Node_t;
+		using Point_t   = typename TopologicalMesh<T>::Point_t;
+
+		//ensure that _elements is large enough to store the new elements without re-sizing. When splitting, there will be at most 8 child elements
+		while (_elements.capacity() < _elements.size()+8) {
+			_elements.reserve(2*_elements.capacity());
+		}
+
+		//reference element to be split
+		assert(elem_idx<_elements.size());
+		Element_t* ELEM = _elements[elem_idx].get();
+		
+		//check if the element is already active
+		if (!ELEM->is_active) {return;}
+		ELEM->is_active = false;
+		
+		//if the element has already been refined, activate its children and return
+		if (ELEM->children.size()>0) {
+			for (size_t c_idx=0; c_idx<ELEM->children.size(); c_idx++) {
+				_elements[ELEM->children[c_idx]]->is_active = true;
+			}
+			return;
+		}
+
+		//create the new vertices
+		std::vector<Point_t> new_coords;
+		std::vector<size_t> new_node_idx(ELEM->nVerticesWhenSplit());
+		size_t i;
+		for (i=0; i<ELEM->nodes.size(); i++) {
+			new_coords.push_back(_nodes[ELEM->nodes[i]].vertex);
+			new_node_idx[i] = ELEM->nodes[i];
+		}
+
+		ELEM->split(new_coords);
+
+		//create the new nodes at the new vertices
+		for (;i<new_coords.size(); i++) {
+			Node_t NODE(new_coords[i]);
+			[[maybe_unused]] int flag = _nodes.push_back(NODE, new_node_idx[i]); //existing nodes will not be overwritten
+			assert(flag>=0);
+		}
+
+		//create the children elements
+		for (int j=0; j<ELEM->nChildrenWhenSplit(); j++) {
+			std::vector<size_t> childNodes;
+			ELEM->getChildNodes(childNodes, j, new_node_idx);
+
+			//add the index of the child element to the element being split
+			ELEM->children.push_back(_elements.size());
+
+			//create the child element and add it to the mesh
+			std::unique_ptr<Element_t> CHILD = createElementByVtkID(ELEM->vtkID(), childNodes);
+			CHILD->parent = elem_idx;
+			insertElement(std::move(CHILD), useGreedy);
+		}
+	}
+
+
+	template <Float T>
+	void TopologicalMesh<T>::print_topology_ascii_vtk(std::ostream &os, const bool activeOnly) const {
+		using Element_t = typename TopologicalMesh<T>::Element_t;
 
 		//create buffer
 		std::stringstream buffer;
@@ -573,11 +683,7 @@ namespace gv::mesh
 
 		//POINTS
 		buffer << "POINTS " << nNodes() << " float\n";
-		if (dim==3) {
-			for (size_t i=0; i<nNodes(); i++) { buffer << _nodes[i].vertex << "\n";}
-		} else if (dim==2) {
-			for (size_t i=0; i<nNodes(); i++) { buffer << _nodes[i].vertex << "0\n";}
-		}
+		for (size_t i=0; i<nNodes(); i++) { buffer << _nodes[i].vertex << "\n";}
 		
 		buffer << "\n";
 		os << buffer.rdbuf();
@@ -590,19 +696,19 @@ namespace gv::mesh
 		size_t nElements = 0;
 		#pragma omp parallel for reduction(+:nEntries) reduction(+:nElements)
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			if (!activeOnly or _elements[e_idx].is_active) {
+			if (!activeOnly or _elements[e_idx]->is_active) {
 				nElements += 1;
-				nEntries  += 1 + _elements[e_idx].nodes.size();
+				nEntries  += 1 + _elements[e_idx]->nodes.size();
 			}
 		}
 
 		buffer << "CELLS " << nElements << " " << nEntries << "\n";
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			if (!activeOnly or ELEM.is_active) {
-				buffer << ELEM.nodes.size();
-				for (size_t n=0; n<ELEM.nodes.size(); n++) {
-					buffer << " " << ELEM.nodes[n];
+			const Element_t* ELEM = _elements[e_idx].get();
+			if (!activeOnly or ELEM->is_active) {
+				buffer << ELEM->nodes.size();
+				for (size_t n=0; n<ELEM->nodes.size(); n++) {
+					buffer << " " << ELEM->nodes[n];
 				}
 				buffer << "\n";
 			}
@@ -615,9 +721,9 @@ namespace gv::mesh
 		//VTK_ID
 		buffer << "CELL_TYPES " << nElements << "\n";
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			if (!activeOnly or ELEM.is_active) {
-				buffer << ELEM.vtkID << " ";
+			const Element_t* ELEM = _elements[e_idx].get();
+			if (!activeOnly or ELEM->is_active) {
+				buffer << ELEM->vtkID() << " ";
 			}
 		}
 		buffer << "\n\n";
@@ -626,10 +732,10 @@ namespace gv::mesh
 	}
 
 
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::print_mesh_details_ascii_vtk(std::ostream &os, const bool activeOnly) const {
-		using Element_t = typename TopologicalMesh<dim,T>::Element_t;
-		using Node_t = typename TopologicalMesh<dim,T>::Node_t;
+	template <Float T>
+	void TopologicalMesh<T>::print_mesh_details_ascii_vtk(std::ostream &os, const bool activeOnly) const {
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+		using Node_t = typename TopologicalMesh<T>::Node_t;
 		std::stringstream buffer;
 
 		//NODE DETAILS
@@ -662,17 +768,16 @@ namespace gv::mesh
 		buffer.str("");
 
 
-
 		//ELEMENT DETAILS
 		//calculate the number of elements and 
 		size_t max_children = 0;
 		size_t nElements = 0;
 		#pragma omp parallel for reduction(std::max:max_children) reduction(+:nElements)
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			if (!activeOnly or ELEM.is_active) {
+			const Element_t* ELEM = _elements[e_idx].get();
+			if (!activeOnly or ELEM->is_active) {
 				nElements += 1;
-				max_children = std::max(max_children, ELEM.children.size());
+				max_children = std::max(max_children, ELEM->children.size());
 			}
 		}
 
@@ -687,7 +792,7 @@ namespace gv::mesh
 		if (!activeOnly) {
 			buffer << "is_active 1 " << nElements << " integer\n";
 			for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-				buffer << _elements[e_idx].is_active << " ";
+				buffer << _elements[e_idx]->is_active << " ";
 			}
 			buffer << "\n\n";
 			os << buffer.rdbuf();
@@ -698,10 +803,10 @@ namespace gv::mesh
 		if (max_children>0) {
 			buffer << "children " << max_children << " " << nElements << " integer\n";
 			for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-				const Element_t &ELEM = _elements[e_idx];
-				if (!activeOnly or ELEM.is_active) {
+				const Element_t* ELEM = _elements[e_idx].get();
+				if (!activeOnly or ELEM->is_active) {
 					size_t i;
-					for (i=0; i<ELEM.children.size(); i++) {buffer << ELEM.children[i] << " ";}
+					for (i=0; i<ELEM->children.size(); i++) {buffer << ELEM->children[i] << " ";}
 					for (; i<max_children; i++) {buffer << "-1 ";}
 				}
 			}
@@ -713,10 +818,10 @@ namespace gv::mesh
 		//parent
 		buffer << "parent 1 " << nElements << " integer\n";
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			if (!activeOnly or ELEM.is_active) {
-				if (ELEM.parent == (size_t) -1) {buffer << "-1 ";}
-				else {buffer << ELEM.parent << " ";}
+			const Element_t* ELEM = _elements[e_idx].get();
+			if (!activeOnly or ELEM->is_active) {
+				if (ELEM->parent == (size_t) -1) {buffer << "-1 ";}
+				else {buffer << ELEM->parent << " ";}
 			}
 		}
 		buffer << "\n\n";
@@ -726,8 +831,8 @@ namespace gv::mesh
 		//index
 		buffer << "element_index 1 " << nElements << " integer\n";
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			if (!activeOnly or ELEM.is_active) {
+			const Element_t* ELEM = _elements[e_idx].get();
+			if (!activeOnly or ELEM->is_active) {
 				buffer << e_idx << " ";
 			}
 		}
@@ -738,10 +843,10 @@ namespace gv::mesh
 		//color
 		buffer << "color 1 " << nElements << " integer\n";
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			if (!activeOnly or ELEM.is_active) {
-				if (ELEM.color == (size_t) -1) {buffer << "-1 ";}
-				else {buffer << ELEM.color << " ";}
+			const Element_t* ELEM = _elements[e_idx].get();
+			if (!activeOnly or ELEM->is_active) {
+				if (ELEM->color == (size_t) -1) {buffer << "-1 ";}
+				else {buffer << ELEM->color << " ";}
 			}
 		}
 		buffer << "\n\n";
@@ -753,8 +858,8 @@ namespace gv::mesh
 		std::vector<std::vector<size_t>> neighbors(nElements);
 		size_t n_idx=0;
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			if (!activeOnly or ELEM.is_active) {
+			const Element_t* ELEM = _elements[e_idx].get();
+			if (!activeOnly or ELEM->is_active) {
 				getElementNeighbors(e_idx, neighbors[n_idx], activeOnly);
 				max_neighbors = std::max(max_neighbors, neighbors[n_idx].size());
 				n_idx+=1;
@@ -764,8 +869,8 @@ namespace gv::mesh
 		
 		n_idx=0;
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			if (!activeOnly or ELEM.is_active) {
+			const Element_t* ELEM = _elements[e_idx].get();
+			if (!activeOnly or ELEM->is_active) {
 				size_t i;
 				for (i=0; i<neighbors[n_idx].size(); i++) {buffer << neighbors[n_idx][i] << " ";}
 				for (; i<max_neighbors; i++) {buffer << "-1 ";}
@@ -775,14 +880,11 @@ namespace gv::mesh
 		buffer << "\n\n";
 		os << buffer.rdbuf();
 		buffer.str("");
-
-
-
 	}
 
 
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::save_as(std::string filename, const bool include_details, const bool activeOnly) const {
+	template <Float T>
+	void TopologicalMesh<T>::save_as(std::string filename, const bool include_details, const bool activeOnly) const {
 		//open and check file
 		std::ofstream file(filename);
 
@@ -800,239 +902,6 @@ namespace gv::mesh
 		if (include_details) {print_mesh_details_ascii_vtk(file, activeOnly);}
 
 		file.close();
-	}
-
-
-
-	template <int dim, Float T>
-	void TopologicalMesh<dim,T>::splitElement(const size_t elem_idx) {
-		using Element_t = typename TopologicalMesh<dim,T>::Element_t;
-		using Node_t    = typename TopologicalMesh<dim,T>::Node_t;
-		using Point_t   = typename TopologicalMesh<dim,T>::Point_t;
-
-
-		//create 
-		Element_t& ELEM = _elements[elem_idx];
-		ELEM.is_active  = false;
-
-		switch (ELEM.vtkID) {
-		case 11: //VTK_VOXEL
-			assert(dim==3);
-			//set up 27 vertices required for the refined elements
-			Point_t new_coords[27];
-			
-			//original (corners)
-			for (int n=0; n<8; n++) {new_coords[n] = _nodes[ELEM.nodes[n]].vertex;}
-
-			//edge midpoints
-			new_coords[ 8] = 0.5*(new_coords[0]+new_coords[1]); //back face
-			new_coords[ 9] = 0.5*(new_coords[1]+new_coords[3]); //back face
-			new_coords[10] = 0.5*(new_coords[2]+new_coords[3]); //back face
-			new_coords[11] = 0.5*(new_coords[0]+new_coords[2]); //back face
-
-			new_coords[12] = 0.5*(new_coords[0]+new_coords[4]); //connecting edge
-			new_coords[13] = 0.5*(new_coords[2]+new_coords[6]); //connecting edge
-			new_coords[14] = 0.5*(new_coords[3]+new_coords[7]); //connecting edge
-			new_coords[15] = 0.5*(new_coords[1]+new_coords[5]); //connecting edge
-			
-			new_coords[16] = 0.5*(new_coords[4]+new_coords[5]); //front face
-			new_coords[17] = 0.5*(new_coords[5]+new_coords[7]); //front face
-			new_coords[18] = 0.5*(new_coords[6]+new_coords[7]); //front face
-			new_coords[19] = 0.5*(new_coords[4]+new_coords[6]); //front face
-
-			//face midpoints
-			new_coords[20] = 0.5*(new_coords[0]+new_coords[6]); //left face
-			new_coords[21] = 0.5*(new_coords[1]+new_coords[7]); //right face
-			new_coords[22] = 0.5*(new_coords[2]+new_coords[7]); //top face
-			new_coords[23] = 0.5*(new_coords[0]+new_coords[5]); //bottom face
-			new_coords[24] = 0.5*(new_coords[0]+new_coords[3]); //back face
-			new_coords[25] = 0.5*(new_coords[4]+new_coords[7]); //front face
-
-			//center
-			new_coords[26] = 0.5*(new_coords[0]+new_coords[7]);
-
-			//create the nodes and get their indices
-			size_t node_idx[27];
-			for (int i=0; i<27; i++)
-			{
-				Node_t NODE(new_coords[i]);
-				[[maybe_unused]] int flag = _nodes.push_back(NODE, node_idx[i]); //existing nodes will not be overwritten
-				assert(flag>=0);
-			}
-
-			//insert and color the new elements
-			size_t elem_nodes[8]; //storage for element node indices
-			std::vector<size_t> neighbors; //storage for neighbor elements
-			std::vector<bool> unsorted_color_allowed; //storage for tracking if a color is allowed. refers to unsorted colors.
-
-			std::vector<size_t> color_count_increasing(_colorCount.size(), 0);
-			for (size_t i=0; i<_colorCount.size(); i++) {color_count_increasing[i]=i;} //increasing by color labels
-			auto color_count_compare = [this](const size_t a, const size_t b) {return this->_colorCount[a]<this->_colorCount[b];}; //comparator to sort by increasing color count
-			std::sort(color_count_increasing.begin(), color_count_increasing.end(), color_count_compare); //color_count_increasing is in increasing order now
-			
-			for (int i=0; i<8; i++) {
-				_SPLIT_VTK_VOXEL(*this, node_idx, color_count_increasing, elem_idx, i);
-			}
-			break;
-
-		case 12: //VTK_HEXAHEDRON
-			assert(dim==3);
-			break;
-		case 8: //VTK_PIXEL
-			break;
-		case 9: //VTK_QUAD
-			break;
-
-		}
-	}
-
-
-
-
-
-
-	/// Helper function for splitting an element of VTK_VOXEL type. This should not be called by the user.
-	template <int dim, Float T>
-	void _SPLIT_VTK_VOXEL(TopologicalMesh<dim,T>& mesh,
-		const size_t (&node_idx)[27],                      //indices of the nodes in the mesh that will define the new elements
-		const std::vector<size_t> &color_count_increasing, //colors sorted by increasing color count (before any new elements are added or colored)
-		const size_t elem_idx,                             //index of element being split
-		const int sub_elem_idx)                            //which sub-element is being created
-	{
-		using Element_t = typename TopologicalMesh<dim,T>::Element_t;
-
-		//define the new element
-		Element_t ELEM(11, 8, -1, elem_idx);
-		ELEM.nodes.resize(8);
-		switch (sub_elem_idx) {
-			case (0): //voxel element containing original vertex 0
-				ELEM.nodes[0] = node_idx[ 0]; //0
-				ELEM.nodes[1] = node_idx[ 8]; //0-1
-				ELEM.nodes[2] = node_idx[11]; //0-2
-				ELEM.nodes[3] = node_idx[24]; //0-3
-				ELEM.nodes[4] = node_idx[12]; //0-4
-				ELEM.nodes[5] = node_idx[23]; //0-5
-				ELEM.nodes[6] = node_idx[20]; //0-6
-				ELEM.nodes[7] = node_idx[26]; //0-7
-				break;
-
-			case (1): //voxel element containing original vertex 1
-				ELEM.nodes[0] = node_idx[ 8]; //0-1
-				ELEM.nodes[1] = node_idx[ 1]; //1
-				ELEM.nodes[2] = node_idx[24]; //0-3
-				ELEM.nodes[3] = node_idx[ 9]; //1-3
-				ELEM.nodes[4] = node_idx[23]; //0-5
-				ELEM.nodes[5] = node_idx[15]; //1-5
-				ELEM.nodes[6] = node_idx[26]; //0-7
-				ELEM.nodes[7] = node_idx[21]; //1-7
-				break;
-
-			case (2): //voxel element containing original vertex 2
-				ELEM.nodes[0] = node_idx[11]; //0-2
-				ELEM.nodes[1] = node_idx[24]; //0-3
-				ELEM.nodes[2] = node_idx[ 2]; //2
-				ELEM.nodes[3] = node_idx[10]; //2-3
-				ELEM.nodes[4] = node_idx[20]; //0-6
-				ELEM.nodes[5] = node_idx[26]; //0-7
-				ELEM.nodes[6] = node_idx[13]; //2-6
-				ELEM.nodes[7] = node_idx[22]; //2-7
-				break;
-
-			case (3): //voxel element containing original vertex 3
-				ELEM.nodes[0] = node_idx[24]; //0-3
-				ELEM.nodes[1] = node_idx[ 9]; //1-3
-				ELEM.nodes[2] = node_idx[10]; //2-3
-				ELEM.nodes[3] = node_idx[ 3]; //3
-				ELEM.nodes[4] = node_idx[26]; //0-7
-				ELEM.nodes[5] = node_idx[21]; //1-7
-				ELEM.nodes[6] = node_idx[22]; //2-7
-				ELEM.nodes[7] = node_idx[14]; //3-7
-				break;
-
-			case (4): //voxel element containing original vertex 4
-				ELEM.nodes[0] = node_idx[12]; //0-4
-				ELEM.nodes[1] = node_idx[23]; //0-5
-				ELEM.nodes[2] = node_idx[20]; //0-6
-				ELEM.nodes[3] = node_idx[26]; //0-7
-				ELEM.nodes[4] = node_idx[ 4]; //4
-				ELEM.nodes[5] = node_idx[16]; //4-5
-				ELEM.nodes[6] = node_idx[19]; //4-6
-				ELEM.nodes[7] = node_idx[25]; //4-7
-				break;
-
-			case (5): //voxel element containing original vertex 5
-				ELEM.nodes[0] = node_idx[23]; //0-5
-				ELEM.nodes[1] = node_idx[15]; //1-5
-				ELEM.nodes[2] = node_idx[26]; //0-7
-				ELEM.nodes[3] = node_idx[21]; //1-7
-				ELEM.nodes[4] = node_idx[16]; //4-5
-				ELEM.nodes[5] = node_idx[ 5]; //5
-				ELEM.nodes[6] = node_idx[25]; //4-7
-				ELEM.nodes[7] = node_idx[17]; //5-7
-				break;
-
-			case (6): //voxel element containing original vertex 6
-				ELEM.nodes[0] = node_idx[20]; //0-6
-				ELEM.nodes[1] = node_idx[26]; //0-7
-				ELEM.nodes[2] = node_idx[13]; //2-6
-				ELEM.nodes[3] = node_idx[22]; //2-7
-				ELEM.nodes[4] = node_idx[19]; //4-6
-				ELEM.nodes[5] = node_idx[25]; //4-7
-				ELEM.nodes[6] = node_idx[ 6]; //6
-				ELEM.nodes[7] = node_idx[18]; //6-7
-				break;
-
-			case (7): //voxel element containing original vertex 7
-				ELEM.nodes[0] = node_idx[26]; //0-7
-				ELEM.nodes[1] = node_idx[21]; //1-7
-				ELEM.nodes[2] = node_idx[22]; //2-7
-				ELEM.nodes[3] = node_idx[14]; //3-7
-				ELEM.nodes[4] = node_idx[25]; //4-7
-				ELEM.nodes[5] = node_idx[17]; //5-7
-				ELEM.nodes[6] = node_idx[18]; //6-7
-				ELEM.nodes[7] = node_idx[ 7]; //7
-				break;
-		}
-		
-
-		
-		//insert the new element and get its neighbors for coloring
-		mesh.insertElement(ELEM);
-		size_t new_elem_idx = mesh._elements.size()-1;
-		mesh._elements[elem_idx].children.push_back(new_elem_idx);
-
-		std::vector<size_t> neighbors;
-		mesh.getElementNeighbors(new_elem_idx, neighbors);
-
-		//get which existing colors are allowed for the new element
-		std::vector<bool> unsorted_color_allowed(color_count_increasing.size(), true); //compute the allowed colors
-		size_t n_allowed = unsorted_color_allowed.size();
-		assert(n_allowed>0);
-		for (size_t i=0; i<neighbors.size(); i++) {
-			const auto &NEIGHBOR = mesh._elements[neighbors[i]];
-
-			//if a neighbor has color i, then color i is not allowed for this element
-			if (NEIGHBOR.color < color_count_increasing.size()) { //uncolored elements will be out of range and should be skipped
-				unsorted_color_allowed[NEIGHBOR.color] = false;
-				n_allowed -= 1;
-				if (n_allowed==0) {break;} //we need a new color. note that no other new element can share this color.
-			}
-		}
-
-		//color the new element
-		if (n_allowed==0) { //create a new color
-			mesh._elements[new_elem_idx].color = mesh._colorCount.size();
-			mesh._colorCount.push_back(1);
-		} else { //use the best existing color
-			for (size_t i=0; i<unsorted_color_allowed.size(); i++) {
-				if (unsorted_color_allowed[i]) {
-					size_t color_idx = color_count_increasing[i];
-					mesh._elements[new_elem_idx].color = color_idx;
-					mesh._colorCount[color_idx] += 1;
-					break;
-				}
-			}
-		}
 	}
 }
 
