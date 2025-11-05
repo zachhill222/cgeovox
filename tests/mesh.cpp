@@ -14,20 +14,27 @@ int main(int argc, char* argv[])
 	using Index_t = gv::util::Point<dim,size_t>;
 
 	Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
-	Mesh_t mesh(domain, Index_t{1,2,3});
+	Mesh_t mesh(domain, Index_t{10,20,30});
 
-	for (int n=0; n<6; n++){
+	for (int n=0; n<4; n++){
 		const size_t nElems = mesh.nElems(false);
 		for (size_t i=0; i<nElems; i+=2) {
-			mesh.splitElement(i);
+			mesh.split_element(i);
 		}
 	}
 	
-	//unrefine
-	// mesh.joinDescendents(0);
-	// mesh.joinDescendents(488);
+	// unrefine
+	// mesh.join_descendents(0);
+	// mesh.join_descendents(488);
 	// mesh.recolor();
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
+
+	// mesh.compute_boundary();
+	// Mesh_t boundary = mesh.boundary_mesh();
+	std::cout << mesh << std::endl;
+	
+	mesh.save_as("./outfiles/topological_mesh.vtk", true);
+	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true);
+
 
 	return 0;
 }

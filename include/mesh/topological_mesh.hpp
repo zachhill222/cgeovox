@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesh/vtk_elements.hpp"
+#include "mesh/vtk_defs.hpp"
 
 #include "util/point.hpp"
 #include "util/octree.hpp"
@@ -9,7 +10,7 @@
 #include "concepts.hpp"
 
 #include <vector>
-#include <array>
+#include <unordered_map>
 #include <algorithm>
 
 #include <cassert>
@@ -35,17 +36,17 @@ namespace gv::mesh
 		/// The location of this node in space.
 		Point_t vertex;
 
-		/// Track which boundary the node belongs to. Interior nodes are marked with -1.
-		int boundary;
+		/// Track the boundary faces this node belongs to
+		std::vector<size_t> boundary_faces;
 
 		/// Which elements this node belongs to. The number of elements cannot be known ahead of time, especially when a mesh is allowed to be refined.
 		std::vector<size_t> elems;
 
 		/// Constructor when the vertex is known.
-		Node(const Point_t &coord, int boundary=-1, size_t nElems=0) : vertex(coord), boundary(boundary), elems(nElems) {}
+		Node(const Point_t &coord, size_t nBoundary=0, size_t nElems=0) : vertex(coord), boundary_faces(nBoundary), elems(nElems) {}
 
 		/// Default constructor
-		Node() : vertex(), boundary(-1), elems() {}
+		Node() : vertex(), boundary_faces(), elems() {}
 	};
 
 	/// Equality check for mesh nodes.
@@ -82,33 +83,63 @@ namespace gv::mesh
 	///
 	/// @todo Add data and types to this description.
 	/////////////////////////////////////////////////
-	template <Float T=float>
+	template <Float T=double>
 	class TopologicalMesh
 	{
 	public:
 		//common typedefs
 		template <int n>
-		using Index       = gv::util::Point<n,size_t>;
-		using Point_t     = gv::util::Point<3,T>;
-		using Node_t      = Node<Point_t>;
-		using Box_t       = gv::util::Box<3,T>;
-		using Element_t   = Element;
+		using Index         = gv::util::Point<n,size_t>;
+		using Point_t       = gv::util::Point<3,T>;
+		using Node_t        = Node<Point_t>;
+		using NodeList_t    = NodeOctree<Node_t, 3, 64, T>;
+		using Box_t         = gv::util::Box<3,T>;
+		using Element_t     = Element;
+		using ElementList_t = std::vector<Element_t>;
 
 	protected:
-		std::vector<Element_t>       _elements;     //track element types and which block of _elem2node belongs to each element
-		NodeOctree<Node_t, 3, 64, T> _nodes;        //store the vertices/nodes and acompanying data
-		std::vector<size_t>       	 _colorCount;   //track how many elements belong to each color group. The index is the color.
+		ElementList_t          _element_storage; //actual storage for elements if this mesh does not reference the elements from some other mesh
+		ElementList_t         &_elements;        //track element types and which block of _elem2node belongs to each element
+		NodeList_t             _node_storage;    //actual storage for the nodes if this mesh does not reference the nodes from some other mesh
+		NodeList_t            &_nodes;           //reference to the node list. use this reference so that the nodes can refer to the nodes of some other mesh.
+		std::vector<size_t>    _colorCount;      //track how many elements belong to each color group. The index is the color.
+		
+		bool                   _boundary_is_computed = false; //track if the boundary needs to be re-computed
+		std::vector<Element_t> _boundary;                     //storage for the boundary faces
 
 	public:
 		/// Default constructor.
-		TopologicalMesh() : _nodes() {}
+		TopologicalMesh() : _element_storage(), _elements(_element_storage), _node_storage(), _nodes(_node_storage) {}
+
+
+		// /////////////////////////////////////////////////
+		// /// Constructor when using nodes that are stored externally.
+		// /// Note that the existing nodes may be changed during mesh operations.
+		// /////////////////////////////////////////////////
+		// TopologicalMesh(NodeList_t &external_nodes) : _element_storage(), _elements(_element_storage), _node_storage(), _nodes(external_nodes) {}
+
+
+		// /////////////////////////////////////////////////
+		// /// Constructor when using nodes and elements that are stored externally.
+		// /// Note that the existing nodes and elements may be changed during mesh operations.
+		// /////////////////////////////////////////////////
+		// TopologicalMesh(ElementList_t &external_elements, NodeList_t &external_nodes) : _element_storage(), _elements(external_elements), _node_storage(), _nodes(external_nodes) {}
+
+
+		/////////////////////////////////////////////////
+		/// Constructor when using nodes and elements exist and should be copied over
+		/////////////////////////////////////////////////
+		TopologicalMesh(const ElementList_t &external_elements, const NodeList_t &external_nodes) : 
+			_element_storage(external_elements), _elements(_element_storage),
+			_node_storage(external_nodes), _nodes(_node_storage) {}
+
 
 		/////////////////////////////////////////////////
 		/// Constructor when the maximum extents of the mesh are known ahead of time but the elements will be constructed later.
 		///
 		/// @param bbox The maximum extents of the mesh.
 		/////////////////////////////////////////////////
-		TopologicalMesh(const Box_t& bbox) : _nodes(bbox) {}
+		TopologicalMesh(const Box_t& bbox) : _element_storage(), _elements(_element_storage), _node_storage(bbox), _nodes(_node_storage) {}
 
 
 		/////////////////////////////////////////////////
@@ -117,7 +148,7 @@ namespace gv::mesh
 		/// @param bbox The region to be meshed.
 		/// @param N The number of elements along each coordinate axis.
 		/////////////////////////////////////////////////
-		TopologicalMesh(const Box_t& domain, const Index<3>& N) : _nodes(domain) {
+		TopologicalMesh(const Box_t& domain, const Index<3>& N) : _element_storage(), _elements(_element_storage), _node_storage(domain), _nodes(_node_storage) {
 			//reserve space
 			_nodes.reserve((N[0]+1) * (N[1]+1) * (N[2]+1));
 			_elements.reserve(N[0]*N[1]*N[2]);
@@ -134,14 +165,16 @@ namespace gv::mesh
 						Box_t   elem  {low, high};
 					
 						//assemble the list of vertices
-						Point_t element_vertices[8];
+						std::vector<Point_t> element_vertices(8);
 						for ( int l=0; l<8; l++) {element_vertices[l] = elem.voxelvertex(l);}
 
 						//put the element into the mesh
-						insertElement(element_vertices, 11);
+						insert_element(element_vertices, 11);
 					}
 				}
 			}
+
+			compute_conformal_boundary();
 		}
 
 
@@ -182,9 +215,11 @@ namespace gv::mesh
 					}
 
 					//put the element into the mesh
-					insertElement(element_vertices, 8);
+					insert_element(element_vertices, 8);
 				}
 			}
+
+			compute_conformal_boundary();
 		}
 
 		/////////////////////////////////////////////////
@@ -224,7 +259,16 @@ namespace gv::mesh
 		/// @param neighbors A reference to an existing vector where the result will be stored (via neighbors.push_back()).
 		/// @param activeOnly Optionally, the user can count inactive elements as neighbors
 		/////////////////////////////////////////////////
-		void getElementNeighbors(const size_t elem_idx, std::vector<size_t> &neighbors, const bool activeOnly=true) const;
+		void get_element_neighbors(const size_t elem_idx, std::vector<size_t> &neighbors, const bool activeOnly=true) const;
+
+
+		/////////////////////////////////////////////////
+		/// A method to get the active boundary faces that are also faces of the specified element.
+		///
+		/// @param elem_idx The index of the requested face (i.e., _boundary[elem_idx]).
+		/// @param faces A reference to an existing vector where the result will be stored (via faces.push_back()).
+		/////////////////////////////////////////////////
+		void get_boundary_faces(const size_t elem_idx, std::vector<size_t> &faces) const;
 
 
 		/////////////////////////////////////////////////
@@ -234,7 +278,17 @@ namespace gv::mesh
 		/// @param descendents A reference to an existing vector where the result will be stored
 		/// @param activeOnly Optionally, the user can get only the active descendents
 		/////////////////////////////////////////////////
-		void getElementDescendents(const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly=false) const;
+		void get_element_descendents(const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly=false) const;
+		
+
+		/////////////////////////////////////////////////
+		/// A method to get the descendent faces of the specified boundary face.
+		///
+		/// @param face_idx The index of the requested element (i.e., _boundary[face_idx]).
+		/// @param descendents A reference to an existing vector where the result will be stored
+		/// @param activeOnly Optionally, the user can get only the active descendents
+		/////////////////////////////////////////////////
+		void get_boundary_face_descendents(const size_t face_idx, std::vector<size_t> &descendents, const bool activeOnly=false) const;
 		
 		
 		/////////////////////////////////////////////////
@@ -243,7 +297,7 @@ namespace gv::mesh
 		/// @param vtkID A reference to an existing vector where the element types (vtk identifiers) will be stored.
 		/// @param count A reference to an existing vector where the count for each element type will be stored
 		/////////////////////////////////////////////////
-		void getAllElemTypes(std::vector<int> &vtkID, std::vector<size_t> &count) const;
+		void get_all_elem_types(std::vector<int> &vtkID, std::vector<size_t> &count) const;
 		
 
 		/////////////////////////////////////////////////
@@ -252,7 +306,7 @@ namespace gv::mesh
 		/// @param vtkID The vtk identifier of the requested element type.
 		/// @param elements A reference to an existing vector where the element indices will be stored.
 		/////////////////////////////////////////////////
-		void getElementTypeGroup(const int vtkID, std::vector<size_t> &elements) const;
+		void get_element_type_group(const int vtkID, std::vector<size_t> &elements) const;
 
 		
 		/////////////////////////////////////////////////
@@ -262,20 +316,18 @@ namespace gv::mesh
 		/// @param ELEM The element to be inserted. The nodes must already be populated. The element will be appended to _elements via _elements.push_back(std::move(ELEM)).
 		/// @param useGreedy When set to true, the first available color will be used. Otherwise the color with the least number of elements will be used (balanced coloring)
 		/////////////////////////////////////////////////
-		void insertElement(Element_t &ELEM, const bool useGreedy=false);
+		void insert_element(Element_t &ELEM, const bool useGreedy=false);
 
 
 		/////////////////////////////////////////////////
 		/// A method to create a new element by its vertices and insert it into the mesh. The element is constructed from specified vertices, which may or may not correspond to existing nodes.
 		/// If a vertex corresponds to an existing node, that node will be updated. Otherwise a new node will be created.
 		///
-		/// @tparam N_NODES The number of nodes required to define this element.
-		/// @param vertices A reference to an existing array of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
+		/// @param vertices A reference to an existing vector of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
 		/// @param vtkID The vtk identifier to track the type of element. Look up the vtk documentation to see which node order is required.
 		/// @param useGreedy When set to true, the first available color will be used. Otherwise the color with the least number of elements will be used (balanced coloring)
 		/////////////////////////////////////////////////
-		template<int N_NODES>
-		void insertElement(const Point_t (&vertices)[N_NODES], const int vtkID, const bool useGreedy=false);
+		void insert_element(const std::vector<Point_t> &vertices, const int vtkID, const bool useGreedy=false);
 
 
 		/////////////////////////////////////////////////
@@ -291,7 +343,7 @@ namespace gv::mesh
 		///
 		/// @todo Add support for more element types. Make VTK containers for each element type to clean up the code?
 		/////////////////////////////////////////////////
-		void splitElement(const size_t elem_idx, const bool useGreedy=false);
+		void split_element(const size_t elem_idx, const bool useGreedy=false);
 		
 
 		/////////////////////////////////////////////////
@@ -301,7 +353,7 @@ namespace gv::mesh
 		/// @param elem_idx The element whose descendents are to be joined.
 		/// @param useGreedy Flag to use the greedy algorithm for coloring
 		/////////////////////////////////////////////////
-		void joinDescendents(const size_t elem_idx, const bool useGreedy=false);
+		void join_descendents(const size_t elem_idx, const bool useGreedy=false);
 
 
 		/////////////////////////////////////////////////
@@ -321,6 +373,16 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		void recolor(const size_t elem_idx, const bool useGreedy=false);
 
+
+		/////////////////////////////////////////////////
+		/// Compute the boundary elements. The mesh must be in a conformal state (i.e., the coarsest mesh).
+		/////////////////////////////////////////////////
+		void compute_conformal_boundary();
+
+		/////////////////////////////////////////////////
+		/// Return the boundary as a mesh that references the nodes of this mesh.
+		/////////////////////////////////////////////////
+		TopologicalMesh<T> boundary_mesh() const;
 
 		/////////////////////////////////////////////////
 		/// Delete the specified elements from the mesh. The nodes that define each specified element will be updated.
@@ -367,32 +429,15 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		void save_as(const std::string filename, const bool include_details=false, const bool activeOnly=true) const;
 
-	// private:
-		// std::unique_ptr<Element_t> defaultInitializeElementByVtkID(const int vtkID) const {
-		// 	switch (vtkID) {
-		// 	case (3):  return std::make_unique<VTK_LINE<T>>();
-		// 	case (8):  return std::make_unique<VTK_PIXEL<T>>();
-		// 	case (11): return std::make_unique<VTK_VOXEL<T>>();
-		// 	default:
-		// 		throw std::invalid_argument("unknown element type");
-		// 	}
-		// }
-
-		// std::unique_ptr<Element_t> createElementByVtkID(const int vtkID, const std::vector<size_t> &nodes) const {
-		// 	switch (vtkID) {
-		// 	case (3):  return std::make_unique<VTK_LINE<T>>(nodes);
-		// 	case (8):  return std::make_unique<VTK_PIXEL<T>>(nodes);
-		// 	case (11): return std::make_unique<VTK_VOXEL<T>>(nodes);
-		// 	default:
-		// 		throw std::invalid_argument("unknown element type");
-		// 	}
-		// }
+		/// Friend function to print the mesh information
+		template <Float U>
+		friend std::ostream& operator<<(std::ostream& os, const TopologicalMesh<U> &mesh);
 	};
 
 
 	
 	template <Float T>
-	void TopologicalMesh<T>::getElementNeighbors(const size_t elem_idx, std::vector<size_t> &neighbors, const bool activeOnly) const {
+	void TopologicalMesh<T>::get_element_neighbors(const size_t elem_idx, std::vector<size_t> &neighbors, const bool activeOnly) const {
 		using Element_t = typename TopologicalMesh<T>::Element_t;
 		using Node_t = typename TopologicalMesh<T>::Node_t;
 
@@ -418,10 +463,41 @@ namespace gv::mesh
 		auto last = std::unique(neighbors.begin(), neighbors.end());
 		neighbors.erase(last, neighbors.end());
 	}
+
+
+	template <Float T>
+	void TopologicalMesh<T>::get_boundary_faces(const size_t elem_idx, std::vector<size_t> &faces) const {
+		assert(_boundary_is_computed);
+
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+		using Node_t = typename TopologicalMesh<T>::Node_t;
+
+		const Element_t &ELEM = _elements[elem_idx];
+
+		//loop through the nodes of the face
+		for (size_t n_idx=0; n_idx<ELEM.nNodes; n_idx++) {
+			const Node_t &NODE = _nodes[ELEM.nodes[n_idx]];
+
+			//loop through the elements of the current node
+			for (size_t m=0; m<NODE.boundary_faces.size(); m++) {
+				const size_t f_idx = NODE.boundary_faces[m];
+				const Element_t FACE = _boundary[f_idx];
+
+				if (FACE.parent==elem_idx) {
+					faces.push_back(f_idx);
+				}
+			}
+		}
+
+		//make the vector sorted and unique
+		std::sort(faces.begin(), faces.end()); 
+		auto last = std::unique(faces.begin(), faces.end());
+		faces.erase(last, faces.end());
+	}
 	
 
 	template <Float T>
-	void TopologicalMesh<T>::getElementDescendents(const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly) const {
+	void TopologicalMesh<T>::get_element_descendents(const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly) const {
 		using Element_t = typename TopologicalMesh<T>::Element_t;
 		const Element_t &ELEM = _elements[elem_idx];
 
@@ -434,13 +510,32 @@ namespace gv::mesh
 			if (!activeOnly or CHILD.is_active) {descendents.push_back(child_idx);}
 
 			//recurse if needed
-			if (CHILD.children.size()>0) {getElementDescendents(child_idx, descendents, activeOnly);}
+			if (CHILD.children.size()>0) {get_element_descendents(child_idx, descendents, activeOnly);}
 		}
 	}
 
 
 	template <Float T>
-	void TopologicalMesh<T>::getAllElemTypes(std::vector<int> &vtkID, std::vector<size_t> &count) const {
+	void TopologicalMesh<T>::get_boundary_face_descendents(const size_t face_idx, std::vector<size_t> &descendents, const bool activeOnly) const {
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+		const Element_t &FACE = _boundary[face_idx];
+
+		//loop through the children
+		for (size_t c_idx=0; c_idx<FACE.children.size(); c_idx++) {
+			const size_t child_idx = FACE.children[c_idx];
+			const Element_t &CHILD = _boundary[child_idx];
+
+			//add the relevent children
+			if (!activeOnly or CHILD.is_active) {descendents.push_back(child_idx);}
+
+			//recurse if needed
+			if (CHILD.children.size()>0) {get_element_descendents(child_idx, descendents, activeOnly);}
+		}
+	}
+
+
+	template <Float T>
+	void TopologicalMesh<T>::get_all_elem_types(std::vector<int> &vtkID, std::vector<size_t> &count) const {
 		using Element_t = typename TopologicalMesh<T>::Element_t;
 
 		//loop through all elements
@@ -461,7 +556,7 @@ namespace gv::mesh
 
 
 	template <Float T>
-	void TopologicalMesh<T>::getElementTypeGroup(const int vtkID, std::vector<size_t> &elements) const {
+	void TopologicalMesh<T>::get_element_type_group(const int vtkID, std::vector<size_t> &elements) const {
 		using Element_t = typename TopologicalMesh<T>::Element_t;
 
 		//loop through all elements
@@ -473,26 +568,28 @@ namespace gv::mesh
 
 
 	template <Float T>
-	void TopologicalMesh<T>::insertElement(Element_t &ELEM, const bool useGreedy) {
+	void TopologicalMesh<T>::insert_element(Element_t &ELEM, const bool useGreedy) {
 		//add the element to the mesh
 		size_t e_idx = _elements.size(); //index of the new element
-		
+		ELEM.index   = e_idx;
+
 		//update existing nodes
 		for (size_t n=0; n<ELEM.nNodes; n++) {
 			size_t node_idx = ELEM.nodes[n];
 			_nodes[node_idx].elems.push_back(e_idx);
 		}
 
-		//move ELEM to _elements
+		//move ELEM to _elements and color
+		size_t new_elem_idx = _elements.size();
 		_elements.push_back(std::move(ELEM));
-
-		recolor(_elements.size()-1, useGreedy);
+		recolor(new_elem_idx, useGreedy);
 	}
 
 
 	template <Float T>
-	template <int N_NODES>
-	void TopologicalMesh<T>::insertElement(const typename TopologicalMesh<T>::Point_t (&vertices)[N_NODES], const int vtkID, const bool useGreedy) {
+	void TopologicalMesh<T>::insert_element(const std::vector<typename TopologicalMesh<T>::Point_t> &vertices, const int vtkID, const bool useGreedy) {
+		assert(vertices.size()==vtk_n_nodes(vtkID));
+
 		//construct the element information
 		using Element_t = typename TopologicalMesh<T>::Element_t;
 		using Node_t    = typename TopologicalMesh<T>::Node_t;
@@ -502,7 +599,7 @@ namespace gv::mesh
 		Element_t ELEM(vtkID);
 
 		//create new nodes as needed and aggregate their indices
-		for (int n=0; n<N_NODES; n++) {
+		for (size_t n=0; n<vertices.size(); n++) {
 			Node_t NODE(vertices[n]);
 
 			size_t n_idx = (size_t) -1;
@@ -515,7 +612,7 @@ namespace gv::mesh
 
 		//now that the nodes are initialized, insert the element.
 		//the nodes will be updated to link back to the new element.
-		insertElement(ELEM, useGreedy);
+		insert_element(ELEM, useGreedy);
 	}
 
 
@@ -541,7 +638,7 @@ namespace gv::mesh
 
 		//get the active neighbor elements
 		std::vector<size_t> neighbors;
-		getElementNeighbors(elem_idx, neighbors);
+		get_element_neighbors(elem_idx, neighbors);
 
 		//decide which colors are allowed
 		std::vector<bool> color_allowed(_colorCount.size(), true);
@@ -589,12 +686,12 @@ namespace gv::mesh
 
 
 	template <Float T>
-	void TopologicalMesh<T>::joinDescendents(const size_t elem_idx, const bool useGreedy) {
+	void TopologicalMesh<T>::join_descendents(const size_t elem_idx, const bool useGreedy) {
 		//get the active descendents of the element
 		std::vector<size_t> descendents;
-		getElementDescendents(elem_idx, descendents, true);
+		get_element_descendents(elem_idx, descendents, true);
 
-		//de-activate the descendents
+		//de-activate the descendents and any boundary faces
 		for (size_t e_idx=0; e_idx<descendents.size(); e_idx++) {
 			_elements[descendents[e_idx]].is_active = false;
 		}
@@ -604,11 +701,30 @@ namespace gv::mesh
 
 		//recolor the element
 		recolor(elem_idx,useGreedy);
+
+		//get the descendents of any boundary faces
+		std::vector<size_t> boundary_faces;
+		get_boundary_faces(elem_idx, boundary_faces);
+		for (size_t f_idx=0; f_idx<boundary_faces.size(); f_idx++) {
+			std::vector<size_t> descendents;
+			get_boundary_face_descendents(boundary_faces[f_idx], descendents, true);
+
+			//deactivate the descendent boundary elements
+			for (size_t d_idx=0; d_idx<descendents.size(); d_idx++) {
+				_boundary[descendents[d_idx]].is_active = false;
+			}
+
+			//activate the boundary faces of the coarse element
+			_boundary[boundary_faces[f_idx]].is_active = true;
+
+			//update the color of the boundary element
+			_boundary[boundary_faces[f_idx]].color = _elements[elem_idx].color;
+		}
 	}
 
 
 	template <Float T>
-	void TopologicalMesh<T>::splitElement(const size_t elem_idx, const bool useGreedy) {
+	void TopologicalMesh<T>::split_element(const size_t elem_idx, const bool useGreedy) {
 		using Element_t = typename TopologicalMesh<T>::Element_t;
 		using Node_t    = typename TopologicalMesh<T>::Node_t;
 		using Point_t   = typename TopologicalMesh<T>::Point_t;
@@ -630,6 +746,7 @@ namespace gv::mesh
 		if (ELEM.children.size()>0) {
 			for (size_t c_idx=0; c_idx<ELEM.children.size(); c_idx++) {
 				_elements[ELEM.children[c_idx]].is_active = true;
+				recolor(ELEM.children[c_idx], useGreedy);
 			}
 			return;
 		}
@@ -649,12 +766,14 @@ namespace gv::mesh
 		}
 		vtk_elem->split(new_coords);
 
+		
 		//create the new nodes at the new vertices
 		for (;i<new_coords.size(); i++) {
 			Node_t NODE(new_coords[i]);
 			[[maybe_unused]] int flag = _nodes.push_back(NODE, new_node_idx[i]); //existing nodes will not be overwritten
 			assert(flag>=0);
 		}
+
 
 		//create the children elements
 		for (int j=0; j<vtk_elem->nChildrenWhenSplit(); j++) {
@@ -667,12 +786,151 @@ namespace gv::mesh
 			//create the child element and add it to the mesh
 			Element_t CHILD(childNodes, ELEM.vtkID);
 			CHILD.parent = elem_idx;
-			insertElement(CHILD, useGreedy);
+			insert_element(CHILD, useGreedy);
 		}
 
 		//delete the vtk element
 		delete vtk_elem;
+
+
+		//split any boundary faces
+		std::vector<size_t> parent_boundary_faces;
+		get_boundary_faces(elem_idx, parent_boundary_faces);
+		for (size_t f_idx=0; f_idx<parent_boundary_faces.size(); f_idx++) {
+			assert(parent_boundary_faces[f_idx]<_boundary.size());
+			//ensure that _boundary does not re-size and invalidate references
+			while (_boundary.capacity() < _boundary.size() + vtk_n_children(_boundary[parent_boundary_faces[f_idx]].vtkID)) {_boundary.reserve(2*_boundary.capacity());}
+
+			Element_t &FACE = _boundary[parent_boundary_faces[f_idx]];
+			FACE.is_active = false;
+
+			VTK_ELEMENT<Point_t>* vtk_face = _VTK_ELEMENT_FACTORY<Point_t>(FACE);
+			//find the vertices for the split face
+			std::vector<Point_t> new_coords;
+			std::vector<size_t> new_node_idx(vtk_face->nVerticesWhenSplit());
+			size_t i;
+			for (i=0; i<FACE.nNodes; i++) {
+				new_coords.push_back(_nodes[FACE.nodes[i]].vertex);
+				new_node_idx[i] = FACE.nodes[i];
+			}
+			vtk_face->split(new_coords);
+
+			//get any new nodes
+			for (;i<new_coords.size(); i++) {
+				Node_t NODE(new_coords[i]);
+				new_node_idx[i] = _nodes.find(NODE); //the node must have been generated by splitting the element
+				assert(new_node_idx[i]<_nodes.size());
+			}
+
+
+			//create the children faces
+			for (int j=0; j<vtk_face->nChildrenWhenSplit(); j++) {
+				std::vector<size_t> childNodes;
+				vtk_face->getChildNodes(childNodes, j, new_node_idx);
+				Element_t CHILDFACE(childNodes, FACE.vtkID);
+				CHILDFACE.parent = (size_t) -1;
+
+				//determine the child element that this split face is a child of
+				for (size_t c_idx=0; c_idx<ELEM.children.size(); c_idx++) {
+					const Element_t &CHILD = _elements[ELEM.children[c_idx]];
+					const VTK_ELEMENT<Point_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Point_t>(CHILD);
+					for (int k=0; k<vtk_n_faces(CHILD.vtkID); k++) {
+						if (CHILDFACE == vtk_elem->getFace(k)) {
+							CHILDFACE.parent = CHILD.index;
+							CHILDFACE.color = CHILD.color;
+							break;
+						}
+					}
+					delete vtk_elem;
+				}
+
+				//add the face to the _boundary
+				assert(CHILDFACE.parent<_elements.size());
+				CHILDFACE.index = _boundary.size();
+				FACE.children.push_back(CHILDFACE.index);
+				_boundary.push_back(std::move(CHILDFACE));
+			}
+
+			delete vtk_face;
+		}
 	}
+
+
+	template <Float T>
+	void TopologicalMesh<T>::compute_conformal_boundary() {
+		using Point_t = typename TopologicalMesh<T>::Point_t;
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+		using Node_t = typename TopologicalMesh<T>::Node_t;
+
+		if (_boundary_is_computed) {return;}
+
+		//create unordered maps to track the count of each face
+		std::unordered_map<Element_t, int, ElemHashBitPack> face_count;
+		face_count.reserve(8*_elements.size()); //guess at the number of unique faces (exact if all elements are voxels or hexes)
+
+		//loop through all elements and add the faces to the map
+		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
+			const Element_t &ELEM = _elements[e_idx];
+			if (!ELEM.is_active) {continue;}
+
+			VTK_ELEMENT<Point_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Point_t>(ELEM);
+
+			for (int i=0; i<vtk_n_faces(ELEM.vtkID); i++) {
+				Element_t FACE = vtk_elem->getFace(i);
+				face_count[FACE] += 1;
+			}
+
+			delete vtk_elem;
+		}
+
+		//process boundary faces
+		_boundary.clear();
+		_boundary.reserve(face_count.size()/4);
+		size_t b_idx = 0;
+		for (const auto& [FACE, count] : face_count) {
+			if (count==1) {
+				_boundary.push_back(FACE);
+				_boundary[b_idx].index = b_idx;
+
+				for (size_t i=0; i<FACE.nNodes; i++) {
+					Node_t &NODE = _nodes[FACE.nodes[i]];
+					NODE.boundary_faces.push_back(b_idx);
+				}
+
+				b_idx += 1;
+			}
+		}
+		_boundary.shrink_to_fit();
+
+		//set flag
+		_boundary_is_computed = true;
+	}
+
+
+	template <Float T>
+	TopologicalMesh<T> TopologicalMesh<T>::boundary_mesh() const {
+		using Point_t = typename TopologicalMesh<T>::Point_t;
+
+		//ensure the boundary is computed
+		assert(_boundary_is_computed);
+
+		//initialize boundary mesh
+		TopologicalMesh<T> mesh(_nodes.bbox());
+
+		//add active faces to the boundary mesh
+		for (size_t f_idx=0; f_idx<_boundary.size(); f_idx++) {
+			const Element_t &FACE = _boundary[f_idx];
+			if (!FACE.is_active) {continue;}
+
+			std::vector<Point_t> vertices(FACE.nNodes);
+			for (size_t i=0; i<FACE.nNodes; i++) {vertices[i] = _nodes[FACE.nodes[i]].vertex;}
+			mesh.insert_element(vertices, FACE.vtkID);
+		}
+
+		return mesh;
+	}
+
+
 
 
 	template <Float T>
@@ -746,15 +1004,33 @@ namespace gv::mesh
 		std::stringstream buffer;
 
 		//NODE DETAILS
+		int n_node_fields = 2;
+		if (!_boundary_is_computed) {n_node_fields-=1;}
+
 		buffer << "POINT_DATA " << _nodes.size() << "\n";
-		buffer << "FIELD node_info 2\n";
+		buffer << "FIELD node_info " << n_node_fields << "\n";
 
 		//boundary
-		buffer << "boundary 1 " << _nodes.size() << " integer\n";
-		for (size_t n_idx=0; n_idx<_nodes.size(); n_idx++) { buffer << _nodes[n_idx].boundary << " ";}
-		buffer << "\n\n";
-		os << buffer.rdbuf();
-		buffer.str("");
+		size_t max_boundary_faces=0;
+		if (_boundary_is_computed) {
+			#pragma omp parallel for reduction(std::max:max_boundary_faces)
+			for (size_t n_idx=0; n_idx<_nodes.size(); n_idx++) {
+				max_boundary_faces = std::max(max_boundary_faces, _nodes[n_idx].boundary_faces.size());
+			}
+
+			buffer << "boundary " << max_boundary_faces << " " << _nodes.size() << " integer\n";
+			for (size_t n_idx=0; n_idx<_nodes.size(); n_idx++) {
+				const Node_t &NODE = _nodes[n_idx];
+
+				size_t i;
+				for (i=0; i<NODE.boundary_faces.size(); i++) { buffer << NODE.boundary_faces[i] << " ";	}
+				for (;i<max_boundary_faces; i++) { buffer << "-1 ";}
+			}
+			buffer << "\n\n";
+			os << buffer.rdbuf();
+			buffer.str("");
+		}
+		
 
 		//elements
 		size_t max_elem=0;
@@ -840,7 +1116,7 @@ namespace gv::mesh
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
 			const Element_t &ELEM = _elements[e_idx];
 			if (!activeOnly or ELEM.is_active) {
-				buffer << e_idx << " ";
+				buffer << ELEM.index << " ";
 			}
 		}
 		buffer << "\n\n";
@@ -867,7 +1143,7 @@ namespace gv::mesh
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
 			const Element_t &ELEM = _elements[e_idx];
 			if (!activeOnly or ELEM.is_active) {
-				getElementNeighbors(e_idx, neighbors[n_idx], activeOnly);
+				get_element_neighbors(e_idx, neighbors[n_idx], activeOnly);
 				max_neighbors = std::max(max_neighbors, neighbors[n_idx].size());
 				n_idx+=1;
 			}
@@ -909,6 +1185,21 @@ namespace gv::mesh
 		if (include_details) {print_mesh_details_ascii_vtk(file, activeOnly);}
 
 		file.close();
+	}
+
+
+	template <Float T>
+	std::ostream& operator<<(std::ostream& os, const TopologicalMesh<T> &mesh) {
+		os << "nElems(true)= " << mesh.nElems(true) << " (active)\n";
+		os << "nElems(false)= " << mesh.nElems(false) << " (total)\n";
+		os << "nNodes= " << mesh.nNodes() << "\n";
+		os << "colors (" << mesh._colorCount.size() << ") : ";
+		for (size_t c_idx=0; c_idx<mesh._colorCount.size(); c_idx++) {
+			os << " " << mesh._colorCount[c_idx];
+		}
+		os << "\n";
+		
+		return os;
 	}
 }
 

@@ -4,13 +4,17 @@
 #include "util/box.hpp"
 
 #include "concepts.hpp"
+#include "mesh/vtk_defs.hpp"
 
 #include <vector>
-#include <array>
+#include <map>
 #include <algorithm>
 
 #include <cassert>
 #include <iostream>
+
+
+
 
 namespace gv::mesh
 {
@@ -23,55 +27,75 @@ namespace gv::mesh
 		std::vector<size_t> children;
 		size_t parent = (size_t) -1;
 		size_t color  = (size_t) -1;
+		size_t index  = (size_t) -1;
 		bool is_active = true;
 		int vtkID;
 
+
+		///default initializer
+		Element() {}
+
 		///initialize by vtkID
-		Element(const int vtkID) : vtkID(vtkID) {
-			switch (vtkID) {
-				//linear
-				case 3:  nNodes=2;  break; //line
-				case 5:  nNodes=3;  break; //triangle
-				case 8:  nNodes=4;  break; //pixel
-				case 9:  nNodes=4;  break; //quad
-				case 10: nNodes=4;  break; //tetra
-				case 11: nNodes=8;  break; //voxel
-				case 12: nNodes=8;  break; //hexahedron
-
-				//quadratic
-				case 21: nNodes=3;  break; //quadratic line
-				case 22: nNodes=6;  break; //quadratic triangle
-				case 24: nNodes=10; break; //quadratic tetra
-				case 28: nNodes=9;  break; //bi-quadratic quad
-				case 29: nNodes=27; break; //tri-quadratic hexahedron
-
-				default: throw std::invalid_argument("unkown element type.");
-			}
-
-			nodes.resize(nNodes);
-		}
+		Element(const int vtkID) : nodes(vtk_n_nodes(vtkID)), nNodes(vtk_n_nodes(vtkID)), vtkID(vtkID) {}
 
 		///initialize by vtkID and array of nodes:
-		Element(const std::vector<size_t> &nodes, const int vtkID) : Element(vtkID) {assert(nodes.size()== nNodes); this->nodes=nodes;}
+		Element(const std::vector<size_t> &nodes, const int vtkID) : nodes(nodes), nNodes(vtk_n_nodes(vtkID)), vtkID(vtkID) {assert(nodes.size()==nNodes);}
 	};
 
 
 	/// Check if two elements are the same (up to orientation)
-	// template <int A, int B>
-	// bool operator==(const Element<A> &A, const Element<B> &B) {
-	// 	if (A.vtkID!=B.vtkID) {return false;}
+	bool operator==(const Element &A, const Element &B) {
+		if (A.vtkID!=B.vtkID) {return false;}
+		if (A.nNodes!=B.nNodes) {return false;}
 
-	// 	std::array<size_t, A> a = A.nodes;
-	// 	std::array<size_t, B> b = B.nodes;
-	// 	std::sort(a.begin(), a.end());
-	// 	std::sort(b.begin(), b.end());
+		std::vector<size_t> a = A.nodes;
+		std::vector<size_t> b = B.nodes;
+		std::sort(a.begin(), a.end());
+		std::sort(b.begin(), b.end());
 
-	// 	assert(A.nNodes==B.nNodes);
-	// 	for (int i=0; i<nNodes; i++) {
-	// 		if (a[i]!=b[i]) {return false;}
-	// 	}
-	// 	return true;
-	// }
+		return a == b;
+	}
+
+
+	/// Element hashing function for use in unordered_set (for example). The order of the element nodes is irrelevent to the hash value.
+	struct ElemHashBitPack {
+		size_t operator()(const Element& ELEM) const {
+			//sort the nodes
+			std::vector<size_t> nodes = ELEM.nodes;
+			std::sort(nodes.begin(), nodes.end());
+
+			//initialize the hash by getting the last few bits from each node index
+			size_t hash = 0;
+			size_t bits_per_node;
+			if constexpr (sizeof(size_t)==4) {bits_per_node=32/nodes.size();} //32-bit
+			else if constexpr (sizeof(size_t)==8) {bits_per_node=64/nodes.size();} //64-bit
+			else {bits_per_node=1;}
+
+			size_t mask = (((size_t) 1) << bits_per_node) - 1; //exactly the last bits_per_node bits are 1
+
+			for (size_t i=0; i<nodes.size(); i++) {
+				size_t node_bits = nodes[i] & mask;
+				hash |= (node_bits << (i*bits_per_node));
+			}
+
+			//scramble the hash (MurmurHash3)
+			if constexpr (sizeof(size_t)==4) {
+				hash ^= hash >> 16;
+				hash *= 0x85ebca6b;
+				hash ^= hash >> 16;
+				hash *= 0xc2b2ae35;
+				hash ^= hash >> 16;
+			} else if constexpr (sizeof(size_t)==8) {
+				hash ^= hash >> 33;
+				hash *= 0xff51afd7ed558ccdULL;
+				hash ^= hash >> 33;
+				hash *= 0xc4ceb9fe1a85ec53ULL;
+				hash ^= hash >> 33;
+			}
+
+			return hash;
+		}
+	};
 
 
 	/////////////////////////////////////////////////
@@ -88,6 +112,13 @@ namespace gv::mesh
 		virtual void getFaceNodes(std::vector<size_t> &face_nodes, const int face_number) const = 0;
 		virtual int nChildrenWhenSplit() const = 0;
 		virtual int nVerticesWhenSplit() const = 0;
+		Element getFace(const int face_number) const {
+			Element face(vtk_face_id(this->ELEM.vtkID));
+			face.color  = this->ELEM.color;
+			face.parent = this->ELEM.index;
+			getFaceNodes(face.nodes, face_number);
+			return face;
+		}
 	};
 
 
@@ -436,7 +467,4 @@ namespace gv::mesh
 			default: throw std::invalid_argument("unknown element type.");
 		}
 	};
-	
-
-
 }
