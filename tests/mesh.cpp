@@ -1,6 +1,8 @@
 #include "util/box.hpp"
 #include "util/point.hpp"
 
+#include <vector>
+
 #include "mesh/topological_mesh.hpp"
 
 int main(int argc, char* argv[])
@@ -16,11 +18,14 @@ int main(int argc, char* argv[])
 	Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
 	Mesh_t mesh(domain, Index_t{10,20,30});
 
-	for (int n=0; n<4; n++){
+	for (int n=0; n<5; n++){
 		const size_t nElems = mesh.nElems(false);
+		std::vector<size_t> elem2refine;
+		elem2refine.reserve(nElems/2);
 		for (size_t i=0; i<nElems; i+=2) {
-			mesh.split_element(i);
+			elem2refine.push_back(i);
 		}
+		mesh.split_element(elem2refine);
 	}
 	
 	// unrefine
@@ -32,7 +37,7 @@ int main(int argc, char* argv[])
 	// Mesh_t boundary = mesh.boundary_mesh();
 	std::cout << mesh << std::endl;
 	
-	mesh.save_as("./outfiles/topological_mesh.vtk", true);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true);
 
 

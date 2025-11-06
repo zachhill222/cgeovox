@@ -11,9 +11,12 @@
 
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <algorithm>
+#include <limits>
 
 #include <cassert>
+#include <cstring>
 
 #include <sstream>
 #include <iostream>
@@ -331,19 +334,37 @@ namespace gv::mesh
 
 
 		/////////////////////////////////////////////////
-		/// A method to split/refine an existing element. The element that is split is not automatically deleted.
-		/// However, the new elements may be colored as if the original element was deleted. The new elements are of the same type as the original.
+		/// A method to split/refine an existing element. The element that is split will have the new elements added as children, and the new elements that are created
+		/// will have the element that was split as a parent. The new elements are of the same type as the original.
 		/// New nodes will most likely be created and old nodes updated during this process.
-		/// For certain elements (i.e., hexahedrons) there will likely be more than one new node created and there is no guarentee that the mesh will be conformal.
+		/// For certain elements (i.e., voxels or hexahedrons) there will likely be more than one new node created and there is no guarentee that the mesh will be conformal.
 		/// If the specified element has already been split and re-joined (i.e., the children exist), then the children are simply activated and no new elements are created in memory.
 		/// If this _elements[elem_idx].is_active is false, then the method returns without making any changes.
 		///
 		/// @param elem_idx The element to be split.
 		/// @param useGreedy Flag to use the greedy algorithm for coloring
 		///
-		/// @todo Add support for more element types. Make VTK containers for each element type to clean up the code?
+		/// @todo Add support for more element types.
 		/////////////////////////////////////////////////
 		void split_element(const size_t elem_idx, const bool useGreedy=false);
+
+
+		/////////////////////////////////////////////////
+		/// A method to split/refine many existing elements. Each element that is split will have the new elements added as children, and the new elements that are created
+		/// will have the element that was split as a parent. The new elements are of the same type as the original.
+		/// New nodes will most likely be created and old nodes updated during this process.
+		/// For certain elements (i.e., voxels or hexahedrons) there will likely be more than one new node created and there is no guarentee that the mesh will be conformal.
+		/// If the specified element has already been split and re-joined (i.e., the children exist), then the children are simply activated and no new elements are created in memory.
+		/// If this _elements[elem_idx].is_active is false, then the method returns without making any changes.
+		///
+		/// This method just calls split_element(elem_idx[i], useGreedy) in a for loop.
+		///
+		/// @param elem_idx The elements to be split.
+		/// @param useGreedy Flag to use the greedy algorithm for coloring
+		///
+		/// @todo Add parallization support.
+		/////////////////////////////////////////////////
+		void split_element(const std::vector<size_t> &elem_idx, const bool useGreedy=false);
 		
 
 		/////////////////////////////////////////////////
@@ -379,34 +400,31 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		void compute_conformal_boundary();
 
+
 		/////////////////////////////////////////////////
 		/// Return the boundary as a mesh that references the nodes of this mesh.
 		/////////////////////////////////////////////////
 		TopologicalMesh<T> boundary_mesh() const;
 
-		/////////////////////////////////////////////////
-		/// Delete the specified elements from the mesh. The nodes that define each specified element will be updated.
-		/// Note that some nodes may be isolated (i.e., they do not belong to any element) after this operation.
-		///
-		/// @param elements A reference to the indices of the elements to be deleted.
-		/////////////////////////////////////////////////
-		void remove_elements(const std::vector<size_t> &elements); //remove the specified elements from the mesh
-
 
 		/////////////////////////////////////////////////
-		/// Delete all isolated nodes (i.e., nodes that do not belong to any element) from the mesh. Isolated nodes can be created when elements are deleted.
-		/////////////////////////////////////////////////
-		void remove_isolated_nodes();
-
-
-		/////////////////////////////////////////////////
-		/// Print the node locations and element connectivity to the output stream. Data can be appended to stream after this is called.
+		/// Print the node locations and element connectivity to the output stream. Data can be appended to the stream after this is called.
 		/// When saving information (e.g., a solution to a PDE define on this mesh), this will initialize the mesh and then the data can be appended.
 		///
 		/// @param os The output stream.
 		/// @param activeOnly When set to true, only the active elements will be written to the file
 		/////////////////////////////////////////////////
 		void print_topology_ascii_vtk(std::ostream &os, const bool activeOnly=true) const;
+
+
+		/////////////////////////////////////////////////
+		/// Print the node locations and element connectivity to the output file in binary format. Data can be appended to the file after this is called.
+		/// When saving information (e.g., a solution to a PDE define on this mesh), this will initialize the mesh and then the data can be appended.
+		///
+		/// @param filename The file to write to.
+		/// @param activeOnly When set to true, only the active elements will be written to the file
+		/////////////////////////////////////////////////
+		void print_topology_binary_vtk(const std::string &filename, const bool activeOnly=true) const;
 
 
 		/////////////////////////////////////////////////
@@ -417,6 +435,16 @@ namespace gv::mesh
 		/// @param activeOnly When set to true, only details for the active elements will be written to the file
 		/////////////////////////////////////////////////
 		void print_mesh_details_ascii_vtk(std::ostream &os, const bool activeOnly=true) const;
+
+
+		/////////////////////////////////////////////////
+		/// Print the details of the nodes and elements to the output legacy vtk binary file. This includes element colors and which elements each node belongs to.
+		/// Due to the way that field data is stored in BINARY VTK format, it will be difficult to append any additional information to a file afterwards.
+		///
+		/// @param file The output output file that already contains the mesh topology in legacy vtk binary format.
+		/// @param activeOnly When set to true, only details for the active elements will be written to the file
+		/////////////////////////////////////////////////
+		void print_mesh_details_binary_vtk(const std::string &filename, const bool activeOnly=true) const;
 		
 
 		/////////////////////////////////////////////////
@@ -427,7 +455,7 @@ namespace gv::mesh
 		/// @param include_details When set to true, the mesh details will be appended to the mesh topology. This should usually be set to false if any additional data will be appended to the file.
 		/// @param activeOnly When set to true, only active elements will be written to the file
 		/////////////////////////////////////////////////
-		void save_as(const std::string filename, const bool include_details=false, const bool activeOnly=true) const;
+		void save_as(const std::string filename, const bool include_details=false, const bool activeOnly=true, const bool use_ascii=false) const;
 
 		/// Friend function to print the mesh information
 		template <Float U>
@@ -439,9 +467,12 @@ namespace gv::mesh
 	template <Float T>
 	void TopologicalMesh<T>::get_element_neighbors(const size_t elem_idx, std::vector<size_t> &neighbors, const bool activeOnly) const {
 		using Element_t = typename TopologicalMesh<T>::Element_t;
-		using Node_t = typename TopologicalMesh<T>::Node_t;
+		using Node_t    = typename TopologicalMesh<T>::Node_t;
 
 		const Element_t &ELEM = _elements[elem_idx];
+
+		//use unordered set to ensure unique nodes
+		std::unordered_set<size_t> neighbor_set;
 
 		//loop through the nodes of the current element
 		for (size_t n_idx=0; n_idx<ELEM.nNodes; n_idx++) {
@@ -453,15 +484,19 @@ namespace gv::mesh
 
 				//only leaf elements can be neighbors
 				if (e_idx!=elem_idx and (!activeOnly or _elements[e_idx].is_active)) {
-					neighbors.push_back(e_idx);
+					// neighbors.push_back(e_idx);
+					neighbor_set.insert(e_idx);
 				}
 			}
 		}
 
 		//make the vector sorted and unique
-		std::sort(neighbors.begin(), neighbors.end()); 
-		auto last = std::unique(neighbors.begin(), neighbors.end());
-		neighbors.erase(last, neighbors.end());
+		// std::sort(neighbors.begin(), neighbors.end()); 
+		// auto last = std::unique(neighbors.begin(), neighbors.end());
+		// neighbors.erase(last, neighbors.end());
+
+		//convert the set to the vector
+		neighbors.assign(neighbor_set.begin(), neighbor_set.end());
 	}
 
 
@@ -470,9 +505,12 @@ namespace gv::mesh
 		assert(_boundary_is_computed);
 
 		using Element_t = typename TopologicalMesh<T>::Element_t;
-		using Node_t = typename TopologicalMesh<T>::Node_t;
+		using Node_t    = typename TopologicalMesh<T>::Node_t;
 
 		const Element_t &ELEM = _elements[elem_idx];
+
+		//use unordered set to ensure unique nodes
+		std::unordered_set<size_t> face_set;
 
 		//loop through the nodes of the face
 		for (size_t n_idx=0; n_idx<ELEM.nNodes; n_idx++) {
@@ -484,15 +522,17 @@ namespace gv::mesh
 				const Element_t FACE = _boundary[f_idx];
 
 				if (FACE.parent==elem_idx) {
-					faces.push_back(f_idx);
+					// faces.push_back(f_idx);
+					face_set.insert(f_idx);
 				}
 			}
 		}
 
 		//make the vector sorted and unique
-		std::sort(faces.begin(), faces.end()); 
-		auto last = std::unique(faces.begin(), faces.end());
-		faces.erase(last, faces.end());
+		// std::sort(faces.begin(), faces.end()); 
+		// auto last = std::unique(faces.begin(), faces.end());
+		// faces.erase(last, faces.end());
+		faces.assign(face_set.begin(), face_set.end());
 	}
 	
 
@@ -687,13 +727,17 @@ namespace gv::mesh
 
 	template <Float T>
 	void TopologicalMesh<T>::join_descendents(const size_t elem_idx, const bool useGreedy) {
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+
 		//get the active descendents of the element
 		std::vector<size_t> descendents;
 		get_element_descendents(elem_idx, descendents, true);
 
 		//de-activate the descendents and any boundary faces
 		for (size_t e_idx=0; e_idx<descendents.size(); e_idx++) {
-			_elements[descendents[e_idx]].is_active = false;
+			Element_t &ELEM = _elements[descendents[e_idx]];
+			ELEM.is_active = false;
+			_colorCount[ELEM.color] -= 1;
 		}
 
 		//activate the element
@@ -741,6 +785,7 @@ namespace gv::mesh
 		//check if the element is already active
 		if (!ELEM.is_active) {return;}
 		ELEM.is_active = false;
+		_colorCount[ELEM.color] -= 1;
 		
 		//if the element has already been refined, activate its children and return
 		if (ELEM.children.size()>0) {
@@ -758,7 +803,7 @@ namespace gv::mesh
 
 		//create the new vertices
 		std::vector<Point_t> new_coords;
-		std::vector<size_t> new_node_idx(vtk_elem->nVerticesWhenSplit());
+		std::vector<size_t> new_node_idx(vtk_n_nodes_when_split(ELEM.vtkID));
 		size_t i;
 		for (i=0; i<ELEM.nNodes; i++) {
 			new_coords.push_back(_nodes[ELEM.nodes[i]].vertex);
@@ -776,7 +821,7 @@ namespace gv::mesh
 
 
 		//create the children elements
-		for (int j=0; j<vtk_elem->nChildrenWhenSplit(); j++) {
+		for (int j=0; j<vtk_n_children(ELEM.vtkID); j++) {
 			std::vector<size_t> childNodes;
 			vtk_elem->getChildNodes(childNodes, j, new_node_idx);
 
@@ -807,7 +852,7 @@ namespace gv::mesh
 			VTK_ELEMENT<Point_t>* vtk_face = _VTK_ELEMENT_FACTORY<Point_t>(FACE);
 			//find the vertices for the split face
 			std::vector<Point_t> new_coords;
-			std::vector<size_t> new_node_idx(vtk_face->nVerticesWhenSplit());
+			std::vector<size_t> new_node_idx(vtk_n_nodes_when_split(FACE.vtkID));
 			size_t i;
 			for (i=0; i<FACE.nNodes; i++) {
 				new_coords.push_back(_nodes[FACE.nodes[i]].vertex);
@@ -824,7 +869,7 @@ namespace gv::mesh
 
 
 			//create the children faces
-			for (int j=0; j<vtk_face->nChildrenWhenSplit(); j++) {
+			for (int j=0; j<vtk_n_children(FACE.vtkID); j++) {
 				std::vector<size_t> childNodes;
 				vtk_face->getChildNodes(childNodes, j, new_node_idx);
 				Element_t CHILDFACE(childNodes, FACE.vtkID);
@@ -837,7 +882,7 @@ namespace gv::mesh
 					for (int k=0; k<vtk_n_faces(CHILD.vtkID); k++) {
 						if (CHILDFACE == vtk_elem->getFace(k)) {
 							CHILDFACE.parent = CHILD.index;
-							CHILDFACE.color = CHILD.color;
+							CHILDFACE.color  = CHILD.color;
 							break;
 						}
 					}
@@ -857,10 +902,18 @@ namespace gv::mesh
 
 
 	template <Float T>
+	void TopologicalMesh<T>::split_element(const std::vector<size_t> &elem_idx, const bool useGreedy) {
+		for (size_t i=0; i<elem_idx.size(); i++) {
+			split_element(elem_idx[i], useGreedy);
+		}
+	}
+
+
+	template <Float T>
 	void TopologicalMesh<T>::compute_conformal_boundary() {
-		using Point_t = typename TopologicalMesh<T>::Point_t;
+		using Point_t   = typename TopologicalMesh<T>::Point_t;
 		using Element_t = typename TopologicalMesh<T>::Element_t;
-		using Node_t = typename TopologicalMesh<T>::Node_t;
+		using Node_t    = typename TopologicalMesh<T>::Node_t;
 
 		if (_boundary_is_computed) {return;}
 
@@ -998,6 +1051,129 @@ namespace gv::mesh
 
 
 	template <Float T>
+	void TopologicalMesh<T>::print_topology_binary_vtk(const std::string& filename, const bool activeOnly) const {
+	    using Element_t = typename TopologicalMesh<T>::Element_t;
+	    
+	    //only 32 and 64 bit data types are supported. can add more if necessary
+	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
+	    static_assert(sizeof(T)==4 or sizeof(T)==8, "Unsupported floating point size");
+
+	    //in this file format, the node indices must be 4 bytes. ensure that there are not too many nodes.
+	    //additionally, the integers are expected to be signed in the legacy format. uint32_t **might** be possible, but likely we need xml files for meshes that large.
+	    constexpr size_t max_legacy_vtk_nodes = static_cast<size_t>(std::numeric_limits<int32_t>::max());
+	    if (_nodes.size()-1 > max_legacy_vtk_nodes) {throw std::runtime_error("Node index " + std::to_string(_nodes.size()-1) + " exceeds legacy VTK format limit.");}
+
+
+	    //open the file in binary write mode
+	    std::ofstream file(filename, std::ios::binary);
+	    if (!file.is_open()) {
+	        throw std::runtime_error("Cannot open file: " + filename);
+	    }
+	    
+	    // Helper lambda to write big-endian integers (cast to int32_t due to legacy vtk)
+	    // PC is in little-endian, vtk/Paraview wants big-endian
+	    auto write_be_size_t = [&file](const size_t value) {
+	    	int32_t legacy_vtk_value = static_cast<int32_t>(value);
+	    	uint32_t be_value = ((legacy_vtk_value & 0xFF000000) >> 24) |
+	    						((legacy_vtk_value & 0x00FF0000) >> 8)  |
+	    						((legacy_vtk_value & 0x0000FF00) << 8)  |
+	    						((legacy_vtk_value & 0x000000FF) << 24);
+	    	file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
+	    };
+
+	    auto write_be_int = [&file](const int value) {
+	    	int32_t legacy_vtk_value = static_cast<int32_t>(value);
+	    	uint32_t be_value = ((legacy_vtk_value & 0xFF000000) >> 24) |
+	    						((legacy_vtk_value & 0x00FF0000) >> 8)  |
+	    						((legacy_vtk_value & 0x0000FF00) << 8)  |
+	    						((legacy_vtk_value & 0x000000FF) << 24);
+	    	file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
+	    };
+	    
+	    // Helper lambda to write big-endian floats (handles float, double, etc.)
+	    // PC is in little-endian, vtk/Paraview wants big-endian
+	    auto write_be_float = [&file](T value) {
+	        if constexpr (sizeof(T) == 4) {
+	            // 32-bit float
+	            uint32_t temp;
+	            std::memcpy(&temp, &value, sizeof(T));
+	            uint32_t be_value = ((temp & 0xFF000000) >> 24) |
+	                                ((temp & 0x00FF0000) >> 8)  |
+	                                ((temp & 0x0000FF00) << 8)  |
+	                                ((temp & 0x000000FF) << 24);
+	            file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
+	        } else if constexpr (sizeof(T) == 8) {
+	            // 64-bit double
+	            uint64_t temp;
+	            std::memcpy(&temp, &value, sizeof(T));
+	            uint64_t be_value = ((temp & 0xFF00000000000000ULL) >> 56) |
+	                                ((temp & 0x00FF000000000000ULL) >> 40) |
+	                                ((temp & 0x0000FF0000000000ULL) >> 24) |
+	                                ((temp & 0x000000FF00000000ULL) >> 8)  |
+	                                ((temp & 0x00000000FF000000ULL) << 8)  |
+	                                ((temp & 0x0000000000FF0000ULL) << 24) |
+	                                ((temp & 0x000000000000FF00ULL) << 40) |
+	                                ((temp & 0x00000000000000FFULL) << 56);
+	            file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
+	        }
+	    };
+	    
+	    // HEADER (note legacy vtk can combine ascii and binary data)
+	    file << "# vtk DataFile Version 2.0\n";
+	    file << "Mesh Data\n";
+	    file << "BINARY\n\n";
+	    file << "DATASET UNSTRUCTURED_GRID\n";
+	    
+	    // POINTS (binary data)
+	    if constexpr (sizeof(T)==4) {file << "POINTS " << nNodes() << " float\n";}
+	    else if constexpr (sizeof(T)==8) {file << "POINTS " << nNodes() << " double\n";}
+	    
+	    for (size_t i = 0; i < nNodes(); i++) {
+	        write_be_float(_nodes[i].vertex[0]);
+	        write_be_float(_nodes[i].vertex[1]);
+	        write_be_float(_nodes[i].vertex[2]);
+	    }
+	    file << "\n";
+	    
+	    // ELEMENTS - calculate counts
+	    size_t nEntries = 0;
+	    size_t nElements = 0;
+	    #pragma omp parallel for reduction(+:nEntries) reduction(+:nElements)
+	    for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+	        if (!activeOnly or _elements[e_idx].is_active) {
+	            nElements += 1;
+	            nEntries  += 1 + _elements[e_idx].nNodes;
+	        }
+	    }
+	    
+	    // CELLS (binary data)
+	    file << "CELLS " << nElements << " " << nEntries << "\n";
+	    for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+	        const Element_t &ELEM = _elements[e_idx];
+	        if (!activeOnly or ELEM.is_active) {
+	            write_be_size_t(ELEM.nNodes);
+	            for (size_t n = 0; n < ELEM.nNodes; n++) {
+	                write_be_size_t(ELEM.nodes[n]);
+	            }
+	        }
+	    }
+	    file << "\n";
+	    
+	    // CELL_TYPES (binary data)
+	    file << "CELL_TYPES " << nElements << "\n";
+	    for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+	        const Element_t &ELEM = _elements[e_idx];
+	        if (!activeOnly or ELEM.is_active) {
+	            write_be_int(ELEM.vtkID);
+	        }
+	    }
+	    file << "\n";
+	    
+	    file.close();
+	}
+
+
+	template <Float T>
 	void TopologicalMesh<T>::print_mesh_details_ascii_vtk(std::ostream &os, const bool activeOnly) const {
 		using Element_t = typename TopologicalMesh<T>::Element_t;
 		using Node_t = typename TopologicalMesh<T>::Node_t;
@@ -1052,7 +1228,7 @@ namespace gv::mesh
 
 
 		//ELEMENT DETAILS
-		//calculate the number of elements and 
+		//calculate the number of elements and children 
 		size_t max_children = 0;
 		size_t nElements = 0;
 		#pragma omp parallel for reduction(std::max:max_children) reduction(+:nElements)
@@ -1167,24 +1343,243 @@ namespace gv::mesh
 
 
 	template <Float T>
-	void TopologicalMesh<T>::save_as(std::string filename, const bool include_details, const bool activeOnly) const {
-		//open and check file
-		std::ofstream file(filename);
+	void TopologicalMesh<T>::print_mesh_details_binary_vtk(const std::string& filename, const bool activeOnly) const {
+		//only 32 and 64 bit data types are supported. can add more if necessary
+	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
+	    static_assert(sizeof(T)==4 or sizeof(T)==8, "Unsupported floating point size");
 
-		if (not file.is_open()){
-			std::cout << "Couldn't write to " << filename << std::endl;
-			file.close();
-			assert(false);
-			return;
+	    //in this file format, the node indices must be 4 bytes. ensure that there are not too many nodes.
+	    //additionally, the integers are expected to be signed in the legacy format. uint32_t **might** be possible, but likely we need xml files for meshes that large.
+	    constexpr size_t max_legacy_vtk_nodes = static_cast<size_t>(std::numeric_limits<int32_t>::max());
+	    if (_nodes.size()-1 > max_legacy_vtk_nodes) {throw std::runtime_error("Node index " + std::to_string(_nodes.size()-1) + " exceeds legacy VTK format limit.");}
+
+
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+		using Node_t = typename TopologicalMesh<T>::Node_t;
+		
+		// Open file in append mode
+		std::ofstream file(filename, std::ios::binary | std::ios::app);
+		if (!file.is_open()) {
+			throw std::runtime_error("Cannot open file for appending: " + filename);
 		}
+		
+		// Helper lambda to write big-endian integers (cast to int32_t due to legacy vtk)
+	    // PC is in little-endian, vtk/Paraview wants big-endian
+	    auto write_be_size_t = [&file](const size_t value) {
+	    	int32_t legacy_vtk_value = static_cast<int32_t>(value);
+	    	uint32_t be_value = ((legacy_vtk_value & 0xFF000000) >> 24) |
+	    						((legacy_vtk_value & 0x00FF0000) >> 8)  |
+	    						((legacy_vtk_value & 0x0000FF00) << 8)  |
+	    						((legacy_vtk_value & 0x000000FF) << 24);
+	    	file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
+	    };
 
-		//print topology
-		print_topology_ascii_vtk(file, activeOnly);
-
-		//print details
-		if (include_details) {print_mesh_details_ascii_vtk(file, activeOnly);}
-
+	    auto write_be_int = [&file](const int value) {
+	    	int32_t legacy_vtk_value = static_cast<int32_t>(value);
+	    	uint32_t be_value = ((legacy_vtk_value & 0xFF000000) >> 24) |
+	    						((legacy_vtk_value & 0x00FF0000) >> 8)  |
+	    						((legacy_vtk_value & 0x0000FF00) << 8)  |
+	    						((legacy_vtk_value & 0x000000FF) << 24);
+	    	file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
+	    };
+		
+		//NODE DETAILS
+		int n_node_fields = 2;
+		if (!_boundary_is_computed) { n_node_fields -= 1; }
+		
+		file << "POINT_DATA " << _nodes.size() << "\n";
+		file << "FIELD node_info " << n_node_fields << "\n";
+		
+		//boundary
+		size_t max_boundary_faces = 0;
+		if (_boundary_is_computed) {
+			#pragma omp parallel for reduction(std::max:max_boundary_faces)
+			for (size_t n_idx = 0; n_idx < _nodes.size(); n_idx++) {
+				max_boundary_faces = std::max(max_boundary_faces, _nodes[n_idx].boundary_faces.size());
+			}
+			
+			file << "boundary " << max_boundary_faces << " " << _nodes.size() << " int\n";
+			for (size_t n_idx = 0; n_idx < _nodes.size(); n_idx++) {
+				const Node_t &NODE = _nodes[n_idx];
+				
+				size_t i;
+				for (i = 0; i < NODE.boundary_faces.size(); i++) {
+					write_be_size_t(NODE.boundary_faces[i]);
+				}
+				for (; i < max_boundary_faces; i++) {
+					write_be_int(-1);
+				}
+			}
+			file << "\n";
+		}
+		
+		//elements
+		size_t max_elem = 0;
+		#pragma omp parallel for reduction(std::max:max_elem)
+		for (size_t n_idx = 0; n_idx < _nodes.size(); n_idx++) {
+			max_elem = std::max(max_elem, _nodes[n_idx].elems.size());
+		}
+		
+		file << "elements " << max_elem << " " << _nodes.size() << " int\n";
+		for (size_t n_idx = 0; n_idx < _nodes.size(); n_idx++) {
+			const Node_t &NODE = _nodes[n_idx];
+			size_t i;
+			for (i = 0; i < NODE.elems.size(); i++) {
+				write_be_size_t(NODE.elems[i]);
+			}
+			for (; i < max_elem; i++) {
+				write_be_int(-1);
+			}
+		}
+		file << "\n";
+		
+		//ELEMENT DETAILS
+		//calculate the number of elements and children 
+		size_t max_children = 0;
+		size_t nElements = 0;
+		#pragma omp parallel for reduction(std::max:max_children) reduction(+:nElements)
+		for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+			const Element_t &ELEM = _elements[e_idx];
+			if (!activeOnly or ELEM.is_active) {
+				nElements += 1;
+				max_children = std::max(max_children, ELEM.children.size());
+			}
+		}
+		
+		file << "CELL_DATA " << nElements << "\n";
+		int n_fields = 6;
+		if (max_children == 0) { n_fields -= 1; }
+		if (activeOnly) { n_fields -= 1; }
+		
+		file << "FIELD elem_info " << n_fields << "\n";
+		
+		//isActive
+		if (!activeOnly) {
+			file << "is_active 1 " << nElements << " int\n";
+			for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+				write_be_size_t(_elements[e_idx].is_active);
+			}
+			file << "\n";
+		}
+		
+		//children
+		if (max_children > 0) {
+			file << "children " << max_children << " " << nElements << " int\n";
+			for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+				const Element_t &ELEM = _elements[e_idx];
+				if (!activeOnly or ELEM.is_active) {
+					size_t i;
+					for (i = 0; i < ELEM.children.size(); i++) {
+						write_be_size_t(ELEM.children[i]);
+					}
+					for (; i < max_children; i++) {
+						write_be_int(-1);
+					}
+				}
+			}
+			file << "\n";
+		}
+		
+		//parent
+		file << "parent 1 " << nElements << " int\n";
+		for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+			const Element_t &ELEM = _elements[e_idx];
+			if (!activeOnly or ELEM.is_active) {
+				if (ELEM.parent == (size_t) -1) {
+					write_be_int(-1);
+				} else {
+					write_be_size_t(ELEM.parent);
+				}
+			}
+		}
+		file << "\n";
+		
+		//index
+		file << "element_index 1 " << nElements << " int\n";
+		for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+			const Element_t &ELEM = _elements[e_idx];
+			if (!activeOnly or ELEM.is_active) {
+				write_be_size_t(ELEM.index);
+			}
+		}
+		file << "\n";
+		
+		//color
+		file << "color 1 " << nElements << " int\n";
+		for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+			const Element_t &ELEM = _elements[e_idx];
+			if (!activeOnly or ELEM.is_active) {
+				if (ELEM.color == (size_t) -1) {
+					write_be_int(-1);
+				} else {
+					write_be_size_t(ELEM.color);
+				}
+			}
+		}
+		file << "\n";
+		
+		//neighbors
+		size_t max_neighbors = 0;
+		std::vector<std::vector<size_t>> neighbors(nElements);
+		size_t n_idx = 0;
+		for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+			const Element_t &ELEM = _elements[e_idx];
+			if (!activeOnly or ELEM.is_active) {
+				get_element_neighbors(e_idx, neighbors[n_idx], activeOnly);
+				max_neighbors = std::max(max_neighbors, neighbors[n_idx].size());
+				n_idx += 1;
+			}
+		}
+		file << "neighbors " << max_neighbors << " " << nElements << " int\n";
+		
+		n_idx = 0;
+		for (size_t e_idx = 0; e_idx < _elements.size(); e_idx++) {
+			const Element_t &ELEM = _elements[e_idx];
+			if (!activeOnly or ELEM.is_active) {
+				size_t i;
+				for (i = 0; i < neighbors[n_idx].size(); i++) {
+					write_be_size_t(neighbors[n_idx][i]);
+				}
+				for (; i < max_neighbors; i++) {
+					write_be_int(-1);
+				}
+				n_idx += 1;
+			}
+		}
+		file << "\n";
+		
 		file.close();
+	}
+
+
+
+
+	template <Float T>
+	void TopologicalMesh<T>::save_as(const std::string filename, const bool include_details, const bool activeOnly, const bool use_ascii) const {
+		if (use_ascii) {
+			//open and check file
+			std::ofstream file(filename);
+			if (not file.is_open()){
+				std::cout << "Couldn't write to " << filename << std::endl;
+				file.close();
+				assert(false);
+				return;
+			}
+
+			//print topology
+			print_topology_ascii_vtk(file, activeOnly);
+
+			//print details
+			if (include_details) {print_mesh_details_ascii_vtk(file, activeOnly);}
+
+			file.close();
+		} else {
+			//print topology
+			print_topology_binary_vtk(filename, activeOnly);
+
+			//print details
+			if (include_details) {print_mesh_details_binary_vtk(filename, activeOnly);}
+		}
 	}
 
 

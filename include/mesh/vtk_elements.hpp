@@ -110,8 +110,6 @@ namespace gv::mesh
 		virtual void split(std::vector<Point_t> &vertices) const = 0;
 		virtual void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const = 0;
 		virtual void getFaceNodes(std::vector<size_t> &face_nodes, const int face_number) const = 0;
-		virtual int nChildrenWhenSplit() const = 0;
-		virtual int nVerticesWhenSplit() const = 0;
 		Element getFace(const int face_number) const {
 			Element face(vtk_face_id(this->ELEM.vtkID));
 			face.color  = this->ELEM.color;
@@ -128,23 +126,17 @@ namespace gv::mesh
 	template <typename Point_t>
 	class VTK_LINE : public VTK_ELEMENT<Point_t>{
 	public:
-		VTK_LINE(const Element &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nNodes==N_NODES);}
-		static constexpr int VTK_ID = 3;
-		static constexpr int N_NODES = 2;
-		static constexpr int N_CHILDREN_WHEN_SPLIT = 2;
-		static constexpr int N_VERTICES_WHEN_SPLIT = 3;
-
-		int nChildrenWhenSplit() const override {return N_CHILDREN_WHEN_SPLIT;}
-		int nVerticesWhenSplit() const override {return N_VERTICES_WHEN_SPLIT;}
+		VTK_LINE(const Element &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nNodes==vtk_n_nodes(elem.vtkID));}
+		static constexpr int VTK_ID = LINE_VTK_ID;
 
 		void split(std::vector<Point_t> &vertices) const override {
-			assert(vertices.size()==N_NODES);
+			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //center
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
-			assert(split_node_numbers.size()==N_VERTICES_WHEN_SPLIT);
-			child_nodes.resize(N_NODES);
+			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+			child_nodes.resize(vtk_n_nodes(VTK_ID));
 
 			switch (child_number) {
 				case (0):
@@ -175,18 +167,12 @@ namespace gv::mesh
 	template <typename Point_t>
 	class VTK_PIXEL : public VTK_ELEMENT<Point_t> {
 	public:
-		VTK_PIXEL(const Element &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nNodes==N_NODES);}
-		static constexpr int VTK_ID = 8;
-		static constexpr int N_NODES = 4;
-		static constexpr int N_CHILDREN_WHEN_SPLIT = 4;
-		static constexpr int N_VERTICES_WHEN_SPLIT = 9;
-
-		int nChildrenWhenSplit() const override {return N_CHILDREN_WHEN_SPLIT;}
-		int nVerticesWhenSplit() const override {return N_VERTICES_WHEN_SPLIT;}
+		VTK_PIXEL(const Element &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nNodes==vtk_n_nodes(elem.vtkID));}
+		static constexpr int VTK_ID = PIXEL_VTK_ID;
 
 		void split(std::vector<Point_t> &vertices) const override {
-			assert(vertices.size()==N_NODES);
-			vertices.reserve(N_VERTICES_WHEN_SPLIT);
+			assert(vertices.size()==vtk_n_nodes(VTK_ID));
+			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
 			//edge midpoints
 			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //bottom
@@ -199,8 +185,8 @@ namespace gv::mesh
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
-			assert(split_node_numbers.size()==N_VERTICES_WHEN_SPLIT);
-			child_nodes.resize(N_NODES);
+			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+			child_nodes.resize(vtk_n_nodes(VTK_ID));
 
 			switch (child_number) {
 				case (0):
@@ -266,18 +252,12 @@ namespace gv::mesh
 	template <typename Point_t>
 	class VTK_VOXEL : public VTK_ELEMENT<Point_t> {
 	public:
-		VTK_VOXEL(const Element &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nNodes==N_NODES);}
-		static constexpr int VTK_ID = 11;
-		static constexpr int N_NODES = 8;
-		static constexpr int N_CHILDREN_WHEN_SPLIT = 8;
-		static constexpr int N_VERTICES_WHEN_SPLIT = 27;
-
-		int nChildrenWhenSplit() const override {return N_CHILDREN_WHEN_SPLIT;}
-		int nVerticesWhenSplit() const override {return N_VERTICES_WHEN_SPLIT;}
+		VTK_VOXEL(const Element &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nNodes==vtk_n_nodes(elem.vtkID));}
+		static constexpr int VTK_ID = VOXEL_VTK_ID;
 
 		void split(std::vector<Point_t> &vertices) const override {
-			assert(vertices.size()==N_NODES);
-			vertices.reserve(N_VERTICES_WHEN_SPLIT);
+			assert(vertices.size()==vtk_n_nodes(VTK_ID));
+			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
 			//edge midpoints
 			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //back face
@@ -308,8 +288,8 @@ namespace gv::mesh
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
-			assert(split_node_numbers.size()==N_VERTICES_WHEN_SPLIT);
-			child_nodes.resize(N_NODES);
+			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+			child_nodes.resize(vtk_n_nodes(VTK_ID));
 
 			switch (child_number) {
 				case (0): //voxel element containing original vertex 0

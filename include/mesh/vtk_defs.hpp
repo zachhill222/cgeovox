@@ -104,4 +104,26 @@ namespace gv::mesh {
 				return -1;
 		}
 	}
+
+	/// Helper function get the number nodes after split
+	constexpr int vtk_n_nodes_when_split(const int vtkID) {
+		switch (vtkID) {
+			case VERTEX_VTK_ID: assert(false); return 0;
+			case LINE_VTK_ID: return 3;
+			case TRIANGLE_VTK_ID: return 6;
+			case PIXEL_VTK_ID: return 9;
+			case QUAD_VTK_ID: return 9;
+			case TETRA_VTK_ID: return 8; //?
+			case VOXEL_VTK_ID: return 27;
+			case HEXAHEDRON_VTK_ID: return 27;
+			case QUADRATIC_EDGE_VTK_ID: return 5;
+			case QUADRATIC_TRIANGLE_VTK_ID: return 15;
+			case QUADRATIC_TETRA_VTK_ID: return 20; //?
+			case BIQUADRATIC_QUAD_VTK_ID: return 25;
+			case TRIQUADRATIC_HEXAHEDRON_VTK_ID: return 125;
+			default:
+				throw std::invalid_argument("Unknown element type.");
+				return -1;
+		}
+	}
 }
