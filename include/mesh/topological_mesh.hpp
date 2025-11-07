@@ -24,6 +24,7 @@
 
 #include <omp.h>
 
+#include <mutex>
 #include <memory>
 
 namespace gv::mesh
@@ -75,6 +76,13 @@ namespace gv::mesh
 		bool is_data_valid(const gv::util::Box<dim,T> &box, const Data_t &data) const override {return box.contains(data.vertex);}
 	};
 
+	/////////////////////////////////////////////////
+	/// A simple struct to pass any meshing options. Specified here so that it is easy to extend in the future.
+	/////////////////////////////////////////////////
+	struct TopologicalMeshOptions {
+		bool useGreedy = false;
+	};
+
 
 	/////////////////////////////////////////////////
 	/// This class defines a topological mesh that supports different element types. This class only tracks the topology of the mesh and topological operations.
@@ -109,6 +117,10 @@ namespace gv::mesh
 		
 		bool                   _boundary_is_computed = false; //track if the boundary needs to be re-computed
 		std::vector<Element_t> _boundary;                     //storage for the boundary faces
+
+		TopologicalMeshOptions  opts {false};
+
+		mutable std::mutex     _colorCount_mutex; //allow thread-safe coloring of elements
 
 	public:
 		/// Default constructor.
@@ -251,7 +263,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Get the number of elements in each color group. colorCount()[i] is the number of elements colored by colors()[i].
 		/////////////////////////////////////////////////
-		inline std::vector<size_t> colorCount() const {return _colorCount;}
+		inline std::vector<size_t> colorCount() const {std::lock_guard<std::mutex>; return _colorCount;}
 
 
 		/////////////////////////////////////////////////
@@ -317,9 +329,8 @@ namespace gv::mesh
 		/// The existing nodes will be updated but no new nodes will be created.
 		///
 		/// @param ELEM The element to be inserted. The nodes must already be populated. The element will be appended to _elements via _elements.push_back(std::move(ELEM)).
-		/// @param useGreedy When set to true, the first available color will be used. Otherwise the color with the least number of elements will be used (balanced coloring)
 		/////////////////////////////////////////////////
-		void insert_element(Element_t &ELEM, const bool useGreedy=false);
+		void insert_element(Element_t &ELEM);
 
 
 		/////////////////////////////////////////////////
@@ -328,9 +339,8 @@ namespace gv::mesh
 		///
 		/// @param vertices A reference to an existing vector of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
 		/// @param vtkID The vtk identifier to track the type of element. Look up the vtk documentation to see which node order is required.
-		/// @param useGreedy When set to true, the first available color will be used. Otherwise the color with the least number of elements will be used (balanced coloring)
 		/////////////////////////////////////////////////
-		void insert_element(const std::vector<Point_t> &vertices, const int vtkID, const bool useGreedy=false);
+		void insert_element(const std::vector<Point_t> &vertices, const int vtkID);
 
 
 		/////////////////////////////////////////////////
@@ -342,11 +352,10 @@ namespace gv::mesh
 		/// If this _elements[elem_idx].is_active is false, then the method returns without making any changes.
 		///
 		/// @param elem_idx The element to be split.
-		/// @param useGreedy Flag to use the greedy algorithm for coloring
 		///
 		/// @todo Add support for more element types.
 		/////////////////////////////////////////////////
-		void split_element(const size_t elem_idx, const bool useGreedy=false);
+		void split_element(const size_t elem_idx);
 
 
 		/////////////////////////////////////////////////
@@ -357,14 +366,13 @@ namespace gv::mesh
 		/// If the specified element has already been split and re-joined (i.e., the children exist), then the children are simply activated and no new elements are created in memory.
 		/// If this _elements[elem_idx].is_active is false, then the method returns without making any changes.
 		///
-		/// This method just calls split_element(elem_idx[i], useGreedy) in a for loop.
+		/// This method just calls split_element(elem_idx[i]) in a for loop.
 		///
 		/// @param elem_idx The elements to be split.
-		/// @param useGreedy Flag to use the greedy algorithm for coloring
 		///
 		/// @todo Add parallization support.
 		/////////////////////////////////////////////////
-		void split_element(const std::vector<size_t> &elem_idx, const bool useGreedy=false);
+		void split_element(const std::vector<size_t> &elem_idx);
 		
 
 		/////////////////////////////////////////////////
@@ -372,17 +380,14 @@ namespace gv::mesh
 		/// The de-activated elements are not deleted. The element is re-colored.
 		///
 		/// @param elem_idx The element whose descendents are to be joined.
-		/// @param useGreedy Flag to use the greedy algorithm for coloring
 		/////////////////////////////////////////////////
-		void join_descendents(const size_t elem_idx, const bool useGreedy=false);
+		void join_descendents(const size_t elem_idx);
 
 
 		/////////////////////////////////////////////////
 		/// Color or re-color the active elements of the mesh. The elements will be colored such that no active elements that share a node will have the same color.
-		///
-		/// @param useGreedy When set to true, the first available color will be used. Otherwise the color with the least number of elements will be used (balanced coloring)
 		/////////////////////////////////////////////////
-		void recolor(const bool useGreedy=false);
+		void recolor();
 
 
 		/////////////////////////////////////////////////
@@ -390,9 +395,8 @@ namespace gv::mesh
 		/// Otherwise a new color is created.
 		///
 		/// @param elem_idx The element to be re-colored.
-		/// @param useGreedy When set to true, the first available color will be used. Otherwise the color with the least number of elements will be used (balanced coloring)
 		/////////////////////////////////////////////////
-		void recolor(const size_t elem_idx, const bool useGreedy=false);
+		void recolor(const size_t elem_idx);
 
 
 		/////////////////////////////////////////////////
@@ -608,7 +612,7 @@ namespace gv::mesh
 
 
 	template <Float T>
-	void TopologicalMesh<T>::insert_element(Element_t &ELEM, const bool useGreedy) {
+	void TopologicalMesh<T>::insert_element(Element_t &ELEM) {
 		//add the element to the mesh
 		size_t e_idx = _elements.size(); //index of the new element
 		ELEM.index   = e_idx;
@@ -622,12 +626,13 @@ namespace gv::mesh
 		//move ELEM to _elements and color
 		size_t new_elem_idx = _elements.size();
 		_elements.push_back(std::move(ELEM));
-		recolor(new_elem_idx, useGreedy);
+
+		recolor(new_elem_idx);
 	}
 
 
 	template <Float T>
-	void TopologicalMesh<T>::insert_element(const std::vector<typename TopologicalMesh<T>::Point_t> &vertices, const int vtkID, const bool useGreedy) {
+	void TopologicalMesh<T>::insert_element(const std::vector<typename TopologicalMesh<T>::Point_t> &vertices, const int vtkID) {
 		assert(vertices.size()==vtk_n_nodes(vtkID));
 
 		//construct the element information
@@ -652,27 +657,29 @@ namespace gv::mesh
 
 		//now that the nodes are initialized, insert the element.
 		//the nodes will be updated to link back to the new element.
-		insert_element(ELEM, useGreedy);
+		insert_element(ELEM);
 	}
 
 
 
 	template <Float T>
-	void TopologicalMesh<T>::recolor(const bool useGreedy) {
+	void TopologicalMesh<T>::recolor() {
 		_colorCount.clear();
 
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			if (_elements[e_idx].is_active) {recolor(e_idx, useGreedy);}
+			if (_elements[e_idx].is_active) {recolor(e_idx);}
 		}
 	}
 
 
 	template <Float T>
-	void TopologicalMesh<T>::recolor(const size_t elem_idx, const bool useGreedy) {
-		//if no colors are recorded, initialize _colorCount
+	void TopologicalMesh<T>::recolor(const size_t elem_idx) {
+		std::vector<size_t> _colorCountCopy = colorCount();
+
+		//initialize _colorCount if needed
 		if (_colorCount.size()==0) {
-			_elements[elem_idx].color = 0;
 			_colorCount.push_back(1);
+			_elements[elem_idx].color = 0;
 			return;
 		}
 
@@ -684,14 +691,13 @@ namespace gv::mesh
 		std::vector<bool> color_allowed(_colorCount.size(), true);
 		for (size_t n_idx=0; n_idx<neighbors.size(); n_idx++) {
 			size_t color = _elements[neighbors[n_idx]].color;
-			if (color_allowed[color]) {
-				color_allowed[color] = false;
-			}
+			if (color < color_allowed.size()) {color_allowed[color] = false;}
 		}
 
+		//check if an existing color can be used
 		bool free_color_exists = false;
 		for (size_t i=0; i<color_allowed.size(); i++) {
-			if (color_allowed[i]) {free_color_exists=true;}
+			if (color_allowed[i]) {free_color_exists=true; break;}
 		}
 
 		//create a new color if needed
@@ -702,18 +708,18 @@ namespace gv::mesh
 		}
 
 		//color the element (minimum color value)
-		if (useGreedy) {
+		if (opts.useGreedy) {
 			for (size_t c_idx=0; c_idx<color_allowed.size(); c_idx++) {
-				if (useGreedy and color_allowed[c_idx]) {
+				if (color_allowed[c_idx]) {
 					_elements[elem_idx].color = c_idx;
 					_colorCount[c_idx] += 1;
 					return;
 				}
 			}
 			assert(false);
-		} 
+		}
 
-		//color the element (minimum color count)
+		//color the element (minimum color count, approximate minimum due to race conditions)
 		size_t color=0;
 		for (size_t c_idx=1; c_idx<color_allowed.size(); c_idx++) {
 			if (color_allowed[c_idx] and _colorCount[c_idx]<_colorCount[color]) {
@@ -726,7 +732,7 @@ namespace gv::mesh
 
 
 	template <Float T>
-	void TopologicalMesh<T>::join_descendents(const size_t elem_idx, const bool useGreedy) {
+	void TopologicalMesh<T>::join_descendents(const size_t elem_idx) {
 		using Element_t = typename TopologicalMesh<T>::Element_t;
 
 		//get the active descendents of the element
@@ -744,7 +750,7 @@ namespace gv::mesh
 		_elements[elem_idx].is_active = true;
 
 		//recolor the element
-		recolor(elem_idx,useGreedy);
+		recolor(elem_idx);
 
 		//get the descendents of any boundary faces
 		std::vector<size_t> boundary_faces;
@@ -768,7 +774,7 @@ namespace gv::mesh
 
 
 	template <Float T>
-	void TopologicalMesh<T>::split_element(const size_t elem_idx, const bool useGreedy) {
+	void TopologicalMesh<T>::split_element(const size_t elem_idx) {
 		using Element_t = typename TopologicalMesh<T>::Element_t;
 		using Node_t    = typename TopologicalMesh<T>::Node_t;
 		using Point_t   = typename TopologicalMesh<T>::Point_t;
@@ -791,7 +797,22 @@ namespace gv::mesh
 		if (ELEM.children.size()>0) {
 			for (size_t c_idx=0; c_idx<ELEM.children.size(); c_idx++) {
 				_elements[ELEM.children[c_idx]].is_active = true;
-				recolor(ELEM.children[c_idx], useGreedy);
+				recolor(ELEM.children[c_idx]);
+			}
+
+			//update boundary faces
+			std::vector<size_t> boundary_faces;
+			get_boundary_faces(elem_idx, boundary_faces);
+			for (size_t i=0; i<boundary_faces.size(); i++) {
+				Element_t &FACE = _boundary[boundary_faces[i]];
+				FACE.is_active = false;
+
+				assert(FACE.children.size()>0);
+				for (size_t j=0; j<FACE.children.size(); j++) {
+					Element_t &CHILDFACE = _boundary[FACE.children[j]];
+					CHILDFACE.is_active  = true;
+					CHILDFACE.color = _elements[CHILDFACE.parent].color;
+				}
 			}
 			return;
 		}
@@ -802,28 +823,28 @@ namespace gv::mesh
 
 
 		//create the new vertices
-		std::vector<Point_t> new_coords;
-		std::vector<size_t> new_node_idx(vtk_n_nodes_when_split(ELEM.vtkID));
+		std::vector<Point_t> child_vertex_coords;
+		std::vector<size_t> child_node_idx(vtk_n_nodes_when_split(ELEM.vtkID));
 		size_t i;
 		for (i=0; i<ELEM.nNodes; i++) {
-			new_coords.push_back(_nodes[ELEM.nodes[i]].vertex);
-			new_node_idx[i] = ELEM.nodes[i];
+			child_vertex_coords.push_back(_nodes[ELEM.nodes[i]].vertex);
+			child_node_idx[i] = ELEM.nodes[i];
 		}
-		vtk_elem->split(new_coords);
+		vtk_elem->split(child_vertex_coords);
 
 		
 		//create the new nodes at the new vertices
-		for (;i<new_coords.size(); i++) {
-			Node_t NODE(new_coords[i]);
-			[[maybe_unused]] int flag = _nodes.push_back(NODE, new_node_idx[i]); //existing nodes will not be overwritten
+		for (;i<child_vertex_coords.size(); i++) {
+			Node_t NODE(child_vertex_coords[i]);
+			[[maybe_unused]] int flag = _nodes.push_back(NODE, child_node_idx[i]); //existing nodes will not be overwritten
 			assert(flag>=0);
 		}
 
 
 		//create the children elements
-		for (int j=0; j<vtk_n_children(ELEM.vtkID); j++) {
+		for (size_t j=0; j<vtk_n_children(ELEM.vtkID); j++) {
 			std::vector<size_t> childNodes;
-			vtk_elem->getChildNodes(childNodes, j, new_node_idx);
+			vtk_elem->getChildNodes(childNodes, j, child_node_idx);
 
 			//add the index of the child element to the element being split
 			ELEM.children.push_back(_elements.size());
@@ -831,7 +852,7 @@ namespace gv::mesh
 			//create the child element and add it to the mesh
 			Element_t CHILD(childNodes, ELEM.vtkID);
 			CHILD.parent = elem_idx;
-			insert_element(CHILD, useGreedy);
+			insert_element(CHILD);
 		}
 
 		//delete the vtk element
@@ -851,27 +872,27 @@ namespace gv::mesh
 
 			VTK_ELEMENT<Point_t>* vtk_face = _VTK_ELEMENT_FACTORY<Point_t>(FACE);
 			//find the vertices for the split face
-			std::vector<Point_t> new_coords;
-			std::vector<size_t> new_node_idx(vtk_n_nodes_when_split(FACE.vtkID));
+			std::vector<Point_t> child_vertex_coords;
+			std::vector<size_t> child_node_idx(vtk_n_nodes_when_split(FACE.vtkID));
 			size_t i;
 			for (i=0; i<FACE.nNodes; i++) {
-				new_coords.push_back(_nodes[FACE.nodes[i]].vertex);
-				new_node_idx[i] = FACE.nodes[i];
+				child_vertex_coords.push_back(_nodes[FACE.nodes[i]].vertex);
+				child_node_idx[i] = FACE.nodes[i];
 			}
-			vtk_face->split(new_coords);
+			vtk_face->split(child_vertex_coords);
 
 			//get any new nodes
-			for (;i<new_coords.size(); i++) {
-				Node_t NODE(new_coords[i]);
-				new_node_idx[i] = _nodes.find(NODE); //the node must have been generated by splitting the element
-				assert(new_node_idx[i]<_nodes.size());
+			for (;i<child_vertex_coords.size(); i++) {
+				Node_t NODE(child_vertex_coords[i]);
+				child_node_idx[i] = _nodes.find(NODE); //the node must have been generated by splitting the element
+				assert(child_node_idx[i]<_nodes.size());
 			}
 
 
 			//create the children faces
-			for (int j=0; j<vtk_n_children(FACE.vtkID); j++) {
+			for (size_t j=0; j<vtk_n_children(FACE.vtkID); j++) {
 				std::vector<size_t> childNodes;
-				vtk_face->getChildNodes(childNodes, j, new_node_idx);
+				vtk_face->getChildNodes(childNodes, j, child_node_idx);
 				Element_t CHILDFACE(childNodes, FACE.vtkID);
 				CHILDFACE.parent = (size_t) -1;
 
@@ -902,12 +923,287 @@ namespace gv::mesh
 
 
 	template <Float T>
-	void TopologicalMesh<T>::split_element(const std::vector<size_t> &elem_idx, const bool useGreedy) {
+	void TopologicalMesh<T>::split_element(const std::vector<size_t> &elem_idx) {
+		using Point_t   = typename TopologicalMesh<T>::Point_t;
+		using Node_t    = typename TopologicalMesh<T>::Node_t;
+		using Element_t = typename TopologicalMesh<T>::Element_t;
+
+		//partition the specified that are active by their color
+		//if any element has been split already and the children are already stored in the mesh, activate them
+		std::vector<std::vector<size_t>> colored_elements_to_split(_colorCount.size());
 		for (size_t i=0; i<elem_idx.size(); i++) {
-			split_element(elem_idx[i], useGreedy);
+			assert(elem_idx[i]<_elements.size());
+			Element_t &ELEM = _elements[elem_idx[i]];
+			if (!ELEM.is_active) {continue;}
+
+			//element is to be split and the children must be computed
+			assert(ELEM.index == elem_idx[i]);
+			assert(ELEM.color<colored_elements_to_split.size());
+			if (ELEM.children.size()==0) {colored_elements_to_split[ELEM.color].push_back(ELEM.index); continue;}
+
+			//element is to be split and the children already exist
+			ELEM.is_active = false;
+			_colorCount[ELEM.color] -= 1;
+			for (size_t c_idx=0; c_idx<ELEM.children.size(); c_idx++) {
+				Element_t &CHILD = _elements[ELEM.children[c_idx]];
+				CHILD.is_active = true;
+
+				assert(CHILD.index == ELEM.children[c_idx]);
+				recolor(CHILD.index);
+			}
+
+			//update boundary faces
+			std::vector<size_t> boundary_faces;
+			get_boundary_faces(ELEM.index, boundary_faces);
+			for (size_t i=0; i<boundary_faces.size(); i++) {
+				Element_t &FACE = _boundary[boundary_faces[i]];
+				FACE.is_active = false;
+
+				assert(FACE.children.size()>0);
+				for (size_t j=0; j<FACE.children.size(); j++) {
+					Element_t &CHILDFACE = _boundary[FACE.children[j]];
+					CHILDFACE.is_active  = true;
+					CHILDFACE.color = _elements[CHILDFACE.parent].color;
+				}
+			}
+		}
+
+
+
+		std::vector<size_t> child_element_index_start; //initialize outside of colors to avoid unnecessary re-sizing
+		std::vector<size_t> boundary_face_index_start;
+		for (size_t color=0; color<colored_elements_to_split.size(); color++) {
+			const std::vector<size_t> &thread_elems = colored_elements_to_split[color]; //convenient reference to the elements that need splitting
+			if (thread_elems.size()==0) {continue;} //no elements of this color to split
+
+			child_element_index_start.clear(); //re-set the child indices
+			boundary_face_index_start.clear();
+
+			//the indices of where to store each child element must be known ahead of time
+			//the local child j of element k will be stored at _elements[child_element_index_start[k] + j]
+			const size_t nStartingElements = _elements.size();
+			const size_t nStartingBoundary = _boundary.size();
+
+			child_element_index_start.push_back(nStartingElements);
+			boundary_face_index_start.push_back(nStartingBoundary);
+
+			size_t nNewElements = vtk_n_children(_elements[thread_elems[0]].vtkID);
+			size_t maxNewNodes = vtk_n_nodes_when_split(_elements[thread_elems[0]].vtkID);
+			size_t nNewBoundaryFaces = 0;
+
+			std::vector<size_t> boundary_faces;
+			get_boundary_faces(thread_elems[0], boundary_faces);
+			for (size_t f_idx=0; f_idx<boundary_faces.size(); f_idx++) {
+				nNewBoundaryFaces += vtk_n_children(_boundary[boundary_faces[f_idx]].vtkID);
+			}
+
+
+			//loop through elements and compute child offsets
+			for (size_t i=1; i<thread_elems.size(); i++) {
+				const Element_t &CUR_ELEM  = _elements[thread_elems[i]];
+				const Element_t &PREV_ELEM = _elements[thread_elems[i-1]];
+
+				const size_t prev_children = vtk_n_children(PREV_ELEM.vtkID);
+				const size_t prev_index_start = child_element_index_start[i-1];
+				child_element_index_start.push_back(prev_index_start + prev_children);
+				
+				boundary_face_index_start.push_back(nNewBoundaryFaces);
+
+				nNewElements += vtk_n_children(CUR_ELEM.vtkID);
+				maxNewNodes  += vtk_n_nodes_when_split(CUR_ELEM.vtkID) - vtk_n_nodes(CUR_ELEM.vtkID);
+
+				boundary_faces.clear();
+				get_boundary_faces(thread_elems[0], boundary_faces);
+				for (size_t f_idx=0; f_idx<boundary_faces.size(); f_idx++) {
+					nNewBoundaryFaces += vtk_n_children(_boundary[boundary_faces[f_idx]].vtkID);
+				}
+			}
+
+			//reserve space and default-initialize the new elements
+			_elements.resize(nStartingElements+nNewElements);
+			_nodes.reserve(_nodes.size()+maxNewNodes);
+			_boundary.reserve(nStartingBoundary+nNewBoundaryFaces);
+
+			//initialize the children and store the necessary nodes to be created
+			#pragma omp parallel for
+			for (size_t i=0; i<thread_elems.size(); i++) {
+				//create helper references and logical element
+				Element_t &ELEM = _elements[thread_elems[i]];
+				assert(ELEM.index == thread_elems[i]);
+				VTK_ELEMENT<Point_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Point_t>(ELEM);
+
+				//initialize storage for the values that will be needed to create the children elements
+				std::vector<Point_t> child_vertex_coords;
+				std::vector<size_t>  child_node_idx(vtk_n_nodes_when_split(ELEM.vtkID));
+				
+				//handle parent nodes/vertices that will be re-used
+				size_t j;
+				for (j=0; j<ELEM.nNodes; j++) {
+					child_vertex_coords.push_back(_nodes[ELEM.nodes[j]].vertex);
+					child_node_idx[j] = ELEM.nodes[j];
+				}
+
+				//get the verticices of the remaining nodes that the children will need
+				vtk_elem->split(child_vertex_coords);
+
+				//find any nodes that already exist and collect which nodes need to be added to _nodes
+				std::vector<Node_t> nodes_to_create;
+				std::vector<size_t> local_node;
+				for (;j<child_vertex_coords.size(); j++) {
+					Node_t NODE(child_vertex_coords[j]);
+					size_t node_idx = _nodes.find(NODE);
+					if (node_idx < _nodes.size()) {child_node_idx[j] = node_idx;}
+					else {
+						nodes_to_create.push_back(NODE);
+						local_node.push_back(j); //track which nodes need to be corrected after NODE is inserted into _nodes and its index is known
+					}
+				}
+
+				//create the nodes. insertion into _nodes must be serial, but the order of insertion does not matter
+				#pragma omp critical
+				{
+					for (size_t k=0; k<nodes_to_create.size(); k++) {
+						size_t node_idx;
+						[[maybe_unused]] int flag = _nodes.push_back(nodes_to_create[k], node_idx);
+						assert(flag==1); //the node must have been inserted. all elements are of the same color, so no other element will have added this node.
+						assert(node_idx<_nodes.size());
+						child_node_idx[local_node[k]] = node_idx; //now that the node has been created, track its index to create the children
+					}
+				}
+
+				//now all nodes have been created to create the children
+				ELEM.is_active = false;
+				#pragma omp atomic
+				_colorCount[ELEM.color] -= 1;
+
+				for (size_t k=0; k<vtk_n_children(ELEM.vtkID); k++) {
+					//get the indices of the nodes that define child k in the correct order
+					std::vector<size_t> childNodes;
+					vtk_elem->getChildNodes(childNodes, k, child_node_idx);
+
+					//create the child
+					const size_t global_child_index = child_element_index_start[i] + k;
+					assert(global_child_index<_elements.size());
+					_elements[global_child_index] = Element_t(childNodes, ELEM.vtkID);
+					Element_t &CHILD = _elements[global_child_index];
+					CHILD.index = global_child_index;
+					CHILD.parent = ELEM.index;
+
+					//update the nodes
+					for (size_t n=0; n<childNodes.size(); n++) {
+						_nodes[childNodes[n]].elems.push_back(global_child_index);
+					}
+
+					//update the parent element
+					ELEM.children.push_back(global_child_index);
+
+					//color the child
+					// #pragma omp critical
+					// {
+					// 	recolor(CHILD.index);
+					// }
+					std::vector<size_t> neighbors;
+					get_element_neighbors(CHILD.index, neighbors);
+
+					size_t nColors;
+					#pragma omp critical
+					{
+						nColors = _colorCount.size();	
+					}
+					std::vector<bool> color_allowed(nColors);
+					for (size_t n=0; n<neighbors.size(); n++) {
+						color_allowed[_elements[neighbors[n]].color] = false;
+					}
+
+					bool found_color = false;
+					for (size_t c=0; c<nColors; c++) {
+						if (color_allowed[c]) {
+							CHILD.color = c;
+							found_color = true;
+							break;
+						}
+					}
+
+					if (!found_color) {
+						CHILD.color = nColors;
+						#pragma omp critical
+						{
+							if (nColors<_colorCount.size()) {_colorCount[nColors]+=1;}
+							else {_colorCount.push_back(1);}
+						}
+					}
+				}
+
+				//clean up memory
+				delete vtk_elem;
+
+				//split any boundary faces
+				std::vector<size_t> parent_boundary_faces;
+				get_boundary_faces(ELEM.index, parent_boundary_faces);
+				for (size_t f_idx=0; f_idx<parent_boundary_faces.size(); f_idx++) {
+					#pragma omp critical //TODO: make this thread safe if needed.
+					{
+						assert(parent_boundary_faces[f_idx]<_boundary.size());
+						//ensure that _boundary does not re-size and invalidate references
+						while (_boundary.capacity() < _boundary.size() + vtk_n_children(_boundary[parent_boundary_faces[f_idx]].vtkID)) {_boundary.reserve(2*_boundary.capacity());}
+
+						Element_t &FACE = _boundary[parent_boundary_faces[f_idx]];
+						FACE.is_active = false;
+
+						VTK_ELEMENT<Point_t>* vtk_face = _VTK_ELEMENT_FACTORY<Point_t>(FACE);
+						//find the vertices for the split face
+						std::vector<Point_t> child_vertex_coords;
+						std::vector<size_t> child_node_idx(vtk_n_nodes_when_split(FACE.vtkID));
+						size_t i;
+						for (i=0; i<FACE.nNodes; i++) {
+							child_vertex_coords.push_back(_nodes[FACE.nodes[i]].vertex);
+							child_node_idx[i] = FACE.nodes[i];
+						}
+						vtk_face->split(child_vertex_coords);
+
+						//get any new nodes
+						for (;i<child_vertex_coords.size(); i++) {
+							Node_t NODE(child_vertex_coords[i]);
+							child_node_idx[i] = _nodes.find(NODE); //the node must have been generated by splitting the element
+							assert(child_node_idx[i]<_nodes.size());
+						}
+
+
+						//create the children faces
+						for (size_t j=0; j<vtk_n_children(FACE.vtkID); j++) {
+							std::vector<size_t> childNodes;
+							vtk_face->getChildNodes(childNodes, j, child_node_idx);
+							Element_t CHILDFACE(childNodes, FACE.vtkID);
+							CHILDFACE.parent = (size_t) -1;
+
+							//determine the child element that this split face is a child of
+							for (size_t c_idx=0; c_idx<ELEM.children.size(); c_idx++) {
+								const Element_t &CHILD = _elements[ELEM.children[c_idx]];
+								const VTK_ELEMENT<Point_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Point_t>(CHILD);
+								for (int k=0; k<vtk_n_faces(CHILD.vtkID); k++) {
+									if (CHILDFACE == vtk_elem->getFace(k)) {
+										CHILDFACE.parent = CHILD.index;
+										CHILDFACE.color  = CHILD.color;
+										break;
+									}
+								}
+								delete vtk_elem;
+							}
+
+							//add the face to the _boundary
+							assert(CHILDFACE.parent<_elements.size());
+							CHILDFACE.index = _boundary.size();
+							FACE.children.push_back(CHILDFACE.index);
+							_boundary.push_back(std::move(CHILDFACE));
+						}
+
+						//clean up memory
+						delete vtk_face;
+					}
+				}
+			}
 		}
 	}
-
 
 	template <Float T>
 	void TopologicalMesh<T>::compute_conformal_boundary() {

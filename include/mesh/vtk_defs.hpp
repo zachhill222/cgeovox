@@ -84,7 +84,7 @@ namespace gv::mesh {
 	}
 
 	/// Helper function get the number of children
-	constexpr int vtk_n_children(const int vtkID) {
+	constexpr size_t vtk_n_children(const int vtkID) {
 		switch (vtkID) {
 			case VERTEX_VTK_ID: assert(false); return 0;
 			case LINE_VTK_ID: return 2;
