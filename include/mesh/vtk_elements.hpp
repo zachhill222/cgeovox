@@ -3,7 +3,8 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
 
-#include "concepts.hpp"
+
+#include "mesh/mesh_util.hpp"
 #include "mesh/vtk_defs.hpp"
 
 #include <vector>
@@ -19,101 +20,19 @@
 namespace gv::mesh
 {
 	/////////////////////////////////////////////////
-	/// Container for tracking element information.
-	/////////////////////////////////////////////////
-	struct Element {
-		std::vector<size_t> nodes;
-		size_t nNodes;
-		std::vector<size_t> children;
-		size_t parent = (size_t) -1;
-		size_t color  = (size_t) -1;
-		size_t index  = (size_t) -1;
-		bool is_active = true;
-		int vtkID;
-
-
-		///default initializer
-		Element() {}
-
-		///initialize by vtkID
-		Element(const int vtkID) : nodes(vtk_n_nodes(vtkID)), nNodes(vtk_n_nodes(vtkID)), vtkID(vtkID) {}
-
-		///initialize by vtkID and array of nodes:
-		Element(const std::vector<size_t> &nodes, const int vtkID) : nodes(nodes), nNodes(vtk_n_nodes(vtkID)), vtkID(vtkID) {assert(nodes.size()==nNodes);}
-	};
-
-
-	/// Check if two elements are the same (up to orientation)
-	bool operator==(const Element &A, const Element &B) {
-		if (A.vtkID!=B.vtkID) {return false;}
-		if (A.nNodes!=B.nNodes) {return false;}
-
-		std::vector<size_t> a = A.nodes;
-		std::vector<size_t> b = B.nodes;
-		std::sort(a.begin(), a.end());
-		std::sort(b.begin(), b.end());
-
-		return a == b;
-	}
-
-
-	/// Element hashing function for use in unordered_set (for example). The order of the element nodes is irrelevent to the hash value.
-	struct ElemHashBitPack {
-		size_t operator()(const Element& ELEM) const {
-			//sort the nodes
-			std::vector<size_t> nodes = ELEM.nodes;
-			std::sort(nodes.begin(), nodes.end());
-
-			//initialize the hash by getting the last few bits from each node index
-			size_t hash = 0;
-			size_t bits_per_node;
-			if constexpr (sizeof(size_t)==4) {bits_per_node=32/nodes.size();} //32-bit
-			else if constexpr (sizeof(size_t)==8) {bits_per_node=64/nodes.size();} //64-bit
-			else {bits_per_node=1;}
-
-			size_t mask = (((size_t) 1) << bits_per_node) - 1; //exactly the last bits_per_node bits are 1
-
-			for (size_t i=0; i<nodes.size(); i++) {
-				size_t node_bits = nodes[i] & mask;
-				hash |= (node_bits << (i*bits_per_node));
-			}
-
-			//scramble the hash (MurmurHash3)
-			if constexpr (sizeof(size_t)==4) {
-				hash ^= hash >> 16;
-				hash *= 0x85ebca6b;
-				hash ^= hash >> 16;
-				hash *= 0xc2b2ae35;
-				hash ^= hash >> 16;
-			} else if constexpr (sizeof(size_t)==8) {
-				hash ^= hash >> 33;
-				hash *= 0xff51afd7ed558ccdULL;
-				hash ^= hash >> 33;
-				hash *= 0xc4ceb9fe1a85ec53ULL;
-				hash ^= hash >> 33;
-			}
-
-			return hash;
-		}
-	};
-
-
-	/////////////////////////////////////////////////
 	/// Interface for VTK element types
 	/////////////////////////////////////////////////
 	template <typename Point_t>
 	class VTK_ELEMENT {
 	public:
-		VTK_ELEMENT(const Element &elem) : ELEM(elem) {}
+		VTK_ELEMENT(const BasicElement &elem) : ELEM(elem) {}
 		virtual ~VTK_ELEMENT() {}
-		const Element &ELEM;
+		const BasicElement &ELEM;
 		virtual void split(std::vector<Point_t> &vertices) const = 0;
 		virtual void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const = 0;
 		virtual void getFaceNodes(std::vector<size_t> &face_nodes, const int face_number) const = 0;
-		Element getFace(const int face_number) const {
-			Element face(vtk_face_id(this->ELEM.vtkID));
-			face.color  = this->ELEM.color;
-			face.parent = this->ELEM.index;
+		BasicElement getFace(const int face_number) const {
+			BasicElement face(vtk_face_id(this->ELEM.vtkID));
 			getFaceNodes(face.nodes, face_number);
 			return face;
 		}
@@ -126,7 +45,7 @@ namespace gv::mesh
 	template <typename Point_t>
 	class VTK_LINE : public VTK_ELEMENT<Point_t>{
 	public:
-		VTK_LINE(const Element &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nNodes==vtk_n_nodes(elem.vtkID));}
+		VTK_LINE(const BasicElement &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nodes.size()==vtk_n_nodes(elem.vtkID));}
 		static constexpr int VTK_ID = LINE_VTK_ID;
 
 		void split(std::vector<Point_t> &vertices) const override {
@@ -167,7 +86,7 @@ namespace gv::mesh
 	template <typename Point_t>
 	class VTK_PIXEL : public VTK_ELEMENT<Point_t> {
 	public:
-		VTK_PIXEL(const Element &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nNodes==vtk_n_nodes(elem.vtkID));}
+		VTK_PIXEL(const BasicElement &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nodes.size()==vtk_n_nodes(elem.vtkID));}
 		static constexpr int VTK_ID = PIXEL_VTK_ID;
 
 		void split(std::vector<Point_t> &vertices) const override {
@@ -252,7 +171,7 @@ namespace gv::mesh
 	template <typename Point_t>
 	class VTK_VOXEL : public VTK_ELEMENT<Point_t> {
 	public:
-		VTK_VOXEL(const Element &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nNodes==vtk_n_nodes(elem.vtkID));}
+		VTK_VOXEL(const BasicElement &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nodes.size()==vtk_n_nodes(elem.vtkID));}
 		static constexpr int VTK_ID = VOXEL_VTK_ID;
 
 		void split(std::vector<Point_t> &vertices) const override {
@@ -439,7 +358,7 @@ namespace gv::mesh
 	/// For example auto* VE = VTK_ELEMENT_FACTORY(ELEM); delete VE;
 	/////////////////////////////////////////////////
 	template <typename Point_t> 
-	VTK_ELEMENT<Point_t>* _VTK_ELEMENT_FACTORY(const Element &ELEM) {
+	VTK_ELEMENT<Point_t>* _VTK_ELEMENT_FACTORY(const BasicElement &ELEM) {
 		switch (ELEM.vtkID) {
 			case 3:  return new VTK_LINE<Point_t>(ELEM);
 			case 8:  return new VTK_PIXEL<Point_t>(ELEM);

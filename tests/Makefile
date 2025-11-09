@@ -6,8 +6,14 @@ OBJ        = $(SRC:.cpp=.o)
 TARGETS    = $(SRC:.cpp=)
 
 #-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/)
-CC         = g++ -fsanitize=address -std=c++20 -fopenmp -g -pg #-g for gdb, -pg for gprof (will create gmon.out)
+#correctness testing
+CC         = g++ -fsanitize=address -std=c++20 -fopenmp -pg -g #  -g for gdb, -pg for gprof (will create gmon.out)
 CFLAGS     = -Wall -O0
+
+#perfomance testing
+# CC         = g++ -DNDEBUG -std=c++20 -fopenmp
+# CFLAGS     = -Wall -O3
+
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
 

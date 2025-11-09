@@ -276,6 +276,7 @@ namespace gv::util
 	template<typename Data_t, int dim, int n_data, Float T>
 	void BasicOctree<Data_t,dim,n_data,T>::reserve(const size_t new_capacity)
 	{
+		std::unique_lock<std::shared_mutex> lock(_rw_mutex);
 		assert(new_capacity>=size()); //make sure that the new capacity has enough room for the current data
 		
 		Data_t* new_data = new Data_t[new_capacity];
@@ -293,6 +294,8 @@ namespace gv::util
 	template<typename Data_t, int dim, int n_data, Float T>
 	void BasicOctree<Data_t,dim,n_data,T>::clear()
 	{
+		std::unique_lock<std::shared_mutex> lock(_rw_mutex);
+
 		//delete current data and tree structure
 		if (_root!=nullptr)
 		{
@@ -305,6 +308,7 @@ namespace gv::util
 		{
 			delete[] _data; 
 			_data_cursor=0;
+			_data = new Data_t[_capacity];
 		}
 	}
 

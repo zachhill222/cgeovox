@@ -5,9 +5,23 @@
 #include <cmath>
 #include <limits>
 #include <cassert>
+#include <concepts>
+
 #include "concepts.hpp"
 
 namespace gv::util {
+	///////////////////////////////////////
+	/// Concept for Point-like data types
+	///////////////////////////////////////
+	template<typename T>
+	concept PointLike = requires(T point) {
+		typename T::data_type;
+		requires Scalar<typename T::data_type>;
+		requires T::dimension > 0;
+	};
+
+
+
 	///Class for points in space.
 	/** Points are partially ordered by using the positive quadrant/octant cone. The data type T must be totally ordered, for example double or float.
 	 * Note that the initialization Point p {1,2,3} gives p the type Point<3,int> while the initialization Point p {1.0, 2.0, 3.0} give p the type Point<3,double>.*/
@@ -17,6 +31,9 @@ namespace gv::util {
 		T* _data;
 
 	public:
+		using data_type = T;
+		static constexpr int dimension = dim;
+
 		//default constructor (all zeros)
 		Point () : _data(new T[dim])
 		{
@@ -104,6 +121,10 @@ namespace gv::util {
 		}
 	};
 
+	static_assert(PointLike<Point<3,double>>, "Point<3,double> is not PointLike");
+	static_assert(PointLike<Point<2,double>>, "Point<2,double> is not PointLike");
+	static_assert(PointLike<Point<3,float>>, "Point<3,float> is not PointLike");
+	static_assert(PointLike<Point<2,float>>, "Point<2,float> is not PointLike");
 
 
 	// ///Scalar maximum.

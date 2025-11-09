@@ -3,5 +3,5 @@
 
 namespace gv::constants
 {
-	const int OCTREE_MAX_DEPTH = 128;
+	const int OCTREE_MAX_DEPTH = 16;
 }
