@@ -2,6 +2,7 @@
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/mesh_iterator.hpp"
+#include "mesh/mesh_vtk_out.hpp"
 #include "mesh/vtk_elements.hpp"
 #include "mesh/vtk_defs.hpp"
 
@@ -231,39 +232,12 @@ namespace gv::mesh
 
 
 		/////////////////////////////////////////////////
-		/// Print the node locations and element connectivity to the output stream. Data can be appended to the stream after this is called.
-		/// When saving information (e.g., a solution to a PDE define on this mesh), this will initialize the mesh and then the data can be appended.
-		///
-		/// @param os The output stream.
-		/////////////////////////////////////////////////
-		void print_topology_ascii_vtk(std::ostream &os=true) const;
-
-
-		/////////////////////////////////////////////////
-		/// Print the node locations and element connectivity to the output file in binary format. Data can be appended to the file after this is called.
-		/// When saving information (e.g., a solution to a PDE define on this mesh), this will initialize the mesh and then the data can be appended.
-		///
-		/// @param filename The file to write to.
-		/////////////////////////////////////////////////
-		void print_topology_binary_vtk(const std::string &filename=true) const;
-
-
-		/////////////////////////////////////////////////
-		/// Print the details of the nodes and elements to the output stream. This includes element colors and which elements each node belongs to.
-		/// Due to the way that field data is stored in ASCII VTK format, it will be difficult to append any additional information to a file afterwards.
-		///
-		/// @param os The output stream.
-		/////////////////////////////////////////////////
-		void print_mesh_details_ascii_vtk(std::ostream &os=true) const;
-
-
-		/////////////////////////////////////////////////
 		/// Print the details of the nodes and elements to the output legacy vtk binary file. This includes element colors and which elements each node belongs to.
 		/// Due to the way that field data is stored in BINARY VTK format, it will be difficult to append any additional information to a file afterwards.
 		///
 		/// @param file The output output file that already contains the mesh topology in legacy vtk binary format.
 		/////////////////////////////////////////////////
-		void print_mesh_details_binary_vtk(const std::string &filename=true) const;
+		// void print_mesh_details_binary_vtk(std::ofstream &file=true) const;
 		
 
 		/////////////////////////////////////////////////
@@ -273,7 +247,7 @@ namespace gv::mesh
 		/// @param include_details When set to true, the mesh details will be appended to the mesh topology.
 		///                        This should usually be set to false if any additional data will be appended to the file.
 		/////////////////////////////////////////////////
-		void save_as(const std::string filename, const bool include_details=false=true, const bool use_ascii=false) const;
+		void save_as(const std::string filename, const bool include_details=false, const bool use_ascii=false) const;
 
 
 		/////////////////////////////////////////////////
@@ -281,6 +255,18 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		template <BasicMeshNode U, BasicMeshElement Element_u, BasicMeshElement Face_u>
 		friend std::ostream& operator<<(std::ostream& os, const BasicMesh<U,Element_u,Face_u> &mesh);
+
+		template<BasicMeshType Mesh_t>
+		friend void print_topology_ascii_vtk(std::ofstream &file, const Mesh_t &mesh, const std::string description);
+
+		template<BasicMeshType Mesh_t>
+		friend void print_mesh_details_ascii_vtk(std::ofstream &file, const Mesh_t &mesh);
+
+		template<BasicMeshType Mesh_t>
+		friend void print_topology_binary_vtk(std::ofstream &file, const Mesh_t &mesh, const std::string description);
+
+		template<BasicMeshType Mesh_t>
+		friend void print_mesh_details_binary_vtk(std::ofstream &file, const Mesh_t &mesh);
 
 
 		/////////////////////////////////////////////////
@@ -304,25 +290,19 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Iterators for _elements
 		/////////////////////////////////////////////////
-		ElementIterator_t elemBegin() {
-			ElementIterator_t iter(this,0);
-			iter.moveToBegin();
-			return iter;
-		}
-
-		ElementIterator_t elemEnd() {return ElementIterator_t(this, _elements.size());}
+		ElementIterator_t elemBegin()       {return ElementIterator_t(this, 0);}
+		ElementIterator_t elemEnd()         {return ElementIterator_t(this, _elements.size());}
+		ElementIterator_t elemBegin() const {return ElementIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), 0);}
+		ElementIterator_t elemEnd()   const {return ElementIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), _elements.size());}
 
 	
 		/////////////////////////////////////////////////
 		/// Iterators for _boundary
 		/////////////////////////////////////////////////
-		BoundaryIterator_t boundaryBegin() {
-			BoundaryIterator_t iter(this,0);
-			iter.moveToBegin();
-			return iter;
-		}
-
-		BoundaryIterator_t boundaryEnd() {return BoundaryIterator_t(this, _boundary.size());}
+		BoundaryIterator_t boundaryBegin()       {return BoundaryIterator_t(this,0);}
+		BoundaryIterator_t boundaryEnd()         {return BoundaryIterator_t(this, _boundary.size());}
+		BoundaryIterator_t boundaryBegin() const {return BoundaryIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), _boundary.size());}
+		BoundaryIterator_t boundaryEnd()   const {return BoundaryIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), _boundary.size());}
 	};
 	static_assert(BasicMeshType< BasicMesh<BasicNode<gv::util::Point<3,double>>, BasicElement, BasicElement >>,
 		"BasicMesh is not a BasicMeshType with default template parameters.");
@@ -607,25 +587,32 @@ namespace gv::mesh
 			//open and check file
 			std::ofstream file(filename);
 			if (not file.is_open()){
-				std::cout << "Couldn't write to " << filename << std::endl;
-				file.close();
-				assert(false);
+				throw std::runtime_error("Couldn't open " + filename);
 				return;
 			}
 
 			//print topology
-			print_topology_ascii_vtk(file);
+			print_topology_ascii_vtk(file, *this);
 
 			//print details
-			if (include_details) {print_mesh_details_ascii_vtk(file);}
+			if (include_details) {print_mesh_details_ascii_vtk(file, *this);}
 
 			file.close();
 		} else {
+			//open and check file
+			std::ofstream file(filename, std::ios::binary);
+			if (not file.is_open()){
+				throw std::runtime_error("Couldn't open " + filename);
+				return;
+			}
+
 			//print topology
-			print_topology_binary_vtk(filename);
+			print_topology_binary_vtk(file, *this);
 
 			//print details
-			if (include_details) {print_mesh_details_binary_vtk(filename);}
+			if (include_details) {print_mesh_details_binary_vtk(file, *this);}
+
+			file.close();
 		}
 	}
 	

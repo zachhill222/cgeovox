@@ -63,9 +63,12 @@ namespace gv::mesh {
 
 		//Constructor to link to a mesh
 		ElementIterator(Mesh_t* mesh, size_t idx) : mesh(mesh), curr_idx(idx) {
-			if constexpr (CONTAINER == ContainerType::ELEMENTS) {_elements = &(mesh->_elements);}
+			if constexpr      (CONTAINER == ContainerType::ELEMENTS) {_elements = &(mesh->_elements);}
 			else if constexpr (CONTAINER == ContainerType::BOUNDARY) {_elements = &(mesh->_boundary);}
 			else {throw std::runtime_error("Unknown ContainerType");}
+
+			if (idx==0) {moveToBegin();}
+			else if (idx==(size_t) -1) {moveToEnd();}
 		}
 
 		//Copy constructor
@@ -76,7 +79,6 @@ namespace gv::mesh {
 
 		//Pre-increment
 		ElementIterator& operator++() {
-			++curr_idx;
 			advance();
 			return *this;
 		}
@@ -132,7 +134,7 @@ namespace gv::mesh {
 		}
 
 		// Helpers for begin() and end()
-		ElementIterator moveToEnd() {curr_idx = _elements->size(); return this;}
+		ElementIterator moveToEnd() {curr_idx = _elements->size(); return *this;}
 		ElementIterator moveToBegin() {
 			curr_idx=0;
 			if (!isValid(curr_idx)) {retreat();}

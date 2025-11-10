@@ -46,9 +46,9 @@ int main(int argc, char* argv[])
 	
 	// std::cout << "colors are valid? " << mesh.colors_are_valid() << std::endl;
 
-	for (auto it=mesh.boundaryBegin(); it!=mesh.boundaryEnd(); ++it) {std::cout << *it << std::endl;}
+	// for (auto it=mesh.boundaryBegin(); it!=mesh.boundaryEnd(); ++it) {std::cout << *it << std::endl;}
 
-	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true);
 
 
