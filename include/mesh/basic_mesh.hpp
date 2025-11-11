@@ -344,6 +344,16 @@ namespace gv::mesh
 		virtual BoundaryIterator_t boundaryEnd()         {return BoundaryIterator_t(this, _boundary.size());}
 		virtual BoundaryIterator_t boundaryBegin() const {return BoundaryIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), 0);}
 		virtual BoundaryIterator_t boundaryEnd()   const {return BoundaryIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), _boundary.size());}
+
+
+		/////////////////////////////////////////////////
+		/// Iterators for _nodes
+		/////////////////////////////////////////////////
+		virtual std::vector<Node_t>::iterator nodeBegin()       {return _nodes.begin();}
+		virtual std::vector<Node_t>::iterator nodeEnd()         {return _nodes.end();}
+		virtual std::vector<Node_t>::const_iterator nodeBegin() const {return _nodes.cbegin();}
+		virtual std::vector<Node_t>::const_iterator nodeEnd()   const {return _nodes.cend();}
+
 	};
 	static_assert(BasicMeshType< BasicMesh<BasicNode<gv::util::Point<3,double>>, BasicElement, BasicElement >>,
 		"BasicMesh is not a BasicMeshType with default template parameters.");

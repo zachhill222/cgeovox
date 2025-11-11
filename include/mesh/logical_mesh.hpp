@@ -45,8 +45,8 @@ namespace gv::mesh {
 			_boundary_mask(mesh._boundary.size(), true),
 			_node_mask(mesh._nodes.size(), true)
 			{
-				this->_nodes.set_bbox(_parent._nodes.bbox());
-				for (size_t n=0; n<_parent._nodes.size(); n++) {this->_nodes.push_back(_parent._nodes[n]);}
+				// this->_nodes.set_bbox(_parent._nodes.bbox());
+				// for (size_t n=0; n<_parent._nodes.size(); n++) {this->_nodes.push_back(_parent._nodes[n]);}
 			}
 
 		// Count methods
@@ -95,6 +95,17 @@ namespace gv::mesh {
 		BoundaryIterator_t boundaryEnd()   const override {
 			return BoundaryIterator_t(const_cast<LogicalMesh<Node_t,Element_t,Face_t>*>(this),
 				const_cast<std::vector<Face_t>*>(&_parent._boundary), _parent._boundary.size());
+		}
+
+
+		/////////////////////////////////////////////////
+		/// Iterators for _node
+		/////////////////////////////////////////////////
+		std::vector<Node_t>::const_iterator nodeBegin() const override {
+			return _parent._nodes.cbegin();
+		}
+		std::vector<Node_t>::const_iterator nodeEnd()   const override {
+			return _parent._nodes.cend();
 		}
 	};
 

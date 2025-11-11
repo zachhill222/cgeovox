@@ -18,7 +18,6 @@ namespace gv::mesh {
 	/////////////////////////////////////////////////
 	template<BasicMeshType Mesh_t>
 	void print_topology_ascii_vtk(std::ofstream &file, const Mesh_t &mesh, const std::string description="Mesh Data") {
-		using Node_t    = typename Mesh_t::node_type;
 		using Element_t = typename Mesh_t::element_type;
 
 		//get number of nodes and elements
@@ -36,9 +35,8 @@ namespace gv::mesh {
 
 		//POINTS
 		buffer << "POINTS " << nNodes << " float\n";
-		for (size_t n_idx=0; n_idx<nNodes; n_idx++) {
-			const Node_t &NODE = mesh._nodes[n_idx];
-			buffer << NODE.vertex << "\n";
+		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			buffer << it->vertex << "\n";
 		}
 		buffer << "\n";
 		file   << buffer.rdbuf();
@@ -97,13 +95,13 @@ namespace gv::mesh {
 
 		//boundary
 		size_t max_boundary_faces=0;
-		for (size_t n_idx=0; n_idx<nNodes; n_idx++) {
-			max_boundary_faces = std::max(max_boundary_faces, mesh._nodes[n_idx].boundary_faces.size());
+		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			max_boundary_faces = std::max(max_boundary_faces, it->boundary_faces.size());
 		}
 
 		buffer << "boundary " << max_boundary_faces << " " << nNodes << " integer\n";
-		for (size_t n_idx=0; n_idx<nNodes; n_idx++) {
-			const Node_t &NODE = mesh._nodes[n_idx];
+		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			const Node_t &NODE = *it;
 
 			size_t i;
 			for (i=0; i<NODE.boundary_faces.size(); i++) { buffer << NODE.boundary_faces[i] << " ";	}
@@ -115,13 +113,13 @@ namespace gv::mesh {
 		
 		//elements
 		size_t max_elem=0;
-		for (size_t n_idx=0; n_idx<nNodes; n_idx++) {
-			max_elem = std::max(max_elem, mesh._nodes[n_idx].elems.size());
+		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			max_elem = std::max(max_elem, it->elems.size());
 		}
 		
 		buffer << "elements " << max_elem << " " << nNodes << " integer\n";
-		for (size_t n_idx=0; n_idx<nNodes; n_idx++) {
-			const Node_t &NODE = mesh._nodes[n_idx];
+		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			const Node_t &NODE = *it;
 			size_t i;
 			for (i=0; i<NODE.elems.size(); i++) { buffer << NODE.elems[i] << " ";}
 			for (; i<max_elem; i++) { buffer << "-1 ";}
@@ -132,7 +130,7 @@ namespace gv::mesh {
 
 		if constexpr (requires {Node_t::index;}) {
 			buffer << "index 1 " << nNodes << " integer\n";
-			for (size_t n_idx=0; n_idx<nNodes; n_idx++) {buffer << mesh._nodes[n_idx].index << " ";}
+			for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {buffer << it->index << " ";}
 			buffer << "\n\n";
 			file   << buffer.rdbuf();
 			buffer.str("");
@@ -302,8 +300,8 @@ namespace gv::mesh {
 	    if      constexpr (sizeof(typename Node_t::Scalar_t)==4) {file << "POINTS " << nNodes << " float\n";}
 	    else if constexpr (sizeof(typename Node_t::Scalar_t)==8) {file << "POINTS " << nNodes << " double\n";}
 	    
-	    for (size_t n_idx=0; n_idx<nNodes; n_idx++) {
-			const Node_t &NODE = mesh._nodes[n_idx];
+	    for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			const Node_t &NODE = *it;
 	        write_be_float(NODE.vertex[0]);
 	        write_be_float(NODE.vertex[1]);
 	        write_be_float(NODE.vertex[2]);
@@ -392,13 +390,13 @@ namespace gv::mesh {
 		
 		//boundary
 		size_t max_boundary_faces=0;
-		for (size_t n_idx=0; n_idx<nNodes; n_idx++) {
-			max_boundary_faces = std::max(max_boundary_faces, mesh._nodes[n_idx].boundary_faces.size());
+		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			max_boundary_faces = std::max(max_boundary_faces, it->boundary_faces.size());
 		}
 		
 		file << "boundary " << max_boundary_faces << " " << nNodes << " int\n";
-		for (size_t n_idx = 0; n_idx < nNodes; n_idx++) {
-			const Node_t &NODE = mesh._nodes[n_idx];
+		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			const Node_t &NODE = *it;
 			
 			size_t i;
 			for (i = 0; i < NODE.boundary_faces.size(); i++) {write_be_size_t(NODE.boundary_faces[i]);}
@@ -408,13 +406,13 @@ namespace gv::mesh {
 		
 		//elements
 		size_t max_elem=0;
-		for (size_t n_idx=0; n_idx<nNodes; n_idx++) {
-			max_elem = std::max(max_elem, mesh._nodes[n_idx].elems.size());
+		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			max_elem = std::max(max_elem, it->elems.size());
 		}
 		
 		file << "elements " << max_elem << " " << nNodes << " int\n";
-		for (size_t n_idx = 0; n_idx < nNodes; n_idx++) {
-			const Node_t &NODE = mesh._nodes[n_idx];
+		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+			const Node_t &NODE = *it;
 			size_t i;
 			for (i = 0; i < NODE.elems.size(); i++) {write_be_size_t(NODE.elems[i]);}
 			for (; i < max_elem; i++) {write_be_int(-1);}

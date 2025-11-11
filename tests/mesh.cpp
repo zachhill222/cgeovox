@@ -9,13 +9,12 @@
 
 int main(int argc, char* argv[])
 {	
-	const int dim = 3;
+	const int dim = 2;
 	using T = double;
 
 	using Point_t  = gv::util::Point<dim,T>;
 	using Box_t    = gv::util::Box<dim,T>;
 	using Index_t  = gv::util::Point<dim,size_t>;
-
 
 	using Vertex_t  = gv::util::Point<3,T>;
 	using Node_t    = gv::mesh::BasicNode<Vertex_t>;
