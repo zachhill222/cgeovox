@@ -19,10 +19,11 @@ namespace gv::mesh {
 	template<BasicMeshType Mesh_t>
 	void print_topology_ascii_vtk(std::ofstream &file, const Mesh_t &mesh, const std::string description="Mesh Data") {
 		using Node_t    = typename Mesh_t::node_type;
+		using Element_t = typename Mesh_t::element_type;
 
 		//get number of nodes and elements
-		const size_t nNodes    = mesh.nNodes_ThreadLocked();
-		const size_t nElements = mesh.nElems_ThreadLocked();
+		const size_t nNodes    = mesh.nNodes_Locked();
+		const size_t nElements = mesh.nElems_Locked();
 
 		//create buffer
 		std::stringstream buffer;
@@ -47,12 +48,12 @@ namespace gv::mesh {
 		//ELEMENTS
 		//calculate the number of entries required (numberOfNodes + listOfNodes)
 		size_t nEntries = 0;
-		for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {nEntries += 1 + it->nodes.size();}
+		for (const Element_t &ELEM : mesh) {nEntries += 1 + ELEM.nodes.size();}
 
 		buffer << "CELLS " << nElements << " " << nEntries << "\n";
-		for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-			buffer << it->nodes.size();
-			for (size_t n : it->nodes) {buffer << " " << n;}
+		for (const Element_t &ELEM : mesh) {
+			buffer << ELEM.nodes.size();
+			for (size_t n : ELEM.nodes) {buffer << " " << n;}
 			buffer << "\n";
 		}
 		buffer << "\n";
@@ -62,7 +63,7 @@ namespace gv::mesh {
 
 		//VTK_ID
 		buffer << "CELL_TYPES " << nElements << "\n";
-		for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {buffer << it->vtkID << " ";}
+		for (const Element_t &ELEM : mesh) {buffer << ELEM.vtkID << " ";}
 		buffer << "\n\n";
 		file   << buffer.rdbuf();
 		buffer.str("");
@@ -82,8 +83,8 @@ namespace gv::mesh {
 		using Element_t = typename Mesh_t::element_type;
 		
 		//get number of nodes and elements
-		const size_t nNodes    = mesh.nNodes_ThreadLocked();
-		const size_t nElements = mesh.nElems_ThreadLocked();
+		const size_t nNodes    = mesh.nNodes_Locked();
+		const size_t nElements = mesh.nElems_Locked();
 
 		std::stringstream buffer;
 
@@ -150,7 +151,7 @@ namespace gv::mesh {
 		
 		if constexpr (requires {Element_t::index;}) {
 			buffer << "index 1 " << nElements << " integer\n";
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {buffer << it->index << " ";}
+			for (const Element_t &ELEM : mesh) {buffer << ELEM.index << " ";}
 			buffer << "\n\n";
 			file   << buffer.rdbuf();
 			buffer.str("");
@@ -158,8 +159,8 @@ namespace gv::mesh {
 
 		if constexpr (requires {Element_t::color;}) {
 			buffer << "color 1 " << nElements << " integer\n";
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-				if (it->color < (size_t)-1) {buffer << it->color << " ";} //valid color
+			for (const Element_t &ELEM : mesh) {
+				if (ELEM.color < (size_t)-1) {buffer << ELEM.color << " ";} //valid color
 				else {buffer << "-1 ";} //invalid color
 			}
 			buffer << "\n\n";
@@ -169,8 +170,8 @@ namespace gv::mesh {
 
 		if constexpr (requires {Element_t::parent;}) {
 			buffer << "parent 1 " << nElements << " integer\n";
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-				if (it->parent < (size_t)-1) {buffer << it->parent << " ";} //valid parent
+			for (const Element_t &ELEM : mesh) {
+				if (ELEM.parent < (size_t)-1) {buffer << ELEM.parent << " ";} //valid parent
 				else {buffer << "-1 ";} //invalid parent
 			}
 			buffer << "\n\n";
@@ -180,16 +181,22 @@ namespace gv::mesh {
 
 		if constexpr (requires {Element_t::children;}) {
 			size_t max_children = 0;
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-				max_children = std::max(max_children, it->children.size());
+			for (const Element_t &ELEM : mesh) {
+				max_children = std::max(max_children, ELEM.children.size());
 			}
 
-			buffer << "children " << max_children << " " << nElements << " integer\n";
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-				size_t i;
-				for (i=0; i<it->children.size(); i++) {buffer << it->children[i] << " ";}
-				for (; i<max_children; i++) {buffer << "-1 ";}
+			if (max_children>0) {
+				buffer << "children " << max_children << " " << nElements << " integer\n";
+				for (const Element_t &ELEM : mesh) {
+					size_t i;
+					for (i=0; i<ELEM.children.size(); i++) {buffer << ELEM.children[i] << " ";}
+					for (; i<max_children; i++) {buffer << "-1 ";}
+				}	
+			} else {
+				buffer << "children " << 1 << " " << nElements << " integer\n";
+				for (size_t i=0; i<nElements; i++) {buffer << " -1";}
 			}
+			
 			buffer << "\n\n";
 			file   << buffer.rdbuf();
 			buffer.str("");
@@ -211,10 +218,11 @@ namespace gv::mesh {
 	template<BasicMeshType Mesh_t>
 	void print_topology_binary_vtk(std::ofstream &file, const Mesh_t &mesh, const std::string description="Mesh Data") {
 	    using Node_t    = typename Mesh_t::node_type;
+		using Element_t = typename Mesh_t::element_type;
 
 		//get number of nodes and elements
-		const size_t nNodes    = mesh.nNodes_ThreadLocked();
-		const size_t nElements = mesh.nElems_ThreadLocked();
+		const size_t nNodes    = mesh.nNodes_Locked();
+		const size_t nElements = mesh.nElems_Locked();
 
 	    //only 32 and 64 bit data types are supported. can add more if necessary
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
@@ -304,19 +312,19 @@ namespace gv::mesh {
 	    
 	    // ELEMENTS - calculate counts
 	    size_t nEntries = 0;
-	    for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {nEntries  += 1 + it->nodes.size();}
+	    for (const Element_t &ELEM : mesh) {nEntries  += 1 + ELEM.nodes.size();}
 	    
 	    // CELLS (binary data)
 	    file << "CELLS " << nElements << " " << nEntries << "\n";
-	    for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-			write_be_size_t(it->nodes.size());
-			for (size_t n_idx : it->nodes) {write_be_size_t(n_idx);}
+	    for (const Element_t &ELEM : mesh) {
+			write_be_size_t(ELEM.nodes.size());
+			for (size_t n_idx : ELEM.nodes) {write_be_size_t(n_idx);}
 	    }
 	    file << "\n";
 	    
 	    // CELL_TYPES (binary data)
 	    file << "CELL_TYPES " << nElements << "\n";
-	    for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {write_be_int(it->vtkID);}
+	    for (const Element_t &ELEM : mesh) {write_be_int(ELEM.vtkID);}
 	    file << "\n";
 	    
 	    file.close();
@@ -340,8 +348,8 @@ namespace gv::mesh {
 		using Element_t = typename Mesh_t::element_type;
 
 		//get number of nodes and elements
-		const size_t nNodes    = mesh.nNodes_ThreadLocked();
-		const size_t nElements = mesh.nElems_ThreadLocked();
+		const size_t nNodes    = mesh.nNodes_Locked();
+		const size_t nElements = mesh.nElems_Locked();
 
 	    //only 32 and 64 bit data types are supported. can add more if necessary
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
@@ -416,53 +424,54 @@ namespace gv::mesh {
 
 
 		//ELEMENT DETAILS
-		file << "CELL_DATA " << nElements << "\n";
 		int n_elem_fields = 0;
 		if constexpr (requires {Element_t::color;})    {n_elem_fields++;}
 		if constexpr (requires {Element_t::parent;})   {n_elem_fields++;}
 		if constexpr (requires {Element_t::children;}) {n_elem_fields++;}
 		if constexpr (requires {Element_t::index;})    {n_elem_fields++;}
+
+
+		file << "CELL_DATA " << nElements << "\n";
 		file << "FIELD elem_info " << n_elem_fields << "\n";
 		
 		if constexpr (requires {Element_t::index;}) {
 			file << "index 1 " << nElements << " integer\n";
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {write_be_size_t(it->index);}
+			for (const Element_t &ELEM : mesh) {write_be_size_t(ELEM.index);}
 		}
 		
 		if constexpr (requires {Element_t::color;}) {
 			file << "color 1 " << nElements << " integer\n";
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-				if (it->color < (size_t)-1) {write_be_size_t(it->color);} //valid color
+			for (const Element_t &ELEM : mesh) {
+				if (ELEM.color < (size_t)-1) {write_be_size_t(ELEM.color);} //valid color
 				else {write_be_int(-1);} //invalid color
 			}
 		}
 
 		if constexpr (requires {Element_t::parent;}) {
 			file << "parent 1 " << nElements << " integer\n";
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-				if (it->parent < (size_t)-1) {write_be_size_t(it->parent);} //valid parent
+			for (const Element_t &ELEM : mesh) {
+				if (ELEM.parent < (size_t)-1) {write_be_size_t(ELEM.parent);} //valid parent
 				else {write_be_int(-1);} //invalid parent
 			}
 		}
 		
 		if constexpr (requires {Element_t::children;}) {
 			size_t max_children = 0;
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-				max_children = std::max(max_children, it->children.size());
+			for (const Element_t &ELEM : mesh) {
+				max_children = std::max(max_children, ELEM.children.size());
 			}
 
-			file << "children " << max_children << " " << nElements << " integer\n";
-			for (auto it=mesh.elemBegin(); it!=mesh.elemEnd(); ++it) {
-				size_t i;
-				for (i=0; i<it->children.size(); i++) {write_be_size_t(it->children[i]);}
-				for (; i<max_children; i++) {write_be_int(-1);}
+			if (max_children>0) {
+				file << "children " << max_children << " " << nElements << " integer\n";
+				for (const Element_t &ELEM : mesh) {
+					size_t i;
+					for (i=0; i<ELEM.children.size(); i++) {write_be_size_t(ELEM.children[i]);}
+					for (; i<max_children; i++) {write_be_int(-1);}
+				}
+			} else {
+				file << "children " << 1 << " " << nElements << " integer\n";
+				for (size_t i=0; i<nElements; i++) {write_be_int(-1);}
 			}
 		}
-		
 	}
-
-
-
-
-	
 }

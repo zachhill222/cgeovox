@@ -64,7 +64,15 @@ namespace gv::util {
 		//copy constructor
 		Point (const Point<dim,T> &other) : _data(new T[dim])
 		{
-			for (int i=0; i<dim; i++) {_data[i] = other._data[i];}
+			for (int i=0; i<dim; i++) {_data[i] = other[i];}
+		}
+
+		//copy constructor with trim/zero pad for different dimensions
+		template<int otherdim, Scalar U>
+		Point (const Point<otherdim,U> &other) : _data(new T[dim])
+		{
+			for (int i=0; i<std::min(dim,otherdim); i++) {_data[i]= (T) other[i];}
+			for (int i=std::min(dim,otherdim); i<dim; i++) {_data[i]= (T) 0;}
 		}
 
 		//copy constructor with type conversion if needed

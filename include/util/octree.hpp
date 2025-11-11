@@ -34,6 +34,9 @@ namespace gv::util
 		//use this constructor if possible. the bounding box should be known ahead of time to avoid re-creating the octree structure.
 		BasicOctree_Point(const Box_t &bbox, const size_t capacity=64) : BasicOctree<Data_t,dim,n_data,T>(bbox, capacity) {}
 
+		//copy constructor
+		BasicOctree_Point(const BasicOctree_Point &other) : BasicOctree<Data_t,dim,n_data,T>(other) {}
+
 		virtual ~BasicOctree_Point() = default;
 
 		protected:
@@ -121,6 +124,9 @@ namespace gv::util
 
 		//use this constructor if possible. the bounding box should be known ahead of time to avoid re-creating the octree structure.
 		BasicOctree_Vol(const Box_t &bbox, const size_t capacity=64) : BasicOctree<Data_t,dim,n_data,T>(bbox, capacity) {}
+
+		//copy constructor
+		BasicOctree_Vol(const BasicOctree_Vol &other) : BasicOctree<Data_t,dim,n_data,T>(other) {}
 
 		virtual ~BasicOctree_Vol() = default;
 

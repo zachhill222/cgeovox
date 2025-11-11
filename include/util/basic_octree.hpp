@@ -138,6 +138,18 @@ namespace gv::util
 			_data_cursor(0),
 			_capacity(capacity) {}
 
+		//copy constructor
+		BasicOctree(const BasicOctree& other) :
+			_root(new Node_t(other.bbox())),
+			_data(new Data_t(other.capacity())),
+			_data_cursor(0),
+			_capacity(other.capacity()) {
+				for (size_t i=0; i<other.size(); i++) {
+					[[maybe_unused]] int flag = push_back(other[i]);
+					assert(flag==1);
+				}
+			}
+
 		//destructor
 		virtual ~BasicOctree()
 		{
@@ -158,7 +170,11 @@ namespace gv::util
 		//data memory information and control
 		inline size_t capacity() const {return _capacity;} //maximum number of elements
 		inline size_t size() const {return _data_cursor;} //current number of elements
-		void reserve(const size_t new_capacity); //re-size reserved space
+		void reserve(const size_t new_capacity) {
+			std::unique_lock<std::shared_mutex> lock(_rw_mutex);
+			reserve_unlocked(new_capacity);
+		}
+
 		void clear(); //delete all data and tree structure
 		Box_t bbox() const {return _root->bbox;} //get a copy of the bounding box
 		void set_bbox(const Box_t& bbox); //re-size the bounding box. requires data a data move and re-creation of the entire tree structure.
@@ -200,6 +216,8 @@ namespace gv::util
 			if (!is_data_valid(_root->bbox, val)) {return (size_t) -1;} //data is invalid so it is not in the octree.
 			return recursive_find(_root, val);
 		}
+
+		void reserve_unlocked(const size_t new_capacity);
 	};
 
 
@@ -219,7 +237,8 @@ namespace gv::util
 	int BasicOctree<Data_t,dim,n_data,T>::push_back(const Data_t &val)
 	{
 		size_t idx;
-		return push_back(val, idx);
+		Data_t copy(val);
+		return push_back(std::move(val), idx);
 	}
 
 	//copy push_back
@@ -245,7 +264,7 @@ namespace gv::util
 	{
 		std::unique_lock<std::shared_mutex> lock(_rw_mutex);
 
-		if (size()>=capacity()) {reserve(2*_capacity);} //increase storage size if needed
+		if (size()>=capacity()) {reserve_unlocked(2*_capacity);} //increase storage size if needed
 		assert(size()<capacity());
 
 		if (!is_data_valid(_root->bbox,val)) {return -1;} //data can't be added
@@ -274,9 +293,8 @@ namespace gv::util
 
 
 	template<typename Data_t, int dim, int n_data, Float T>
-	void BasicOctree<Data_t,dim,n_data,T>::reserve(const size_t new_capacity)
+	void BasicOctree<Data_t,dim,n_data,T>::reserve_unlocked(const size_t new_capacity)
 	{
-		std::unique_lock<std::shared_mutex> lock(_rw_mutex);
 		assert(new_capacity>=size()); //make sure that the new capacity has enough room for the current data
 		
 		Data_t* new_data = new Data_t[new_capacity];

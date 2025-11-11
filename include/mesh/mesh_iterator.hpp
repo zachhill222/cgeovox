@@ -71,6 +71,12 @@ namespace gv::mesh {
 			else if (idx==(size_t) -1) {moveToEnd();}
 		}
 
+		//Constructor to link to a mesh and specific vector
+		ElementIterator(Mesh_t* mesh, std::vector<Element_t>* elems, size_t idx) : mesh(mesh), _elements(elems), curr_idx(idx) {
+			if (idx==0) {moveToBegin();}
+			else if (idx==(size_t) -1) {moveToEnd();}
+		}
+
 		//Copy constructor
 		ElementIterator(const ElementIterator &other) = default;
 

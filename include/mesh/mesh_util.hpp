@@ -28,6 +28,7 @@ namespace gv::mesh
 	concept BasicMeshElement = requires(T elem) {
 		{ elem.nodes } -> std::convertible_to<std::vector<size_t>>;
 		{ elem.vtkID } -> std::convertible_to<int>;
+		{ elem.index } -> std::convertible_to<size_t>;
 	};
 
 	/////////////////////////////////////////////////
@@ -61,7 +62,9 @@ namespace gv::mesh
 	struct BasicElement {
 		std::vector<size_t> nodes;
 		int vtkID;
+		size_t index = (size_t) -1;
 		BasicElement() {}
+		BasicElement(const BasicElement& other) : nodes(other.nodes), vtkID(other.vtkID), index(other.index) {}
 		BasicElement(const int vtkID) : nodes(vtk_n_nodes(vtkID)), vtkID(vtkID) {}
 		BasicElement(const std::vector<size_t> &nodes, const int vtkID) : nodes(nodes), vtkID(vtkID) {
 			assert(nodes.size()==vtk_n_nodes(vtkID));
@@ -72,12 +75,13 @@ namespace gv::mesh
 	/////////////////////////////////////////////////
 	/// Struct for colorable elements
 	/////////////////////////////////////////////////
-	struct ColorableElement : BasicElement {
+	struct ColoredElement : BasicElement {
 		using BasicElement::BasicElement;
+		ColoredElement(const BasicElement& other) : BasicElement(other) {}
 		size_t color = (size_t) -1;
 	};
-	static_assert(BasicMeshElement<ColorableElement>, "ColorableElement is not a BasicMeshElement");
-	static_assert(ColorableMeshElement<ColorableElement>, "ColorableElement is not a ColorableMeshElement");
+	static_assert(BasicMeshElement<ColoredElement>, "ColoredElement is not a BasicMeshElement");
+	static_assert(ColorableMeshElement<ColoredElement>, "ColoredElement is not a ColorableMeshElement");
 
 	/////////////////////////////////////////////////
 	/// Struct for hierarchical elements
@@ -89,6 +93,7 @@ namespace gv::mesh
 		HierarchicalElement() {}
 		HierarchicalElement(const int vtkID) : BasicElement(vtkID) {children.reserve(vtk_n_children(vtkID));}
 		HierarchicalElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID) {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalElement(const BasicElement& other) : BasicElement(other) {children.reserve(vtk_n_children(vtkID));}
 	};
 	static_assert(BasicMeshElement<HierarchicalElement>, "HierarchicalElement is not a BasicMeshElement");
 	static_assert(HierarchicalMeshElement<HierarchicalElement>, "HierarchicalElement is not a HierarchicalMeshElement");
@@ -96,18 +101,19 @@ namespace gv::mesh
 	/////////////////////////////////////////////////
 	/// Struct for hierarchical colerable elements
 	/////////////////////////////////////////////////
-	struct HierarchicalColerableElement : BasicElement {
+	struct HierarchicalColoredElement : BasicElement {
 		size_t color = (size_t) -1;
 		size_t parent = (size_t) -1;
 		std::vector<size_t> children;
 		bool is_active = true;
-		HierarchicalColerableElement() {}
-		HierarchicalColerableElement(const int vtkID) : BasicElement(vtkID) {children.reserve(vtk_n_children(vtkID));}
-		HierarchicalColerableElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID) {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalColoredElement() {}
+		HierarchicalColoredElement(const int vtkID) : BasicElement(vtkID) {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalColoredElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID) {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalColoredElement(const BasicElement& other) : BasicElement(other) {children.reserve(vtk_n_children(vtkID));}
 	};
-	static_assert(BasicMeshElement<HierarchicalColerableElement>, "HierarchicalColerableElement is not a BasicMeshElement");
-	static_assert(ColorableMeshElement<HierarchicalColerableElement>, "HierarchicalColerableElement is not a ColorableMeshElement");
-	static_assert(HierarchicalMeshElement<HierarchicalColerableElement>, "HierarchicalColerableElement is not a HierarchicalMeshElement");
+	static_assert(BasicMeshElement<HierarchicalColoredElement>, "HierarchicalColoredElement is not a BasicMeshElement");
+	static_assert(ColorableMeshElement<HierarchicalColoredElement>, "HierarchicalColoredElement is not a ColorableMeshElement");
+	static_assert(HierarchicalMeshElement<HierarchicalColoredElement>, "HierarchicalColoredElement is not a HierarchicalMeshElement");
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -169,15 +175,37 @@ namespace gv::mesh
 		}
 	};
 
+
+	/// Element printing
 	template<BasicMeshElement Element_t>
 	std::ostream& operator<<(std::ostream& os, const Element_t &elem) {
-		os << "vtkID= " << elem.vtkID << "\n";
-		os << "nodes (" << elem.nodes.size() << "): ";
-		for (size_t n : elem.nodes) {
-			os << n << " ";
+		os << "vtkID= " << elem.vtkID << " (" << vtk_id_to_string(elem.vtkID) << ")\n";
+		os << "index= " << elem.index << "\n";
+		os << "nodes (" << elem.nodes.size() << ") : [ ";
+		for (size_t n : elem.nodes) {os << n << " ";}
+		os << "]\n";
+
+		if constexpr (ColorableMeshElement<Element_t>) {
+			os << "color= " << elem.color << "\n";
 		}
-		os << "\n";
+
+		if constexpr (HierarchicalMeshElement<Element_t>) {
+			os << "parent= " << elem.parent << "\n";
+			os << "children (" << elem.children.size() << ") : [";
+			for (size_t n : elem.children) {os << n << " ";}
+			os << "]\n";
+		}
 		return os;
+	}
+
+	/// Element name printing
+	template<BasicMeshElement Element_t>
+	std::string elementTypeName() {
+		if constexpr (std::same_as<Element_t,BasicElement>) {return "BasicElement";}
+		if constexpr (std::same_as<Element_t,ColoredElement>) {return "ColoredElement";}
+		if constexpr (std::same_as<Element_t,HierarchicalElement>) {return "HierarchicalElement";}
+		if constexpr (std::same_as<Element_t,HierarchicalColoredElement>) {return "HierarchicalColoredElement";}
+		else {return "UNKNOWN";}
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -191,6 +219,8 @@ namespace gv::mesh
 	/////////////////////////////////////////////////
 	template<typename T>
 	concept BasicMeshNode = requires(T node) {
+		typename T::Vertex_t;
+		typename T::Scalar_t;
 		requires gv::util::PointLike<decltype(node.vertex)>;
 		{ node.elems  } -> std::convertible_to<std::vector<size_t>>;
 		{ node.boundary_faces  } -> std::convertible_to<std::vector<size_t>>;
@@ -225,7 +255,7 @@ namespace gv::mesh
 	template <BasicMeshNode Node_t>
 	bool operator==(const Node_t &A, const Node_t &B) {return A.vertex==B.vertex;}
 
-
+	/// Node printing
 	template<BasicMeshNode Node_t>
 	std::ostream& operator<<(std::ostream& os, const Node_t &node) {
 		os << "vertex= " << node.vertex << "\n";
@@ -237,7 +267,12 @@ namespace gv::mesh
 		return os;
 	}
 
-
+	/// Node name printing
+	template<BasicMeshNode Node_t>
+	std::string nodeTypeName() {
+		if constexpr (std::same_as<Node_t,BasicNode<typename Node_t::Vertex_t>>) {return "BasicNode";}
+		else {return "UNKNOWN";}
+	}
 
 	/////////////////////////////////////////////////
 	/// A container for storing the nodes in an octree for more efficeint lookup. This is important as we must query if a node already exists in the mesh.
@@ -246,15 +281,16 @@ namespace gv::mesh
 	template<BasicMeshNode Node_t, int n_data=64>
 	class NodeOctree : public gv::util::BasicOctree_Point<Node_t, Node_t::dim, n_data, typename Node_t::Scalar_t>
 	{
+		using Parent_t = gv::util::BasicOctree_Point<Node_t, Node_t::dim, n_data, typename Node_t::Scalar_t>;
 	public:
 		using Data_t = Node_t;
 		using Box_t  = gv::util::Box<Node_t::dim, typename Node_t::Scalar_t>;
 
-		NodeOctree() : //if bounding box is unknown ahead of time
-			gv::util::BasicOctree_Point<Node_t, Node_t::dim, n_data, typename Node_t::Scalar_t>(1024) {}
+		NodeOctree() : Parent_t(1024) {}
 
-		NodeOctree(const Box_t &bbox, const size_t capacity=1024) :
-			gv::util::BasicOctree_Point<Node_t, Node_t::dim, n_data, typename Node_t::Scalar_t>(bbox, capacity) {}
+		NodeOctree(const Box_t &bbox, const size_t capacity=1024) : Parent_t(bbox, capacity) {}
+
+		NodeOctree(const NodeOctree &other) : Parent_t(other) {}
 
 	private:
 		bool is_data_valid(const Box_t &box, const Data_t &data) const override {return box.contains(data.vertex);}

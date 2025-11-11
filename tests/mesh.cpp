@@ -3,26 +3,34 @@
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/basic_mesh.hpp"
-#include "mesh/topological_mesh.hpp"
+#include "mesh/colored_mesh.hpp"
+
+#include "mesh/logical_mesh.hpp"
 
 int main(int argc, char* argv[])
 {	
 	const int dim = 3;
 	using T = double;
 
-	using Point_t = gv::util::Point<dim,T>;
-	using Box_t   = gv::util::Box<dim,T>;
-	using Index_t = gv::util::Point<dim,size_t>;
+	using Point_t  = gv::util::Point<dim,T>;
+	using Box_t    = gv::util::Box<dim,T>;
+	using Index_t  = gv::util::Point<dim,size_t>;
 
-	using Node_t  = gv::mesh::BasicNode<Point_t>;
-	using Element_t = gv::mesh::ColorableElement;
+
+	using Vertex_t  = gv::util::Point<3,T>;
+	using Node_t    = gv::mesh::BasicNode<Vertex_t>;
+	using Face_t    = gv::mesh::BasicElement;
+	using Element_t = gv::mesh::ColoredElement;
+	// using Element_t = gv::mesh::BasicElement;
 	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
-	// using Mesh_t  = gv::mesh::TopologicalMesh<Node_t,Element_t,method>;
-	using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t>;
+	using Mesh_t  = gv::mesh::ColoredMesh<Node_t,Element_t,Face_t,method>;
+	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
 	Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
 	Index_t N{10, 10, 10};
 	Mesh_t mesh(domain,N);
+
+	gv::mesh::LogicalMesh logical_mesh(mesh);
 
 	// for (int n=0; n<1; n++){
 	// 	const size_t nElems = mesh.nElems(false);
@@ -41,14 +49,19 @@ int main(int argc, char* argv[])
 	// mesh.compute_boundary();
 	// Mesh_t boundary = mesh.boundary_mesh();
 	
-
-	std::cout << mesh << std::endl;
-	
 	// std::cout << "colors are valid? " << mesh.colors_are_valid() << std::endl;
 
+	//loop though boundary elements
 	// for (auto it=mesh.boundaryBegin(); it!=mesh.boundaryEnd(); ++it) {std::cout << *it << std::endl;}
 
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
+	//loop though elements
+	// for (const auto &ELEM : mesh) {std::cout << ELEM << std::endl;}
+
+	std::cout << logical_mesh << std::endl;
+
+	gv::mesh::memorySummary(mesh);
+
+	logical_mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true);
 
 

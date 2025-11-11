@@ -2,9 +2,10 @@
 
 #include "mesh/mesh_util.hpp"
 
+#include <iostream>
+
 #include <vector>
 #include <array>
-#include <string>
 #include <cassert>
 
 #include <atomic>
@@ -12,9 +13,6 @@
 
 namespace gv::mesh
 {
-	/////////////////////////////////////////////////
-	/// Concept for a colerable element
-	/////////////////////////////////////////////////
 
 	/////////////////////////////////////////////////
 	/// Coloring methods
@@ -23,6 +21,18 @@ namespace gv::mesh
 		GREEDY,   //first available color
 		BALANCED, //available color with minimal count
 	};
+
+	/////////////////////////////////////////////////
+	/// Function to print coloring methods
+	/////////////////////////////////////////////////
+	std::ostream& operator<<(std::ostream &os, const ColorMethod method) {
+		switch (method) {
+			case ColorMethod::GREEDY:   return os << "GREEDY";
+			case ColorMethod::BALANCED: return os << "BALANCED";
+			default:                    return os << "UNKNOWN";
+		}
+	}
+
 
 	/////////////////////////////////////////////////
 	/// This class is to be used to color a TopologicalMesh. There may be paralel mesh operations and the read/writes
@@ -46,8 +56,10 @@ namespace gv::mesh
 		std::vector<Element_t>                     &_elements;
 		std::array<std::atomic<size_t>, MAX_COLORS> _counts;
 
+		static constexpr ColorMethod color_method = COLOR_METHOD;
+		template<ColorMethod C, ColorableMeshElement E, size_t M>
+		friend std::ostream& operator<<(std::ostream &os, const MeshColorManager<C,E,M> &manager);
 	public:
-		
 		size_t colorCount(const size_t c) const {return _counts[c];}
 		size_t nColors() const {
 			for (size_t c=0; c<MAX_COLORS; c++) {
@@ -63,7 +75,7 @@ namespace gv::mesh
 		/// @param elem_idx The index in _elements of the element to be colored
 		/// @param neighbors The neighbors that cannot share a color with the element. It is assumed that the neighbors are already colored.
 		/////////////////////////////////////////////////
-		size_t getColorUnlocked(const size_t elem_idx, const std::vector<size_t> &neighbors) const {
+		size_t getColor_Unlocked(const size_t elem_idx, const std::vector<size_t> &neighbors) const {
 			//The method that calls this has the responsibility of ensuring that _elements[elem_idx] and _elements[neighbors[i]] are readable.
 			//The method that calls this has the responsibility of ensuring that _colors[] does not change (if that is necessary)
 			//Note that _counts[] is atomic so reading and incrementing will not fail, but there may be read race conditions.
@@ -77,10 +89,7 @@ namespace gv::mesh
 			for (size_t e_idx : neighbors) {
 				if (_elements[e_idx].color < MAX_COLORS) {
 					color_allowed[_elements[e_idx].color] = false;
-				} else {
-					// throw std::runtime_error("Element " + std::to_string(e_idx) + " is an uncolored neighbor of element " + 
-					// 	std::to_string(elem_idx));
-				}
+				} //note that is is sometimes possible that neighbors are uncolored. in this case neighbor.color=(size_t) -1.
 			}
 
 			//get the color
@@ -118,9 +127,9 @@ namespace gv::mesh
 		/// @param elem_idx The index in _elements of the element to be colored
 		/// @param neighbors The neighbors that cannot share a color with the element. It is assumed that the neighbors are already colored.
 		/////////////////////////////////////////////////
-		void setColorThreadLocked(const size_t elem_idx, const std::vector<size_t> &neighbors) {
+		void setColor_Locked(const size_t elem_idx, const std::vector<size_t> &neighbors) {
 			_mutex.lock();
-			size_t this_color = getColorUnlocked(elem_idx, neighbors);
+			size_t this_color = getColor_Unlocked(elem_idx, neighbors);
 			_elements[elem_idx].color = this_color;
 			_counts[this_color]++;
 			_mutex.unlock();
@@ -137,11 +146,11 @@ namespace gv::mesh
 		/// @param elem_idx The index in _elements of the element to be colored
 		/// @param neighbors The neighbors that cannot share a color with the element. It is assumed that the neighbors are already colored.
 		/////////////////////////////////////////////////
-		void setColorUnlocked(const size_t elem_idx, const std::vector<size_t> &neighbors) {
+		void setColor_Unlocked(const size_t elem_idx, const std::vector<size_t> &neighbors) {
 			const size_t old_color = _elements[elem_idx].color;
 			if (old_color<MAX_COLORS and _counts[old_color]>0) {_counts[old_color]--;}
 
-			size_t this_color = getColorUnlocked(elem_idx, neighbors);
+			size_t this_color = getColor_Unlocked(elem_idx, neighbors);
 			_elements[elem_idx].color = this_color;
 			_counts[this_color]++;
 
@@ -156,9 +165,23 @@ namespace gv::mesh
 
 			//re-run until the color is valid
 			if (!is_valid) {
-				setColorUnlocked(elem_idx, neighbors);
+				setColor_Unlocked(elem_idx, neighbors);
 				std::cout << "Race condition when coloring element " << elem_idx << " (neighbor colors changed). Re-coloring.\n";
 			}
 		}
 	};
+
+	///////////////////////////////
+	/// Function to print color information.
+	///////////////////////////////
+	template<ColorMethod C, ColorableMeshElement E, size_t M>
+	std::ostream& operator<<(std::ostream &os, const MeshColorManager<C,E,M> &manager) {
+		os << "ColorMethod= " << manager.color_method << "\n";
+		
+		const size_t nColors = manager.nColors();
+		os << "colors (" << nColors << ") : [";
+		for (size_t c=0; c<nColors; c++) {os << " " << manager._counts[c];}
+		os << " ]";
+		return os;
+	}
 }
