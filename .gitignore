@@ -7,3 +7,6 @@
 
 # Sublime workspace
 *.sublime-workspace
+
+# Auxilery files
+*.out

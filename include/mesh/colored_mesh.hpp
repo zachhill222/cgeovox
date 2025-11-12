@@ -64,13 +64,13 @@ namespace gv::mesh
 			BasicMesh<Node_t,Element_t,Face_t>(),
 			_color_manager(this->_elements) {}
 		
-		ColoredMesh(const Box_t<3> &domain, const Index_t<3> &N) :
+		ColoredMesh(const Box_t<3> &domain, const Index_t<3> &N, const bool useIsopar=false) :
 			BasicMesh<Node_t,Element_t,Face_t>(domain),
-			_color_manager(this->_elements) {this->setVoxelMesh_Locked(domain, N);}
+			_color_manager(this->_elements) {this->setVoxelMesh_Locked(domain, N, useIsopar);}
 		
-		ColoredMesh(const Box_t<2> &domain, const Index_t<2> &N) :
+		ColoredMesh(const Box_t<2> &domain, const Index_t<2> &N, const bool useIsopar=false) :
 			BasicMesh<Node_t,Element_t,Face_t>(domain),
-			_color_manager(this->_elements) {this->setPixelMesh_Locked(domain, N);}
+			_color_manager(this->_elements) {this->setPixelMesh_Locked(domain, N, useIsopar);}
 
 
 		/////////////////////////////////////////////////

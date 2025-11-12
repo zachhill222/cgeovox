@@ -9,7 +9,7 @@
 
 int main(int argc, char* argv[])
 {	
-	const int dim = 2;
+	const int dim = 3;
 	using T = double;
 
 	using Point_t  = gv::util::Point<dim,T>;
@@ -21,15 +21,19 @@ int main(int argc, char* argv[])
 	using Face_t    = gv::mesh::BasicElement;
 	using Element_t = gv::mesh::ColoredElement;
 	// using Element_t = gv::mesh::BasicElement;
+
 	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
 	using Mesh_t  = gv::mesh::ColoredMesh<Node_t,Element_t,Face_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
 	Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
-	Index_t N{10, 10, 10};
-	Mesh_t mesh(domain,N);
+	Index_t N{64, 64, 64};
+	Mesh_t mesh(domain,N,false);
 
-	gv::mesh::LogicalMesh logical_mesh(mesh);
+	auto fun = [](Vertex_t old) -> Vertex_t {old[2] += 0.25*(1-old[0])*(1-old[1]); return old;};
+	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {mesh.moveVertex(it->index, 2*fun(it->vertex));}
+
+	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
 	// for (int n=0; n<1; n++){
 	// 	const size_t nElems = mesh.nElems(false);
@@ -56,11 +60,11 @@ int main(int argc, char* argv[])
 	//loop though elements
 	// for (const auto &ELEM : mesh) {std::cout << ELEM << std::endl;}
 
-	std::cout << logical_mesh << std::endl;
+	std::cout << mesh << std::endl;
 
 	gv::mesh::memorySummary(mesh);
 
-	logical_mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
+	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true);
 
 

@@ -110,8 +110,8 @@ namespace gv::mesh
 			high[0] = domain.high()[0]; high[1] = domain.high()[1]; high[2] =  1.0;
 			_nodes.set_bbox(Box_t{low,high});
 		}
-		BasicMesh(const Box_t<3> &domain, const Index_t<3> &N) : BasicMesh(domain) {setVoxelMesh_Locked(domain, N);}
-		BasicMesh(const Box_t<2> &domain, const Index_t<2> &N) : BasicMesh(domain) {setPixelMesh_Locked(domain, N);}
+		BasicMesh(const Box_t<3> &domain, const Index_t<3> &N, const bool useIsopar=false) : BasicMesh(domain) {setVoxelMesh_Locked(domain, N, useIsopar);}
+		BasicMesh(const Box_t<2> &domain, const Index_t<2> &N, const bool useIsopar=false) : BasicMesh(domain) {setPixelMesh_Locked(domain, N, useIsopar);}
 
 
 		/////////////////////////////////////////////////
@@ -142,12 +142,20 @@ namespace gv::mesh
 
 
 		/////////////////////////////////////////////////
+		/// Read elements and vertices externally
+		/////////////////////////////////////////////////
+		const Node_t& getNode(const size_t idx) const {return _nodes[idx];}
+		const Element_t& getElement(const size_t idx) const {return _elements[idx];}
+		const Face_t& getBoundaryFace(const size_t idx) const {return _boundary[idx];}
+
+
+		/////////////////////////////////////////////////
 		/// Mesh a 3D box using voxels of equal size. This can be used for testing or creating a simple initial mesh.
 		///
 		/// @param domain The domain to be meshed
 		/// @param N The number of elements along each coordinate axis
 		/////////////////////////////////////////////////
-		void setVoxelMesh_Locked(const Box_t<3> &domain, const Index_t<3>& N);
+		void setVoxelMesh_Locked(const Box_t<3> &domain, const Index_t<3>& N, const bool useIsopar=false);
 
 
 		/////////////////////////////////////////////////
@@ -156,7 +164,7 @@ namespace gv::mesh
 		/// @param domain The domain to be meshed
 		/// @param N The number of elements along each coordinate axis
 		/////////////////////////////////////////////////
-		void setPixelMesh_Locked(const Box_t<2> &domain, const Index_t<2>& N);
+		void setPixelMesh_Locked(const Box_t<2> &domain, const Index_t<2>& N, const bool useIsopar=false);
 
 
 		/////////////////////////////////////////////////
@@ -270,12 +278,17 @@ namespace gv::mesh
 
 
 		/////////////////////////////////////////////////
-		/// Print the details of the nodes and elements to the output legacy vtk binary file. This includes element colors and which elements each node belongs to.
-		/// Due to the way that field data is stored in BINARY VTK format, it will be difficult to append any additional information to a file afterwards.
+		/// Method to move a vertex in the mesh. If any of the elements associated with this node
+		/// are not isoparametric, they are converted to their isoparametric versions.
 		///
-		/// @param file The output output file that already contains the mesh topology in legacy vtk binary format.
+		/// @param node_idx   The index of the node that will be moved
+		/// @param new_vertex The coordinate where the node will be moved to
 		/////////////////////////////////////////////////
-		// void print_mesh_details_binary_vtk(std::ofstream &file=true) const;
+		void moveVertex(const size_t node_idx, Vertex_t new_vertex) {
+			Node_t &NODE = _nodes[node_idx];
+			for (size_t e_idx : NODE.elems) {makeIsoparametric(_elements[e_idx]);}
+			NODE.vertex = new_vertex;
+		}
 		
 
 		/////////////////////////////////////////////////
@@ -349,8 +362,8 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Iterators for _nodes
 		/////////////////////////////////////////////////
-		virtual std::vector<Node_t>::iterator nodeBegin()       {return _nodes.begin();}
-		virtual std::vector<Node_t>::iterator nodeEnd()         {return _nodes.end();}
+		virtual std::vector<Node_t>::iterator nodeBegin()             {return _nodes.begin();}
+		virtual std::vector<Node_t>::iterator nodeEnd()               {return _nodes.end();}
 		virtual std::vector<Node_t>::const_iterator nodeBegin() const {return _nodes.cbegin();}
 		virtual std::vector<Node_t>::const_iterator nodeEnd()   const {return _nodes.cend();}
 
@@ -363,38 +376,68 @@ namespace gv::mesh
 	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
 	void BasicMesh<Node_t,Element_t,Face_t>::setVoxelMesh_Locked(
 			const Box_t<3> &domain,
-			const typename BasicMesh<Node_t,Element_t,Face_t>::Index_t<3>& N) {
+			const typename BasicMesh<Node_t,Element_t,Face_t>::Index_t<3>& N,
+			const bool useIsopar) {
 		
 		using Vertex_t = Node_t::Vertex_t;
+
+		//switch to hex if needed
+		int ID = VOXEL_VTK_ID;
+		if (useIsopar) {ID=HEXAHEDRON_VTK_ID;}
 
 		//reserve space
 		_nodes.clear();
 		_elements.clear();
 
 		_nodes.reserve((N[0]+1) * (N[1]+1) * (N[2]+1));
-		_elements.reserve(N[0]*N[1]*N[2]);
+		_elements.resize(N[0]*N[1]*N[2]);
 		
-		//construct the mesh
+		//initialize the nodes
 		const Vertex_t H = domain.sidelength() / Vertex_t(N);
-		for (size_t i=0; i<N[0]; i++) {
-			for (size_t j=0; j<N[1]; j++) {
-				for (size_t k=0; k<N[2]; k++) {
-					//define element extents
-					Vertex_t low  = domain.low() + Vertex_t{i,j,k} * H;
-					Vertex_t high = domain.low() + Vertex_t{i+1,j+1,k+1} * H;
-					Box_t   elem  {low, high};
-				
-					//assemble the list of vertices
-					std::vector<Vertex_t> element_vertices(vtk_n_nodes(VOXEL_VTK_ID));
-					for (size_t l=0; l<vtk_n_nodes(VOXEL_VTK_ID); l++) {
-						element_vertices[l] = elem.voxelvertex(l);
-					}
-
-					//put the element into the mesh
-					constructElement_Locked(element_vertices, VOXEL_VTK_ID);
+		for (size_t i=0; i<=N[0]; i++) {
+			for (size_t j=0; j<=N[1]; j++) {
+				for (size_t k=0; k<=N[2]; k++) {
+					Vertex_t vertex  = domain.low() + Vertex_t{i,j,k} * H;
+					Node_t NODE(vertex);
+					NODE.index = _nodes.size();
+					_nodes.push_back(NODE);
 				}
 			}
 		}
+
+
+
+		//construct the mesh
+		//by staggering which elements we construct, we can make them in 8 parallel batches
+		for (size_t ii=0; ii<2; ii++) {
+			for (size_t jj=0; jj<2; jj++) {
+				for (size_t kk=0; kk<2; kk++) {
+					#pragma omp parallel for collapse(3) //after offsets, these groups do not interact (cubes have a known coloring)
+					for (size_t i=ii; i<N[0]; i+=2) {
+						for (size_t j=jj; j<N[1]; j+=2) {
+							for (size_t k=kk; k<N[2]; k+=2) {
+								//define element extents
+								Vertex_t low  = domain.low() + Vertex_t{i,j,k} * H;
+								Vertex_t high = domain.low() + Vertex_t{i+1,j+1,k+1} * H;
+								Box_t   elem  {low, high};
+							
+								//assemble the list of vertices
+								std::vector<Vertex_t> element_vertices(vtk_n_nodes(ID));
+								for (size_t l=0; l<vtk_n_nodes(ID); l++) {
+									if (useIsopar) {element_vertices[l] = elem.hexvertex(l);}
+									else {element_vertices[l] = elem.voxelvertex(l);}
+								}
+
+								//put the element into the mesh
+								const size_t idx = i + N[0]*(j + k*N[1]);
+								constructElement_Unlocked(element_vertices, ID, idx);
+							}
+						}
+					}
+				}
+			}
+		}
+
 		computeConformalBoundary_Locked();
 	}
 
@@ -402,10 +445,17 @@ namespace gv::mesh
 	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
 	void BasicMesh<Node_t,Element_t,Face_t>::setPixelMesh_Locked(
 			const Box_t<2> &domain,
-			const typename BasicMesh<Node_t,Element_t,Face_t>::Index_t<2>& N) {
+			const typename BasicMesh<Node_t,Element_t,Face_t>::Index_t<2>& N,
+			const bool useIsopar) {
 		
 		using Vertex_t = Node_t::Vertex_t;
 		using Point_2  = gv::util::Point<2,typename Node_t::Scalar_t>;
+		
+		//switch to quad if needed
+		int ID = PIXEL_VTK_ID;
+		if (useIsopar) {ID=QUAD_VTK_ID;}
+
+
 		//reserve space
 		_nodes.clear();
 		_elements.clear();
@@ -423,13 +473,14 @@ namespace gv::mesh
 				Box_t<2>   elem  {low, high};
 			
 				//assemble the list of vertices
-				std::vector<Vertex_t> element_vertices(vtk_n_nodes(PIXEL_VTK_ID));
-				for (size_t l=0; l<vtk_n_nodes(PIXEL_VTK_ID); l++) {
-					element_vertices[l] = Vertex_t(elem.voxelvertex(l));
+				std::vector<Vertex_t> element_vertices(vtk_n_nodes(ID));
+				for (size_t l=0; l<vtk_n_nodes(ID); l++) {
+					if (useIsopar) {element_vertices[l] = Vertex_t(elem.hexvertex(l));}
+					else {element_vertices[l] = Vertex_t(elem.voxelvertex(l));}
 				}
 
 				//put the element into the mesh
-				constructElement_Locked(element_vertices, PIXEL_VTK_ID);
+				constructElement_Locked(element_vertices, ID);
 			}
 		}
 		computeConformalBoundary_Locked();
@@ -500,8 +551,10 @@ namespace gv::mesh
 			size_t n_idx = _nodes.find(NODE); //_nodes has its own mutex lock (multiple threads can read)
 			if (n_idx<_nodes.size()) {nodes[n]=n_idx;}
 			else {
-				[[maybe_unused]] int flag = _nodes.push_back(NODE, nodes[n]); //_nodes has its own mutex lock (single thread can write)
+				[[maybe_unused]] int flag = _nodes.push_back(NODE, n_idx); //_nodes has its own mutex lock (single thread can write)
+				nodes[n] = n_idx;
 				assert(flag>=0);
+				if (flag==1) {_nodes[n_idx].index = n_idx;}
 			}
 		}
 	}
@@ -522,10 +575,6 @@ namespace gv::mesh
 		//move ELEM to _elements
 		ELEM.index = _elements.size();
 		_elements.push_back(std::move(ELEM));
-
-		//color
-		std::vector<size_t> neighbors;
-		getElementNeighbors_Unlocked(e_idx, neighbors); //lock is already active
 	}
 
 
@@ -542,10 +591,6 @@ namespace gv::mesh
 		//move ELEM to _elements
 		ELEM.index = elem_idx;
 		_elements[elem_idx] = std::move(ELEM);
-
-		//color
-		std::vector<size_t> neighbors;
-		getElementNeighbors_Unlocked(elem_idx, neighbors);
 	}
 
 
@@ -584,6 +629,7 @@ namespace gv::mesh
 		//this will finalize the logic of coloring and linking the nodes back to this element.
 		insertElement_Unlocked(ELEM, elem_idx);
 	}
+
 
 
 	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>

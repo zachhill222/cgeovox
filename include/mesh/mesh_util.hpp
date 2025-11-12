@@ -242,6 +242,7 @@ namespace gv::mesh
 		Vertex_t vertex; /// The location of this node in space.
 		std::vector<size_t> elems; /// The elements that use this node
 		std::vector<size_t> boundary_faces; /// The boundary faces/elements that use this node
+		size_t index; /// The index of this node in _nodes. Sometimes helpful to have this recorded in the node.
 
 		BasicNode(const Vertex_t &coord) : vertex(coord), elems(), boundary_faces(0) {}
 		BasicNode() : vertex(), elems(), boundary_faces(0) {}

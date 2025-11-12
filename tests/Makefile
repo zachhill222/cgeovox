@@ -11,8 +11,8 @@ CC         = g++ -fsanitize=address -std=c++20 -fopenmp -pg -g #  -g for gdb, -p
 CFLAGS     = -Wall -O0
 
 #perfomance testing
-# CC         = g++ -DNDEBUG -std=c++20 -fopenmp
-# CFLAGS     = -Wall -O3
+CC         = g++ -DNDEBUG -std=c++20 -fopenmp
+CFLAGS     = -Wall -O3
 
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
