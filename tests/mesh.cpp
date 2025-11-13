@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
 
-	for (int n=0; n<4; n++){
+	for (int n=0; n<6; n++){
 		const size_t nElems = mesh.nElems();
 		for (size_t i=0; i<nElems; i+=1) {
 			mesh.splitElement(i);
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
 
 	
 
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true);
 
 

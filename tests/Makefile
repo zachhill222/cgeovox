@@ -11,7 +11,7 @@ TARGETS    = $(SRC:.cpp=)
 # CFLAGS     = -Wall -O0
 
 #perfomance testing
-CC         = g++ -DNDEBUG -std=c++20 -fopenmp
+CC         = g++ -DNDEBUG -std=c++20 #-fopenmp
 CFLAGS     = -Wall -O3
 
 LDFLAGS    = -L$(LIB_DIR)

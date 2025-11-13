@@ -233,12 +233,12 @@ namespace gv::mesh {
 		getElementDescendents_Unlocked(elem_idx, descendents, false);
 
 		Element_t &ELEM = this->_elements[elem_idx];
-		std::cout << "joinDescendents " << ELEM << std::endl;
+		// std::cout << "joinDescendents " << ELEM << std::endl;
 
 		//de-activate the descendents and any boundary faces
 		for (size_t d_idx : descendents) {
 			Element_t &DESCENDENT = this->_elements[d_idx];
-			std::cout << DESCENDENT << std::endl;
+			// std::cout << DESCENDENT << std::endl;
 			DESCENDENT.is_active = false;
 			this->_color_manager.decrementCount(DESCENDENT.color);
 		}
