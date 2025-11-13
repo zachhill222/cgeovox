@@ -143,7 +143,7 @@ namespace gv::mesh {
 		ElementIterator moveToEnd() {curr_idx = _elements->size(); return *this;}
 		ElementIterator moveToBegin() {
 			curr_idx=0;
-			if (!isValid(curr_idx)) {retreat();}
+			if (!isValid(curr_idx)) {advance();}
 			return *this;
 		}
 	};

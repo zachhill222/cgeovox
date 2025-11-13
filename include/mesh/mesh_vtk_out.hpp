@@ -21,8 +21,8 @@ namespace gv::mesh {
 		using Element_t = typename Mesh_t::element_type;
 
 		//get number of nodes and elements
-		const size_t nNodes    = mesh.nNodes_Locked();
-		const size_t nElements = mesh.nElems_Locked();
+		const size_t nNodes    = mesh.nNodes();
+		const size_t nElements = mesh.nElems();
 
 		//create buffer
 		std::stringstream buffer;
@@ -81,8 +81,8 @@ namespace gv::mesh {
 		using Element_t = typename Mesh_t::element_type;
 		
 		//get number of nodes and elements
-		const size_t nNodes    = mesh.nNodes_Locked();
-		const size_t nElements = mesh.nElems_Locked();
+		const size_t nNodes    = mesh.nNodes();
+		const size_t nElements = mesh.nElems();
 
 		std::stringstream buffer;
 
@@ -219,8 +219,8 @@ namespace gv::mesh {
 		using Element_t = typename Mesh_t::element_type;
 
 		//get number of nodes and elements
-		const size_t nNodes    = mesh.nNodes_Locked();
-		const size_t nElements = mesh.nElems_Locked();
+		const size_t nNodes    = mesh.nNodes();
+		const size_t nElements = mesh.nElems();
 
 	    //only 32 and 64 bit data types are supported. can add more if necessary
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
@@ -346,8 +346,8 @@ namespace gv::mesh {
 		using Element_t = typename Mesh_t::element_type;
 
 		//get number of nodes and elements
-		const size_t nNodes    = mesh.nNodes_Locked();
-		const size_t nElements = mesh.nElems_Locked();
+		const size_t nNodes    = mesh.nNodes();
+		const size_t nElements = mesh.nElems();
 
 	    //only 32 and 64 bit data types are supported. can add more if necessary
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");

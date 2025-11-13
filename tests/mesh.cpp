@@ -2,11 +2,11 @@
 #include "util/point.hpp"
 
 #include "mesh/mesh_util.hpp"
-#include "mesh/basic_mesh.hpp"
-#include "mesh/colored_mesh.hpp"
-#include "mesh/hierarchical_mesh.hpp"
+#include "mesh/mesh_basic.hpp"
+#include "mesh/mesh_colored.hpp"
+#include "mesh/mesh_hierarchical.hpp"
 
-#include "mesh/logical_mesh.hpp"
+#include "mesh/mesh_view.hpp"
 
 int main(int argc, char* argv[])
 {	
@@ -19,34 +19,36 @@ int main(int argc, char* argv[])
 
 	using Vertex_t  = gv::util::Point<3,T>;
 	using Node_t    = gv::mesh::BasicNode<Vertex_t>;
-	using Face_t    = gv::mesh::BasicElement;
-	using Element_t = gv::mesh::ColoredElement;
+	using Face_t    = gv::mesh::HierarchicalElement;
+	using Element_t = gv::mesh::HierarchicalColoredElement;
 	// using Element_t = gv::mesh::BasicElement;
 
 	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
-	using Mesh_t  = gv::mesh::ColoredMesh<Node_t,Element_t,Face_t,method>;
+	using Mesh_t  = gv::mesh::HierarchicalMesh<Node_t,Element_t,Face_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
 	Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
-	Index_t N{64, 64, 64};
+	Index_t N{2, 2, 1};
 	Mesh_t mesh(domain,N,false);
+
+
+	// gv::mesh::LogicalMesh logical_mesh(mesh);
+
+
+	for (int n=0; n<4; n++){
+		const size_t nElems = mesh.nElems();
+		for (size_t i=0; i<nElems; i+=1) {
+			mesh.splitElement(i);
+		}
+		mesh.processSplit();
+	}
+
 
 	auto fun = [](Vertex_t old) -> Vertex_t {old[2] += 0.25*(1-old[0])*(1-old[1]); return old;};
 	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {mesh.moveVertex(it->index, 2*fun(it->vertex));}
 
-	// gv::mesh::LogicalMesh logical_mesh(mesh);
-
-	// for (int n=0; n<1; n++){
-	// 	const size_t nElems = mesh.nElems(false);
-	// 	for (size_t i=0; i<nElems; i+=2) {
-	// 		mesh.split_element(i);
-	// 	}
-	// 	mesh.process_refinement();
-	// }
-
-
 	// unrefine
-	// mesh.join_descendents(0);
+	mesh.joinDescendents(0);
 	// mesh.join_descendents(488);
 	// mesh.recolor();
 
@@ -62,8 +64,9 @@ int main(int argc, char* argv[])
 	// for (const auto &ELEM : mesh) {std::cout << ELEM << std::endl;}
 
 	std::cout << mesh << std::endl;
-
 	gv::mesh::memorySummary(mesh);
+
+	
 
 	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true);

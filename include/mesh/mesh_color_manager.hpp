@@ -68,6 +68,16 @@ namespace gv::mesh
 			return MAX_COLORS;
 		}
 
+		void decrementCount(const size_t color, const size_t count=1) {
+			assert(_counts[color]>=count);
+			_counts[color]-=count;
+		}
+
+
+		void incrementCount(const size_t color, const size_t count=1) {
+			_counts[color]+=count;
+		}
+
 		/////////////////////////////////////////////////
 		/// Get a valid color for the specified element with the specified neighbors.
 		/// This method has no thread protection.

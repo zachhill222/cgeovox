@@ -1,8 +1,8 @@
 #pragma once
 
 #include "mesh/mesh_util.hpp"
-#include "mesh/basic_mesh.hpp"
-#include "mesh/color_manager.hpp"
+#include "mesh/mesh_basic.hpp"
+#include "mesh/mesh_color_manager.hpp"
 
 #include "mesh/vtk_elements.hpp"
 #include "mesh/vtk_defs.hpp"
@@ -34,7 +34,7 @@ namespace gv::mesh
 			 ColorableMeshElement Element_t    = ColoredElement,
 			 BasicMeshElement     Face_t       = BasicElement,
 			 ColorMethod          COLOR_METHOD = ColorMethod::GREEDY,
-			 size_t               MAX_COLORS   = 32>
+			 size_t               MAX_COLORS   = 128>
 	class ColoredMesh : public BasicMesh<Node_t,Element_t,Face_t>
 	{
 	public:

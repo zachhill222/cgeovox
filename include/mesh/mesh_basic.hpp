@@ -29,7 +29,7 @@ namespace gv::mesh
 	/// Forward declare a friend class that is used to create views into an actual mesh
 	/////////////////////////////////////////////////
 	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	class LogicalMesh;
+	class MeshView;
 
 
 	/////////////////////////////////////////////////
@@ -59,9 +59,9 @@ namespace gv::mesh
 		template<typename M, ContainerType C>
 		friend class ElementIterator;
 
-		/// Make the LogicalMesh class a friend
+		/// Make the MeshView class a friend
 		template<BasicMeshNode Node_u, BasicMeshElement Element_u, BasicMeshElement Face_u>
-		friend class LogicalMesh;
+		friend class MeshView;
 
 		static_assert(HierarchicalMeshElement<Element_t> ? HierarchicalMeshElement<Face_t> : true, "If Element_t is Hierarchical, then Face_t must be Hierarchical");
 		static_assert(HierarchicalMeshElement<Face_t> ? HierarchicalMeshElement<Element_t> : true, "If Face_t is Hierarchical, then Element_t must be Hierarchical");
@@ -117,8 +117,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Get the total number of elements in the mesh. Marked as virtual as hierarchical meshes need to check for active elements.
 		/////////////////////////////////////////////////
-		virtual size_t nElems_Locked() const {
-			std::shared_lock<std::shared_mutex> lock(_rw_mtx);
+		virtual size_t nElems() const {
 			return _elements.size();
 		}
 
@@ -126,8 +125,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Get the total number of nodes in the mesh.
 		/////////////////////////////////////////////////
-		virtual size_t nNodes_Locked() const {
-			std::shared_lock<std::shared_mutex> lock(_rw_mtx);
+		virtual size_t nNodes() const {
 			return _nodes.size();
 		}
 
@@ -135,8 +133,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Get the total number of boundary faces in the mesh.
 		/////////////////////////////////////////////////
-		virtual size_t nBoundaryFaces_Locked() const {
-			std::shared_lock<std::shared_mutex> lock(_rw_mtx);
+		virtual size_t nBoundaryFaces() const {
 			return _boundary.size();
 		}
 
@@ -342,7 +339,7 @@ namespace gv::mesh
 
 		/////////////////////////////////////////////////
 		/// Iterators for _elements. These are the most common iterators and get the defualt begin() and end() methods.
-		/// Marked as virtual so they can be pointed at other arrays for views into the mesh. (i.e., the LogicalMesh class).
+		/// Marked as virtual so they can be pointed at other arrays for views into the mesh. (i.e., the MeshView class).
 		/////////////////////////////////////////////////
 		virtual ElementIterator_t begin()       {return ElementIterator_t(this, 0);}
 		virtual ElementIterator_t end()         {return ElementIterator_t(this, _elements.size());}
@@ -715,9 +712,9 @@ namespace gv::mesh
 
 	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
 	std::ostream& operator<<(std::ostream& os, const BasicMesh<Node_t,Element_t,Face_t> &mesh) {
-		os << "nElems= "         << mesh.nElems_Locked()          << " (Element_t= " << elementTypeName<Element_t>() << ")\n";
-		os << "nNodes= "         << mesh.nNodes_Locked()          << " (Node_t= "    << nodeTypeName<Node_t>() << ")\n";
-		os << "nBoundaryFaces= " << mesh.nBoundaryFaces_Locked()  << " (Face_t= "    << elementTypeName<Face_t>() << ")\n";
+		os << "nElems= "         << mesh.nElems()          << " (Element_t= " << elementTypeName<Element_t>() << ")\n";
+		os << "nNodes= "         << mesh.nNodes()          << " (Node_t= "    << nodeTypeName<Node_t>() << ")\n";
+		os << "nBoundaryFaces= " << mesh.nBoundaryFaces()  << " (Face_t= "    << elementTypeName<Face_t>() << ")\n";
 		return os;
 	}
 

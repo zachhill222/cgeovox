@@ -45,10 +45,16 @@ namespace gv::mesh
 	template<typename T>
 	concept HierarchicalMeshElement = BasicMeshElement<T> and requires(T elem) {
 		{ elem.is_active } -> std::convertible_to<bool>;
+		{ elem.depth     } -> std::convertible_to<size_t>;
 		{ elem.parent    } -> std::convertible_to<size_t>;
 		{ elem.children  } -> std::convertible_to<std::vector<size_t>>;
 	};
 
+	/////////////////////////////////////////////////
+	/// Concept for a hierarchical colorable element
+	/////////////////////////////////////////////////
+	template<typename T>
+	concept HierarchicalColorableMeshElement = HierarchicalMeshElement<T> and ColorableMeshElement<T>;
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -87,9 +93,10 @@ namespace gv::mesh
 	/// Struct for hierarchical elements
 	/////////////////////////////////////////////////
 	struct HierarchicalElement : BasicElement {
-		size_t parent = (size_t) -1;
-		std::vector<size_t> children;
+		size_t parent  = (size_t) -1;
+		size_t depth   = 0;
 		bool is_active = true;
+		std::vector<size_t> children;
 		HierarchicalElement() {}
 		HierarchicalElement(const int vtkID) : BasicElement(vtkID) {children.reserve(vtk_n_children(vtkID));}
 		HierarchicalElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID) {children.reserve(vtk_n_children(vtkID));}
@@ -101,15 +108,12 @@ namespace gv::mesh
 	/////////////////////////////////////////////////
 	/// Struct for hierarchical colerable elements
 	/////////////////////////////////////////////////
-	struct HierarchicalColoredElement : BasicElement {
+	struct HierarchicalColoredElement : HierarchicalElement {
 		size_t color = (size_t) -1;
-		size_t parent = (size_t) -1;
-		std::vector<size_t> children;
-		bool is_active = true;
 		HierarchicalColoredElement() {}
-		HierarchicalColoredElement(const int vtkID) : BasicElement(vtkID) {children.reserve(vtk_n_children(vtkID));}
-		HierarchicalColoredElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID) {children.reserve(vtk_n_children(vtkID));}
-		HierarchicalColoredElement(const BasicElement& other) : BasicElement(other) {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalColoredElement(const int vtkID) : HierarchicalElement(vtkID) {}
+		HierarchicalColoredElement(const std::vector<size_t> &nodes, const int vtkID) : HierarchicalElement(nodes, vtkID) {}
+		HierarchicalColoredElement(const BasicElement& other) : HierarchicalElement(other) {}
 	};
 	static_assert(BasicMeshElement<HierarchicalColoredElement>, "HierarchicalColoredElement is not a BasicMeshElement");
 	static_assert(ColorableMeshElement<HierarchicalColoredElement>, "HierarchicalColoredElement is not a ColorableMeshElement");
@@ -190,8 +194,10 @@ namespace gv::mesh
 		}
 
 		if constexpr (HierarchicalMeshElement<Element_t>) {
+			os << "is_active= " << elem.is_active << "\n";
+			os << "depth= " << elem.depth << "\n";
 			os << "parent= " << elem.parent << "\n";
-			os << "children (" << elem.children.size() << ") : [";
+			os << "children ("  << elem.children.size() << ") : [";
 			for (size_t n : elem.children) {os << n << " ";}
 			os << "]\n";
 		}
