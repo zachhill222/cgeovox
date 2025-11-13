@@ -4,6 +4,7 @@
 #include "mesh/mesh_util.hpp"
 #include "mesh/basic_mesh.hpp"
 #include "mesh/colored_mesh.hpp"
+#include "mesh/hierarchical_mesh.hpp"
 
 #include "mesh/logical_mesh.hpp"
 

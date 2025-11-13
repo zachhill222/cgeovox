@@ -11,41 +11,30 @@
 #include "util/octree.hpp"
 #include "util/box.hpp"
 
-#include "concepts.hpp"
-
 #include <vector>
-#include <unordered_map>
-#include <unordered_set>
-#include <algorithm>
-#include <limits>
-
 #include <cassert>
-#include <cstring>
-
-#include <sstream>
 #include <iostream>
-#include <fstream>
-
 #include <omp.h>
-
-#include <shared_mutex>
 
 namespace gv::mesh
 {
 	/////////////////////////////////////////////////
-	/// This class defines a topological mesh that supports different element types. This class only tracks the topology of the mesh and topological operations.
-	/// Points can be stored using various precisions (e.g., T=float, double, long double). 
-	/// There is no requirement or guarentee that the elements are conforming or that they do not overlap.
-	/// Be aware that overlapping elements (in space) are not topologically overlapping if they do not share a node and could have the same color.
-	///
-	/// @tparam T The precision that the vertices are stored in. It may be completely unnecessary to store the vertices in double precision for some meshes.
-	///
-	/// @todo Add data and types to this description.
+	/// This class extends the BasicMesh class to color the elements. The coloring is handled by the _color_manager. Each element has
+	/// an ELEM.color field of type size_t. Any two elements in the mesh with the same color are guaranteed to have no nodes in common.
+	/// When the ColorMethod::GREEDY is used, each element will recieve the first (lowest) valid color value. When the ColorMethod::BALANCED
+	/// is used, each element will recieve the valid color with associated with the least number of elements.
+	/// 
+	/// @tparam Node_t       The type of node to use. Usually BasicNode<gv::util::Point<3,double>>.
+	/// @tparam Element_t    The type of element to use. This is usually set by the class that inherits from this class.
+	/// @tparam Face_t       The type of boundary element to use. This is usually set by the class that inherits from this class.
+	/// @tparam COLOR_METHOD The method used to color the elements. Either greedy (ColorMethod::GREEDY) or balanced (ColorMethod::BALANCED).
+	/// @tparam MAX_COLORS   The maximum number of colors that the mesh can have. Colors are stored in an std::array<std::atomic<size_t>> structure that is not resized.
 	/////////////////////////////////////////////////
 	template<BasicMeshNode        Node_t       = BasicNode<gv::util::Point<3,double>>,
 			 ColorableMeshElement Element_t    = ColoredElement,
 			 BasicMeshElement     Face_t       = BasicElement,
-			 ColorMethod          COLOR_METHOD = ColorMethod::GREEDY>
+			 ColorMethod          COLOR_METHOD = ColorMethod::GREEDY,
+			 size_t               MAX_COLORS   = 32>
 	class ColoredMesh : public BasicMesh<Node_t,Element_t,Face_t>
 	{
 	public:
@@ -57,7 +46,7 @@ namespace gv::mesh
 		using Vertex_t           = Node_t::Vertex_t;
 
 	protected:	
-		MeshColorManager<COLOR_METHOD, Element_t, 1024> _color_manager;   //used to manage the color of the elements
+		MeshColorManager<COLOR_METHOD, Element_t, MAX_COLORS> _color_manager;   //used to manage the color of the elements
 
 	public:
 		ColoredMesh() : 
@@ -127,32 +116,29 @@ namespace gv::mesh
 			_color_manager.setColor_Unlocked(elem_idx, neighbors);
 		}
 
+
 		/////////////////////////////////////////////////
 		/// Check if the coloring is valid
 		/////////////////////////////////////////////////
-		bool colorsValid_Unlocked() const;
+		bool colorsValid_Unlocked() const {
+			for (auto it=this->begin(); it!=this->end(); ++it) {
+				std::vector<size_t> neighbors;
+				this->getElementNeighbors_Unlocked(it->index, neighbors);
+				for (size_t n_idx: neighbors) {
+					if (it->color == this->_elements[n_idx].color) {
+						std::cout << "elements " << it->index << " and " << n_idx << " color (" << it->color << ") colision" << std::endl;
+						return false;
+					}
+				}
+			}
+			return true;
+		}
 
 
 		/// Friend function to print the mesh information
 		template <BasicMeshNode U, ColorableMeshElement Element_u, BasicMeshElement Face_u, ColorMethod COLORMETHOD>
 		friend std::ostream& operator<<(std::ostream& os, const ColoredMesh<U,Element_u,Face_u,COLORMETHOD> &mesh);
 	};
-
-
-	template<BasicMeshNode Node_t, ColorableMeshElement Element_t, BasicMeshElement Face_t, ColorMethod COLOR_METHOD>
-	bool ColoredMesh<Node_t,Element_t,Face_t,COLOR_METHOD>::colorsValid_Unlocked() const {
-		for (auto it=this->begin(); it!=this->end(); ++it) {
-			std::vector<size_t> neighbors;
-			this->getElementNeighbors_Unlocked(it->index, neighbors);
-			for (size_t n_idx: neighbors) {
-				if (it->color == this->_elements[n_idx].color) {
-					std::cout << "elements " << it->index << " and " << n_idx << " color (" << it->color << ") colision" << std::endl;
-					return false;
-				}
-			}
-		}
-		return true;
-	}
 
 
 	template<BasicMeshNode Node_t, ColorableMeshElement Element_t, BasicMeshElement Face_t, ColorMethod COLOR_METHOD>
