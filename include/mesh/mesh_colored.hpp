@@ -146,6 +146,7 @@ namespace gv::mesh
 		const BasicMesh<Node_t,Element_t,Face_t> &base_mesh = mesh;
 		os << base_mesh;
 		os << mesh._color_manager;
+		os << "HIHIH\n";
 		return os;
 	}
 }

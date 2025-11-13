@@ -24,18 +24,19 @@ int main(int argc, char* argv[])
 	// using Element_t = gv::mesh::BasicElement;
 
 	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
+	// using Mesh_t  = gv::mesh::ColoredMesh<Node_t,Element_t,Face_t,method>;
 	using Mesh_t  = gv::mesh::HierarchicalMesh<Node_t,Element_t,Face_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
-	Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
-	Index_t N{2, 2, 1};
+	Box_t domain(Point_t{0,0,0}, Point_t{1.0,1.0,0.05});
+	Index_t N{20, 20, 1};
 	Mesh_t mesh(domain,N,false);
 
 
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
 
-	for (int n=0; n<6; n++){
+	for (int n=0; n<3; n++){
 		const size_t nElems = mesh.nElems();
 		for (size_t i=0; i<nElems; i+=1) {
 			mesh.splitElement(i);
@@ -44,8 +45,8 @@ int main(int argc, char* argv[])
 	}
 
 
-	auto fun = [](Vertex_t old) -> Vertex_t {old[2] += 0.25*(1-old[0])*(1-old[1]); return old;};
-	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {mesh.moveVertex(it->index, 2*fun(it->vertex));}
+	// auto fun = [](Vertex_t old) -> Vertex_t {old[2] += 0.25*(1-old[0])*(1-old[1]); return old;};
+	// for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {mesh.moveVertex(it->index, 2*fun(it->vertex));}
 
 	// unrefine
 	mesh.joinDescendents(0);
@@ -68,7 +69,7 @@ int main(int argc, char* argv[])
 
 	
 
-	// mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true);
 
 

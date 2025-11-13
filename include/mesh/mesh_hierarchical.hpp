@@ -84,6 +84,9 @@ namespace gv::mesh {
 		}
 
 
+
+
+
 		/////////////////////////////////////////////////
 		/// Process the elements in the refinement list
 		/////////////////////////////////////////////////
@@ -607,6 +610,7 @@ namespace gv::mesh {
 	std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS> &mesh) {
 		const ColoredMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS> &base_mesh = mesh;
 		os << base_mesh;
+		// operator<<(os, static_cast<const ColoredMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>&>(mesh));
 		return os;
 	}
 }

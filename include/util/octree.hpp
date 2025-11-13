@@ -49,32 +49,36 @@ namespace gv::util
 	};
 
 	template<typename Data_t, int dim, int n_data, Float T>
-	bool BasicOctree_Point<Data_t,dim,n_data,T>::recursive_insert(Node_t* const node, const Data_t &val, const size_t idx)
-	{
-		//insert data into ALL leaf nodes that are valid
-		//it is assumed that is_data_valid(node,val) is true
+	bool BasicOctree_Point<Data_t,dim,n_data,T>::recursive_insert(Node_t* const node, const Data_t &val, const size_t idx) {
+		//if the data is not valid in the curren node, attempt to move up the tree
+		if (!is_data_valid(node->bbox, val)) {
+			if (node->parent != nullptr) {return recursive_insert(node->parent, val, idx);}
+			else {return false;}
+		}
+
+
+		//the data must be valid in this node now
 		assert(is_data_valid(node->bbox,val));
 
 
 		//in valid node. store index to data if there is room
-		if (node->data_cursor < n_data)
-		{
-			append_index(node,idx); return true;
+		if (node->data_cursor < n_data)	{
+			append_index(node,idx);
+			return true;
 		}
 
 		//recurse into first valid child
-		if (is_divided(node))
-		{
-			for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++)
-			{
+		if (is_divided(node)) {
+			for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++) {
 				Node_t* child = node->children[c_idx];
 
-				//attempt to put data into all valid children
-				if (is_data_valid(child->bbox, val))
-				{
-					return recursive_insert(child, val, idx); //data must be successfully added to all leaves
+				//attempt to put data into first valid child
+				if (is_data_valid(child->bbox, val)) {
+					return recursive_insert(child, val, idx);
 				}
 			}
+
+			//the insertion was not successful
 			return false;
 		}
 

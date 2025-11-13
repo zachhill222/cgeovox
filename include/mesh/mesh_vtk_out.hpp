@@ -18,6 +18,10 @@ namespace gv::mesh {
 	/////////////////////////////////////////////////
 	template<BasicMeshType Mesh_t>
 	void print_topology_ascii_vtk(std::ofstream &file, const Mesh_t &mesh, const std::string description="Mesh Data") {
+		if (!file.is_open()) {
+			throw std::runtime_error("File is not open");
+		}
+
 		using Element_t = typename Mesh_t::element_type;
 
 		//get number of nodes and elements
@@ -77,6 +81,10 @@ namespace gv::mesh {
 	/////////////////////////////////////////////////
 	template<BasicMeshType Mesh_t>
 	void print_mesh_details_ascii_vtk(std::ofstream &file, const Mesh_t &mesh) {
+		if (!file.is_open()) {
+			throw std::runtime_error("File is not open");
+		}
+
 		using Node_t    = typename Mesh_t::node_type;
 		using Element_t = typename Mesh_t::element_type;
 		
@@ -215,6 +223,10 @@ namespace gv::mesh {
 	/////////////////////////////////////////////////
 	template<BasicMeshType Mesh_t>
 	void print_topology_binary_vtk(std::ofstream &file, const Mesh_t &mesh, const std::string description="Mesh Data") {
+		if (!file.is_open()) {
+			throw std::runtime_error("File is not open");
+		}
+
 	    using Node_t    = typename Mesh_t::node_type;
 		using Element_t = typename Mesh_t::element_type;
 
@@ -324,8 +336,6 @@ namespace gv::mesh {
 	    file << "CELL_TYPES " << nElements << "\n";
 	    for (const Element_t &ELEM : mesh) {write_be_int(ELEM.vtkID);}
 	    file << "\n";
-	    
-	    file.close();
 	}
 
 
@@ -342,6 +352,11 @@ namespace gv::mesh {
 
 	template<BasicMeshType Mesh_t>
 	void print_mesh_details_binary_vtk(std::ofstream &file, const Mesh_t &mesh) {
+		if (!file.is_open()) {
+			throw std::runtime_error("File is not open");
+		}
+
+
 		using Node_t    = typename Mesh_t::node_type;
 		using Element_t = typename Mesh_t::element_type;
 
@@ -418,6 +433,14 @@ namespace gv::mesh {
 			for (; i < max_elem; i++) {write_be_int(-1);}
 		}
 		file << "\n";
+
+		if constexpr (requires {Node_t::index;}) {
+		    file << "index 1 " << nNodes << " int\n";
+		    for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		        write_be_size_t(it->index);
+		    }
+		    file << "\n";
+		}
 		
 
 

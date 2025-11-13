@@ -68,7 +68,7 @@ namespace gv::mesh {
 			else {throw std::runtime_error("Unknown ContainerType");}
 
 			if (idx==0) {moveToBegin();}
-			else if (idx==(size_t) -1) {moveToEnd();}
+			else if (idx>=_elements->size()) {moveToEnd();}
 		}
 
 		//Constructor to link to a mesh and specific vector
