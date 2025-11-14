@@ -103,12 +103,12 @@ namespace gv::mesh
 
 	public:
 		BasicMesh() : _elements(),_nodes() {}
-		BasicMesh(const Box_t<3> &domain) : _elements(), _nodes(domain) {}
+		BasicMesh(const Box_t<3> &domain) : _elements(), _nodes(2*domain) {}
 		BasicMesh(const Box_t<2> &domain) : _elements(), _nodes() {
 			Vertex_t low, high;
 			low[0]  = domain.low()[0];  low[1]  = domain.low()[1];  low[2]  = -1.0;
 			high[0] = domain.high()[0]; high[1] = domain.high()[1]; high[2] =  1.0;
-			_nodes.set_bbox(Box_t{low,high});
+			_nodes.set_bbox(2*Box_t{low,high});
 		}
 		BasicMesh(const Box_t<3> &domain, const Index_t<3> &N, const bool useIsopar=false) : BasicMesh(domain) {setVoxelMesh_Locked(domain, N, useIsopar);}
 		BasicMesh(const Box_t<2> &domain, const Index_t<2> &N, const bool useIsopar=false) : BasicMesh(domain) {setPixelMesh_Locked(domain, N, useIsopar);}
@@ -285,6 +285,7 @@ namespace gv::mesh
 			Node_t &NODE = _nodes[node_idx];
 			for (size_t e_idx : NODE.elems) {makeIsoparametric(_elements[e_idx]);}
 			NODE.vertex = new_vertex;
+			_nodes.reinsert(node_idx);
 		}
 		
 

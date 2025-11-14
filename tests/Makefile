@@ -7,12 +7,12 @@ TARGETS    = $(SRC:.cpp=)
 
 #-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/)
 #correctness testing
-# CC         = g++ -fsanitize=address -std=c++20 -fopenmp -pg -g #  -g for gdb, -pg for gprof (will create gmon.out)
-# CFLAGS     = -Wall -O0
+CC         = g++ -fsanitize=address -std=c++20 -pg -g3 #-fopenmp#  -g for gdb, -pg for gprof (will create gmon.out)
+CFLAGS     = -Wall -O0
 
 #perfomance testing
-CC         = g++ -DNDEBUG -std=c++20 #-fopenmp
-CFLAGS     = -Wall -O3
+# CC         = g++ -DNDEBUG -std=c++20 -fopenmp
+# CFLAGS     = -Wall -O3
 
 LDFLAGS    = -L$(LIB_DIR)
 LDLIBS     = 
@@ -26,22 +26,22 @@ all: $(TARGETS)
 .PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh
 
 assembly:
-	$(CC) $(CFLAGS) $(INC_DIR) -c assembly.cpp assembly
+	$(CC) $(CFLAGS) $(INC_DIR) assembly.cpp assembly
 
 charmsQ1:
-	$(CC) $(CFLAGS) $(INC_DIR) -c charmsQ1.cpp -o charmsQ1
+	$(CC) $(CFLAGS) $(INC_DIR) charmsQ1.cpp -o charmsQ1
 
 octree:
-	$(CC) $(CFLAGS) $(INC_DIR) -c octree.cpp -o octree
+	$(CC) $(CFLAGS) $(INC_DIR) octree.cpp -o octree
 
 util:
-	$(CC) $(CFLAGS) $(INC_DIR) -c util.cpp -o util
+	$(CC) $(CFLAGS) $(INC_DIR) util.cpp -o util
 
 charms_assembly:
-	$(CC) $(CFLAGS) $(INC_DIR) -c charms_assembly.cpp -o charms_assembly
+	$(CC) $(CFLAGS) $(INC_DIR) charms_assembly.cpp -o charms_assembly
 
 matrix:
-	$(CC) $(CFLAGS) $(INC_DIR) -c matrix.cpp -o matrix
+	$(CC) $(CFLAGS) $(INC_DIR) matrix.cpp -o matrix
 
 mesh:
 	$(CC) $(CFLAGS) $(INC_DIR) mesh.cpp -o mesh

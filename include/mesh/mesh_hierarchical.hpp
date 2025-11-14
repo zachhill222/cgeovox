@@ -381,8 +381,8 @@ namespace gv::mesh {
 			if (node_idx == (size_t) -1) {
 				//node wasn't found
 				[[maybe_unused]] int flag    = this->_nodes.push_back(NODE, node_idx);
-				this->_nodes[node_idx].index = node_idx;
 				assert(flag>=0);
+				this->_nodes[node_idx].index = node_idx;
 			}
 			child_node_idx[j] = node_idx;
 		}

@@ -161,22 +161,22 @@ namespace gv::util{
 		///////////////////////////////////////////////
 		////////// SHIFTING AND SCALING ///////////////
 		///////////////////////////////////////////////
-		// Box<dim>* operator+=(const Point_t &shift){
-		// 	_low+=shift;
-		// 	_high+=shift;
-		// 	return this;
-		// }
-		// Box<dim> operator+(const Point_t &shift) const{
-		// 	return Box(_low+shift, _high+shift);
-		// }
-		// Box<dim>* operator-=(const Point_t &shift){
-		// 	_low-=shift;
-		// 	_high-=shift;
-		// 	return this;
-		// }
-		// Box<dim> operator-(const Point_t &shift) const{
-		// 	return Box(_low-shift, _high-shift);
-		// }
+		Box<dim>* operator+=(const Point_t &shift){
+			_low+=shift;
+			_high+=shift;
+			return this;
+		}
+		Box<dim> operator+(const Point_t &shift) const{
+			return Box(_low+shift, _high+shift);
+		}
+		Box<dim>* operator-=(const Point_t &shift){
+			_low-=shift;
+			_high-=shift;
+			return this;
+		}
+		Box<dim> operator-(const Point_t &shift) const{
+			return Box(_low-shift, _high-shift);
+		}
 
 		///Scale box towards center.
 		Box& operator*=(const double& scale){
@@ -191,8 +191,12 @@ namespace gv::util{
 			return Box(_center+scale*(_low-_center), _center+scale*(_high-_center));
 		}
 
-		// inline Box<dim>* operator/=(const double& scale){return operator*=(1.0/scale);}
-		// inline Box<dim> operator/(const double& scale) const{return operator*(1.0/scale);}
+		bool operator==(const Box &other) const {
+			return _low==other.low() and _high==other.high();
+		}
+
+		inline Box<dim>* operator/=(const double& scale){return operator*=(1.0/scale);}
+		inline Box<dim> operator/(const double& scale) const{return operator*(1.0/scale);}
 
 		///Enlarge this box so that it contains the other.
 		Box& combine(const Box<dim>& other){

@@ -1,7 +1,7 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "util/point_octree.hpp"
-#include "util/octree_util.hpp"
+// #include "util/octree_util.hpp"
 
 #include <iostream>
 #include <random>
@@ -10,7 +10,7 @@
 //helpful data types
 using Point_t = gv::util::Point<3,double>;
 using Index_t = gv::util::Point<3,size_t>;
-using Box_t = gv::util::Box<3>;
+using Box_t   = gv::util::Box<3>;
 using Octree_t = gv::util::PointOctree<3,64>;
 
 void test_octree_random(size_t N)
@@ -63,6 +63,16 @@ void test_octree_random(size_t N)
     }
     if (success) {std::cout << "\nSUCCESS: octree.find(octree[i])=i for all i" << std::endl;}
 
+    //check if we can re-size the octree and still find the data
+    octree->set_bbox(2*octree->bbox());
+    success = true;
+    for (size_t i=0; i<octree->size(); i++) {
+        bool same_index = i==octree->find(octree->at(i));
+        if (!same_index) {std::cout << "ERROR: octree.find(octree[i])!=i after changing the bbox (i=" << i << ", data= " << octree->at(i) << ")" << std::endl;}
+        success = success and same_index;
+    }
+    if (success) {std::cout << "\nSUCCESS: octree.find(octree[i])=i for all i after changing the bbox" << std::endl;}
+
     //verify that we can extract all of the correct data associated with boxes
     Box_t new_bbox(Box_t{Point_t{0,0,0},Point_t{0.5,0.5,0.5}});
     std::vector<size_t> all_points = octree->get_data_indices(octree->bbox());
@@ -90,7 +100,6 @@ void test_octree_random(size_t N)
     	success = success and same_index;
     }
     if (success) {std::cout << "\nSUCCESS: octree.find(octree[i])=i for all i" << std::endl;}
-
 
     
     for (size_t i=0; i<N; i++)
@@ -121,7 +130,7 @@ void test_octree_random(size_t N)
     if (success) {std::cout << "\nSUCCESS: octree.find(octree[i])=i for all i" << std::endl;}
 
     //save octree structure
-    gv::util::view_octree_vtk(*octree, "./outfiles/octree_structure.vtk");
+    // gv::util::view_octree_vtk(*octree, "./outfiles/octree_structure.vtk");
 
     //free memory
     delete octree;
@@ -148,7 +157,7 @@ void test_octree_structured(size_t N=128, double L=1.0)
                 for (int l=0; l<8; l++)
                 {
                     size_t idx=-1;
-                    int flag = octree.push_back(element.voxelvertex(l), idx);
+                    [[maybe_unused]] int flag = octree.push_back(element.voxelvertex(l), idx);
                     assert(octree[idx]==element.voxelvertex(l));
                     // std::cout << "\t" << l << " (" << element.voxelijk(l) << "): Point " << element.voxelvertex(l);
 
@@ -208,8 +217,8 @@ int main(int argc, char* argv[])
 	int N = 10;
 	if (argc>1) {N=atoi(argv[1]);}
 
-	test_octree_structured(N,0.000001);
-	// test_octree_random(N);
+	// test_octree_structured(N,0.000001);
+	test_octree_random(N);
 
 	return 0;
 }

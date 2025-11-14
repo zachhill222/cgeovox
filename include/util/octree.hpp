@@ -8,7 +8,7 @@
 
 #include "util/point.hpp"
 #include "util/box.hpp"
-#include "compile_constants.hpp" //max octree depth
+// #include "compile_constants.hpp" //max octree depth
 #include "concepts.hpp"
 #include "basic_octree.hpp"
 
@@ -83,8 +83,8 @@ namespace gv::util
 		}
 
 		//in valid leaf node, but it must divide
-		assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
-		if (node->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
+		// assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
+		// if (node->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
 		divide(node); //moves data, frees some memory, creates children. checks for a maximum tree depth.
 		return recursive_insert(node, val, idx); //re-run insertion here now that it is divided
 	}
@@ -96,7 +96,7 @@ namespace gv::util
 	{
 		//it is assumed that the node is not divided already and that we will not violate the maximum tree depth
 		assert(!is_divided(node));
-		assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
+		// assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
 
 		//create children (do not copy data)
 		for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++)
@@ -176,8 +176,8 @@ namespace gv::util
 		}
 
 		//in valid leaf node, but it must divide
-		assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
-		if (node->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
+		// assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
+		// if (node->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
 		divide(node); //moves data, frees some memory, creates children. checks for a maximum tree depth.
 		return recursive_insert(node, val, idx); //re-run insertion here now that it is divided
 	}
@@ -188,7 +188,7 @@ namespace gv::util
 	{
 		//it is assumed that the node is not divided already and that we will not violate the maximum tree depth
 		assert(!is_divided(node));
-		assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
+		// assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
 
 		//create children and copy valid data into children
 		for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++)
@@ -206,11 +206,12 @@ namespace gv::util
 		}
 
 		//free memory at current node
-		if (node->data_idx!=nullptr)
-		{
-			delete[] node->data_idx;
-			node->data_idx=nullptr; //mark that this has been deleted to avoid double frees
-			node->data_cursor = 0;
-		}
+		node->data_cursor = 0; //no memory is free, but the node will not "see" any data
+		// if (node->data_idx!=nullptr)
+		// {
+		// 	delete[] node->data_idx;
+		// 	node->data_idx=nullptr; //mark that this has been deleted to avoid double frees
+		// 	node->data_cursor = 0;
+		// }
 	}
 }

@@ -35,69 +35,55 @@ namespace gv::util {
 		static constexpr int dimension = dim;
 
 		//default constructor (all zeros)
-		Point () : _data(new T[dim])
-		{
+		Point () : _data(new T[dim]) {
 			for (int i=0; i<dim; i++) {_data[i] = 0;}
 		}
 
 		//constructor for constant value
-		Point (const T val) : _data(new T[dim])
-		{
+		Point (const T val) : _data(new T[dim])	{
 			for (int i=0; i<dim; i++) {_data[i] = val;}
 		}
 
 		//initialize via braces {1,2,3} and convert types if needed
 		template <Scalar U>
-		Point (std::initializer_list<U> init) : _data(new T[dim])
-		{
+		Point (std::initializer_list<U> init) : _data(new T[dim]) {
 			int i=0;
-			for (auto it=init.begin(); it!=init.end() && i<dim; ++it, ++i){
+			for (auto it=init.begin(); it!=init.end() && i<dim; ++it, ++i) {
 				_data[i] = (T) *it;
 			}
 
-			for (; i<dim; ++i)
-			{
+			for (; i<dim; ++i) {
 				_data[i] = T{};
 			}
 		}
 
 		//copy constructor
-		Point (const Point<dim,T> &other) : _data(new T[dim])
-		{
+		Point (const Point<dim,T> &other) : _data(new T[dim]) {
 			for (int i=0; i<dim; i++) {_data[i] = other[i];}
 		}
 
 		//copy constructor with trim/zero pad for different dimensions
 		template<int otherdim, Scalar U>
-		Point (const Point<otherdim,U> &other) : _data(new T[dim])
-		{
+		Point (const Point<otherdim,U> &other) : _data(new T[dim]) {
 			for (int i=0; i<std::min(dim,otherdim); i++) {_data[i]= (T) other[i];}
 			for (int i=std::min(dim,otherdim); i<dim; i++) {_data[i]= (T) 0;}
 		}
 
 		//copy constructor with type conversion if needed
 		template <Scalar U>
-		Point (const Point<dim,U> &other) : _data(new T[dim])
-		{
+		Point (const Point<dim,U> &other) : _data(new T[dim]) {
 			for (int i=0; i<dim; i++) {_data[i] = (T) other[i];}
 		}
 
-		~Point()
-		{
-			delete[] _data;
-		}
+		~Point() {delete[] _data;}
 
 		//move constructor (must be correct type obviously)
-		Point (Point<dim,T>&& other) noexcept : _data(other._data)
-		{
-			other._data = nullptr;
-		}
+		Point (Point<dim,T>&& other) noexcept : _data(other._data) {other._data = nullptr;}
 
 		
 
 		//move assignment
-		Point& operator=( Point<dim,T>&& other) noexcept
-		{
+		Point& operator=( Point<dim,T>&& other) noexcept {
 			if (this != &other)
 			{
 				if (_data!=nullptr) {delete[] _data;}
@@ -108,8 +94,7 @@ namespace gv::util {
 		}
 
 		//copy assignment
-		constexpr Point& operator=( const Point<dim,T>& other)
-		{
+		Point& operator=( const Point<dim,T>& other) {
 			if (this != &other)
 			{
 				for (int i=0; i<dim; i++) {_data[i]=other._data[i];}
@@ -417,9 +402,8 @@ namespace gv::util {
 
 
 	///Print to ostream.
-	template <int dim=3, Scalar T=double>
-	std::ostream& operator<<(std::ostream& os, const Point<dim,T> &point)
-	{
+	template <int dim, Scalar T>
+	std::ostream& operator<<(std::ostream& os, const Point<dim,T> &point) {
 		for (int i = 0; i < dim-1; i++) {os << point.at(i) << " ";}
 		os << point.at(dim-1);
 		return os;

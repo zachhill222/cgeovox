@@ -19,10 +19,12 @@
 
 #include <cassert>
 #include <vector>
+#include <array>
 #include <algorithm>
 
 #include <mutex>
 #include <shared_mutex>
+#include <atomic>
 
 namespace gv::util
 {
@@ -44,46 +46,44 @@ namespace gv::util
 
 		//constructor for initializing _root node
 		OctreeNode(const Box_t& bbox) :
-			data_idx(new size_t[n_data]), 
-			data_cursor(0), 
+			// data_idx(new size_t[n_data]), 
+			data_cursor(0),
 			bbox(bbox), 
 			parent(nullptr), 
-			sibling_number(-1),
-			n_descendents(0),
-			depth(0) {}
+			sibling_number(-1) {}
 
 		//constructor for initializing children nodes
 		OctreeNode(Node_t* const parent, const int sibling_number) :
-			data_idx(new size_t[n_data]), 
+			// data_idx(new size_t[n_data]), 
 			data_cursor(0), 
 			bbox(parent->bbox.voxelvertex(sibling_number), parent->bbox.center()), 
 			parent(parent), 
-			sibling_number(sibling_number),
-			n_descendents(0),
-			depth(parent->depth+1) {}
+			sibling_number(sibling_number) {}
 
 		//destructor
 		~OctreeNode()  //REMARK: I don't think any class should inherit from this. otherwise this should be virtual.
 		{
 			// if (data_idx!=nullptr) {delete[] data_idx;}
 			// if (children[0]!=nullptr) {for (int c_idx=0; c_idx<n_children; c_idx++) {delete children[c_idx];}}
-			delete[] data_idx;
+			// delete[] data_idx;
 			for (int c_idx=0; c_idx<n_children; c_idx++) {delete children[c_idx];}
 		}
 
 		//data storage
-		size_t* data_idx; //only store the pointer here so that it can be deleted when a node is divided
-		int  data_cursor = 0; //used to track where the next data index should be written (e.g., data_idx[data_cursor])
+		// size_t* data_idx; //only store the pointer here so that it can be deleted when a node is divided
+		std::array<std::atomic<size_t>, n_data> data_idx;
+		// int  data_cursor = 0; //used to track where the next data index should be written (e.g., data_idx[data_cursor])
+		std::atomic<int> data_cursor = 0;
 
 		//geometry
 		const Box_t bbox; //portion of space that this node is responsible for
 
 		//tree information
-		Node_t* const parent;
+		Node_t* parent;
 		Node_t* children[n_children] {nullptr};
-		int const sibling_number; //parent->children[this->sibling_number] == this
-		size_t n_descendents; //not used for now
-		int const depth;
+		int sibling_number; //parent->children[this->sibling_number] == this
+		// size_t n_descendents; //not used for now
+		// int const depth;
 	};
 
 	//helpful functions to call on nodes
@@ -91,14 +91,27 @@ namespace gv::util
 	bool is_divided(const OctreeNode<Data_t,dim,n_data,T>* const node) {return node->children[0]!=nullptr;}
 
 	template<typename Data_t, int dim, int n_data, Float T>
-	void append_index(OctreeNode<Data_t,dim,n_data,T>* const node, const int idx)
-	{
+	void append_index(OctreeNode<Data_t,dim,n_data,T>* const node, const int idx) {
 		//it is assumed that there is room
 		assert(node->data_cursor<n_data);
 		node->data_idx[node->data_cursor] = idx;
 		node->data_cursor += 1;
 	}
 
+	// if this this node contains data_idx[k] == idx for some k, then that index is swapped with the last index and the cursor decreased by 1
+	template<typename Data_t, int dim, int n_data, Float T>
+	void remove_idx(OctreeNode<Data_t,dim,n_data,T>* const node, const size_t idx) {
+		for (int i=0; i<node->data_cursor; i++) {
+			if (node->data_idx[i] == idx) {
+				node->data_cursor -= 1; //point data cursor to the last data written to this node
+				// std::swap(node->data_idx[i], node->data_idx[node->data_cursor]); //swap the specified index with the last valid data
+				const size_t last = node->data_idx[node->data_cursor];
+				node->data_idx[i] = last;
+				//the next index to be written on this node will overwrite idx, which is now at the next location of data_idx to be written to
+				return;
+			}
+		}
+	}
 
 
 	//octree container. handles division of nodes, insertion and retrieval of data, storage of data, etc.
@@ -158,6 +171,14 @@ namespace gv::util
 		int push_back(Data_t &&val); //attempt to insert data. return 1 on success, 0 if the data was already contained, and -1 on failure
 		int push_back(Data_t &&val, size_t &idx); //same as push_back(const Data_t&) but puts the storage index into idx when flag=0 or 1
 
+		//re-insert data into the container (for example if the data stored at idx changes location)
+		void reinsert(const size_t idx) {
+			resize_to_fit_data(_data[idx],8);
+			recursive_remove_idx(_root, idx);
+			recursive_insert(_root, _data[idx], idx);
+		}
+
+
 		//data memory information and control
 		inline size_t capacity() const {return _data.capacity();} //maximum number of elements
 		inline size_t size() const {return _data.size();} //current number of elements
@@ -213,12 +234,23 @@ namespace gv::util
 		//OVERWRITE THIS IN THE DATA SPECIFIC OCTREE CONTAINER
 		virtual bool is_data_valid(const Box_t &bbox, const Data_t &val) const = 0;  //check if data can be placed into a node with the specified bounding box
 
+		void resize_to_fit_data(const Data_t &val, const int iter) {
+			if (iter<0) {
+				throw std::runtime_error("maximum recursion in resize_to_fit_data");
+			}
+
+			if (!is_data_valid(_root->bbox, val)) {
+				set_bbox(2*_root->bbox);
+				resize_to_fit_data(val, iter-1);
+			}
+		}
 		size_t recursive_find(Node_t* const node, const Data_t &val) const; //primary method for finding data
 		Node_t* recursive_find(Node_t* const node, const Data_t &val, size_t &idx) const; //primary method for finding data
-		virtual bool recursive_insert(Node_t* const node, const Data_t &val, const size_t idx) = 0; //primary method for inserting data into octree structure
+		virtual bool recursive_insert(Node_t* const node, const Data_t &val, const size_t idx) = 0; //primary method for inserting data into octree structure. only modifies the octree structure.
 		void recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Point_t &coord) const; //primary method for accessing nodes associated with a coordinate
 		void recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Box_t &box) const; //primary method for getting leaf nodes intersecting a region
 		virtual void divide(Node_t* const node) = 0; //divide a node into its children nodes
+		void recursive_remove_idx(Node_t* const node, const size_t idx);
 
 	private:
 		//for parallel read-write
@@ -307,7 +339,6 @@ namespace gv::util
 		//the data must be inserted
 		//start the insertion one level above data_node to ensure that the proper node gets the data
 		if (data_node==nullptr or data_node->parent==nullptr) {data_node = _root;}
-
 		{
 			std::unique_lock<std::shared_mutex> lock(_rw_mutex);
 			const size_t new_stored_index = _data.size();
@@ -326,11 +357,20 @@ namespace gv::util
 		return -1;
 	}
 
-
+	
+	template<typename Data_t, int dim, int n_data, Float T>
+	void BasicOctree<Data_t,dim,n_data,T>::recursive_remove_idx(Node_t* const node, const size_t idx) {
+		assert(idx<_data.size());
+		remove_idx(node, idx); //if the node contains the specified index, remove it
+		for (int c_idx=0; c_idx<n_children; c_idx++) {
+			if (is_divided(node) and is_data_valid(node->children[c_idx]->bbox, _data[idx])) {
+				recursive_remove_idx(node->children[c_idx], idx);
+			}
+		}
+	}
 
 	template<typename Data_t, int dim, int n_data, Float T>
-	void BasicOctree<Data_t,dim,n_data,T>::reserve_unlocked(const size_t new_capacity)
-	{
+	void BasicOctree<Data_t,dim,n_data,T>::reserve_unlocked(const size_t new_capacity) {
 		assert(new_capacity>=size()); //make sure that the new capacity has enough room for the current data
 		_data.reserve(new_capacity);
 	}
@@ -354,18 +394,47 @@ namespace gv::util
 	template<typename Data_t, int dim, int n_data, Float T>
 	void BasicOctree<Data_t,dim,n_data,T>::set_bbox(const Box_t& new_bbox)
 	{
-		//re-set the tree structure
-		delete _root;
-		_root = new Node_t(new_bbox);
-		
-		//move the data so that it can be re-inserted
-		std::vector<Data_t> old_data = _data;
-		_data.clear();
+		if (_root->bbox.contains(new_bbox)) {return;}
 
-		//add the data to the new octree
-		for (size_t d_idx=0; d_idx<old_data.size(); d_idx++) {
-			push_back(std::move(old_data[d_idx]));
+		//find a new_root_bbox such that
+		// a) new_root_bbox contains new_bbox
+		// b) the current _root->bbox is the descendent of an OctreeNode with new_root_bbox
+
+
+		//expand the root bounding box and shift to be as close to new_root_bbox as possible
+		Box_t expanded_root_bbox = 2*_root->bbox;
+		int max_vertices=-1;
+		int best_sibling_number=-1;
+		for (int i=0; i<n_children; i++) {
+			Point_t offset = _root->bbox.voxelvertex(i) - expanded_root_bbox.voxelvertex(i);
+			Box_t test_box = expanded_root_bbox + offset;
+			int n_verts = 0;
+			for (int j=0; j<n_children; j++) {
+				if (test_box.contains(new_bbox.voxelvertex(j))) {n_verts++;}
+			}
+
+			if (n_verts>max_vertices) {
+				best_sibling_number=i;
+				max_vertices = n_verts;
+			}
 		}
+
+		//make the new box
+		Point_t offset     = _root->bbox.voxelvertex(best_sibling_number) - expanded_root_bbox.voxelvertex(best_sibling_number);
+		Box_t new_root_box = expanded_root_bbox + offset;
+		
+		//make the new root and point it to the old root
+		Node_t* old_root = _root;
+		_root = new Node_t(new_root_box);
+		divide(_root);
+		delete _root->children[best_sibling_number];
+		_root->children[best_sibling_number] = old_root;
+		old_root->parent = _root;
+		assert(_root->bbox.voxelvertex(best_sibling_number) == old_root->bbox.voxelvertex(best_sibling_number));
+		assert(Box_t(_root->bbox.center(), _root->bbox.voxelvertex(best_sibling_number)) == old_root->bbox);
+
+		//re-call in case we need to still expand
+		if (max_vertices < n_children) {set_bbox(new_bbox);}
 	}
 
 
