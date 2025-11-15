@@ -19,12 +19,14 @@
 
 #include <cassert>
 #include <vector>
-#include <array>
 #include <algorithm>
+#include <unordered_set>
 
+#include <atomic>
 #include <mutex>
 #include <shared_mutex>
-#include <atomic>
+
+#include <omp.h>
 
 namespace gv::util
 {
@@ -34,8 +36,7 @@ namespace gv::util
 	//this is useful when Data_t encloses a region rather than being located at a single point and mostly irrelevant if the data is located at a point
 
 	template<typename Data_t, int dim=3, int n_data=8, Float T=double>
-	class OctreeNode
-	{
+	class OctreeNode {
 	public:
 		//common typedefs and constants
 		static constexpr int _dim = dim;
@@ -45,35 +46,32 @@ namespace gv::util
 		using Box_t   = gv::util::Box<dim,T>;
 
 		//constructor for initializing _root node
-		OctreeNode(const Box_t& bbox) :
+		OctreeNode(const Box_t& bbox, const int depth=0) :
 			// data_idx(new size_t[n_data]), 
 			data_cursor(0),
 			bbox(bbox), 
 			parent(nullptr), 
-			sibling_number(-1) {}
+			sibling_number(-1),
+			depth(depth) {}
 
 		//constructor for initializing children nodes
 		OctreeNode(Node_t* const parent, const int sibling_number) :
-			// data_idx(new size_t[n_data]), 
+			// data_idx(new size_t[n_data]),
 			data_cursor(0), 
 			bbox(parent->bbox.voxelvertex(sibling_number), parent->bbox.center()), 
 			parent(parent), 
-			sibling_number(sibling_number) {}
+			sibling_number(sibling_number),
+			depth(parent->depth+1) {}
 
 		//destructor
-		~OctreeNode()  //REMARK: I don't think any class should inherit from this. otherwise this should be virtual.
-		{
-			// if (data_idx!=nullptr) {delete[] data_idx;}
-			// if (children[0]!=nullptr) {for (int c_idx=0; c_idx<n_children; c_idx++) {delete children[c_idx];}}
-			// delete[] data_idx;
+		~OctreeNode() {
 			for (int c_idx=0; c_idx<n_children; c_idx++) {delete children[c_idx];}
 		}
 
 		//data storage
 		// size_t* data_idx; //only store the pointer here so that it can be deleted when a node is divided
-		std::array<std::atomic<size_t>, n_data> data_idx;
-		// int  data_cursor = 0; //used to track where the next data index should be written (e.g., data_idx[data_cursor])
-		std::atomic<int> data_cursor = 0;
+		size_t data_idx[n_data];
+		int  data_cursor = 0; //used to track where the next data index should be written (e.g., data_idx[data_cursor])
 
 		//geometry
 		const Box_t bbox; //portion of space that this node is responsible for
@@ -82,8 +80,8 @@ namespace gv::util
 		Node_t* parent;
 		Node_t* children[n_children] {nullptr};
 		int sibling_number; //parent->children[this->sibling_number] == this
-		// size_t n_descendents; //not used for now
-		// int const depth;
+		mutable std::shared_mutex _rw_mutex; //lock when inserting data from this node
+		const int depth;
 	};
 
 	//helpful functions to call on nodes
@@ -113,7 +111,6 @@ namespace gv::util
 		}
 	}
 
-
 	//octree container. handles division of nodes, insertion and retrieval of data, storage of data, etc.
 	template<typename Data_t, int dim=3, int n_data=8, Float T=double>
 	class BasicOctree
@@ -133,22 +130,26 @@ namespace gv::util
 		std::vector<Data_t> _data;
 		// size_t  _data_cursor;
 		// size_t  _capacity;
+		std::vector<size_t> _indices_to_insert;
 
-		mutable std::shared_mutex _rw_mutex; //allow parallel find/contains but only if no push_back is active. push_back is always serial.
+		mutable std::shared_mutex _rw_mutex; //allow parallel find/contains but only if no push_back is active. push_back is always serial. most logic is in the nodes
+		std::atomic<size_t> _data_count=0; //_data.size() but thread safe
 	public:
 		//constructor if the bounding box and capacity are unknown
 		BasicOctree(const size_t capacity=64) :
-			_root(new Node_t(Box_t(Point_t(0), Point_t(1))))
-			{_data.reserve(capacity);}
+			_root(new Node_t(Box_t(Point_t(0), Point_t(1)))),
+			_indices_to_insert() {_data.reserve(capacity);}
 
 		//use this constructor if possible. the bounding box should be known ahead of time to avoid re-creating the octree structure.
 		//changing the bounding box as a copy constructor must be done in the octree for the specific data type so that the correct
 		//is_data_valid() method is available
 		BasicOctree(const Box_t &bbox, const size_t capacity=64) :
-			_root(new Node_t(bbox))	{_data.reserve(capacity);}
+			_root(new Node_t(bbox)),
+			_indices_to_insert()	{_data.reserve(capacity);}
 
 		//copy constructor
-		BasicOctree(const BasicOctree& other) :	_root(new Node_t(other.bbox()))	{
+		BasicOctree(const BasicOctree& other) :	_root(new Node_t(other.bbox())),
+			_indices_to_insert()	{
 			_data.reserve(other.size());
 			for (size_t i=0; i<other.size(); i++) {
 				[[maybe_unused]] int flag = push_back(other[i]);
@@ -164,12 +165,18 @@ namespace gv::util
 		//these are why we have an octree
 		size_t find(const Data_t &val) const; //find the index for some data. return (size_t) -1 if unsuccessful (most likely larger than _data.size())
 		bool contains(const Data_t &val) const; //check if some data is currently in the tree. wrapper around find().
-		
+		bool is_processed() const {return _indices_to_insert.empty();}
+		void reserve_buffer(const size_t length) {_indices_to_insert.reserve(length);}
+		void free_buffer() {_indices_to_insert.resize(0);}
+
 		//add data to the container
 		int push_back(const Data_t &val); //attempt to insert data. return 1 on success, 0 if the data was already contained, and -1 on failure
 		int push_back(const Data_t &val, size_t &idx); //same as push_back(const Data_t&) but puts the storage index into idx when flag=0 or 1
 		int push_back(Data_t &&val); //attempt to insert data. return 1 on success, 0 if the data was already contained, and -1 on failure
 		int push_back(Data_t &&val, size_t &idx); //same as push_back(const Data_t&) but puts the storage index into idx when flag=0 or 1
+
+		int push_back_parallel(Data_t &&val, size_t &idx); //add data to the octree and stage it for updating the structure
+		void process_insertion(); //process octree after parallel insertion
 
 		//re-insert data into the container (for example if the data stored at idx changes location)
 		void reinsert(const size_t idx) {
@@ -245,7 +252,7 @@ namespace gv::util
 			}
 		}
 		size_t recursive_find(Node_t* const node, const Data_t &val) const; //primary method for finding data
-		Node_t* recursive_find(Node_t* const node, const Data_t &val, size_t &idx) const; //primary method for finding data
+		Node_t* recursive_find_best_node(Node_t* const node, const Data_t &val) const;
 		virtual bool recursive_insert(Node_t* const node, const Data_t &val, const size_t idx) = 0; //primary method for inserting data into octree structure. only modifies the octree structure.
 		void recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Point_t &coord) const; //primary method for accessing nodes associated with a coordinate
 		void recursive_get_node(const Node_t* const node, std::vector<const Node_t*> &result, const Box_t &box) const; //primary method for getting leaf nodes intersecting a region
@@ -303,51 +310,30 @@ namespace gv::util
 	//move push_back
 	template<typename Data_t, int dim, int n_data, Float T>
 	int BasicOctree<Data_t,dim,n_data,T>::push_back(Data_t &&val, size_t &idx) {
-		// std::unique_lock<std::shared_mutex> lock(_rw_mutex);
 
-		// if (size()>=capacity()) {reserve_unlocked(2*capacity());} //increase storage size if needed
-		// assert(size()<capacity());
-
-		// if (!is_data_valid(_root->bbox,val)) {return -1;} //data can't be added
-
-		// idx = find_unlocked(val);
-		// if (idx < size()) {return 0;} //data was already contained and did not need to be inserted
-
-		// if (idx == (size_t) -1)	{
-		// 	const size_t new_stored_index = _data.size();
-		// 	bool success = recursive_insert(_root, val, new_stored_index);
-		// 	if (success) {
-		// 		idx = new_stored_index; //pass back correct index of the inserted data
-		// 		_data.push_back(std::move(val));
-
-		// 		return 1; //data was not contained and was successfully inserted
-		// 	}
-		// 	return -1; //data was not contained and could not be inserted
-		// }
-
-		// throw std::runtime_error("Octree failed");
-		// return 0;
-
-		//attempt to find the data. if the data does not exist, find the node most likely to contain it.
-		Node_t* data_node = nullptr;
-		{
-			std::shared_lock<std::shared_mutex> lock(_rw_mutex);
-			data_node = recursive_find(_root, val, idx);
-			if (idx != (size_t) -1) {return 0;} //data was found and its index put into idx
+		//check if the current box can contain the data
+		if (!is_data_valid(_root->bbox, val)) {
+			std::unique_lock<std::shared_mutex> lock(_rw_mutex);
+			resize_to_fit_data(val,8);
 		}
 
+
+		//attempt to find the data. if the data does not exist, find the node most likely to contain it.
+		Node_t* data_node = recursive_find_best_node(_root, val);
+		idx = recursive_find(data_node, val);
+		if (idx != (size_t) -1) {return 0;} //data was found and its index put into idx
+
 		//the data must be inserted
-		//start the insertion one level above data_node to ensure that the proper node gets the data
-		if (data_node==nullptr or data_node->parent==nullptr) {data_node = _root;}
 		{
-			std::unique_lock<std::shared_mutex> lock(_rw_mutex);
-			const size_t new_stored_index = _data.size();
+			std::unique_lock<std::shared_mutex> lock(data_node->_rw_mutex);
+			const size_t new_stored_index = _data_count.fetch_add(1);
 			bool success = recursive_insert(data_node, val, new_stored_index);
 			if (success) {
 				idx = new_stored_index; //pass back correct index of the inserted data
-				_data.push_back(std::move(val));
+				_data.push_back(std::move(val)); //maybe race condition?
 				return 1; //successful insertion
 			} else {
+				throw std::runtime_error("Insertion into Octree failed.");
 				return -1; //insertion failed
 			}
 		}
@@ -357,7 +343,55 @@ namespace gv::util
 		return -1;
 	}
 
+
+
+	//process _indices_to_process
+	template<typename Data_t, int dim, int n_data, Float T>
+	void BasicOctree<Data_t,dim,n_data,T>::process_insertion() {
+		#pragma omp parallel for
+		for (size_t i=0; i<_indices_to_insert.size(); i++) {
+			size_t idx = _indices_to_insert[i];
+
+			Node_t* data_node = recursive_find_best_node(_root, _data[idx]);
+			assert(data_node!=nullptr);
+
+			std::unique_lock<std::shared_mutex> lock(data_node->_rw_mutex);
+			bool success = recursive_insert(data_node, _data[idx], idx);
+			assert(success);
+		}
+
+		_indices_to_insert.clear();
+	}
+
+
+	//move push_back_parallel
+	template<typename Data_t, int dim, int n_data, Float T>
+	int BasicOctree<Data_t,dim,n_data,T>::push_back_parallel(Data_t &&val, size_t &idx) {
+		//the method that calls this must guarantee that identical data will not be attempted to be inserted
+		if (!is_data_valid(_root->bbox, val)) {
+			std::unique_lock<std::shared_mutex> lock(_rw_mutex);
+			resize_to_fit_data(val, 8);
+		}
+
+
+		//attempt to find the data.
+		idx = find_unlocked(val);
+		if (idx != (size_t) -1) {return 0;} //data was found and its index put into idx
+		
+		std::unique_lock<std::shared_mutex> lock(_rw_mutex);
+		idx = _data.size();
+		_data.push_back(std::move(val));
+		_indices_to_insert.push_back(idx);
+		return 1;
+	}
+
 	
+	
+
+
+
+
+
 	template<typename Data_t, int dim, int n_data, Float T>
 	void BasicOctree<Data_t,dim,n_data,T>::recursive_remove_idx(Node_t* const node, const size_t idx) {
 		assert(idx<_data.size());
@@ -378,8 +412,6 @@ namespace gv::util
 	template<typename Data_t, int dim, int n_data, Float T>
 	void BasicOctree<Data_t,dim,n_data,T>::clear(const bool delete_structure)
 	{
-		std::unique_lock<std::shared_mutex> lock(_rw_mutex);
-
 		//delete current data and tree structure
 		if (delete_structure and _root!=nullptr)
 		{
@@ -425,7 +457,7 @@ namespace gv::util
 		
 		//make the new root and point it to the old root
 		Node_t* old_root = _root;
-		_root = new Node_t(new_root_box);
+		_root = new Node_t(new_root_box, old_root->depth - 1);
 		divide(_root);
 		delete _root->children[best_sibling_number];
 		_root->children[best_sibling_number] = old_root;
@@ -449,8 +481,7 @@ namespace gv::util
 		for (size_t n_idx=0; n_idx<nodes.size(); n_idx++)
 		{
 			const Node_t* const node = nodes[n_idx];
-			for (int d_idx=0; d_idx<node->data_cursor; d_idx++)
-			{
+			for (int d_idx=0; d_idx<node->data_cursor; d_idx++)	{
 				size_t idx = node->data_idx[d_idx];
 				if (is_data_valid(box, _data[idx])) {result.push_back(idx);}
 			}
@@ -550,8 +581,10 @@ namespace gv::util
 
 	template<typename Data_t, int dim, int n_data, Float T>
 	size_t BasicOctree<Data_t,dim,n_data,T>::recursive_find(Node_t* const node, const Data_t &val) const {
+		// std::shared_lock<std::shared_mutex> lock(node->_rw_mutex);
 		//it is assumed that is_data_valid(node,val) is true
-		assert(is_data_valid(node->bbox, val));
+		// assert(is_data_valid(node->bbox, val));
+		if (!is_data_valid(node->bbox, val)) {return (size_t) -1;}
 
 		//search data in this node
 		for (int d_idx=0; d_idx<node->data_cursor; d_idx++)	{
@@ -564,6 +597,7 @@ namespace gv::util
 			for (int c_idx=0; c_idx<n_children; c_idx++) {
 				Node_t* child = node->children[c_idx]; 
 				if (is_data_valid(child->bbox, val)) {
+					//make sure that the child node is not being changed here
 					size_t result = recursive_find(child, val); 
 					if (result != (size_t) -1) {return result;}
 				}
@@ -576,16 +610,18 @@ namespace gv::util
 
 
 	template<typename Data_t, int dim, int n_data, Float T>
-	typename BasicOctree<Data_t,dim,n_data,T>::Node_t* BasicOctree<Data_t,dim,n_data,T>::recursive_find(Node_t* const node, const Data_t &val, size_t &idx) const {
-		//if the data is not valid in the current node, move up the tree if possible
-		if (!is_data_valid(node->bbox, val)) {
-			if (node->parent != nullptr) { return recursive_find(node->parent, val, idx);}
-			else {
-				idx = (size_t) -1;
-				return nullptr;
-			}
-		}
+	typename BasicOctree<Data_t,dim,n_data,T>::Node_t* BasicOctree<Data_t,dim,n_data,T>::recursive_find_best_node(Node_t* const node, const Data_t &val) const {
 
+		//if the data is not valid in the current node, move up the tree if possible
+		// if (!is_data_valid(node->bbox, val)) {
+		// 	if (node->parent != nullptr) { return recursive_find(node->parent, val, idx);}
+		// 	else {
+		// 		idx = (size_t) -1;
+		// 		return nullptr;
+		// 	}
+		// }
+
+		std::shared_lock<std::shared_mutex> lock(node->_rw_mutex);
 		//it the data must be valid in this node now
 		assert(is_data_valid(node->bbox, val));
 
@@ -593,28 +629,24 @@ namespace gv::util
 		for (int d_idx=0; d_idx<node->data_cursor; d_idx++)	{
 			size_t index = node->data_idx[d_idx];
 			if (val==_data[index]) {
-				idx = index;
 				return node;
 			}
 		}
-
+		
 		//recurse into valid children
 		if (is_divided(node)) {
 			for (int c_idx=0; c_idx<n_children; c_idx++) {
 				Node_t* child = node->children[c_idx]; 
 				if (is_data_valid(child->bbox, val)) {
-					size_t index = (size_t) -1;
-					Node_t* possible = recursive_find(child, val, index);
-					if (index != (size_t) -1 ) {
-						idx = index;
-						return possible;
-					}
+					return recursive_find_best_node(child, val);
 				}
 			}
 		}
 
 		//data could not be found, but this node (or a sibling) is a likely candidate to store the data
-		idx = (size_t) -1;
+		if (!is_divided(node)) {
+			if (node->parent != nullptr) {return node->parent;}
+		}
 		return node;
 	}
 }

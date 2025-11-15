@@ -112,6 +112,7 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		void getBoundaryFaceDescendents_Unlocked(const size_t elem_idx, std::vector<size_t> &descendents=false, const bool activeOnly=true) const;
 
+
 		/////////////////////////////////////////////////
 		/// A method to mark an element to be split/refined. The element that is split will have the new elements added as children,
 		/// and the new elements that are created will have the element that was split as a parent. The new elements are of the same type as the original.
@@ -179,6 +180,41 @@ namespace gv::mesh {
 		/// Subroutine for processSplit()
 		/////////////////////////////////////////////////
 		void splitBoundaryFace_Unlocked(const size_t face_idx);
+
+
+		/////////////////////////////////////////////////
+		/// Subroutine for processSplit()
+		/////////////////////////////////////////////////
+		template<BasicMeshElement Element_u>
+		void generateNodesForSplit(const Element_u &ELEM) {
+			VTK_ELEMENT<Vertex_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Vertex_t>(ELEM);
+
+			//initialize storage for the values that will be needed to create the children elements
+			std::vector<Vertex_t> child_vertex_coords;
+			std::vector<size_t>   child_node_idx(vtk_n_nodes_when_split(ELEM.vtkID));
+			
+			//handle parent nodes/vertices that will be re-used
+			size_t j;
+			for (j=0; j<ELEM.nodes.size(); j++) {
+				child_vertex_coords.push_back(this->_nodes[ELEM.nodes[j]].vertex);
+				child_node_idx[j] = ELEM.nodes[j];
+			}
+
+			//get the verticices of the remaining nodes that the children will need
+			vtk_elem->split(child_vertex_coords);
+
+			//add any new nodes
+			std::vector<size_t> local_node;
+			for (;j<child_vertex_coords.size(); j++) {
+				Node_t NODE(child_vertex_coords[j]);
+				size_t n_idx = (size_t) -1;
+				[[maybe_unused]] int flag = this->_nodes.push_back(NODE, n_idx);
+				assert(flag>=0);
+				if (flag==1) {this->_nodes[n_idx].index = n_idx;}
+			}
+
+			delete vtk_elem;
+		}
 	};
 	
 
@@ -241,7 +277,6 @@ namespace gv::mesh {
 		//de-activate the descendents and any boundary faces
 		for (size_t d_idx : descendents) {
 			Element_t &DESCENDENT = this->_elements[d_idx];
-			// std::cout << DESCENDENT << std::endl;
 			DESCENDENT.is_active = false;
 			this->_color_manager.decrementCount(DESCENDENT.color);
 		}
@@ -292,9 +327,7 @@ namespace gv::mesh {
 
 		//if the specified does not exist, process any elements that need to be refined
 		if (elem_idx >= nElements) {
-			std::shared_lock<std::shared_mutex> lock(_el_split_rw_mtx);
 			bool can_process_elements = !_elements_to_split.empty();
-			lock.unlock();
 			if (can_process_elements) {processSplit();}
 		}
 		
@@ -343,8 +376,6 @@ namespace gv::mesh {
 				}
 			}
 		} else {
-			//the children of the element must be created. delay this until many elements can be processed in parallel.
-			std::unique_lock<std::shared_mutex> lock(_el_split_rw_mtx);
 			_elements_to_split.insert(elem_idx);
 		}
 	}
@@ -377,14 +408,20 @@ namespace gv::mesh {
 		std::vector<size_t> local_node;
 		for (;j<child_vertex_coords.size(); j++) {
 			Node_t NODE(child_vertex_coords[j]);
-			size_t node_idx = this->_nodes.find(NODE);
-			if (node_idx == (size_t) -1) {
-				//node wasn't found
-				[[maybe_unused]] int flag    = this->_nodes.push_back(NODE, node_idx);
-				assert(flag>=0);
-				this->_nodes[node_idx].index = node_idx;
-			}
-			child_node_idx[j] = node_idx;
+			size_t n_idx = (size_t) -1;
+			[[maybe_unused]] int flag = this->_nodes.push_back_parallel(std::move(NODE), n_idx);
+			if (flag==1) {this->_nodes[n_idx].index = n_idx;}
+
+
+			// size_t node_idx = this->_nodes.find(NODE);
+			// if (node_idx == (size_t) -1) {
+			// 	//node wasn't found
+			// 	// [[maybe_unused]] int flag    = this->_nodes.push_back(NODE, node_idx);
+			// 	// assert(flag>=0);
+			// 	// this->_nodes[node_idx].index = node_idx;
+			// 	throw std::runtime_error("Mesh node not found.");
+			// }
+			child_node_idx[j] = n_idx;
 		}
 
 		//now all nodes have been created to create the children
@@ -455,6 +492,9 @@ namespace gv::mesh {
 				//element is to be split and the children must be computed
 				assert(ELEM.color<colored_elements_to_split.size());
 				colored_elements_to_split[ELEM.color].push_back(ELEM.index);
+
+				//create the required nodes
+				// generateNodesForSplit(ELEM);
 			}
 		}
 
@@ -511,12 +551,11 @@ namespace gv::mesh {
 			//reserve space and default-initialize the new elements
 			this->_elements.resize(nStartingElements+nNewElements);
 			this->_nodes.reserve(this->_nodes.size()+maxNewNodes);
+			this->_nodes.reserve_buffer(maxNewNodes/10);
 			this->_boundary.reserve(nStartingBoundary+nNewBoundaryFaces);
 
 			//decrement the _colorCount by the number of elements that will be deactivated
 			this->_color_manager.decrementCount(color,this_color_elems.size());
-
-			//clear _e
 
 			//split the elements of this color
 			#pragma omp parallel for
@@ -594,9 +633,10 @@ namespace gv::mesh {
 				// 	}
 				// }
 			}
+			this->_nodes.process_insertion();
 		}
 	
-
+		this->_nodes.free_buffer();
 	}
 
 

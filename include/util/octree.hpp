@@ -15,6 +15,9 @@
 #include <cassert>
 #include <vector>
 
+#include <mutex>
+#include <shared_mutex>
+
 namespace gv::util
 {
 	//OCTREE FOR POINT DATA TYPES
@@ -50,13 +53,6 @@ namespace gv::util
 
 	template<typename Data_t, int dim, int n_data, Float T>
 	bool BasicOctree_Point<Data_t,dim,n_data,T>::recursive_insert(Node_t* const node, const Data_t &val, const size_t idx) {
-		//if the data is not valid in the curren node, attempt to move up the tree
-		if (!is_data_valid(node->bbox, val)) {
-			if (node->parent != nullptr) {return recursive_insert(node->parent, val, idx);}
-			else {return false;}
-		}
-
-
 		//the data must be valid in this node now
 		assert(is_data_valid(node->bbox,val));
 
@@ -74,6 +70,7 @@ namespace gv::util
 
 				//attempt to put data into first valid child
 				if (is_data_valid(child->bbox, val)) {
+					std::unique_lock<std::shared_mutex> lock(child->_rw_mutex);
 					return recursive_insert(child, val, idx);
 				}
 			}
@@ -83,24 +80,26 @@ namespace gv::util
 		}
 
 		//in valid leaf node, but it must divide
-		// assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
-		// if (node->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
+		assert(node->depth - this->_root->depth<gv::constants::OCTREE_MAX_DEPTH);
+		if (node->depth - this->_root->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
+
 		divide(node); //moves data, frees some memory, creates children. checks for a maximum tree depth.
 		return recursive_insert(node, val, idx); //re-run insertion here now that it is divided
+		return false;
 	}
 
 	
 
 	template<typename Data_t, int dim, int n_data, Float T>
-	void BasicOctree_Point<Data_t,dim,n_data,T>::divide(Node_t* const node)
-	{
+	void BasicOctree_Point<Data_t,dim,n_data,T>::divide(Node_t* const node) {
+		// std::lock_guard<std::mutex> lock(node->_mtx);
+
 		//it is assumed that the node is not divided already and that we will not violate the maximum tree depth
 		assert(!is_divided(node));
-		// assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
+		assert(node->depth - this->_root->depth<gv::constants::OCTREE_MAX_DEPTH);
 
 		//create children (do not copy data)
-		for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++)
-		{
+		for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++) {
 			Node_t* child = new Node_t(node, c_idx); //create child
 			node->children[c_idx] = child; //use child as a convenient reference locally
 		}
@@ -153,16 +152,13 @@ namespace gv::util
 		assert(is_data_valid(node->bbox,val));
 
 		//recurse into all valid children
-		if (is_divided(node))
-		{
+		if (is_divided(node)) {
 			bool success = true;
-			for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++)
-			{
+			for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++) {
 				Node_t* child = node->children[c_idx];
 
 				//attempt to put data into all valid children
-				if (is_data_valid(child->bbox, val))
-				{
+				if (is_data_valid(child->bbox, val)) {
 					success = success and recursive_insert(child, val, idx); //data must be successfully added to all leaves
 				}
 			}
@@ -170,36 +166,33 @@ namespace gv::util
 		}
 
 		//in valid leaf node. store index to data if there is room
-		if (node->data_cursor < n_data)
-		{
+		if (node->data_cursor < n_data)	{
 			append_index(node,idx); return true;
 		}
 
 		//in valid leaf node, but it must divide
-		// assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
-		// if (node->depth>=gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
+		assert(node->depth - this->_root->depth < gv::constants::OCTREE_MAX_DEPTH);
+		if (node->depth - this->_root->depth >= gv::constants::OCTREE_MAX_DEPTH) {return false;} //could not insert data
+		
 		divide(node); //moves data, frees some memory, creates children. checks for a maximum tree depth.
 		return recursive_insert(node, val, idx); //re-run insertion here now that it is divided
 	}
 
 	
 	template<typename Data_t, int dim, int n_data, Float T>
-	void BasicOctree_Vol<Data_t,dim,n_data,T>::divide(Node_t* const node)
-	{
+	void BasicOctree_Vol<Data_t,dim,n_data,T>::divide(Node_t* const node) {
 		//it is assumed that the node is not divided already and that we will not violate the maximum tree depth
 		assert(!is_divided(node));
-		// assert(node->depth<gv::constants::OCTREE_MAX_DEPTH);
+		assert(node->depth - this->_root->depth<gv::constants::OCTREE_MAX_DEPTH);
 
 		//create children and copy valid data into children
-		for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++)
-		{
+		for (int c_idx=0; c_idx<Parent_t::n_children; c_idx++) {
 			Node_t* child = new Node_t(node, c_idx); //create child
 			node->children[c_idx] = child; //use child as a convenient reference locally
-			for (int d_idx=0; d_idx<node->data_cursor; d_idx++) //initialize data in child
-			{
+			for (int d_idx=0; d_idx<node->data_cursor; d_idx++) {
+				//initialize data in child
 				size_t idx = node->data_idx[d_idx];
-				if (is_data_valid(child->bbox, Parent_t::_data[idx]))
-				{
+				if (is_data_valid(child->bbox, Parent_t::_data[idx])) {
 					append_index(child, idx);
 				}
 			}
