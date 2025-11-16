@@ -52,6 +52,10 @@ namespace gv::mesh
 		ColoredMesh() : 
 			BasicMesh<Node_t,Element_t,Face_t>(),
 			_color_manager(this->_elements) {}
+
+		ColoredMesh(const Box_t<3> &domain) : 
+			BasicMesh<Node_t,Element_t,Face_t>(domain),
+			_color_manager(this->_elements) {}
 		
 		ColoredMesh(const Box_t<3> &domain, const Index_t<3> &N, const bool useIsopar=false) :
 			BasicMesh<Node_t,Element_t,Face_t>(domain),

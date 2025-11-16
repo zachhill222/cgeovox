@@ -68,7 +68,7 @@ namespace gv::util {
 			for (int i=0; i<std::min(dim,otherdim); i++) {_data[i]= (T) other[i];}
 			for (int i=std::min(dim,otherdim); i<dim; i++) {_data[i]= (T) 0;}
 		}
-		
+
 		//copy constructor with type conversion if needed
 		template <Scalar U>
 		Point (const Point<dim,U> &other)  {//_data(new T[dim]) {
@@ -325,6 +325,8 @@ namespace gv::util {
 	template <Scalar T=double>
 	bool approxEqual(const T &left, const T &right)
 	{
+		if (left==right) {return true;}
+		
 		T absmax = std::max( gv::util::abs(left), gv::util::abs(right) );
 		T delta = gv::util::abs(left-right);
 		return  delta <= std::numeric_limits<T>::epsilon() * 2 * absmax;
@@ -334,14 +336,22 @@ namespace gv::util {
 	template <int dim=3, Scalar T=double>
 	bool operator==(const Point<dim,T> &left, const Point<dim,T> &right)
 	{
-		for (int i=0; i<dim; i++)
-		{
-			// if (left[i] != right[i]) {return false;}
-			if (not approxEqual(left[i], right[i])) {return false;}
-		}
-		return true;
-		// return approxEqual( squaredNorm(left-right), (T) 0);
+		// for (int i=0; i<dim; i++)
+		// {
+		// 	// if (left[i] != right[i]) {return false;}
+		// 	if (not approxEqual(left[i], right[i])) {return false;}
+		// }
+		// return true;
+		return approxEqual( squaredNorm(left-right), (T) 0);
 	}
+
+	// template<int dim, Scalar T>
+	// bool exactlyEqual(const Point<dim,T> &left, const Point<dim,T> &right) {
+	// 	for (int i=0; i<dim; i++) {
+	// 		if (left[i]!=right[i]) {return false;}
+	// 	}
+	// 	return true;
+	// }
 
 	///Point not equal to comparison.
 	template <int dim=3, Scalar T=double>

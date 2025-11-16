@@ -28,15 +28,19 @@ int main(int argc, char* argv[])
 	using Mesh_t  = gv::mesh::HierarchicalMesh<Node_t,Element_t,Face_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
-	Point_t corner {1.0,1.0,2.0};
+	Point_t corner {1.0,1.0,1.0};
 	Box_t domain(-corner, corner);
-	Index_t N{5, 5, 10};
+	Index_t N{1, 1, 1};
 	Mesh_t mesh(domain,N,false);
 
 
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
+	mesh.splitElement(0);
+	mesh.processSplit();
+	mesh.splitElement(1);
+	mesh.processSplit();
 
-	for (int n=0; n<2; n++){
+	for (int n=0; n<1; n++){
 		const size_t nElems = mesh.nElems();
 		for (size_t i=0; i<nElems; i+=1) {
 			mesh.splitElement(i);
@@ -45,21 +49,21 @@ int main(int argc, char* argv[])
 	}
 
 
-	auto fun = [](Vertex_t old) -> Vertex_t {
-		double r = std::sqrt(old[0]*old[0] + old[1]*old[1]);
-		double theta = std::atan2(old[1],old[0]);
-		theta += 0.75*old[2];
+	// auto fun = [](Vertex_t old) -> Vertex_t {
+	// 	double r = std::sqrt(old[0]*old[0] + old[1]*old[1]);
+	// 	double theta = std::atan2(old[1],old[0]);
+	// 	theta += 0.75*old[2];
 
-		old[0] = r*std::cos(theta);
-		old[1] = r*std::sin(theta); 
-		return old;
-	};
-	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-		mesh.moveVertex(it->index, fun(it->vertex));
-	}
+	// 	old[0] = r*std::cos(theta);
+	// 	old[1] = r*std::sin(theta); 
+	// 	return old;
+	// };
+	// for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+	// 	mesh.moveVertex(it->index, fun(it->vertex));
+	// }
 
 
-	for (int n=0; n<2; n++){
+	for (int n=0; n<3; n++){
 		const size_t nElems = mesh.nElems();
 		for (size_t i=0; i<nElems; i+=1) {
 			mesh.splitElement(i);
@@ -74,8 +78,9 @@ int main(int argc, char* argv[])
 	// mesh.recolor();
 
 
-	// mesh.compute_boundary();
-	// Mesh_t boundary = mesh.boundary_mesh();
+	// Box_t bbox = mesh.bbox();
+	// Mesh_t boundary(bbox);
+	// mesh.getBoundaryMesh(boundary);
 	
 	// std::cout << "colors are valid? " << mesh.colors_are_valid() << std::endl;
 
@@ -94,7 +99,7 @@ int main(int argc, char* argv[])
 	std::cout << mesh << std::endl;
 	gv::mesh::memorySummary(mesh);
 
-	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true);
 
 	return 0;

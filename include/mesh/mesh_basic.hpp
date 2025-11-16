@@ -12,6 +12,7 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <algorithm>
 
 #include <cassert>
 #include <cstring>
@@ -145,7 +146,18 @@ namespace gv::mesh
 		const Node_t& getNode(const size_t idx) const {return _nodes[idx];}
 		const Element_t& getElement(const size_t idx) const {return _elements[idx];}
 		const Face_t& getBoundaryFace(const size_t idx) const {return _boundary[idx];}
+		const Box_t<3> bbox() const {return _nodes.bbox();}
 
+		/////////////////////////////////////////////////
+		/// Get the boundary as a separate mesh
+		/////////////////////////////////////////////////
+		// template<BasicMeshType Mesh_t>
+		// void getBoundaryMesh(Mesh_t &mesh) const {
+		// 	for (auto it=boundaryBegin(); it!=boundaryEnd(); ++it) {
+		// 		typename Mesh_t::face_type face = *it;
+		// 		mesh.insertElement_Locked(face);
+		// 	}
+		// }
 
 		/////////////////////////////////////////////////
 		/// Mesh a 3D box using voxels of equal size. This can be used for testing or creating a simple initial mesh.
@@ -526,12 +538,25 @@ namespace gv::mesh
 			//loop through the boundary faces of the current node
 			for (size_t f_idx : NODE.boundary_faces) {
 				if (isFaceValid(_boundary[f_idx])) {
-					face_set.insert(f_idx);
+					//make sure that every node of the face is also a node of the element
+					bool contained = true;
+					for (size_t f_node : _boundary[f_idx].nodes) {
+						if (std::find(ELEM.nodes.begin(), ELEM.nodes.end(), f_node) == ELEM.nodes.end()) {
+							contained=false; //node not found in the element
+							break;
+						}
+					}
+
+					if (contained) {
+						face_set.insert(f_idx);
+					}
 				}
 			}
 		}
 
-		faces.assign(face_set.begin(), face_set.end());
+		// faces.assign(face_set.begin(), face_set.end());
+		faces.insert(faces.end(), face_set.begin(), face_set.end());
+		// for (size_t f_idx : face_set) {faces.push_back(f_idx);}
 	}
 	
 
@@ -658,7 +683,7 @@ namespace gv::mesh
 		for (const auto& [FACE, count] : face_count) {
 			if (count==1) {
 				_boundary.push_back(FACE);
-
+				_boundary[b_idx].index = b_idx;
 				for (size_t i=0; i<FACE.nodes.size(); i++) {
 					Node_t &NODE = _nodes[FACE.nodes[i]];
 					NODE.boundary_faces.push_back(b_idx);

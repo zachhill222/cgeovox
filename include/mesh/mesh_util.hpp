@@ -260,7 +260,10 @@ namespace gv::mesh
 
 	/// Equality check for mesh nodes for use in the octree.
 	template <BasicMeshNode Node_t>
-	bool operator==(const Node_t &A, const Node_t &B) {return A.vertex==B.vertex;}
+	bool operator==(const Node_t &A, const Node_t &B) {
+		// return gv::util::exactlyEqual(A.vertex,B.vertex);
+		return A.vertex==B.vertex;
+	}
 
 	/// Node printing
 	template<BasicMeshNode Node_t>

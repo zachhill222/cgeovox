@@ -180,7 +180,7 @@ namespace gv::util {
 		//data storage
 		std::vector<Data_t> _data;
 		std::atomic<size_t> _next_data_idx{0}; //track the index of the next data to store into _data
-
+		
 		//dedicated thread for updating the tree
 		std::thread _inserter_thread;
 		std::condition_variable _inserter_cv;
