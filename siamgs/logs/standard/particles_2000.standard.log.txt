@@ -1,0 +1,72 @@
+
+===== BEGIN (n_start=16, n_refine= 5) =====
+METHOD = CHARMS_STANDARD
+saving to: ./solutions/standard/
+prefix: particles_2000.standard
+getting assembly/domain from: ./extra//particles_2000.txt
+===== coarse mesh =====
+n_vertices= 4910
+n_basis_functions= 4910
+n_active_basis_functions= 4910
+n_elements= 3744
+n_active_elements= 3744
+
+making stiffness matrix (0 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+
+===== refinement 1 ===== (3 seconds to refine) =====
+n_vertices= 35178
+n_basis_functions= 40088
+n_active_basis_functions= 35062
+n_elements= 33696
+n_active_elements= 26568
+
+making stiffness matrix (5 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (2 seconds)
+
+===== refinement 2 ===== (39 seconds to refine) =====
+n_vertices= 261848
+n_basis_functions= 301736
+n_active_basis_functions= 242761
+n_elements= 273312
+n_active_elements= 165395
+
+making stiffness matrix (32 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+
+===== refinement 3 ===== (471 seconds to refine) =====
+n_vertices= 2004984
+n_basis_functions= 2230845
+n_active_basis_functions= 1416453
+n_elements= 2179408
+n_active_elements= 1021093
+
+making stiffness matrix (199 seconds)
+integrating RHS vector (2 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (1 seconds)
+
+
+===== SYSTEM INFORMATION =====
+Date        : Sat Oct 11 08:07:44 AM EDT 2025
+Hostname    : bequiet
+CPU         : Intel(R) Core(TM) Ultra 7 265K
+CPU cores   : 20
+Total RAM   : 94Gi
+
+===== EXPERIMENT PARAMETERS =====
+N_START     : 16
+N_REFINE    : 5
+ASSEMBLY_DIR: ./extra/
+SOLUTION_DIR: ./solutions
+LOG_DIR     : ./logs

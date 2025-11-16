@@ -1,0 +1,14 @@
+# Vtk files
+*.vtk
+
+# Compiled Object files
+*.o
+*.obj
+
+# Sublime workspace
+*.sublime-workspace
+
+# Auxilery files
+*.out
+*.er
+massif.*

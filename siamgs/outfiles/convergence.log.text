@@ -1,0 +1,186 @@
+
+===== STANDARD START (n_start=4, n_refine= 5) =====
+saving to: ./outfiles/
+prefix: convergence.standard
+===== coarse mesh =====
+n_vertices= 125
+n_basis_functions= 125
+n_active_basis_functions= 125
+n_elements= 64
+n_active_elements= 64
+
+making stiffness matrix (0 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0702917
+
+===== refinement 1 =====
+n_vertices= 729
+n_basis_functions= 853
+n_active_basis_functions= 613
+n_elements= 576
+n_active_elements= 408
+
+making stiffness matrix (0 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0373241
+
+===== refinement 2 =====
+n_vertices= 4887
+n_basis_functions= 5249
+n_active_basis_functions= 3273
+n_elements= 4608
+n_active_elements= 2672
+
+making stiffness matrix (0 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0185107
+
+===== refinement 3 =====
+n_vertices= 28767
+n_basis_functions= 26589
+n_active_basis_functions= 15781
+n_elements= 28224
+n_active_elements= 14280
+
+making stiffness matrix (4 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00925417
+
+===== refinement 4 =====
+n_vertices= 135783
+n_basis_functions= 118201
+n_active_basis_functions= 69789
+n_elements= 134592
+n_active_elements= 66392
+
+making stiffness matrix (18 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00443079
+
+===== refinement 5 =====
+n_vertices= 584871
+n_basis_functions= 496469
+n_active_basis_functions= 294353
+n_elements= 582528
+n_active_elements= 287152
+
+making stiffness matrix (84 seconds)
+integrating RHS vector (0 seconds)
+computing boundary (0 seconds)
+applying Dirichlet BC (0 seconds)
+solving (1 seconds)
+mean L1 error= 0.00213077
+
+summary:
+Deg. of Freedom:	125	613	3273	15781	69789	294353	
+Mean L1 Error  :	0.0702917	0.0373241	0.0185107	0.00925417	0.00443079	0.00213077	
+===== STANDARD END (165 seconds) =====
+
+
+===== INTERFACE START (n_start=4, n_refine= 5) =====
+saving to: ./outfiles/
+prefix: convergence.interface
+===== coarse mesh =====
+n_vertices= 125
+n_basis_functions= 125
+n_active_basis_functions= 125
+n_elements= 64
+n_active_elements= 64
+
+making stiffness matrix with weak Dirichlet BC (1 seconds)
+epsilon= 1.4985	 penalty= 0.667334
+assembling rhs vector (0 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0180675
+
+===== refinement 1 ===== (0 seconds to refine) =====
+n_vertices= 729
+n_basis_functions= 762
+n_active_basis_functions= 681
+n_elements= 576
+n_active_elements= 512
+
+making stiffness matrix with weak Dirichlet BC (0 seconds)
+epsilon= 0.74925	 penalty= 1.33467
+assembling rhs vector (0 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0128546
+
+===== refinement 2 ===== (0 seconds to refine) =====
+n_vertices= 3405
+n_basis_functions= 2680
+n_active_basis_functions= 2421
+n_elements= 3072
+n_active_elements= 2696
+
+making stiffness matrix with weak Dirichlet BC (2 seconds)
+epsilon= 0.374625	 penalty= 2.66934
+assembling rhs vector (1 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.0107864
+
+===== refinement 3 ===== (0 seconds to refine) =====
+n_vertices= 11199
+n_basis_functions= 8918
+n_active_basis_functions= 8049
+n_elements= 10752
+n_active_elements= 9416
+
+making stiffness matrix with weak Dirichlet BC (12 seconds)
+epsilon= 0.187313	 penalty= 5.33867
+assembling rhs vector (1 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00949457
+
+===== refinement 4 ===== (1 seconds to refine) =====
+n_vertices= 40299
+n_basis_functions= 32916
+n_active_basis_functions= 29661
+n_elements= 39744
+n_active_elements= 34784
+
+making stiffness matrix with weak Dirichlet BC (61 seconds)
+epsilon= 0.0936563	 penalty= 10.6773
+assembling rhs vector (6 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00834597
+
+===== refinement 5 ===== (4 seconds to refine) =====
+n_vertices= 155871
+n_basis_functions= 128914
+n_active_basis_functions= 116073
+n_elements= 155136
+n_active_elements= 135752
+
+making stiffness matrix with weak Dirichlet BC (268 seconds)
+epsilon= 0.0468281	 penalty= 21.3547
+assembling rhs vector (25 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+mean L1 error= 0.00739868
+
+summary:
+Deg. of Freedom:	125	681	2421	8049	29661	116073	
+Mean L1 Error  :	0.0180675	0.0128546	0.0107864	0.00949457	0.00834597	0.00739868	
+===== INTERFACE END (388 seconds) =====
+

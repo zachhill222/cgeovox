@@ -1,0 +1,72 @@
+
+===== BEGIN (n_start=16, n_refine= 5) =====
+METHOD = CHARMS_INTERFACE
+saving to: ./solutions/interface/
+prefix: particles_1000.interface
+getting assembly/domain from: ./extra//particles_1000.txt
+===== coarse mesh =====
+n_vertices= 4913
+n_basis_functions= 4913
+n_active_basis_functions= 4913
+n_elements= 4096
+n_active_elements= 4096
+
+making stiffness matrix with weak Dirichlet BC (2309 seconds)
+epsilon= 0.554506	 penalty= 1.80341
+assembling rhs vector (264 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+
+===== refinement 1 ===== (4 seconds to refine) =====
+n_vertices= 35937
+n_basis_functions= 40850
+n_active_basis_functions= 35937
+n_elements= 36864
+n_active_elements= 32768
+
+making stiffness matrix with weak Dirichlet BC (4034 seconds)
+epsilon= 0.277253	 penalty= 3.60681
+assembling rhs vector (451 seconds)
+computing boundary (0 seconds)
+solving (0 seconds)
+
+===== refinement 2 ===== (31 seconds to refine) =====
+n_vertices= 274625
+n_basis_functions= 314970
+n_active_basis_functions= 274423
+n_elements= 299008
+n_active_elements= 262144
+
+making stiffness matrix with weak Dirichlet BC (8901 seconds)
+epsilon= 0.138627	 penalty= 7.21363
+assembling rhs vector (978 seconds)
+computing boundary (0 seconds)
+solving (1 seconds)
+
+===== refinement 3 ===== (333 seconds to refine) =====
+n_vertices= 2122102
+n_basis_functions= 2255563
+n_active_basis_functions= 1992257
+n_elements= 2335560
+n_active_elements= 2044127
+
+making stiffness matrix with weak Dirichlet BC (28029 seconds)
+epsilon= 0.0693133	 penalty= 14.4273
+assembling rhs vector (2870 seconds)
+computing boundary (0 seconds)
+solving (6 seconds)
+
+
+===== SYSTEM INFORMATION =====
+Date        : Sat Oct 11 07:53:59 AM EDT 2025
+Hostname    : bequiet
+CPU         : Intel(R) Core(TM) Ultra 7 265K
+CPU cores   : 20
+Total RAM   : 94Gi
+
+===== EXPERIMENT PARAMETERS =====
+N_START     : 16
+N_REFINE    : 5
+ASSEMBLY_DIR: ./extra/
+SOLUTION_DIR: ./solutions
+LOG_DIR     : ./logs
