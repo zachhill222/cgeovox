@@ -34,7 +34,7 @@ namespace gv::mesh
 			 ColorableMeshElement Element_t    = ColoredElement,
 			 BasicMeshElement     Face_t       = BasicElement,
 			 ColorMethod          COLOR_METHOD = ColorMethod::GREEDY,
-			 size_t               MAX_COLORS   = 128>
+			 size_t               MAX_COLORS   = 64>
 	class ColoredMesh : public BasicMesh<Node_t,Element_t,Face_t>
 	{
 	public:

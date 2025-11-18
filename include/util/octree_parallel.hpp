@@ -20,6 +20,33 @@
 #include <thread>
 #include <condition_variable>
 
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// This file provides the class BasicParallelOctree.
+///
+///
+/// To use this class, it must be specialized into a container for its data type (Data_t). 
+/// The data values are stored in an std::vector<Data_t> (_data).
+///
+/// This class provides support for inserting data into it from multiple openMP threads via push_back_async.
+/// Before inserting data in this manner, space must be created via resize(). After insertion, unused space
+/// can be reclaimed with shrink_to_fit().
+///
+/// When data is inserted via push_back_async, the data is immediately inserted into the _data vector and
+/// is available to be used. push_back_async (and push_back) returns the index where the data was inserted.
+/// This allows race conditions to be avoided. The update of the octree structure will be delayed. The container
+/// owns a worker thread that is responsible for updating the octree structure. Use flush() to wait until the
+/// tree structure is built.
+///
+/// If the same (new) data is added to the octree via two different threads via push_back_async, each thread will
+/// recieve a different index for the location of the data, but only one will be correct. This can lead to undefined behavior.
+/// If the data was already contained (and inserted into the tree), then the correct index will be safely returned.
+//////////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+
+
 namespace gv::util {
 	/////////////////////////////////////////////////
 	/// Structure for OctreeParallelNodes
@@ -186,6 +213,11 @@ namespace gv::util {
 		std::condition_variable _inserter_cv;
 		mutable std::mutex _inserter_mtx;
 		std::atomic<bool> _running{true};
+
+		//make sure that everything pauses until queue is empty when calling flush
+		std::condition_variable _flush_cv;
+		mutable std::mutex _flush_mtx;
+		
 		std::atomic<size_t> _total_pending{0};
 		std::vector<ThreadLocalQueue*> _all_queues; //one buffer queue per thread
 
@@ -311,10 +343,19 @@ namespace gv::util {
 
 		void flush() {
 			_inserter_cv.notify_one();
-		    while (_total_pending.load(std::memory_order_acquire) > 0) {
-		        // std::cout << "FLUSHING " << _total_pending << " elements" << std::endl;
-		        std::this_thread::yield();
-		    }
+
+			 std::unique_lock<std::mutex> lock(_flush_mtx);
+		    _flush_cv.wait(lock, [this]() { 
+				return _total_pending.load(std::memory_order_acquire) == 0; 
+			});
+
+			std::atomic_thread_fence(std::memory_order_seq_cst);
+
+
+		    // while (_total_pending.load(std::memory_order_acquire) > 0) {
+		    //     // std::cout << "FLUSHING " << _total_pending << " elements" << std::endl;
+		    //     std::this_thread::yield();
+		    // }
 		}
 
 		
@@ -416,12 +457,23 @@ namespace gv::util {
 							_total_pending.fetch_sub(1);
 
 							size_t index = _recursive_find_index<true>(work.target_node, _data[work.idx]);
+							// assert(index==(size_t)-1);
 							if (index==(size_t) -1) {
 								[[maybe_unused]] int flag = _recursive_insert_data(work.target_node, _data[work.idx], work.idx);
 								assert(flag == 1);
+							} else {
+								std::cout << "WARNING: attempting to insert data at " << work.idx <<" but data was already inserted at " << index
+								<< "\n| new:\n" << _data[work.idx] 
+								<< "\n| old:\n" << _data[index]
+					            << "\n| Thread: " << std::this_thread::get_id() << std::endl;
 							}
 						}
 					}
+				}
+
+				{
+					std::lock_guard<std::mutex> lock(_flush_mtx);
+					_flush_cv.notify_all();
 				}
 			}
 		}

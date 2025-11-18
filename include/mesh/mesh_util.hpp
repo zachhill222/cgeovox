@@ -63,6 +63,14 @@ namespace gv::mesh
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/////////////////////////////////////////////////
+	/// Struct for tracking boundary information
+	/////////////////////////////////////////////////
+	struct FaceTracker {
+		size_t elem_idx;
+		int elem_face;
+	};
+
+	/////////////////////////////////////////////////
 	/// Struct for tracking basic element information
 	/////////////////////////////////////////////////
 	struct BasicElement {
@@ -82,9 +90,14 @@ namespace gv::mesh
 	/// Struct for colorable elements
 	/////////////////////////////////////////////////
 	struct ColoredElement : BasicElement {
-		using BasicElement::BasicElement;
-		ColoredElement(const BasicElement& other) : BasicElement(other) {}
 		size_t color = (size_t) -1;
+		ColoredElement() : BasicElement() {}
+		ColoredElement(const int vtkID) : BasicElement(vtkID) {}
+		ColoredElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID) {}
+		ColoredElement(const BasicElement& other) : BasicElement(other) {}
+		ColoredElement(const ColoredElement& other) : 
+			BasicElement(other),
+			color(other.color) {}
 	};
 	static_assert(BasicMeshElement<ColoredElement>, "ColoredElement is not a BasicMeshElement");
 	static_assert(ColorableMeshElement<ColoredElement>, "ColoredElement is not a ColorableMeshElement");
@@ -95,12 +108,18 @@ namespace gv::mesh
 	struct HierarchicalElement : BasicElement {
 		size_t parent  = (size_t) -1;
 		size_t depth   = 0;
-		bool is_active = true;
+		bool is_active = false;
 		std::vector<size_t> children;
-		HierarchicalElement() {}
+		HierarchicalElement() : BasicElement() {}
 		HierarchicalElement(const int vtkID) : BasicElement(vtkID) {children.reserve(vtk_n_children(vtkID));}
 		HierarchicalElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID) {children.reserve(vtk_n_children(vtkID));}
 		HierarchicalElement(const BasicElement& other) : BasicElement(other) {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalElement(const HierarchicalElement& other) : 
+			BasicElement(other),
+			parent(other.parent),
+			depth(other.depth),
+			is_active(other.is_active),
+			children(other.children) {}
 	};
 	static_assert(BasicMeshElement<HierarchicalElement>, "HierarchicalElement is not a BasicMeshElement");
 	static_assert(HierarchicalMeshElement<HierarchicalElement>, "HierarchicalElement is not a HierarchicalMeshElement");
@@ -114,6 +133,10 @@ namespace gv::mesh
 		HierarchicalColoredElement(const int vtkID) : HierarchicalElement(vtkID) {}
 		HierarchicalColoredElement(const std::vector<size_t> &nodes, const int vtkID) : HierarchicalElement(nodes, vtkID) {}
 		HierarchicalColoredElement(const BasicElement& other) : HierarchicalElement(other) {}
+		HierarchicalColoredElement(const HierarchicalColoredElement& other) : 
+			HierarchicalElement(other),
+			color(other.color) {}
+
 	};
 	static_assert(BasicMeshElement<HierarchicalColoredElement>, "HierarchicalColoredElement is not a BasicMeshElement");
 	static_assert(ColorableMeshElement<HierarchicalColoredElement>, "HierarchicalColoredElement is not a ColorableMeshElement");
@@ -249,14 +272,14 @@ namespace gv::mesh
 		std::vector<size_t> elems; /// The elements that use this node
 		std::vector<size_t> boundary_faces; /// The boundary faces/elements that use this node
 		size_t index; /// The index of this node in _nodes. Sometimes helpful to have this recorded in the node.
-
+		size_t createdByElement = (size_t) -1;
 		BasicNode(const Vertex_t &coord) : vertex(coord), elems(), boundary_faces(0) {}
 		BasicNode() : vertex(), elems(), boundary_faces(0) {}
 	};
 	static_assert(BasicMeshNode<BasicNode<gv::util::Point<3,double>>>, "BasicNode<Point<3,double>> is not a BasicMeshNode");
 	static_assert(BasicMeshNode<BasicNode<gv::util::Point<2,double>>>, "BasicNode<Point<2,double>> is not a BasicMeshNode");
-	static_assert(BasicMeshNode<BasicNode<gv::util::Point<3,float>>>, "BasicNode<Point<3,float>> is not a BasicMeshNode");
-	static_assert(BasicMeshNode<BasicNode<gv::util::Point<2,float>>>, "BasicNode<Point<2,float>> is not a BasicMeshNode");
+	static_assert(BasicMeshNode<BasicNode<gv::util::Point<3,float>>>,  "BasicNode<Point<3,float>> is not a BasicMeshNode");
+	static_assert(BasicMeshNode<BasicNode<gv::util::Point<2,float>>>,  "BasicNode<Point<2,float>> is not a BasicMeshNode");
 
 	/// Equality check for mesh nodes for use in the octree.
 	template <BasicMeshNode Node_t>
@@ -268,6 +291,7 @@ namespace gv::mesh
 	/// Node printing
 	template<BasicMeshNode Node_t>
 	std::ostream& operator<<(std::ostream& os, const Node_t &node) {
+		os << "createdByElement= " << node.createdByElement << "\n";
 		os << "index= " << node.index << "\n";
 		os << "vertex= " << node.vertex << "\n";
 		os << "elems (" << node.elems.size() << "): ";

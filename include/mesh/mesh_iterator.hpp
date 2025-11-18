@@ -35,8 +35,10 @@ namespace gv::mesh {
 		size_t curr_idx;
 
 		bool isValid(const size_t idx) {
-			if constexpr (CONTAINER == ContainerType::ELEMENTS) {return mesh->isElementValid((*_elements)[idx]);}
-			if constexpr (CONTAINER == ContainerType::BOUNDARY) {return mesh->isFaceValid((*_elements)[idx]);}
+			// if constexpr (CONTAINER == ContainerType::ELEMENTS) {return mesh->isElementValid((*_elements)[idx]);}
+			// if constexpr (CONTAINER == ContainerType::BOUNDARY) {return mesh->isFaceValid((*_elements)[idx]);}
+			if constexpr (HierarchicalMeshElement<Element_t>) {return (*_elements)[idx].is_active;}
+			else {return true;}
 		}
 
 		void advance() {
@@ -48,9 +50,12 @@ namespace gv::mesh {
 		void retreat() {
 			if (curr_idx==0) {return;} //no valid element to decrease to
 
-			size_t tmp=curr_idx-1;
-			while (tmp > 0 and !isValid(tmp)) {--tmp;}
-			if (isValid(tmp)) {curr_idx = tmp;} //found a valid element to decrease to
+			size_t tmp = curr_idx - 1;
+		    while (!isValid(tmp)) {
+		        if (tmp == 0) return;  // Can't retreat further
+		        --tmp;
+		    }
+		    curr_idx = tmp;  // Found a valid element
 		}
 
 	public:

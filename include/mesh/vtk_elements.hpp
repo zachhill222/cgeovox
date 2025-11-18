@@ -31,6 +31,7 @@ namespace gv::mesh
 		virtual void split(std::vector<Point_t> &vertices) const = 0;
 		virtual void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const = 0;
 		virtual void getFaceNodes(std::vector<size_t> &face_nodes, const int face_number) const = 0;
+		virtual void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const = 0;
 		BasicElement getFace(const int face_number) const {
 			BasicElement face(vtk_face_id(this->ELEM.vtkID));
 			getFaceNodes(face.nodes, face_number);
@@ -76,6 +77,8 @@ namespace gv::mesh
 			face_nodes.resize(1);
 			face_nodes[0] = this->ELEM.nodes[face_number];
 		}
+
+		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {}
 	};
 
 
@@ -180,6 +183,8 @@ namespace gv::mesh
 				break;
 			}
 		}
+
+		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {}
 	};
 
 
@@ -281,6 +286,8 @@ namespace gv::mesh
 				break;
 			}
 		}
+
+		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {}
 	};
 
 
@@ -467,6 +474,8 @@ namespace gv::mesh
 				break;
 			}
 		}
+
+		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {}
 	};
 
 	/////////////////////////////////////////////////
@@ -524,7 +533,7 @@ namespace gv::mesh
 
 			//center
 			vertices.emplace_back(0.125*(vertices[0]+vertices[1]+vertices[2]+vertices[3]
-								+vertices[4]+vertices[5]+vertices[6]+vertices[7])); //26
+										+vertices[4]+vertices[5]+vertices[6]+vertices[7])); //26
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
@@ -668,6 +677,88 @@ namespace gv::mesh
 				throw std::out_of_range("face number out of bounds");
 				break;
 			}
+		}
+
+
+		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {
+			split_face_nodes.resize(vtk_n_nodes_when_split(vtk_face_id(VTK_ID)));
+			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+			switch (face_number) {
+			case (0) : //Left face [0, 4, 7, 3]
+				split_face_nodes[0] = split_node_numbers[ 0]; //0
+				split_face_nodes[1] = split_node_numbers[ 4]; //4
+				split_face_nodes[2] = split_node_numbers[ 7]; //7
+				split_face_nodes[3] = split_node_numbers[ 3]; //3
+				split_face_nodes[4] = split_node_numbers[12]; //0-4
+				split_face_nodes[5] = split_node_numbers[19]; //4-7
+				split_face_nodes[6] = split_node_numbers[13]; //7-3
+				split_face_nodes[7] = split_node_numbers[11]; //3-0
+				split_face_nodes[8] = split_node_numbers[20]; //L
+				break;
+			case (1): // Right face [1,2,6,5]
+				split_face_nodes[0] = split_node_numbers[ 1]; //1
+				split_face_nodes[1] = split_node_numbers[ 2]; //2
+				split_face_nodes[2] = split_node_numbers[ 6]; //6
+				split_face_nodes[3] = split_node_numbers[ 5]; //5
+				split_face_nodes[4] = split_node_numbers[ 9]; //1-2
+				split_face_nodes[5] = split_node_numbers[14]; //2-6
+				split_face_nodes[6] = split_node_numbers[17]; //6-5
+				split_face_nodes[7] = split_node_numbers[15]; //5-1
+				split_face_nodes[8] = split_node_numbers[21]; //R
+				break;
+		        
+		    case (2): // Top face [2,3,7,6]
+				split_face_nodes[0] = split_node_numbers[ 2]; //2
+				split_face_nodes[1] = split_node_numbers[ 3]; //3
+				split_face_nodes[2] = split_node_numbers[ 7]; //7
+				split_face_nodes[3] = split_node_numbers[ 6]; //6
+				split_face_nodes[4] = split_node_numbers[10]; //2-3
+				split_face_nodes[5] = split_node_numbers[13]; //3-7
+				split_face_nodes[6] = split_node_numbers[18]; //7-6
+				split_face_nodes[7] = split_node_numbers[14]; //6-2
+				split_face_nodes[8] = split_node_numbers[22]; //U
+				break;
+		        
+		    case (3): // Bottom face [0,1,5,4]
+				split_face_nodes[0] = split_node_numbers[ 0]; //0
+				split_face_nodes[1] = split_node_numbers[ 1]; //1
+				split_face_nodes[2] = split_node_numbers[ 5]; //5
+				split_face_nodes[3] = split_node_numbers[ 4]; //4
+				split_face_nodes[4] = split_node_numbers[ 8]; //0-1
+				split_face_nodes[5] = split_node_numbers[15]; //1-5
+				split_face_nodes[6] = split_node_numbers[16]; //5-4
+				split_face_nodes[7] = split_node_numbers[12]; //4-0
+				split_face_nodes[8] = split_node_numbers[23]; //D
+				break;
+		        
+		    case (4): // Back face [0,3,2,1]
+				split_face_nodes[0] = split_node_numbers[ 0]; //0
+				split_face_nodes[1] = split_node_numbers[ 3]; //3
+				split_face_nodes[2] = split_node_numbers[ 2]; //2
+				split_face_nodes[3] = split_node_numbers[ 1]; //1
+				split_face_nodes[4] = split_node_numbers[11]; //0-3
+				split_face_nodes[5] = split_node_numbers[10]; //3-2
+				split_face_nodes[6] = split_node_numbers[ 9]; //2-1
+				split_face_nodes[7] = split_node_numbers[ 8]; //1-0
+				split_face_nodes[8] = split_node_numbers[24]; //B
+				break;
+		        
+		    case (5): // Front face [4,5,6,7]
+				split_face_nodes[0] = split_node_numbers[ 4]; //4
+				split_face_nodes[1] = split_node_numbers[ 5]; //5
+				split_face_nodes[2] = split_node_numbers[ 6]; //6
+				split_face_nodes[3] = split_node_numbers[ 7]; //7
+				split_face_nodes[4] = split_node_numbers[16]; //4-5
+				split_face_nodes[5] = split_node_numbers[17]; //5-6
+				split_face_nodes[6] = split_node_numbers[18]; //6-7
+				split_face_nodes[7] = split_node_numbers[19]; //7-4
+				split_face_nodes[8] = split_node_numbers[25]; //F
+				break;
+		        
+		    default:
+		        throw std::out_of_range("face number out of bounds");
+		        break;
+		    }
 		}
 	};
 

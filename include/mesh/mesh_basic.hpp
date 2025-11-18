@@ -93,7 +93,12 @@ namespace gv::mesh
 		/// Container for the boundary faces. Usually this is determined by the class that inherits from this.
 		/////////////////////////////////////////////////
 		std::vector<Face_t> _boundary;
-		
+
+		/////////////////////////////////////////////////
+		/// For each boundary face, track which element it belonged to and which face of that element it is.
+		/////////////////////////////////////////////////
+		std::vector<FaceTracker> _boundary_track;
+
 		/////////////////////////////////////////////////
 		/// Container for the mesh nodes. This has an octree structure for quickly finding nodes from their location in space.
 		/// This method has parallel read (_nodes.find) and serial write (_nodes.push_back) built in.
@@ -151,13 +156,14 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Get the boundary as a separate mesh
 		/////////////////////////////////////////////////
-		// template<BasicMeshType Mesh_t>
-		// void getBoundaryMesh(Mesh_t &mesh) const {
-		// 	for (auto it=boundaryBegin(); it!=boundaryEnd(); ++it) {
-		// 		typename Mesh_t::face_type face = *it;
-		// 		mesh.insertElement_Locked(face);
-		// 	}
-		// }
+		template<BasicMeshType Mesh_t>
+		void getBoundaryMesh(Mesh_t &mesh) const {
+			for (auto it=boundaryBegin(); it!=boundaryEnd(); ++it) {
+				std::vector<Vertex_t> vertices;
+				for (size_t n : it->nodes) {vertices.push_back(_nodes[n].vertex);}
+				mesh.constructElement_Locked(vertices, it->vtkID);
+			}
+		}
 
 		/////////////////////////////////////////////////
 		/// Mesh a 3D box using voxels of equal size. This can be used for testing or creating a simple initial mesh.
@@ -244,7 +250,7 @@ namespace gv::mesh
 		/// @param ELEM The element to be inserted. The nodes must already be populated. The element will be appended to _elements via _elements.push_back(std::move(ELEM)).
 		/////////////////////////////////////////////////
 		virtual void insertElement_Locked(Element_t &ELEM);
-
+		void insertBoundaryFace_Locked(Face_t &FACE, FaceTracker &bt);
 
 		/////////////////////////////////////////////////
 		/// A method to insert a new element into the mesh. The element must be constructed from specified existing nodes.
@@ -259,7 +265,7 @@ namespace gv::mesh
 		/// @param elem_idx The inded where the element is to be inserted.
 		/////////////////////////////////////////////////
 		virtual void insertElement_Unlocked(Element_t &ELEM, const size_t elem_idx);
-
+		void insertBoundaryFace_Unlocked(Face_t &FACE, const size_t face_idx, FaceTracker &bt);
 
 		/////////////////////////////////////////////////
 		/// A method to create a new element by its vertices and insert it into the mesh. The element is constructed from specified vertices, which may or may not correspond to existing nodes.
@@ -284,7 +290,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Compute the boundary elements. The mesh must be in a conformal state (i.e., the coarsest mesh).
 		/////////////////////////////////////////////////
-		void computeConformalBoundary_Locked();
+		void computeConformalBoundary();
 
 
 		/////////////////////////////////////////////////
@@ -297,6 +303,7 @@ namespace gv::mesh
 		void moveVertex(const size_t node_idx, Vertex_t new_vertex) {
 			Node_t &NODE = _nodes[node_idx];
 			for (size_t e_idx : NODE.elems) {makeIsoparametric(_elements[e_idx]);}
+			for (size_t f_idx : NODE.boundary_faces) {makeIsoparametric(_boundary[f_idx]);}
 			NODE.vertex = new_vertex;
 			_nodes.reinsert(node_idx);
 		}
@@ -449,7 +456,7 @@ namespace gv::mesh
 			}
 		}
 
-		computeConformalBoundary_Locked();
+		computeConformalBoundary();
 	}
 
 
@@ -494,7 +501,7 @@ namespace gv::mesh
 				constructElement_Locked(element_vertices, ID);
 			}
 		}
-		computeConformalBoundary_Locked();
+		computeConformalBoundary();
 	}
 
 
@@ -512,7 +519,12 @@ namespace gv::mesh
 
 			//loop through the elements of the current node
 			for (size_t e_idx : NODE.elems) {
-				if (e_idx!=elem_idx and isElementValid(_elements[e_idx])) {
+				bool isNeighbor = e_idx!=elem_idx;
+				if constexpr (HierarchicalMeshElement<Element_t>) {
+					isNeighbor = isNeighbor and _elements[e_idx].is_active;
+				}
+				
+				if (isNeighbor) {
 					neighbor_set.insert(e_idx);
 				}
 			}
@@ -537,19 +549,8 @@ namespace gv::mesh
 
 			//loop through the boundary faces of the current node
 			for (size_t f_idx : NODE.boundary_faces) {
-				if (isFaceValid(_boundary[f_idx])) {
-					//make sure that every node of the face is also a node of the element
-					bool contained = true;
-					for (size_t f_node : _boundary[f_idx].nodes) {
-						if (std::find(ELEM.nodes.begin(), ELEM.nodes.end(), f_node) == ELEM.nodes.end()) {
-							contained=false; //node not found in the element
-							break;
-						}
-					}
-
-					if (contained) {
-						face_set.insert(f_idx);
-					}
+				if (_boundary_track[f_idx].elem_idx == elem_idx) {
+					face_set.insert(f_idx);
 				}
 			}
 		}
@@ -584,6 +585,7 @@ namespace gv::mesh
 		std::unique_lock<std::shared_mutex> lock(_rw_mtx);
 
 		//add the element to the mesh
+		if constexpr (HierarchicalMeshElement<Element_t>) {ELEM.is_active=true;}
 		size_t e_idx = _elements.size(); //index of the new element
 		ELEM.index   = _elements.size();
 		
@@ -601,6 +603,7 @@ namespace gv::mesh
 	void BasicMesh<Node_t,Element_t,Face_t>::insertElement_Unlocked(Element_t &ELEM, const size_t elem_idx) {
 		//The method that calls this must ensure that this is thread-safe.
 		//If only one color of elements are being inserted, it will be safe
+		if constexpr (HierarchicalMeshElement<Element_t>) {ELEM.is_active=true;}
 
 		ELEM.index = elem_idx;
 
@@ -611,6 +614,45 @@ namespace gv::mesh
 
 		//move ELEM to _elements
 		_elements[elem_idx] = std::move(ELEM);
+	}
+
+
+	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Node_t,Element_t,Face_t>::insertBoundaryFace_Locked(Face_t &FACE, FaceTracker &bt) {
+		std::unique_lock<std::shared_mutex> lock(_rw_mtx);
+
+		//add the element to the mesh
+		if constexpr (HierarchicalMeshElement<Face_t>) {FACE.is_active=true;}
+		size_t e_idx = _boundary.size(); //index of the new element
+		FACE.index   = _boundary.size();
+		
+		//update existing nodes
+		for (size_t node_idx : FACE.nodes) {
+			_nodes[node_idx].boundary_faces.push_back(e_idx);
+		}
+
+		//move FACE to _boundary
+		_boundary.push_back(std::move(FACE));
+		_boundary_track.push_back(std::move(bt));
+	}
+
+
+	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Node_t,Element_t,Face_t>::insertBoundaryFace_Unlocked(Face_t &FACE, const size_t face_idx, FaceTracker &bt) {
+		//The method that calls this must ensure that this is thread-safe.
+		//If only one color of elements are being inserted, it will be safe
+		if constexpr (HierarchicalMeshElement<Face_t>) {FACE.is_active=true;}
+
+		FACE.index = face_idx;
+
+		//update existing nodes
+		for (size_t node_idx : FACE.nodes) {
+			_nodes[node_idx].boundary_faces.push_back(face_idx);
+		}
+
+		//move FACE to _boundary
+		_boundary[face_idx] = std::move(FACE);
+		_boundary_track[face_idx] = std::move(bt);
 	}
 
 
@@ -653,24 +695,37 @@ namespace gv::mesh
 
 
 	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::computeConformalBoundary_Locked() {
-		std::unique_lock<std::shared_mutex> lock(_rw_mtx);
+	void BasicMesh<Node_t,Element_t,Face_t>::computeConformalBoundary() {
 
 		using Vertex_t   = typename BasicMesh<Node_t,Element_t,Face_t>::Vertex_t;
 		
 
 		//create unordered maps to track the count of each face
-		std::unordered_map<Face_t, int, ElemHashBitPack> face_count;
-		face_count.reserve(8*_elements.size()); //guess at the number of unique faces (exact if all elements are voxels or hexes)
+		struct CountFace {
+			int count = 0;
+			size_t elem = (size_t) -1;
+			int elem_face = -1;
+		};
+
+		std::unordered_map<Face_t, CountFace, ElemHashBitPack> all_faces;
+		all_faces.reserve(8*_elements.size()); //guess at the number of unique faces (exact if all elements are voxels or hexes)
 
 		//loop through all elements and add the faces to the map
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
 			const Element_t &ELEM = _elements[e_idx];
 			VTK_ELEMENT<Vertex_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Vertex_t>(ELEM);
 
+			std::vector<size_t> neighbors;
+			getElementNeighbors_Unlocked(e_idx, neighbors);
+
 			for (int i=0; i<vtk_n_faces(ELEM.vtkID); i++) {
 				Face_t FACE = vtk_elem->getFace(i);
-				face_count[FACE] += 1;
+
+				//loop 
+
+				all_faces[FACE].count +=1;
+				all_faces[FACE].elem = e_idx;
+				all_faces[FACE].elem_face = i;
 			}
 
 			delete vtk_elem;
@@ -678,18 +733,20 @@ namespace gv::mesh
 
 		//process boundary faces
 		_boundary.clear();
-		_boundary.reserve(face_count.size()/4);
-		size_t b_idx = 0;
-		for (const auto& [FACE, count] : face_count) {
-			if (count==1) {
-				_boundary.push_back(FACE);
-				_boundary[b_idx].index = b_idx;
-				for (size_t i=0; i<FACE.nodes.size(); i++) {
-					Node_t &NODE = _nodes[FACE.nodes[i]];
-					NODE.boundary_faces.push_back(b_idx);
-				}
-
-				b_idx += 1;
+		_boundary.reserve(all_faces.size()/4);
+		for (const auto& [FACE, face_count] : all_faces) {
+			if (face_count.count==1) {
+				// _boundary.push_back(FACE);
+				// _boundary[b_idx].index = b_idx;
+				// for (size_t i=0; i<FACE.nodes.size(); i++) {
+				// 	Node_t &NODE = _nodes[FACE.nodes[i]];
+				// 	NODE.boundary_faces.push_back(b_idx);
+				// }
+				Face_t face(FACE);
+				FaceTracker bt {face_count.elem, face_count.elem_face};
+				insertBoundaryFace_Locked(face, bt);
+				// _boundary_track.push_back(std::move(FaceTracker{face_count.elem, face_count.elem_face}));
+				// b_idx += 1;
 			}
 		}
 		_boundary.shrink_to_fit();
