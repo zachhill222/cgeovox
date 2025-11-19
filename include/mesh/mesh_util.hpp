@@ -77,7 +77,7 @@ namespace gv::mesh
 		std::vector<size_t> nodes;
 		int vtkID;
 		size_t index = (size_t) -1;
-		BasicElement() {}
+		BasicElement() : nodes(), vtkID(0) {}
 		BasicElement(const BasicElement& other) : nodes(other.nodes), vtkID(other.vtkID), index(other.index) {}
 		BasicElement(const int vtkID) : nodes(vtk_n_nodes(vtkID)), vtkID(vtkID) {}
 		BasicElement(const std::vector<size_t> &nodes, const int vtkID) : nodes(nodes), vtkID(vtkID) {
@@ -110,10 +110,10 @@ namespace gv::mesh
 		size_t depth   = 0;
 		bool is_active = false;
 		std::vector<size_t> children;
-		HierarchicalElement() : BasicElement() {}
-		HierarchicalElement(const int vtkID) : BasicElement(vtkID) {children.reserve(vtk_n_children(vtkID));}
-		HierarchicalElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID) {children.reserve(vtk_n_children(vtkID));}
-		HierarchicalElement(const BasicElement& other) : BasicElement(other) {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalElement() : BasicElement(), children{} {}
+		HierarchicalElement(const int vtkID) : BasicElement(vtkID), children{} {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID), children{} {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalElement(const BasicElement& other) : BasicElement(other), children{} {children.reserve(vtk_n_children(vtkID));}
 		HierarchicalElement(const HierarchicalElement& other) : 
 			BasicElement(other),
 			parent(other.parent),
@@ -265,7 +265,7 @@ namespace gv::mesh
 	template <gv::util::PointLike Point_type>
 	struct BasicNode {
 		using Vertex_t = Point_type;
-		using Scalar_t = typename Vertex_t::data_type;
+		using Scalar_t = typename Vertex_t::Scalar_t;
 		static constexpr int dim = Vertex_t::dimension;
 
 		Vertex_t vertex; /// The location of this node in space.
@@ -314,10 +314,11 @@ namespace gv::mesh
 	template<BasicMeshNode Node_t, int N_DATA=64>
 	class NodeOctree : public gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, typename Node_t::Scalar_t>
 	{
-		using Parent_t = gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, typename Node_t::Scalar_t>;
 	public:
+		using Parent_t = gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, typename Node_t::Scalar_t>;
 		using Data_t = Node_t;
 		using Box_t  = gv::util::Box<Node_t::dim, typename Node_t::Scalar_t>;
+
 
 		NodeOctree() : Parent_t() {}
 		NodeOctree(const Box_t &bbox) : Parent_t(bbox) {}

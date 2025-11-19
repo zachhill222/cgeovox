@@ -65,6 +65,7 @@ namespace gv::mesh
 			BasicMesh<Node_t,Element_t,Face_t>(domain),
 			_color_manager(this->_elements) {this->setPixelMesh_Locked(domain, N, useIsopar);}
 
+		virtual ~ColoredMesh() {}
 
 		/////////////////////////////////////////////////
 		/// A method to insert a new element into the mesh. The element must be constructed from specified existing nodes.

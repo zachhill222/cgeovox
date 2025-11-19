@@ -47,13 +47,13 @@ namespace gv::mesh
 	/// Note that below, the "type of element" does not refer to Voxel/Quad/... It refers to the data stored in the struct (color, is_active, children, ...)
 	/// All element types (in the C++ sense) contain an "int vtkID" and "std::vector<size_t> nodes" fields to track their type (in the FEM sense).
 	///
-	/// @tparam Node_t The type of node to use. Usually BasicNode<gv::util::Point<3,double>>.
+	/// @tparam Node_t The type of node to use. Usually BasicNode<gv::util::Point<3,float>>.
 	/// @tparam Element_t The type of element to use. This is usually set by the class that inherits from this class.
 	/// @tparam Face_t The type of boundary element to use. This is usually set by the class that inherits from this class.
 	///
 	/// @todo Add data and types to this description.
 	/////////////////////////////////////////////////
-	template<BasicMeshNode    Node_t    = BasicNode<gv::util::Point<3,double>>,
+	template<BasicMeshNode    Node_t    = BasicNode<gv::util::Point<3,float>>,
 			 BasicMeshElement Element_t = BasicElement,
 			 BasicMeshElement Face_t    = BasicElement>
 	class BasicMesh	{
@@ -119,7 +119,7 @@ namespace gv::mesh
 		}
 		BasicMesh(const Box_t<3> &domain, const Index_t<3> &N, const bool useIsopar=false) : BasicMesh(domain) {setVoxelMesh_Locked(domain, N, useIsopar);}
 		BasicMesh(const Box_t<2> &domain, const Index_t<2> &N, const bool useIsopar=false) : BasicMesh(domain) {setPixelMesh_Locked(domain, N, useIsopar);}
-
+		virtual ~BasicMesh() {}
 
 		/////////////////////////////////////////////////
 		/// Get the total number of elements in the mesh. Marked as virtual as hierarchical meshes need to check for active elements.
@@ -807,18 +807,39 @@ namespace gv::mesh
 		double nodesCap      = (double) sizeof(Node_t) * (double) mesh._nodes.capacity();
 		double nodesElemUsed = 0;
 		double nodesElemCap  = 0;
+		size_t nodesElemCount = 0;
 		for (size_t n=0; n<mesh._nodes.size(); n++) {
 			const std::vector<size_t> &vec = mesh._nodes[n].elems;
 			nodesElemUsed += (double) sizeof(size_t) * (double) vec.size();
 			nodesElemCap  += (double) sizeof(size_t) * (double) vec.capacity();
+			nodesElemCount += vec.size();
 		}
 		double nodesBoundaryUsed = 0;
 		double nodesBoundaryCap  = 0;
+		size_t nodesBoundaryCount = 0;
 		for (size_t n=0; n<mesh._nodes.size(); n++) {
 			const std::vector<size_t> &vec = mesh._nodes[n].boundary_faces;
 			nodesBoundaryUsed += (double) sizeof(size_t) * (double) vec.size();
 			nodesBoundaryCap  += (double) sizeof(size_t) * (double) vec.capacity();
+			nodesBoundaryCount += vec.size();
 		}
+
+		double total_nodes_used = nodesUsed + nodesElemUsed + nodesBoundaryUsed;
+		double total_nodes_cap  = nodesCap  + nodesElemCap  + nodesBoundaryCap;
+
+
+		//memory for octree structure of _nodes
+		size_t nOctreeNodes{0}, nOctreeIdx{0}, nOctreeIdxCap{0}, nLeafs{0};
+		int maxDepth{0};
+		mesh._nodes.treeSummary(nOctreeNodes, nOctreeIdx, nOctreeIdxCap, nLeafs, maxDepth);
+
+		double octreeNodeMemory      = (double) sizeof(typename std::decay_t<decltype(mesh._nodes)>::Node_t) * nOctreeNodes;
+		double octreeIndexMemoryUsed = (double) sizeof(size_t) * nOctreeIdx;
+		double octreeIndexMemoryCap  = (double) sizeof(size_t) * nOctreeIdxCap;
+
+		double total_nodes_octree_used = octreeNodeMemory + octreeIndexMemoryUsed;
+		double total_nodes_octree_cap  = octreeIndexMemoryCap;
+
 
 		//memory for _elements
 		double elementsUsed     = (double) sizeof(Node_t) * (double) mesh._elements.size();
@@ -842,6 +863,9 @@ namespace gv::mesh
 			}
 		}
 
+		double total_elements_used = elementsUsed + elementsNodesUsed + elementsChildrenUsed;
+		double total_elements_cap  = elementsCap  + elementsNodesCap  + elementsChildrenCap;
+
 		//memory for _boundary
 		double boundaryUsed     = (double) sizeof(Node_t) * (double) mesh._boundary.size();
 		double boundaryCap      = (double) sizeof(Node_t) * (double) mesh._boundary.capacity();
@@ -864,21 +888,28 @@ namespace gv::mesh
 			}
 		}
 
+		double total_boundary_used = boundaryUsed + boundaryNodesUsed + boundaryChildrenUsed;
+		double total_boundary_cap  = boundaryCap  + boundaryNodesCap  + boundaryChildrenCap;
+
+		//memory for _boundary_track
+		double boundaryTrackUsed = (double) sizeof(FaceTracker) * (double) mesh._boundary_track.size();
+		double boundaryTrackCap  = (double) sizeof(FaceTracker) * (double) mesh._boundary_track.capacity();
+
 		////////////////////////////////
 		//////// assemble table ////////
 		////////////////////////////////
 
 		//header
 		std::cout << "\n" << std::string(90, '-') << "\n"
-				  << std::left << std::setw(30) << "Container"
+				  << std::left << std::setw(30) << "Mesh Memory"
 				  << std::right
 				  << std::setw(20) << "Count"
 				  << std::setw(20) << "Size (MiB)"
-				  << std::setw(20) << "Capacity (MiB)"
+				  << std::setw(20) << "Reserved (MiB)"
 				  << "\n" 
 				  << std::string(90, '-') << "\n";
 
-		//_nodes
+		//_nodes (data)
 		std::cout << std::left << std::setw(30) << "_nodes (structs)"
 				  << std::right
 				  << std::setw(20) << mesh._nodes.size()
@@ -887,17 +918,43 @@ namespace gv::mesh
 				  << "\n"
 				  << std::left << std::setw(34) << "  \u251c\u2500 elems (vectors)"
 				  << std::right
-				  << std::setw(20) << ""
+				  << std::setw(20) << nodesElemCount
 				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesElemUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesElemCap  / 1048576.0
 				  << "\n"
-				  << std::left << std::setw(34) << "  \u2514\u2500 boundary_faces (vectors)"
+				  << std::left << std::setw(34) << "  \u251c\u2500 boundary_faces (vectors)"
 				  << std::right
-				  << std::setw(20) << ""
+				  << std::setw(20) << nodesBoundaryCount
 				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesBoundaryUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesBoundaryCap  / 1048576.0
-				  << "\n" 
+				  << "\n";
+
+		std::cout << std::left << std::setw(30) << "  \u2514\u2500 octree structure"
+				  << "\n"
+				  << std::left << std::setw(34) << "      \u251c\u2500 tree nodes (all)"
+				  << std::right
+				  << std::setw(20) << nOctreeNodes
+				  << std::setw(20) << std::fixed << std::setprecision(3) << octreeNodeMemory / 1048576.0
+				  << std::setw(20) << "n/a"
+				  << "\n"
+				  << std::left << std::setw(34) << "      \u251c\u2500 tree leafs"
+				  << std::right
+				  << std::setw(20) << nLeafs 
+				  << std::setw(20) << "n/a"
+				  << std::setw(20) << "n/a"
+				  << "\n"
+				  << std::left << std::setw(34) << "      \u251c\u2500 data index storage"
+				  << std::right
+				  << std::setw(20) << nOctreeIdx
+				  << std::setw(20) << std::fixed << std::setprecision(3) << octreeIndexMemoryUsed / 1048576.0
+				  << std::setw(20) << std::fixed << std::setprecision(3) << octreeIndexMemoryCap  / 1048576.0
+				  << "\n"
+				  << std::left << "      \u251c\u2500 maximum depth= " << maxDepth << "\n"
+				  << std::left << "      \u2514\u2500 bounding box\n"
+				  << std::left << "          \u251c\u2500 high= " << mesh._nodes.bbox().high() << "\n"
+				  << std::left << "          \u2514\u2500 low= " << mesh._nodes.bbox().low()  << "\n"
 				  << std::string(90, '-') << "\n";
+
 
 		//_elements
 		std::cout << std::left << std::setw(30) << "_elements (structs)"
@@ -953,7 +1010,27 @@ namespace gv::mesh
 		}
 		std::cout << std::string(90, '-') << "\n";
 
-		mesh._nodes.duplicateCheck();
+		//_boundary_track
+		std::cout << std::left << std::setw(30) << "_boundary_track (structs)"
+				  << std::right
+				  << std::setw(20) << mesh._boundary_track.size()
+				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryTrackUsed / 1048576.0
+				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryTrackCap  / 1048576.0
+				  << "\n";
+		std::cout << std::string(90, '-') << "\n";
+
+
+		//total
+		double totalUsed = total_nodes_used + total_nodes_octree_used + total_elements_used + total_boundary_used + boundaryTrackUsed;
+		double totalCap = total_nodes_cap + total_nodes_octree_cap + total_elements_cap + total_boundary_cap + boundaryTrackCap;
+		std::cout << std::string(90, '-') << "\n";
+		std::cout << std::left << std::setw(30) << "Total"
+				  << std::right
+				  << std::setw(20) << ""
+				  << std::setw(20) << std::fixed << std::setprecision(3) << totalUsed / 1048576.0
+				  << std::setw(20) << std::fixed << std::setprecision(3) << totalCap  / 1048576.0
+				  << "\n";
+		std::cout << std::string(90, '-') << "\n";
 	}
 }
 

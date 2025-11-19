@@ -31,22 +31,20 @@ int main(int argc, char* argv[])
 	Point_t corner {1.0,1.0,1.0};
 	Box_t domain(-corner, corner);
 	Index_t N{1, 1, 1};
-	Mesh_t mesh(domain,N,true);
+	Mesh_t mesh(domain,N,false);
 
 
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
-	for (int n=0; n<1; n++){
-		// const size_t nElems = mesh.nElems();
-		// for (size_t i=0; i<nElems; i+=1) {
-		// 	mesh.splitElement(i);
-		// }
+	for (int n=0; n<3; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
 
 
 	auto fun = [](Vertex_t old) -> Vertex_t {
+		if (old[2]<0) {return old;}
+
 		double r = std::sqrt(old[0]*old[0] + old[1]*old[1]);
 		double theta = std::atan2(old[1],old[0]);
 		theta += 0.75*old[2];
@@ -56,11 +54,13 @@ int main(int argc, char* argv[])
 		return old;
 	};
 	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-		mesh.moveVertex(it->index, fun(it->vertex));
+		if (it->vertex[2]>0) {
+			mesh.moveVertex(it->index, fun(it->vertex));
+		}
 	}
 
 
-	for (int n=0; n<4; n++){
+	for (int n=0; n<3; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
@@ -72,9 +72,9 @@ int main(int argc, char* argv[])
 	// mesh.recolor();
 
 
-	Box_t bbox = mesh.bbox();
-	Mesh_t boundary(bbox);
-	mesh.getBoundaryMesh(boundary);
+	// Box_t bbox = mesh.bbox();
+	// Mesh_t boundary(bbox);
+	// mesh.getBoundaryMesh(boundary);
 	
 	// std::cout << "colors are valid? " << mesh.colors_are_valid() << std::endl;
 
@@ -102,11 +102,11 @@ int main(int argc, char* argv[])
 
 
 
-	std::cout << std::endl << boundary << std::endl;
-	gv::mesh::memorySummary(boundary);
+	// std::cout << std::endl << boundary << std::endl;
+	// gv::mesh::memorySummary(boundary);
 
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
-	boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
 
 	return 0;
 }

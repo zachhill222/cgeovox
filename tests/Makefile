@@ -7,11 +7,11 @@ TARGETS    = $(SRC:.cpp=)
 
 #-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/)
 #correctness testing
-# CC         = g++ -std=c++20 -pg -g3 #-fopenmp#  -g for gdb, -pg for gprof (will create gmon.out)
+# CC         = g++ -std=c++20 -pg -g3 -fopenmp#  -g for gdb, -pg for gprof (will create gmon.out)
 # CFLAGS     = -Wall -O0
 
 #perfomance testing
-CC         = g++ -DNDEBUG -std=c++20 #-fopenmp #-g -pg
+CC         = g++ -DNDEBUG -std=c++20 -fopenmp #-g -pg
 CFLAGS     = -O3
 
 LDFLAGS    = -L$(LIB_DIR)
