@@ -272,7 +272,6 @@ namespace gv::mesh
 		std::vector<size_t> elems; /// The elements that use this node
 		std::vector<size_t> boundary_faces; /// The boundary faces/elements that use this node
 		size_t index; /// The index of this node in _nodes. Sometimes helpful to have this recorded in the node.
-		size_t createdByElement = (size_t) -1;
 		BasicNode(const Vertex_t &coord) : vertex(coord), elems(), boundary_faces(0) {}
 		BasicNode() : vertex(), elems(), boundary_faces(0) {}
 	};
@@ -284,14 +283,12 @@ namespace gv::mesh
 	/// Equality check for mesh nodes for use in the octree.
 	template <BasicMeshNode Node_t>
 	bool operator==(const Node_t &A, const Node_t &B) {
-		// return gv::util::exactlyEqual(A.vertex,B.vertex);
 		return A.vertex==B.vertex;
 	}
 
 	/// Node printing
 	template<BasicMeshNode Node_t>
 	std::ostream& operator<<(std::ostream& os, const Node_t &node) {
-		os << "createdByElement= " << node.createdByElement << "\n";
 		os << "index= " << node.index << "\n";
 		os << "vertex= " << node.vertex << "\n";
 		os << "elems (" << node.elems.size() << "): ";
@@ -299,6 +296,7 @@ namespace gv::mesh
 			os << n << " ";
 		}
 		os << "\n";
+		
 		return os;
 	}
 
@@ -326,6 +324,7 @@ namespace gv::mesh
 
 	private:
 		bool isValid(const Box_t &box, const Data_t &data) const override {return box.contains(data.vertex);}
+		// bool isValid(const Box_t &box, const Data_t &data) const override {return gv::util::distance_squared(box,data.vertex) < 1e-2;}
 	};
 
 

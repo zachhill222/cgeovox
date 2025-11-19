@@ -62,6 +62,10 @@ namespace gv::mesh
 	public:
 		size_t colorCount(const size_t c) const {return _counts[c];}
 		size_t nColors() const {
+			// for (size_t c=0; c<MAX_COLORS; c++) {
+			// 	if (_counts[MAX_COLORS-1-c]!=0) {return MAX_COLORS-c;}
+			// }
+			// return 0;
 			for (size_t c=0; c<MAX_COLORS; c++) {
 				if (_counts[c]==0) {return c;}
 			}
@@ -97,8 +101,9 @@ namespace gv::mesh
 			std::array<bool, MAX_COLORS> color_allowed;
 			color_allowed.fill(true);
 			for (size_t e_idx : neighbors) {
-				if (_elements[e_idx].color < MAX_COLORS) {
-					color_allowed[_elements[e_idx].color] = false;
+				size_t neighbor_color = _elements[e_idx].color;
+				if (neighbor_color < MAX_COLORS) {
+					color_allowed[neighbor_color] = false;
 				} //note that is is sometimes possible that neighbors are uncolored. in this case neighbor.color=(size_t) -1.
 			}
 
@@ -138,11 +143,11 @@ namespace gv::mesh
 		/// @param neighbors The neighbors that cannot share a color with the element. It is assumed that the neighbors are already colored.
 		/////////////////////////////////////////////////
 		void setColor_Locked(const size_t elem_idx, const std::vector<size_t> &neighbors) {
-			_mutex.lock();
+			std::lock_guard<std::mutex> lock(_mutex);
+
 			size_t this_color = getColor_Unlocked(elem_idx, neighbors);
 			_elements[elem_idx].color = this_color;
 			_counts[this_color]++;
-			_mutex.unlock();
 		}
 
 

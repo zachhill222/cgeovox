@@ -51,6 +51,14 @@ namespace gv::mesh
 
 		void split(std::vector<Point_t> &vertices) const override {
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
+
+			//round to lower precision
+			for (Point_t &v : vertices) {
+				for (int i = 0; i < 3; i++) {
+					v[i] = static_cast<double>(static_cast<float>(v[i]));
+				}
+			}
+
 			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //center
 		}
 
@@ -113,6 +121,13 @@ namespace gv::mesh
 		void split(std::vector<Point_t> &vertices) const override {
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
+
+			//round to lower precision
+			for (Point_t &v : vertices) {
+				for (int i = 0; i < 3; i++) {
+					v[i] = static_cast<double>(static_cast<float>(v[i]));
+				}
+			}
 
 			//edge midpoints
 			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //4 - bottom
@@ -217,6 +232,13 @@ namespace gv::mesh
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
+			//round to lower precision
+			for (Point_t &v : vertices) {
+				for (int i = 0; i < 3; i++) {
+					v[i] = static_cast<double>(static_cast<float>(v[i]));
+				}
+			}
+
 			//edge midpoints
 			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //4 - bottom (B)
 			vertices.emplace_back(0.5*(vertices[1]+vertices[2])); //5 - right (R)
@@ -303,6 +325,13 @@ namespace gv::mesh
 		void split(std::vector<Point_t> &vertices) const override {
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
+
+			//round to lower precision
+			for (Point_t &v : vertices) {
+				for (int i = 0; i < 3; i++) {
+					v[i] = static_cast<double>(static_cast<float>(v[i]));
+				}
+			}
 
 			//edge midpoints
 			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //8  - back face
@@ -507,33 +536,40 @@ namespace gv::mesh
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
-			//edge midpoints
-			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //8  - back face
-			vertices.emplace_back(0.5*(vertices[1]+vertices[2])); //9  - back face
-			vertices.emplace_back(0.5*(vertices[2]+vertices[3])); //10 - back face
-			vertices.emplace_back(0.5*(vertices[0]+vertices[3])); //11 - back face
+			//round to lower precision
+			for (Point_t &v : vertices) {
+				for (int i = 0; i < 3; i++) {
+					v[i] = static_cast<double>(static_cast<float>(v[i]));
+				}
+			}
 
-			vertices.emplace_back(0.5*(vertices[0]+vertices[4])); //12 - connecting edge
-			vertices.emplace_back(0.5*(vertices[3]+vertices[7])); //13 - connecting edge
-			vertices.emplace_back(0.5*(vertices[2]+vertices[6])); //14 - connecting edge
-			vertices.emplace_back(0.5*(vertices[1]+vertices[5])); //15 - connecting edge
+			//edge midpoints
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[1]})); //8  - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[1],vertices[2]})); //9  - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[2],vertices[3]})); //10 - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[3]})); //11 - back face
+
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[4]})); //12 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[3],vertices[7]})); //13 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[2],vertices[6]})); //14 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[1],vertices[5]})); //15 - connecting edge
 			
-			vertices.emplace_back(0.5*(vertices[4]+vertices[5])); //16 - front face
-			vertices.emplace_back(0.5*(vertices[5]+vertices[6])); //17 - front face
-			vertices.emplace_back(0.5*(vertices[6]+vertices[7])); //18 - front face
-			vertices.emplace_back(0.5*(vertices[4]+vertices[7])); //19 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[4],vertices[5]})); //16 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[5],vertices[6]})); //17 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[6],vertices[7]})); //18 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[4],vertices[7]})); //19 - front face
 
 			//face midpoints
-			vertices.emplace_back(0.25*(vertices[0]+vertices[3]+vertices[4]+vertices[7])); //20 - left face  (L)
-			vertices.emplace_back(0.25*(vertices[1]+vertices[2]+vertices[5]+vertices[6])); //21 - right face (R)
-			vertices.emplace_back(0.25*(vertices[2]+vertices[3]+vertices[6]+vertices[7])); //22 - up face    (U)
-			vertices.emplace_back(0.25*(vertices[0]+vertices[1]+vertices[4]+vertices[5])); //23 - down face  (D)
-			vertices.emplace_back(0.25*(vertices[0]+vertices[1]+vertices[2]+vertices[3])); //24 - back face  (B)
-			vertices.emplace_back(0.25*(vertices[4]+vertices[5]+vertices[6]+vertices[7])); //25 - front face (F)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[3],vertices[4],vertices[7]})); //20 - left face  (L)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[1],vertices[2],vertices[5],vertices[6]})); //21 - right face (R)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[2],vertices[3],vertices[6],vertices[7]})); //22 - up face    (U)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[1],vertices[4],vertices[5]})); //23 - down face  (D)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[1],vertices[2],vertices[3]})); //24 - back face  (B)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[4],vertices[5],vertices[6],vertices[7]})); //25 - front face (F)
 
 			//center
-			vertices.emplace_back(0.125*(vertices[0]+vertices[1]+vertices[2]+vertices[3]
-										+vertices[4]+vertices[5]+vertices[6]+vertices[7])); //26
+			vertices.emplace_back(0.125*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[1],vertices[2],vertices[3]
+										,vertices[4],vertices[5],vertices[6],vertices[7]})); //26
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
