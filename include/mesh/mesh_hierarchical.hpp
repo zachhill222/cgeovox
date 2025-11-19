@@ -19,7 +19,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <shared_mutex>
-
+#include <thread>
 namespace gv::mesh {
 	/////////////////////////////////////////////////
 	/// This class extends the ColoredMesh class allow elements to be split. In general, the resulting mesh is non-conforming.
@@ -205,7 +205,6 @@ namespace gv::mesh {
 			std::vector<size_t> local_node;
 			for (;j<child_vertex_coords.size(); j++) {
 				Node_t NODE(child_vertex_coords[j]);
-				NODE.createdByElement = ELEM.depth;
 				size_t n_idx = this->_nodes.push_back_async(std::move(NODE));
 				this->_nodes[n_idx].index = n_idx;
 				split_node_numbers[j] = n_idx;
@@ -422,7 +421,6 @@ namespace gv::mesh {
 		this->getBoundaryFaces_Unlocked(elem_idx, faces);
 		int n_faces=0;
 		for (size_t f_idx : faces) {
-			// splitBoundaryFace_Unlocked(f_idx, child_face_start);
 			Face_t &FACE = this->_boundary[f_idx];
 			FACE.is_active = false;
 			const FaceTracker &TRACKER = this->_boundary_track[f_idx];
@@ -478,71 +476,7 @@ namespace gv::mesh {
 
 
 
-	template<BasicMeshNode                    Node_t,
-			 HierarchicalColorableMeshElement Element_t,
-			 HierarchicalMeshElement          Face_t,
-			 ColorMethod                      COLOR_METHOD,
-			 size_t                           MAX_COLORS>
-	void HierarchicalMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::splitBoundaryFace_Unlocked(const size_t face_idx, const size_t child_idx_start) {
-		Face_t &FACE = this->_boundary[face_idx];
-		VTK_ELEMENT<Vertex_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Vertex_t>(FACE);
-
-		//initialize storage for the values that will be needed to create the children elements
-		std::vector<Vertex_t> child_vertex_coords;
-		std::vector<size_t>   child_node_idx(vtk_n_nodes_when_split(FACE.vtkID));
-		
-		//handle parent nodes/vertices that will be re-used
-		size_t j;
-		for (j=0; j<FACE.nodes.size(); j++) {
-			child_vertex_coords.push_back(this->_nodes[FACE.nodes[j]].vertex);
-			child_node_idx[j] = FACE.nodes[j];
-		}
-
-		//get the verticices of the remaining nodes that the children will need
-		vtk_elem->split(child_vertex_coords);
-
-		//find any nodes that already exist and collect which nodes need to be added to _nodes
-		std::vector<size_t> local_node;
-		for (;j<child_vertex_coords.size(); j++) {
-			Node_t NODE(child_vertex_coords[j]);
-			size_t n_idx = this->_nodes.find(NODE);
-			if (n_idx==(size_t)-1) {
-				std::cout << "could not find node at " << NODE.vertex << std::endl;
-				n_idx = this->_nodes.push_back_async(std::move(NODE));
-				this->_nodes.flush();
-			}
-
-			assert(n_idx<this->_nodes.size());
-			child_node_idx[j] = n_idx;
-		}
-
-		//now all nodes have been created to create the children
-		assert(FACE.is_active);
-		FACE.is_active = false;
-
-		for (size_t k=0; k<vtk_n_children(FACE.vtkID); k++) {
-			//get the indices of the nodes that define child k in the correct order
-			std::vector<size_t> childNodes;
-			vtk_elem->getChildNodes(childNodes, k, child_node_idx);
-
-			//create the child
-			const size_t global_child_index = child_idx_start + k;
-			assert(global_child_index<this->_boundary.size());
-			assert(!this->_boundary[global_child_index].is_active);
-
-			Face_t newFace(childNodes, FACE.vtkID);
-			this->insertBoundaryFace_Unlocked(newFace, global_child_index);
-			Face_t &CHILD    = this->_boundary[global_child_index];
-			
-			CHILD.index      = global_child_index;
-			CHILD.parent     = FACE.index;
-			CHILD.depth      = FACE.depth+1;
-		}
-
-		//clean up memory
-		delete vtk_elem;
-	}
-
+	
 
 	template<BasicMeshNode                    Node_t,
 			 HierarchicalColorableMeshElement Element_t,
@@ -630,11 +564,20 @@ namespace gv::mesh {
 			this->_color_manager.decrementCount(color,this_color_elems.size());
 
 			//split the elements of this color
-			#pragma omp parallel for
-			for (size_t i=0; i<this_color_elems.size(); i++) {
-				splitElement_Unlocked(this_color_elems[i], child_element_index_start[i], child_face_index_start[i]);
+			#pragma omp parallel
+			{
+				#pragma omp for
+				for (size_t i=0; i<this_color_elems.size(); i++) {
+					assert(this->_elements[this_color_elems[i]].color == color);
+					// this->_elements[this_color_elems[i]].is_active = false;
+					splitElement_Unlocked(this_color_elems[i], child_element_index_start[i], child_face_index_start[i]);
+				}
+
+				this->_nodes.flush();
+
+				#pragma omp barrier
 			}
-			this->_nodes.flush();
+			
 		}
 		this->_nodes.shrink_to_fit();
 

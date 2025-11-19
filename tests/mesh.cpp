@@ -23,14 +23,14 @@ int main(int argc, char* argv[])
 	using Element_t = gv::mesh::HierarchicalColoredElement;
 	// using Element_t = gv::mesh::BasicElement;
 
-	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::GREEDY;
+	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
 	// using Mesh_t  = gv::mesh::ColoredMesh<Node_t,Element_t,Face_t,method>;
 	using Mesh_t  = gv::mesh::HierarchicalMesh<Node_t,Element_t,Face_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
 	Point_t corner {1.0,1.0,1.0};
 	Box_t domain(-corner, corner);
-	Index_t N{5, 5, 5};
+	Index_t N{1, 1, 1};
 	Mesh_t mesh(domain,N,true);
 
 
@@ -60,11 +60,8 @@ int main(int argc, char* argv[])
 	}
 
 
-	for (int n=0; n<1; n++){
-		const size_t nElems = mesh.nElems();
-		for (size_t i=0; i<nElems; i+=1) {
-			mesh.splitElement(i);
-		}
+	for (int n=0; n<4; n++){
+		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
 
@@ -98,8 +95,15 @@ int main(int argc, char* argv[])
 	// std::cout << "ELEMENTS\n";
 	// for (const auto &ELEM : mesh) {std::cout << ELEM << std::endl;}
 
+
+
 	std::cout << mesh << std::endl;
 	gv::mesh::memorySummary(mesh);
+
+
+
+	std::cout << std::endl << boundary << std::endl;
+	gv::mesh::memorySummary(boundary);
 
 	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
 	boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
