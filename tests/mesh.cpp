@@ -9,16 +9,21 @@
 #include "mesh/mesh_view.hpp"
 
 
+const int dim = 2;
+using T = double;
+	
+template<int n>
+using Box_t    = gv::util::Box<n,T>;
 
 
 
 void test()
 {	
-	const int dim = 2;
-	using T = double;
+	
 
 	using Point_t  = gv::util::Point<dim,T>;
-	using Box_t    = gv::util::Box<dim,T>;
+
+	
 	using Index_t  = gv::util::Point<dim,size_t>;
 
 	using Vertex_t  = gv::util::Point<3,T>;
@@ -33,7 +38,7 @@ void test()
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
 	Point_t corner {1.0,1.0,1.0};
-	Box_t domain(-corner, corner);
+	Box_t<dim> domain(-corner, corner);
 	Index_t N{1, 1, 1};
 	Mesh_t mesh(domain,N,true);
 
@@ -51,18 +56,18 @@ void test()
 	auto fun = [](Vertex_t old) -> Vertex_t {
 		if (old[2]<0) {return old;}
 
-		double r = std::sqrt(old[0]*old[0] + old[1]*old[1]);
-		double theta = std::atan2(old[1],old[0]);
-		theta += 0.75*old[2];
+		double r = std::sqrt(old[0]*old[0] + old[2]*old[2]);
+		double theta = std::atan2(old[2],old[0]);
+		theta += 0.75*old[1];
 
 		old[0] = r*std::cos(theta);
-		old[1] = r*std::sin(theta); 
+		old[2] = r*std::sin(theta); 
 		return old;
 	};
 	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-		if (it->vertex[2]>0) {
+		// if (it->vertex[1]>0) {
 			mesh.moveVertex(it->index, fun(it->vertex));
-		}
+		// }
 	}
 
 
@@ -78,9 +83,9 @@ void test()
 	// mesh.recolor();
 
 
-	// Box_t bbox = mesh.bbox();
-	// Mesh_t boundary(bbox);
-	// mesh.getBoundaryMesh(boundary);
+	Box_t<3> bbox = mesh.bbox();
+	Mesh_t boundary(bbox);
+	mesh.getBoundaryMesh(boundary);
 	
 	// std::cout << "colors are valid? " << mesh.colors_are_valid() << std::endl;
 
@@ -108,11 +113,11 @@ void test()
 
 
 
-	// std::cout << std::endl << boundary << std::endl;
-	// gv::mesh::memorySummary(boundary);
+	std::cout << std::endl << boundary << std::endl;
+	gv::mesh::memorySummary(boundary);
 
 	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
-	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
+	boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
 }
 
 
