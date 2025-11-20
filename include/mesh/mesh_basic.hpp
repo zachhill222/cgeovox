@@ -846,20 +846,24 @@ namespace gv::mesh
 		double elementsCap      = (double) sizeof(Node_t) * (double) mesh._elements.capacity();
 		double elementsNodesUsed = 0;
 		double elementsNodesCap  = 0;
+		size_t elementsNodesCount = 0;
 		for (size_t n=0; n<mesh._elements.size(); n++) {
 			const std::vector<size_t> &vec = mesh._elements[n].nodes;
 			elementsNodesUsed += (double) sizeof(size_t) * (double) vec.size();
 			elementsNodesCap  += (double) sizeof(size_t) * (double) vec.capacity();
+			elementsNodesCount += vec.size();
 			assert(vec.size()==vec.capacity());
 		}
 
 		[[maybe_unused]] double elementsChildrenUsed = 0;
 		[[maybe_unused]] double elementsChildrenCap  = 0;
+		[[maybe_unused]] size_t elementsChildrenCount = 0;
 		if constexpr (HierarchicalMeshElement<Element_t>) {
 			for (size_t n=0; n<mesh._elements.size(); n++) {
 				const std::vector<size_t> &vec = mesh._elements[n].children;
 				elementsChildrenUsed += (double) sizeof(size_t) * (double) vec.size();
 				elementsChildrenCap  += (double) sizeof(size_t) * (double) vec.capacity();
+				elementsChildrenCount += vec.size();
 			}
 		}
 
@@ -871,20 +875,24 @@ namespace gv::mesh
 		double boundaryCap      = (double) sizeof(Node_t) * (double) mesh._boundary.capacity();
 		double boundaryNodesUsed = 0;
 		double boundaryNodesCap  = 0;
+		size_t boundaryNodesCount = 0;
 		for (size_t n=0; n<mesh._boundary.size(); n++) {
 			const std::vector<size_t> &vec = mesh._boundary[n].nodes;
 			boundaryNodesUsed += (double) sizeof(size_t) * (double) vec.size();
 			boundaryNodesCap  += (double) sizeof(size_t) * (double) vec.capacity();
+			boundaryNodesCount += vec.size();
 			assert(vec.size()==vec.capacity());
 		}
 
 		[[maybe_unused]] double boundaryChildrenUsed = 0;
 		[[maybe_unused]] double boundaryChildrenCap  = 0;
+		[[maybe_unused]] size_t boundaryChildrenCount = 0;
 		if constexpr (HierarchicalMeshElement<Face_t>) {
 			for (size_t n=0; n<mesh._boundary.size(); n++) {
 				const std::vector<size_t> &vec = mesh._boundary[n].children;
 				boundaryChildrenUsed += (double) sizeof(size_t) * (double) vec.size();
 				boundaryChildrenCap  += (double) sizeof(size_t) * (double) vec.capacity();
+				boundaryChildrenCount += vec.size();
 			}
 		}
 
@@ -910,19 +918,19 @@ namespace gv::mesh
 				  << std::string(90, '-') << "\n";
 
 		//_nodes (data)
-		std::cout << std::left << std::setw(30) << "_nodes (structs)"
+		std::cout << std::left << std::setw(30) << "_nodes"
 				  << std::right
 				  << std::setw(20) << mesh._nodes.size()
 				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesCap  / 1048576.0
 				  << "\n"
-				  << std::left << std::setw(34) << "  \u251c\u2500 elems (vectors)"
+				  << std::left << std::setw(34) << "  \u251c\u2500 elems"
 				  << std::right
 				  << std::setw(20) << nodesElemCount
 				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesElemUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesElemCap  / 1048576.0
 				  << "\n"
-				  << std::left << std::setw(34) << "  \u251c\u2500 boundary_faces (vectors)"
+				  << std::left << std::setw(34) << "  \u251c\u2500 boundary_faces"
 				  << std::right
 				  << std::setw(20) << nodesBoundaryCount
 				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesBoundaryUsed / 1048576.0
@@ -957,26 +965,26 @@ namespace gv::mesh
 
 
 		//_elements
-		std::cout << std::left << std::setw(30) << "_elements (structs)"
+		std::cout << std::left << std::setw(30) << "_elements"
 				  << std::right
 				  << std::setw(20) << mesh._elements.size()
 				  << std::setw(20) << std::fixed << std::setprecision(3) << elementsUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << elementsCap  / 1048576.0
 				  << "\n";
 		if constexpr (HierarchicalMeshElement<Element_t>) {
-			std::cout << std::left << std::setw(34) << "  \u251c\u2500 nodes (vectors)";
+			std::cout << std::left << std::setw(34) << "  \u251c\u2500 nodes";
 		} else {
-			std::cout << std::left << std::setw(34) << "  \u2514\u2500 nodes (vectors)";
+			std::cout << std::left << std::setw(34) << "  \u2514\u2500 nodes";
 		}
 		std::cout << std::right
-				  << std::setw(20) << ""
+				  << std::setw(20) << elementsNodesCount
 				  << std::setw(20) << std::fixed << std::setprecision(3) << elementsNodesUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << elementsNodesCap  / 1048576.0
 				  << "\n";
 		if constexpr (HierarchicalMeshElement<Element_t>) {
-			std::cout << std::left << std::setw(34) << "  \u2514\u2500 children (vectors)"
+			std::cout << std::left << std::setw(34) << "  \u2514\u2500 children"
 					  << std::right
-					  << std::setw(20) << ""
+					  << std::setw(20) << elementsChildrenCount
 					  << std::setw(20) << std::fixed << std::setprecision(3) << elementsChildrenUsed / 1048576.0
 					  << std::setw(20) << std::fixed << std::setprecision(3) << elementsChildrenCap  / 1048576.0
 					  << "\n";
@@ -984,26 +992,22 @@ namespace gv::mesh
 		std::cout << std::string(90, '-') << "\n";
 
 		//_boundary
-		std::cout << std::left << std::setw(30) << "_boundary (structs)"
+		std::cout << std::left << std::setw(30) << "_boundary"
 				  << std::right
 				  << std::setw(20) << mesh._boundary.size()
 				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryCap  / 1048576.0
 				  << "\n";
-		if constexpr (HierarchicalMeshElement<Face_t>) {
-			std::cout << std::left << std::setw(34) << "  \u251c\u2500 nodes (vectors)";
-		} else {
-			std::cout << std::left << std::setw(34) << "  \u2514\u2500 nodes (vectors)";
-		}
+		std::cout << std::left << std::setw(34) << "  \u2514\u2500 nodes";
 		std::cout << std::right
-				  << std::setw(20) << ""
+				  << std::setw(20) << boundaryNodesCount
 				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryNodesUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryNodesCap  / 1048576.0
 				  << "\n";
 		if constexpr (HierarchicalMeshElement<Face_t>) {
-			std::cout << std::left << std::setw(34) << "  \u2514\u2500 children (vectors)"
+			std::cout << std::left << std::setw(34) << "  \u2514\u2500 children"
 					  << std::right
-					  << std::setw(20) << ""
+					  << std::setw(20) << boundaryChildrenCount
 					  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryChildrenUsed / 1048576.0
 					  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryChildrenCap  / 1048576.0
 					  << "\n";
@@ -1011,7 +1015,7 @@ namespace gv::mesh
 		std::cout << std::string(90, '-') << "\n";
 
 		//_boundary_track
-		std::cout << std::left << std::setw(30) << "_boundary_track (structs)"
+		std::cout << std::left << std::setw(30) << "_boundary_track"
 				  << std::right
 				  << std::setw(20) << mesh._boundary_track.size()
 				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryTrackUsed / 1048576.0
