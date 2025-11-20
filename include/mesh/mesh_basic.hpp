@@ -148,10 +148,18 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Read elements and vertices externally
 		/////////////////////////////////////////////////
-		const Node_t& getNode(const size_t idx) const {return _nodes[idx];}
+		const Node_t&    getNode(const size_t idx) const {return _nodes[idx];}
 		const Element_t& getElement(const size_t idx) const {return _elements[idx];}
-		const Face_t& getBoundaryFace(const size_t idx) const {return _boundary[idx];}
-		const Box_t<3> bbox() const {return _nodes.bbox();}
+		const Face_t&    getBoundaryFace(const size_t idx) const {return _boundary[idx];}
+		const Box_t<3>   bbox() const {return _nodes.bbox();}
+		
+
+		/////////////////////////////////////////////////
+		/// Allocate space
+		/////////////////////////////////////////////////
+		inline void reserveElements(const size_t length) {_elements.reserve(length);}
+		inline void reserveNodes(const size_t length) {_nodes.reserve(length);}
+		inline void reserveBoundary(const size_t length) {_boundary.reserve(length); _boundary_track.reserve(length);}
 
 		/////////////////////////////////////////////////
 		/// Get the boundary as a separate mesh

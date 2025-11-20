@@ -232,21 +232,16 @@ namespace gv::mesh
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
-			//round to lower precision
-			for (Point_t &v : vertices) {
-				for (int i = 0; i < 3; i++) {
-					v[i] = static_cast<double>(static_cast<float>(v[i]));
-				}
-			}
-
+			using T = typename Point_t::Scalar_t;
+			
 			//edge midpoints
-			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //4 - bottom (B)
-			vertices.emplace_back(0.5*(vertices[1]+vertices[2])); //5 - right (R)
-			vertices.emplace_back(0.5*(vertices[2]+vertices[3])); //6 - top (T)
-			vertices.emplace_back(0.5*(vertices[0]+vertices[3])); //7 - left (L)
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //4 - bottom (B)
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[2]})); //5 - right (R)
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //6 - top (T)
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3]})); //7 - left (L)
 
 			//center
-			vertices.emplace_back(0.25*(vertices[0]+vertices[1]+vertices[2]+vertices[3])); //8 (C)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1],vertices[2],vertices[3]})); //8 (C)
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
@@ -309,7 +304,40 @@ namespace gv::mesh
 			}
 		}
 
-		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {}
+		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {
+			split_face_nodes.resize(vtk_n_nodes_when_split(vtk_face_id(VTK_ID)));
+			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+
+			switch (face_number) {
+				case (0): // Bottom [0, 1]
+				split_face_nodes[0] = split_node_numbers[ 0]; //0
+				split_face_nodes[1] = split_node_numbers[ 1]; //1
+				split_face_nodes[2] = split_node_numbers[ 4]; //0-1
+				break;
+
+			case (1): // Right [1, 2]
+				split_face_nodes[0] = split_node_numbers[ 1]; //1
+				split_face_nodes[1] = split_node_numbers[ 2]; //2
+				split_face_nodes[2] = split_node_numbers[ 5]; //1-2
+				break;
+
+			case (2): // Top [2, 3]
+				split_face_nodes[0] = split_node_numbers[ 2]; //2
+				split_face_nodes[1] = split_node_numbers[ 3]; //3
+				split_face_nodes[2] = split_node_numbers[ 6]; //2-3
+				break;
+
+			case (3): // Left [3, 0]
+				split_face_nodes[0] = split_node_numbers[ 3]; //3
+				split_face_nodes[1] = split_node_numbers[ 0]; //0
+				split_face_nodes[2] = split_node_numbers[ 7]; //0-3
+				break;
+
+			default:
+				throw std::out_of_range("face number out of bounds");
+				break;
+			}
+		}
 	};
 
 

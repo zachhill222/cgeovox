@@ -8,9 +8,13 @@
 
 #include "mesh/mesh_view.hpp"
 
-int main(int argc, char* argv[])
+
+
+
+
+void test()
 {	
-	const int dim = 3;
+	const int dim = 2;
 	using T = double;
 
 	using Point_t  = gv::util::Point<dim,T>;
@@ -31,8 +35,10 @@ int main(int argc, char* argv[])
 	Point_t corner {1.0,1.0,1.0};
 	Box_t domain(-corner, corner);
 	Index_t N{1, 1, 1};
-	Mesh_t mesh(domain,N,false);
+	Mesh_t mesh(domain,N,true);
 
+	// mesh.reserveElements((size_t) 1 << 21); //128x128x128
+	// mesh.reserveNodes((size_t) 1 << 22); //just over 129x129x129
 
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
@@ -105,8 +111,16 @@ int main(int argc, char* argv[])
 	// std::cout << std::endl << boundary << std::endl;
 	// gv::mesh::memorySummary(boundary);
 
-	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
+}
+
+
+int main(int argc, char* argv[])
+{
+	int nTests = 1;
+	if (argc > 1) {nTests = atoi(argv[1]);}
+	for (int i = 0; i < nTests; i++) {test();}
 
 	return 0;
 }

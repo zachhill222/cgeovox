@@ -89,7 +89,6 @@ namespace gv::util {
 		//============================================================
 		// Construction and destruction
 		//============================================================
-		
 		explicit BasicParallelOctree(const Box_t &bbox) 
 			: _root(new Node_t(bbox)) 
 		{
@@ -113,6 +112,8 @@ namespace gv::util {
 				_inserter_loop();
 			});
 		}
+
+		BasicParallelOctree() : BasicParallelOctree(Box_t{}) {}
 
 		virtual ~BasicParallelOctree() {
 			// Signal worker thread to stop
