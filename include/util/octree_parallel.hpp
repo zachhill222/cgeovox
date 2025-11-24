@@ -343,6 +343,7 @@ namespace gv::util {
 
 			// Extra yield for safety
 			_recursive_push_data_down(_root);
+			
 			std::this_thread::yield();
 		}
 

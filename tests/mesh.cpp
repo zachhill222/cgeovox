@@ -9,7 +9,7 @@
 #include "mesh/mesh_view.hpp"
 
 
-const int dim = 2;
+const int dim = 3;
 using T = double;
 	
 template<int n>
