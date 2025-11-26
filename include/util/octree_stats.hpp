@@ -2,60 +2,60 @@
 
 #include "util/octree_parallel.hpp"
 #include "util/octree_util.hpp"
+#include "mesh/mesh_basic.hpp"
+
+#include <string>
 #include <iostream>
+#include <vector>
+#include <functional>
 
 namespace gv::util {
 
-	// template<typename Data_t, bool SINGLE_DATA, int DIM, int N_DATA, Float T>
-	// std::ostream& operator<<(std::ostream &os, const BasicParallelOctree<Data_t, SINGLE_DATA,DIM,N_DATA,T> &octree) {
-	// 	treeSummary(os, octree);
-	// 	return os;
-	// }
-
-	/// Print tree summary information to the specified ostream
 	template<typename Data_t, bool SINGLE_DATA, int DIM, int N_DATA, Float T>
-	void treeSummary(std::ostream &os, const BasicParallelOctree<Data_t, SINGLE_DATA,DIM,N_DATA,T> &octree) {
-		//get the number of nodes and total data indices stored in the nodes
-		size_t nNodes{0}, nIdx{0}, nIdxCap{0}, nLeafs{0};
-		int maxDepth{0};
+	void makeOctreeLeafMesh(const BasicParallelOctree<Data_t, SINGLE_DATA, DIM, N_DATA, T> &octree, const std::string filename) {
+		using Vertex_t  = gv::util::Point<3,T>;
+		using Node_t    = gv::mesh::BasicNode<Vertex_t>;
+		using Face_t    = gv::mesh::BasicElement;
+		using Element_t = gv::mesh::BasicElement;
+		using Mesh_t    = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
-		_recursive_node_properties(octree._root, nNodes, nIdx, nIdxCap, nLeafs, maxDepth);
+		Mesh_t mesh(octree.bbox());
+		std::vector<int> nIdx;
 
+		using OctreeNode_t = typename BasicParallelOctree<Data_t, SINGLE_DATA, DIM, N_DATA, T>::Node_t;
+		std::function<void(const OctreeNode_t* node)> recursive_add_leafs = [&](const OctreeNode_t* node) {
+			if (node==nullptr) {return;}
 
-		os << "number of data stored: " << octree.size() << "\n";
-		os << "number of nodes: " << nNodes << "\n";
-		os << "number of leafs: " << nLeafs << "\n";
-		os << "number of stored indices: " << nIdx << " (capacity= " << nIdxCap << ")\n";
-		os << "total tree depth: " << maxDepth - octree._root->depth << "\n";
-	}
+			if (isLeaf(node)) {
+				std::vector<Vertex_t> vertices(OctreeNode_t::N_CHILDREN);
+				for (int c = 0; c < OctreeNode_t::N_CHILDREN; c++) {
+					vertices[c] = node->bbox.voxelvertex(c);
+				}
 
-
-	template<int DIM=3, int N_DATA=16, Float T=float>
-	void _recursive_node_properties(const OctreeParallelNode<DIM,N_DATA,T>* node, size_t &n_nodes, size_t &n_idx, size_t &n_idx_cap, size_t &n_leafs, int &max_depth) {
-		if (node == nullptr) {return;}
-		n_nodes++;
-		
-		if (isLeaf(node)) {n_leafs++;}
-
-		if (node->data_idx != nullptr) {
-			n_idx += node->cursor;
-			n_idx_cap += N_DATA;
-		}
-
-		max_depth = std::max(max_depth, node->depth);
-
-		for (int c = 0; c < OctreeParallelNode<DIM,N_DATA,T>::N_CHILDREN; c++) {
-			_recursive_node_properties<DIM,N_DATA,T>(node->children[c], n_nodes, n_idx, n_idx_cap, n_leafs, max_depth);
-		}
-	}
+				static_assert(DIM==3 or DIM==2, "The octree must be in 2 or 3 dimensions");
+				if constexpr (DIM==3) {
+					mesh.constructElement_Locked(vertices, 11);
+				}
+				if constexpr (DIM==2) {
+					mesh.constructElement_Locked(vertices, 8);
+				}
 
 
 
-	/// Print memory management to the specified stream
-	template<typename Data_t, bool SINGLE_DATA, int DIM, int N_DATA, Float T>
-	void memorySummary(std::ostream &os, const BasicParallelOctree<Data_t, SINGLE_DATA,DIM,N_DATA,T> &octree) {
+				nIdx.push_back(node->cursor);
+			} else {
+				for (int c = 0; c < OctreeNode_t::N_CHILDREN; c++) {
+					recursive_add_leafs(node->children[c]);
+				}
+			}
+		};
+
+		recursive_add_leafs(octree._root);
+		mesh.save_as(filename, false, true); //no details, ascii format
+
 		
 	}
+	
 }
 
 

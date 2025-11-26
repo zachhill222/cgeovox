@@ -564,26 +564,18 @@ namespace gv::mesh {
 			this->_color_manager.decrementCount(color,this_color_elems.size());
 
 			//split the elements of this color
-			#pragma omp parallel
-			{
-				#pragma omp for
-				for (size_t i=0; i<this_color_elems.size(); i++) {
-					assert(this->_elements[this_color_elems[i]].color == color);
-					// this->_elements[this_color_elems[i]].is_active = false;
-					splitElement_Unlocked(this_color_elems[i], child_element_index_start[i], child_face_index_start[i]);
-				}
-
-				#pragma omp barrier
-				#pragma omp single
-				{
-					this->_nodes.flush();
-				}
+			this->_nodes.flush(); //ensure nodes are up-to-date before starting the next color
+			#pragma omp parallel for
+			for (size_t i=0; i<this_color_elems.size(); i++) {
+				assert(this->_elements[this_color_elems[i]].color == color);
+				splitElement_Unlocked(this_color_elems[i], child_element_index_start[i], child_face_index_start[i]);
 			}
 		}
-		this->_nodes.shrink_to_fit();
-
-		//clear buffers
+		
+		//clean up data structures
 		_elements_to_split.clear();
+		this->_nodes.shrink_to_fit();
+		this->_nodes.flush(); //ensure nodes are up-to-date when exiting
 	}
 
 

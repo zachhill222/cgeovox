@@ -5,9 +5,9 @@
 #include "mesh/mesh_basic.hpp"
 #include "mesh/mesh_colored.hpp"
 #include "mesh/mesh_hierarchical.hpp"
-
 #include "mesh/mesh_view.hpp"
 
+#include "util/octree_stats.hpp"
 
 const int dim = 3;
 using T = double;
@@ -17,8 +17,7 @@ using Box_t    = gv::util::Box<n,T>;
 
 
 
-void test()
-{	
+void test() {	
 	
 
 	using Point_t  = gv::util::Point<dim,T>;
@@ -40,27 +39,26 @@ void test()
 	Point_t corner {1.0,1.0,1.0};
 	Box_t<dim> domain(-corner, corner);
 	Index_t N{1, 1, 1};
-	Mesh_t mesh(domain,N,true);
+	Mesh_t mesh(domain,N,false);
 
 	// mesh.reserveElements((size_t) 1 << 21); //128x128x128
 	// mesh.reserveNodes((size_t) 1 << 22); //just over 129x129x129
 
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
-	for (int n=0; n<3; n++){
+	for (int n=0; n<4; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
 
 
 	auto fun = [](Vertex_t old) -> Vertex_t {
-		if (old[2]<0) {return old;}
-
 		double r = std::sqrt(old[0]*old[0] + old[2]*old[2]);
 		double theta = std::atan2(old[2],old[0]);
 		theta += 0.75*old[1];
 
 		old[0] = r*std::cos(theta);
+		old[1] *= 1+0.5*r;
 		old[2] = r*std::sin(theta); 
 		return old;
 	};
@@ -71,36 +69,32 @@ void test()
 	}
 
 
-	for (int n=0; n<4; n++){
+	for (int n=0; n<3; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
 
 
 	// unrefine
-	// mesh.joinDescendents(0);
-	// mesh.join_descendents(488);
-	// mesh.recolor();
+	mesh.joinDescendents(1);
 
 
-	//loop though elements
-	// std::cout << "ELEMENTS\n";
-	// for (const auto &ELEM : mesh) {std::cout << ELEM << std::endl;}
-
-
-
+	//print mesh summary
+	std::cout << "\n\n";
 	std::cout << mesh << std::endl;
 	gv::mesh::memorySummary(mesh);
 
 
-	// Box_t<3> bbox = mesh.bbox();
-	// Mesh_t boundary(bbox);
-	// mesh.getBoundaryMesh(boundary);
-	// std::cout << std::endl << boundary << std::endl;
-	// gv::mesh::memorySummary(boundary);
+	Box_t<3> bbox = mesh.bbox();
+	Mesh_t boundary(bbox);
+	mesh.getBoundaryMesh(boundary);
+	std::cout << "\n\n";
+	std::cout << std::endl << boundary << std::endl;
+	gv::mesh::memorySummary(boundary);
 
-	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
+	// gv::util::makeOctreeLeafMesh(mesh.getNodeOctree(), "./outfiles/topological_mesh_node_octree.vtk");
 }
 
 

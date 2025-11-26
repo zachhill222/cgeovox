@@ -460,9 +460,9 @@ namespace gv::util {
 		return result;
 	}
 
-	template <int dim, Scalar T, Scalar U>
-	Point<dim,T> sorted_sum(std::initializer_list<Point<dim,U>> points) {
-	    return sorted_sum<dim, T, U>(std::vector<Point<dim,U>>(points.begin(), points.end()));
+	template <int dim, Scalar T, Scalar U, Scalar W>
+	Point<dim,T> sorted_sum(std::initializer_list<Point<dim,W>> points) {
+	    return sorted_sum<dim, T, U, W>(std::vector<Point<dim,W>>(points.begin(), points.end()));
 	}
 
 	//============================================================

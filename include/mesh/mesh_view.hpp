@@ -5,8 +5,6 @@
 #include "mesh/mesh_basic.hpp"
 
 namespace gv::mesh {
-
-
 	/////////////////////////////////////////////////
 	/// This class create a view into another mesh by linking referencences to the elements and nodes.
 	///

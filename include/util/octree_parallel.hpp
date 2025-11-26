@@ -9,6 +9,8 @@
 #include <thread>
 #include <condition_variable>
 
+#include <cstring>
+
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "util/octree_util.hpp"
@@ -49,8 +51,11 @@ namespace gv::util {
 	/////////////////////////////////////////////////
 	template<typename Data_t, bool SINGLE_DATA, int DIM=3, int N_DATA=16, Float T=float>
 	class BasicParallelOctree {
-		static_assert(DIM > 0, "Dimension must be positive");
+		static_assert(DIM==3 or DIM==2, "The octree must be in 2 or 3 dimensions");
 		static_assert(N_DATA > 0, "N_DATA must be positive");
+
+	template<typename data_t, bool single_data, int dim, int n_data, Float t>
+	friend void makeOctreeLeafMesh(const BasicParallelOctree<data_t, single_data, dim, n_data, t> &octree, const std::string filename);
 
 	public:
 		// Type aliases
@@ -69,6 +74,7 @@ namespace gv::util {
 
 		// Tree structure
 		Node_t* _root = nullptr;
+		mutable std::shared_mutex _tree_mutex;
 
 		// Data storage
 		std::vector<Data_t> _data;
@@ -84,15 +90,46 @@ namespace gv::util {
 		std::atomic<size_t> _total_pending{0};
 		
 		// Per-thread work queues
-		std::vector<ThreadLocalQueue<DataBuffer>*> _all_queues;
+		using Queue_t = ThreadLocalQueue<DataBuffer,32000>;
+		std::vector<Queue_t*> _all_queues;
 
 	public:
 		//============================================================
 		// Construction and destruction
 		//============================================================
-		explicit BasicParallelOctree(const Box_t &bbox) 
-			: _root(new Node_t(bbox)) 
+		explicit BasicParallelOctree(const Box_t &bbox)  
 		{
+			//change precision help avoid rounding errors
+			Point_t _low  = (T{1.125}*bbox).low();
+			Point_t _high = (T{1.125}*bbox).high();
+			Point_t low   = T{0.5}*(_low + bbox.low());
+			Point_t high  = T{0.5}*(_high + bbox.high());
+
+			for (int i = 0; i < DIM; i++) {
+				//mask for clearing the least significant bits of a float
+				uint32_t mask = ( (uint32_t) 1 << 5) - 1;
+				// mask = ~mask;
+
+				//round low
+				float coord = static_cast<float>(low[i]);
+				uint32_t low_bits;
+				std::memcpy(&low_bits, &coord, sizeof(low_bits));
+				low_bits &= ~mask;
+				std::memcpy(&coord, &low_bits, sizeof(coord));
+				low[i] = static_cast<T>(coord);
+
+				//round high
+				coord = static_cast<float>(high[i]);
+				std::memcpy(&low_bits, &coord, sizeof(low_bits));
+				low_bits &= ~mask;
+				std::memcpy(&coord, &low_bits, sizeof(coord));
+				high[i] = static_cast<T>(coord);
+			}
+
+			//set _root with rounded bounding box
+			_root = new Node_t(Box_t{low, high});
+
+
 			resetDataIdx(_root);
 
 			// Set up thread-local queues
@@ -104,7 +141,7 @@ namespace gv::util {
 			
 			_all_queues.resize(max_threads, nullptr);
 			for (int i = 0; i < max_threads; i++) {
-				_all_queues[i] = new ThreadLocalQueue<DataBuffer>();
+				_all_queues[i] = new Queue_t();
 				_all_queues[i]->queue_id = static_cast<size_t>(i);
 			}
 
@@ -146,15 +183,18 @@ namespace gv::util {
 		//============================================================
 		
 		void reserve(size_t length) {
+			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
 			_data.reserve(length);
 		}
 
 		void shrink_to_fit() {
+			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
 			_data.resize(_next_data_idx.load(std::memory_order_acquire));
 			_data.shrink_to_fit();
 		}
 
 		bool empty() const {
+			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
 			return _data.empty();
 		}
 
@@ -163,10 +203,13 @@ namespace gv::util {
 		}
 
 		size_t capacity() const {
+			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
 			return _data.capacity();
 		}
 
 		void resize(size_t length) {
+			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
+
 			// Remove indices for data being removed
 			if (_root != nullptr) {
 				for (size_t i = length; i < _data.size(); i++) {
@@ -177,6 +220,8 @@ namespace gv::util {
 		}
 
 		void clear() {
+			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
+
 			_data.clear();
 			_next_data_idx.store(0, std::memory_order_release);
 			
@@ -221,6 +266,8 @@ namespace gv::util {
 		}
 
 		void set_bbox(const Box_t& new_bbox) {
+			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
+
 			_recursive_expand_bbox(new_bbox);
 
 			// Reinsert data into new nodes if needed
@@ -234,6 +281,7 @@ namespace gv::util {
 		/// Find existing data in tree
 		/// Returns index if found, (size_t)-1 if not found
 		size_t find(const Data_t& val) const {
+			std::shared_lock<std::shared_mutex> lock(_tree_mutex);
 			return _recursive_find_index<true>(_root, val);
 		}
 
@@ -246,12 +294,14 @@ namespace gv::util {
 			if (!isValid(_root->bbox, _data[idx])) {
 				_recursive_resize_to_fit_data(_data[idx], 8);
 				
-				if constexpr (!SINGLE_DATA) {
+			}
+
+			if constexpr (!SINGLE_DATA) {
 					for (size_t j = 0; j < _data.size(); j++) {
 						_recursive_insert_data(_root, _data[j], j);
 					}
 				}
-			} else {
+			else {
 				_recursive_insert_data(_root, _data[idx], idx);
 			}
 		}
@@ -268,6 +318,9 @@ namespace gv::util {
 
 		/// Synchronous insertion (move version)
 		size_t push_back(Data_t &&val) {
+			std::shared_lock<std::shared_mutex> lock(_tree_mutex);
+
+			assert(isValid(_root->bbox, val));
 			// Try to find existing data
 			Node_t* start_node = _recursive_find_best_node(_root, val);
 			size_t idx = _recursive_find_index<true>(start_node, val);
@@ -295,6 +348,10 @@ namespace gv::util {
 
 		/// Asynchronous insertion (for parallel use with OpenMP)
 		size_t push_back_async(Data_t &&val) {
+			std::shared_lock<std::shared_mutex> lock(_tree_mutex);
+
+			assert(isValid(_root->bbox, val));
+
 			#ifndef _OPENMP
 				return push_back(std::move(val));
 			#endif
@@ -318,8 +375,8 @@ namespace gv::util {
 				int thread_no = 0;
 			#endif
 			
-			ThreadLocalQueue<DataBuffer>* thread_queue = _all_queues[thread_no];
-			while(!thread_queue->push(DataBuffer{idx, start_node})) {
+			Queue_t* thread_queue = _all_queues[thread_no];
+			while(!thread_queue->try_push(DataBuffer{idx, start_node})) {
 				//keep trying to insert if the buffer is full
 				_inserter_cv.notify_one();
 				std::this_thread::yield();
@@ -334,6 +391,8 @@ namespace gv::util {
 
 		/// Wait for all pending async insertions to complete
 		void flush() {
+			std::shared_lock<std::shared_mutex> lock(_tree_mutex);
+
 			// Wake up worker thread
 			_inserter_cv.notify_one();
 
@@ -347,10 +406,12 @@ namespace gv::util {
 			_recursive_push_data_down(_root);
 
 			//check if the buffers were ever full
-			for (int i=0; i<_all_queues.size(); i++) {
-				ThreadLocalQueue<DataBuffer>* thread_queue = _all_queues[i];
+			for (size_t i=0; i<_all_queues.size(); i++) {
+				Queue_t* thread_queue = _all_queues[i];
 				if (thread_queue->buffer_bumps>0) {
-					std::cout << "WARNING: thread buffer " << i << " was full " << thread_queue->buffer_bumps << " times since last flush" << std::endl;
+					#ifndef NDEBUG
+						std::cout << "WARNING: thread buffer " << i << " was full " << thread_queue->buffer_bumps << " times since last flush" << std::endl;
+					#endif
 					thread_queue->buffer_bumps=0;
 				}
 			}
@@ -365,7 +426,19 @@ namespace gv::util {
 		/// Data will be pushed down after flush() is called.
 		/// Inserting data single-threaded will push the data to the leaf at the
 		/// time of insertion.
-		void duplicateCheck() const {_recursive_duplicate_data(_root);}
+		void duplicateCheck() const {
+			_recursive_duplicate_data(_root);
+		}
+		void findCheck() const {
+			for (size_t i = 0; i < size(); i++) {
+				if (i != find(_data[i])) {
+					std::cout << "ParallelOctree: Could not find data at index " << i << std::endl;
+					try {
+						std::cout << _data[i] << std::endl;
+					} catch(...) {}
+				}
+			}
+		}
 
 		//============================================================
 		// Summary information
@@ -390,6 +463,8 @@ namespace gv::util {
 
 				// Process all queued work
 				while (_total_pending.load(std::memory_order_acquire) > 0) {
+					std::shared_lock<std::shared_mutex> lock(_tree_mutex);
+
 					for (auto* thread_queue : _all_queues) {
 						if (thread_queue==nullptr) continue;
 						
@@ -407,8 +482,12 @@ namespace gv::util {
 									work.target_node, _data[work.idx], work.idx);
 								assert(flag == 1);
 							} else if (existing_idx != work.idx) {
-								// Found duplicate - this shouldn't happen with proper usage
-								std::cout << "error" << std::endl;
+								// Found duplicate this shouldn't happen (user messed up)
+								std::cout << "ParallelOctree: tried to insert index " << work.idx << " but the data already exists at index " << existing_idx << std::endl;
+								try {
+									std::cout << "new data:\n" << _data[work.idx] << std::endl;
+									std::cout << "old data:\n" << _data[existing_idx] << std::endl;
+								} catch(...) {} //no printing method implemented
 								assert(false);
 							}
 
@@ -555,9 +634,7 @@ namespace gv::util {
 
 			assert(_root->bbox.voxelvertex(best_sibling_number) == 
 			       old_root->bbox.voxelvertex(best_sibling_number));
-			assert(Box_t(_root->bbox.center(), _root->bbox.voxelvertex(best_sibling_number)) == 
-			       old_root->bbox);
-
+			
 			// Recursively expand if needed
 			if (max_vertices < N_CHILDREN) {
 				_recursive_expand_bbox(new_bbox);
@@ -588,9 +665,9 @@ namespace gv::util {
 						size_t jj = node->data_idx[j];
 						if (_data[ii] == _data[jj]) {
 							if (ii == jj) {
-								std::cout << "node contains duplicate index: " << ii << std::endl;
+								std::cout << "ParallelOctree: node contains duplicate index: " << ii << std::endl;
 							} else {
-								std::cout << "node contains duplicate data at indices: " << ii << " and " << jj << std::endl;
+								std::cout << "ParallelOctree: node contains duplicate data at indices: " << ii << " and " << jj << std::endl;
 							}
 						}
 					}

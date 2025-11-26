@@ -3,6 +3,8 @@
 #include "mesh/mesh_util.hpp"
 
 #include <iostream>
+#include <iomanip>
+#include <string>
 
 #include <vector>
 #include <array>
@@ -62,10 +64,6 @@ namespace gv::mesh
 	public:
 		size_t colorCount(const size_t c) const {return _counts[c];}
 		size_t nColors() const {
-			// for (size_t c=0; c<MAX_COLORS; c++) {
-			// 	if (_counts[MAX_COLORS-1-c]!=0) {return MAX_COLORS-c;}
-			// }
-			// return 0;
 			for (size_t c=0; c<MAX_COLORS; c++) {
 				if (_counts[c]==0) {return c;}
 			}
@@ -191,12 +189,44 @@ namespace gv::mesh
 	///////////////////////////////
 	template<ColorMethod C, ColorableMeshElement E, size_t M>
 	std::ostream& operator<<(std::ostream &os, const MeshColorManager<C,E,M> &manager) {
-		os << "ColorMethod= " << manager.color_method << "\n";
+		os << "\n" << std::string(50, '=') << "\n" << "Color Summary\n" << std::string(50, '-') << "\n";
+
+		os << std::setw(16) << std::left << "Method" << std::setw(10) << std::right << manager.color_method << "\n";
 		
 		const size_t nColors = manager.nColors();
-		os << "colors (" << nColors << ") : [";
-		for (size_t c=0; c<nColors; c++) {os << " " << manager._counts[c];}
-		os << " ]";
+		os << std::setw(16) << std::left << "nColors " << std::setw(10) << std::right << nColors << "\n";
+
+
+
+		size_t nColoredElements = 0;
+		size_t maxColor = 0;
+		for (size_t c = 0; c < nColors; c++) {
+			nColoredElements+=manager._counts[c];
+			maxColor = std::max(maxColor, manager._counts[c].load());
+		}
+		os << std::setw(16) << std::left << "nElements" << std::setw(10) << std::right << nColoredElements << "\n";
+
+		os << std::string(50, '-') << "\n";
+
+		os << std::right 
+		   << std::setw(6)  << "Color"
+		   << std::setw(10) << "Count"
+		   << std::setw(10) << "Percent"
+		   << "\n";
+
+		double max_percent = 100.0 * (double) maxColor / (double) nColoredElements;
+		for (size_t c = 0; c < nColors; c++) {
+			double percent = 100.0 * (double) manager._counts[c] / (double) nColoredElements;
+			os << std::right << std::setw(6) << c
+			   << std::setw(10) << manager._counts[c] << std::setw(2) << ""
+			   << std::setw(8) << std::fixed << std::setprecision(2) << percent;
+			os << std::right << std::setw(2) << "";
+			
+			int bar_characters = 20.0 * percent/max_percent;
+			os << std::left  << std::string(bar_characters, '|') << "\n";
+		}
+
+		os << std::string(50, '-') << "\n";
 		return os;
 	}
 }
