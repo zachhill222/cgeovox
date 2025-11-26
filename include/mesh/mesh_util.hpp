@@ -271,7 +271,7 @@ namespace gv::mesh
 		Vertex_t vertex; /// The location of this node in space.
 		std::vector<size_t> elems; /// The elements that use this node
 		std::vector<size_t> boundary_faces; /// The boundary faces/elements that use this node
-		size_t index; /// The index of this node in _nodes. Sometimes helpful to have this recorded in the node.
+		size_t index = (size_t) -1; /// The index of this node in _nodes. Sometimes helpful to have this recorded in the node.
 		BasicNode(const Vertex_t &coord) : vertex(coord), elems(), boundary_faces(0) {}
 		BasicNode() : vertex(), elems(), boundary_faces(0) {}
 	};
@@ -331,18 +331,18 @@ namespace gv::mesh
 
 
 	/////////////////////////////////////////////////
-    /// Concept for BasicMesh types
-    /////////////////////////////////////////////////
-    template<typename T>
-    concept BasicMeshType = requires(T mesh) {
-        // Must have relevant type aliases
-        typename T::element_type;
-        typename T::face_type;
-        typename T::node_type;
-        typename T::Vertex_t;
-        typename T::ElementIterator_t;
-        typename T::BoundaryIterator_t;
-    };
+	/// Concept for BasicMesh types
+	/////////////////////////////////////////////////
+	template<typename T>
+	concept BasicMeshType = requires(T mesh) {
+		// Must have relevant type aliases
+		typename T::element_type;
+		typename T::face_type;
+		typename T::node_type;
+		typename T::Vertex_t;
+		typename T::ElementIterator_t;
+		typename T::BoundaryIterator_t;
+	};
 
 
 }

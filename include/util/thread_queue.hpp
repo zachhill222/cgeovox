@@ -31,7 +31,7 @@ namespace gv::util {
 	    Data_t queue[CAPACITY]; //store heap allocated so that it can be resized
 	    std::atomic<size_t> buffer_bumps{0};
 
-	    bool push(Data_t&& item) {
+	    bool try_push(Data_t&& item) {
 	        size_t current_tail = tail.load(std::memory_order_relaxed);
 	        size_t next_tail = (current_tail + 1) % CAPACITY;
 	        

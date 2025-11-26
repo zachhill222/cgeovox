@@ -28,13 +28,6 @@
 namespace gv::mesh
 {
 	/////////////////////////////////////////////////
-	/// Forward declare a friend class that is used to create views into an actual mesh
-	/////////////////////////////////////////////////
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	class MeshView;
-
-
-	/////////////////////////////////////////////////
 	/// This class defines the basic mesh operations and data structure. It provides some methods that are thread safe by locking a mutex
 	/// as well as "unlocked" methods that can be **carefully** used in parallel. Using the unlocked methods on some _element[k] (one k per thread)
 	/// is generally safe so long as none of the elements are neighbors. This can be guarenteed using a colored mesh (not implemented in this class).
@@ -110,12 +103,12 @@ namespace gv::mesh
 
 	public:
 		BasicMesh() : _elements(),_nodes() {}
-		BasicMesh(const Box_t<3> &domain) : _elements(), _nodes(2.0*domain) {}
+		BasicMesh(const Box_t<3> &domain) : _elements(), _nodes(1.125*domain) {}
 		BasicMesh(const Box_t<2> &domain) : _elements(), _nodes() {
 			Vertex_t low, high;
 			low[0]  = domain.low()[0];  low[1]  = domain.low()[1];  low[2]  = -1.0;
 			high[0] = domain.high()[0]; high[1] = domain.high()[1]; high[2] =  1.0;
-			_nodes.set_bbox(2.0*Box_t{low,high});
+			_nodes.set_bbox(1.125*Box_t{low,high});
 		}
 		BasicMesh(const Box_t<3> &domain, const Index_t<3> &N, const bool useIsopar=false) : BasicMesh(domain) {setVoxelMesh_Locked(domain, N, useIsopar);}
 		BasicMesh(const Box_t<2> &domain, const Index_t<2> &N, const bool useIsopar=false) : BasicMesh(domain) {setPixelMesh_Locked(domain, N, useIsopar);}
@@ -152,7 +145,7 @@ namespace gv::mesh
 		const Element_t& getElement(const size_t idx) const {return _elements[idx];}
 		const Face_t&    getBoundaryFace(const size_t idx) const {return _boundary[idx];}
 		const Box_t<3>   bbox() const {return _nodes.bbox();}
-		
+		const NodeList_t& getNodeOctree() const {return _nodes;}
 
 		/////////////////////////////////////////////////
 		/// Allocate space
@@ -745,17 +738,9 @@ namespace gv::mesh
 		_boundary.reserve(all_faces.size()/4);
 		for (const auto& [FACE, face_count] : all_faces) {
 			if (face_count.count==1) {
-				// _boundary.push_back(FACE);
-				// _boundary[b_idx].index = b_idx;
-				// for (size_t i=0; i<FACE.nodes.size(); i++) {
-				// 	Node_t &NODE = _nodes[FACE.nodes[i]];
-				// 	NODE.boundary_faces.push_back(b_idx);
-				// }
 				Face_t face(FACE);
 				FaceTracker bt {face_count.elem, face_count.elem_face};
 				insertBoundaryFace_Locked(face, bt);
-				// _boundary_track.push_back(std::move(FaceTracker{face_count.elem, face_count.elem_face}));
-				// b_idx += 1;
 			}
 		}
 		_boundary.shrink_to_fit();
@@ -801,9 +786,36 @@ namespace gv::mesh
 
 	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
 	std::ostream& operator<<(std::ostream& os, const BasicMesh<Node_t,Element_t,Face_t> &mesh) {
-		os << "nElems= "         << mesh.nElems()          << " (Element_t= " << elementTypeName<Element_t>() << ")\n";
-		os << "nNodes= "         << mesh.nNodes()          << " (Node_t= "    << nodeTypeName<Node_t>() << ")\n";
-		os << "nBoundaryFaces= " << mesh.nBoundaryFaces()  << " (Face_t= "    << elementTypeName<Face_t>() << ")\n";
+		os << "\n" << std::string(50, '=') << "\n"
+		   << "Mesh Summary\n"
+		   << std::string(50, '-') << "\n";
+
+		os << std::left;
+		os << "C++ types\n" << std::string(50, '-') << "\n";
+		os << std::setw(15) << "Element_t " << std::setw(10) << elementTypeName<Element_t>() << "\n"
+		   << std::setw(15) << "Face_t    " << std::setw(10) << elementTypeName<Face_t>()    << "\n"
+		   << std::setw(15) << "Node_t    " << std::setw(10) << nodeTypeName<Node_t>()       << "\n"
+		   << std::string(50, '-') << "\n";
+
+		os << std::left;
+		os << "Feature Counts\n" << std::string(50, '-') << "\n"; 
+		os << std::setw(15) << "Elements       " << std::setw(10) << std::right << mesh.nElems()         << "\n"
+		   << std::setw(15) << "Boundary_Faces " << std::setw(10) << std::right << mesh.nBoundaryFaces() << "\n"
+		   << std::setw(15) << "Nodes          " << std::setw(10) << std::right << mesh.nNodes()         << "\n"
+		   << std::string(50, '-') << "\n";
+
+
+		//get distribution of element types
+		std::unordered_map<int,size_t> elem_type_count;
+		for (const Element_t &ELEM : mesh) {
+			elem_type_count[ELEM.vtkID] += 1;
+		}
+
+		os << "FEM Element Types\n" << std::string(50, '-') << "\n";
+		for (const auto &pair : elem_type_count) {
+			os << std::left << std::setw(15) << vtk_id_to_string(pair.first) << std::right << std::setw(10) << pair.second << "\n";
+		}
+		os << std::string(50, '-') << "\n";
 		return os;
 	}
 
@@ -811,7 +823,6 @@ namespace gv::mesh
 
 	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
 	void memorySummary(const BasicMesh<Node_t,Element_t,Face_t> &mesh) {
-		//memory for _nodes (TODO: move to octree to get overhead memory)
 		double nodesUsed     = (double) sizeof(Node_t) * (double) mesh._nodes.size();
 		double nodesCap      = (double) sizeof(Node_t) * (double) mesh._nodes.capacity();
 		double nodesElemUsed = 0;
@@ -917,8 +928,12 @@ namespace gv::mesh
 		////////////////////////////////
 
 		//header
-		std::cout << "\n" << std::string(90, '-') << "\n"
-				  << std::left << std::setw(30) << "Mesh Memory"
+		std::cout << "\n" << std::string(90, '=') << "\n"
+				  << std::left << "Mesh Memory Summary\n" 
+				  << std::string(90, '-') << "\n";
+
+		std::cout << std::left
+				  << std::setw(30) << "Container"
 				  << std::right
 				  << std::setw(20) << "Count"
 				  << std::setw(20) << "Size (MiB)"
@@ -961,8 +976,13 @@ namespace gv::mesh
 				  << std::setw(20) << "n/a"
 				  << "\n"
 				  << std::left << std::setw(34) << "      \u251c\u2500 data index storage"
-				  << std::right
-				  << std::setw(20) << nOctreeIdx; if (nOctreeIdx!=mesh._nodes.size()) {std::cout << " (W)";}
+				  << std::right;
+
+		if (nOctreeIdx!=mesh._nodes.size()) {
+			std::cout << std::setw(20) << "(W) "+std::to_string(nOctreeIdx);
+		} else {
+			std::cout << std::setw(20) << nOctreeIdx;
+		}
 		std::cout << std::setw(20) << std::fixed << std::setprecision(3) << octreeIndexMemoryUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << octreeIndexMemoryCap  / 1048576.0
 				  << "\n"
@@ -1043,11 +1063,13 @@ namespace gv::mesh
 				  << std::setw(20) << std::fixed << std::setprecision(3) << totalUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << totalCap  / 1048576.0
 				  << "\n";
-		std::cout << std::string(90, '-') << "\n";
 
+
+		std::cout << std::string(90, '-') << "\n";
 		//duplicate check in _nodes
 		std::cout << "\n";
 		mesh._nodes.duplicateCheck();
+		mesh._nodes.findCheck();
 	}
 }
 

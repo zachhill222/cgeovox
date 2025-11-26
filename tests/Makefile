@@ -1,50 +1,50 @@
 INC_DIR    = -I../include -I/usr/include/eigen3
-LIB_DIR    = 
 
+#get all .cpp files for make all
 SRC        = $(wildcard *.cpp)
-OBJ        = $(SRC:.cpp=.o)
 TARGETS    = $(SRC:.cpp=)
 
-#-g for gdb (http://www.gnu.org/software/gdb/documentation/), -pg for gprof-gui (https://www.gnu.org/software/gprofng-gui/)
-#correctness testing
-# CC         = g++ -std=c++20 -pg -g3 -fopenmp#  -g for gdb, -pg for gprof (will create gmon.out)
-# CFLAGS     = -Wall -O0
+#default build (debug)
+CXX        = g++ -std=c++20
+OPT        = -O0
+PAR        =
+DEBUG      = -pg -g3 -Wall
 
-#perfomance testing
-CC         = g++ -std=c++20 -fopenmp #-DNDEBUG -g -pg
-CFLAGS     = -O3
+#redefine for testing optimizations
+OPT        = -O3
+PAR        = -fopenmp
+DEBUG      = -DNDEBUG
 
-LDFLAGS    = -L$(LIB_DIR)
-LDLIBS     = 
-
+#final compiler command
+CC = $(CXX) $(OPT) $(PAR) $(DEBUG)
 
 # DEFAULT: make all test programs
 all: $(TARGETS)
 
-
-# RULES TO MAKE EACH TEST INDIVIDUALLY. listing individually helps autocomplete. using .PHONY forces re-build when header files have changed but not source files.
+# rules to make tests individually. listing individually helps autocomplete.
+# using .PHONY forces re-build when header files have changed but not source files.
 .PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh
 
 assembly:
-	$(CC) $(CFLAGS) $(INC_DIR) assembly.cpp assembly
+	$(CC) $(INC_DIR) assembly.cpp assembly
 
 charmsQ1:
-	$(CC) $(CFLAGS) $(INC_DIR) charmsQ1.cpp -o charmsQ1
+	$(CC) $(INC_DIR) charmsQ1.cpp -o charmsQ1
 
 octree:
-	$(CC) $(CFLAGS) $(INC_DIR) octree.cpp -o octree
+	$(CC) $(INC_DIR) octree.cpp -o octree
 
 util:
-	$(CC) $(CFLAGS) $(INC_DIR) util.cpp -o util
+	$(CC) $(INC_DIR) util.cpp -o util
 
 charms_assembly:
-	$(CC) $(CFLAGS) $(INC_DIR) charms_assembly.cpp -o charms_assembly
+	$(CC) $(INC_DIR) charms_assembly.cpp -o charms_assembly
 
 matrix:
-	$(CC) $(CFLAGS) $(INC_DIR) matrix.cpp -o matrix
+	$(CC) $(INC_DIR) matrix.cpp -o matrix
 
 mesh:
-	$(CC) $(CFLAGS) $(INC_DIR) mesh.cpp -o mesh
+	$(CC) $(INC_DIR) mesh.cpp -o mesh
 
 
 .PHONY: clean
