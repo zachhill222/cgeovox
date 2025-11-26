@@ -312,6 +312,7 @@ namespace gv::mesh
 			Node_t &NODE = _nodes[node_idx];
 			for (size_t e_idx : NODE.elems) {makeIsoparametric(_elements[e_idx]);}
 			for (size_t f_idx : NODE.boundary_faces) {makeIsoparametric(_boundary[f_idx]);}
+			
 			NODE.vertex = new_vertex;
 			_nodes.reinsert(node_idx);
 		}
@@ -961,8 +962,8 @@ namespace gv::mesh
 				  << "\n"
 				  << std::left << std::setw(34) << "      \u251c\u2500 data index storage"
 				  << std::right
-				  << std::setw(20) << nOctreeIdx
-				  << std::setw(20) << std::fixed << std::setprecision(3) << octreeIndexMemoryUsed / 1048576.0
+				  << std::setw(20) << nOctreeIdx; if (nOctreeIdx!=mesh._nodes.size()) {std::cout << " (W)";}
+		std::cout << std::setw(20) << std::fixed << std::setprecision(3) << octreeIndexMemoryUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << octreeIndexMemoryCap  / 1048576.0
 				  << "\n"
 				  << std::left << "      \u251c\u2500 maximum depth= " << maxDepth << "\n"
@@ -1043,6 +1044,10 @@ namespace gv::mesh
 				  << std::setw(20) << std::fixed << std::setprecision(3) << totalCap  / 1048576.0
 				  << "\n";
 		std::cout << std::string(90, '-') << "\n";
+
+		//duplicate check in _nodes
+		std::cout << "\n";
+		mesh._nodes.duplicateCheck();
 	}
 }
 

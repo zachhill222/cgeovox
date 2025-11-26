@@ -115,9 +115,8 @@ namespace gv::util {
 	/// Remove data index from node
 	template<int DIM, int N_DATA, Float T>
 	void removeDataIdx(OctreeParallelNode<DIM,N_DATA,T>* node, size_t idx) {
-		if (node->data_idx == nullptr) {
-			return;
-		}
+		if (node == nullptr) {return;}
+		if (node->data_idx == nullptr) {return;}
 
 		for (int i = 0; i < node->cursor; i++) {
 			if (node->data_idx[i] == idx) {
@@ -135,52 +134,14 @@ namespace gv::util {
 		return node->is_leaf.load(std::memory_order_acquire);
 	}
 
-
-
-
-	/////////////////////////////////////////////////
-	/// Lock-free queue class for use in BasicParallelOctree
-	/// Allows openmp threads to push while the worker thread is popping
-	/////////////////////////////////////////////////
-	template<typename DataBuffer>
-	struct ThreadLocalQueue {
-	    static constexpr size_t CAPACITY = 4096;
-	    
-	    DataBuffer queue[CAPACITY];
-	    //thread A may only need head while thread B may only need tail.
-	    //setting alignas(64) keeps one thread from loading both but only using one.
-	    alignas(64) std::atomic<size_t> head{0};
-	    alignas(64) std::atomic<size_t> tail{0}; 
-	    std::atomic<size_t> pending_count{0};
-	    size_t queue_id;
-	    
-	    bool push(DataBuffer&& item) {
-	        size_t current_tail = tail.load(std::memory_order_relaxed);
-	        size_t next_tail = (current_tail + 1) % CAPACITY;
-	        
-	        if (next_tail == head.load(std::memory_order_acquire)) {
-	            return false;  // Queue full
-	        }
-	        
-	        queue[current_tail] = std::move(item);
-	        tail.store(next_tail, std::memory_order_release);
-	        return true;
-	    }
-	    
-	    bool pop(DataBuffer& item) {
-	        size_t current_head = head.load(std::memory_order_relaxed);
-	        
-	        if (current_head == tail.load(std::memory_order_acquire)) {
-	            return false;  // Queue empty
-	        }
-	        
-	        item = queue[current_head];
-	        head.store((current_head + 1) % CAPACITY, std::memory_order_release);
-	        return true;
-	    }
-	    
-	    bool empty() const {
-	        return head.load(std::memory_order_acquire) == tail.load(std::memory_order_acquire);
-	    }
-	};
+	/// Check if a node contains a specific index
+	template<int DIM, int N_DATA, Float T>
+	bool containsIndex(const OctreeParallelNode<DIM,N_DATA,T>* node, const size_t idx) {
+		if (node==nullptr) {return false;}
+		if (node->data_idx==nullptr) {return false;}
+		for (int i = 0; i < node->cursor; i++) {
+			if (node->data_idx[i] == idx) {return true;}
+		}
+		return false;
+	}
 }

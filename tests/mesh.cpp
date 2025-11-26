@@ -65,13 +65,13 @@ void test()
 		return old;
 	};
 	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-		// if (it->vertex[1]>0) {
+		if (it->vertex[1]>0) {
 			mesh.moveVertex(it->index, fun(it->vertex));
-		// }
+		}
 	}
 
 
-	for (int n=0; n<3; n++){
+	for (int n=0; n<4; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
@@ -81,25 +81,6 @@ void test()
 	// mesh.joinDescendents(0);
 	// mesh.join_descendents(488);
 	// mesh.recolor();
-
-
-	Box_t<3> bbox = mesh.bbox();
-	Mesh_t boundary(bbox);
-	mesh.getBoundaryMesh(boundary);
-	
-	// std::cout << "colors are valid? " << mesh.colors_are_valid() << std::endl;
-
-	//loop though boundary elements
-	// for (auto it=mesh.boundaryBegin(); it!=mesh.boundaryEnd(); ++it) {std::cout << *it << std::endl;}
-
-	// std::cout << "NODES\n";
-	// for (size_t i=0; i<mesh.nNodes(); i++) {
-	// 	for (size_t j=i+1; j<mesh.nNodes(); j++) {
-	// 		if (mesh.getNode(i).vertex == mesh.getNode(j).vertex) {
-	// 			std::cout << "=============\n" << mesh.getNode(i) << "\n" << mesh.getNode(j) << "\n================";
-	// 		}
-	// 	}
-	// }
 
 
 	//loop though elements
@@ -112,12 +93,14 @@ void test()
 	gv::mesh::memorySummary(mesh);
 
 
+	// Box_t<3> bbox = mesh.bbox();
+	// Mesh_t boundary(bbox);
+	// mesh.getBoundaryMesh(boundary);
+	// std::cout << std::endl << boundary << std::endl;
+	// gv::mesh::memorySummary(boundary);
 
-	std::cout << std::endl << boundary << std::endl;
-	gv::mesh::memorySummary(boundary);
-
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
-	boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
 }
 
 

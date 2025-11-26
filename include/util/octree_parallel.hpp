@@ -12,6 +12,7 @@
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "util/octree_util.hpp"
+#include "util/thread_queue.hpp"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -240,7 +241,7 @@ namespace gv::util {
 		void reinsert(size_t idx) {
 			assert(idx < _data.size());
 			
-			_recursive_remove_idx(_root, idx, _data[idx]);
+			_recursive_remove_idx(_root, idx); //we don't know that the data now in _data[idx] is near the old data
 
 			if (!isValid(_root->bbox, _data[idx])) {
 				_recursive_resize_to_fit_data(_data[idx], 8);
@@ -318,8 +319,11 @@ namespace gv::util {
 			#endif
 			
 			ThreadLocalQueue<DataBuffer>* thread_queue = _all_queues[thread_no];
-			thread_queue->push(DataBuffer{idx, start_node});
-			// thread_queue->pending_count.fetch_add(1, std::memory_order_release);
+			while(!thread_queue->push(DataBuffer{idx, start_node})) {
+				//keep trying to insert if the buffer is full
+				_inserter_cv.notify_one();
+				std::this_thread::yield();
+			}
 
 			// Notify worker thread
 			_total_pending.fetch_add(1, std::memory_order_release);
@@ -340,11 +344,16 @@ namespace gv::util {
 
 			// Ensure all memory writes are visible
 			std::atomic_thread_fence(std::memory_order_seq_cst);
-
-			// Extra yield for safety
 			_recursive_push_data_down(_root);
-			
-			std::this_thread::yield();
+
+			//check if the buffers were ever full
+			for (int i=0; i<_all_queues.size(); i++) {
+				ThreadLocalQueue<DataBuffer>* thread_queue = _all_queues[i];
+				if (thread_queue->buffer_bumps>0) {
+					std::cout << "WARNING: thread buffer " << i << " was full " << thread_queue->buffer_bumps << " times since last flush" << std::endl;
+					thread_queue->buffer_bumps=0;
+				}
+			}
 		}
 
 		//============================================================
@@ -363,6 +372,7 @@ namespace gv::util {
 		//============================================================
 		void treeSummary(size_t &n_nodes, size_t &n_idx, size_t &n_idx_cap, size_t &n_leafs, int &max_depth) const {
 			_recursive_node_properties(_root, n_nodes, n_idx, n_idx_cap, n_leafs, max_depth);
+			max_depth -= _root->depth; //if the bounding box was re-sized, the root may now have a negative depth
 		}
 
 	private:
@@ -385,7 +395,8 @@ namespace gv::util {
 						
 						while (!thread_queue->empty()) {
 							DataBuffer work;
-							thread_queue->pop(work);
+							[[maybe_unused]] bool found_data = thread_queue->try_pop(work);
+							assert(found_data);
 
 							// Try to insert into tree
 							size_t existing_idx = _recursive_find_index<true>(work.target_node, _data[work.idx]);
@@ -423,24 +434,20 @@ namespace gv::util {
 		
 		/// Remove index from node and all descendants
 		void _recursive_remove_idx(Node_t* node, size_t idx) {
-			if (isLeaf(node)) {
-				removeDataIdx(node, idx);
-			} else {
-				for (int c = 0; c < N_CHILDREN; c++) {
-					_recursive_remove_idx(node->children[c], idx);
-				}
+			if (node==nullptr) {return;}
+			removeDataIdx(node, idx);
+			for (int c = 0; c < N_CHILDREN; c++) {
+				_recursive_remove_idx(node->children[c], idx); //ok if a child is nullptr
 			}
 		}
 
 		/// Remove index from node and descendants (optimized with validity check)
 		void _recursive_remove_idx(Node_t* node, size_t idx, const Data_t &val) {
-			if (isLeaf(node)) {
-				removeDataIdx(node, idx);
-			} else {
-				for (int c = 0; c < N_CHILDREN; c++) {
-					if (isValid(node->children[c]->bbox, val)) {
-						_recursive_remove_idx(node->children[c], idx, val);
-					}
+			removeDataIdx(node, idx);
+			for (int c = 0; c < N_CHILDREN; c++) {
+				if (node->children[c] == nullptr) {continue;}
+				if (isValid(node->children[c]->bbox, val)) {
+					_recursive_remove_idx(node->children[c], idx, val);
 				}
 			}
 		}
@@ -590,6 +597,7 @@ namespace gv::util {
 				}
 			} else {
 				assert(node->data_idx==nullptr);
+				assert(node->cursor==0);
 				for (int c = 0; c < N_CHILDREN; c++) {
 					_recursive_duplicate_data(node->children[c]);
 				}
@@ -603,7 +611,7 @@ namespace gv::util {
 
 			// Distribute data to children
 			if (node->data_idx != nullptr) {
-				std::unique_lock<std::shared_mutex> lock(node->_rw_mtx);
+				std::lock_guard<std::shared_mutex> lock(node->_rw_mtx);
 				
 				for (int i = 0; i < node->cursor; i++) {
 					size_t idx = node->data_idx[i];
@@ -620,8 +628,11 @@ namespace gv::util {
 								_recursive_push_data_down(node->children[c]);
 							}
 
+
+							assert(!containsIndex(node->children[c], idx));
 							[[maybe_unused]] int flag = appendDataIdx(node->children[c], idx);
-							assert(flag==1);
+							assert(flag>=0);
+							if (flag==0) {std::cout << "data at index " << idx << " already pushed down: " << _data[idx].vertex << std::endl;}
 							
 							if constexpr (SINGLE_DATA) {
 								break;  // Only first valid child gets the data
@@ -659,10 +670,12 @@ namespace gv::util {
 		int _recursive_insert_data(Node_t* node, const Data_t &val, size_t idx) {
 			assert(node != nullptr);
 			assert(isValid(node->bbox, val));
+			assert(!containsIndex(node, idx));
+
 
 			// Handle leaf node
 			if (isLeaf(node)) {
-				std::unique_lock<std::shared_mutex> lock(node->_rw_mtx);
+				std::lock_guard<std::shared_mutex> lock(node->_rw_mtx);
 				
 				int flag = appendDataIdx(node, idx);
 				if (flag >= 0) {
@@ -671,26 +684,25 @@ namespace gv::util {
 				
 				// Node full, divide it
 				_divide(node);
-			}
-
-			assert(!isLeaf(node));
-
-			// Insert into appropriate child(ren)
-			int flag = 99;
-			for (int c = 0; c < N_CHILDREN; c++) {
-				assert(node->children[c] != nullptr);
-				
-				if (isValid(node->children[c]->bbox, val)) {
-					flag = _recursive_insert_data(node->children[c], val, idx);
+				return _recursive_insert_data(node, val, idx); //call until we are in a leaf node with room
+			} else {
+				// Insert into appropriate children
+				int flag = 99;
+				for (int c = 0; c < N_CHILDREN; c++) {
+					assert(node->children[c] != nullptr);
 					
-					if constexpr (SINGLE_DATA) {
-						return flag;
+					if (isValid(node->children[c]->bbox, val)) {
+						flag = _recursive_insert_data(node->children[c], val, idx);
+						
+						if constexpr (SINGLE_DATA) {
+							return flag;
+						}
 					}
 				}
-			}
 
-			assert(flag != 99);
-			return flag;
+				assert(flag != 99);
+				return flag;
+			}
 		}
 
 
@@ -713,6 +725,6 @@ namespace gv::util {
 			for (int c = 0; c < OctreeParallelNode<DIM,N_DATA,T>::N_CHILDREN; c++) {
 				_recursive_node_properties(node->children[c], n_nodes, n_idx, n_idx_cap, n_leafs, max_depth);
 			}
-	}
+		}
 	};
 }

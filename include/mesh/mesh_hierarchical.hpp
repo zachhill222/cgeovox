@@ -573,11 +573,12 @@ namespace gv::mesh {
 					splitElement_Unlocked(this_color_elems[i], child_element_index_start[i], child_face_index_start[i]);
 				}
 
-				this->_nodes.flush();
-
 				#pragma omp barrier
+				#pragma omp single
+				{
+					this->_nodes.flush();
+				}
 			}
-			
 		}
 		this->_nodes.shrink_to_fit();
 
