@@ -8,13 +8,22 @@
 
 #include "mesh/mesh_view.hpp"
 
-int main(int argc, char* argv[])
+
+const int dim = 3;
+using T = double;
+	
+template<int n>
+using Box_t    = gv::util::Box<n,T>;
+
+
+
+void test()
 {	
-	const int dim = 3;
-	using T = double;
+	
 
 	using Point_t  = gv::util::Point<dim,T>;
-	using Box_t    = gv::util::Box<dim,T>;
+
+	
 	using Index_t  = gv::util::Point<dim,size_t>;
 
 	using Vertex_t  = gv::util::Point<3,T>;
@@ -29,34 +38,36 @@ int main(int argc, char* argv[])
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
 	Point_t corner {1.0,1.0,1.0};
-	Box_t domain(-corner, corner);
+	Box_t<dim> domain(-corner, corner);
 	Index_t N{1, 1, 1};
 	Mesh_t mesh(domain,N,true);
 
+	// mesh.reserveElements((size_t) 1 << 21); //128x128x128
+	// mesh.reserveNodes((size_t) 1 << 22); //just over 129x129x129
 
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
-	for (int n=0; n<1; n++){
-		// const size_t nElems = mesh.nElems();
-		// for (size_t i=0; i<nElems; i+=1) {
-		// 	mesh.splitElement(i);
-		// }
+	for (int n=0; n<3; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
 
 
 	auto fun = [](Vertex_t old) -> Vertex_t {
-		double r = std::sqrt(old[0]*old[0] + old[1]*old[1]);
-		double theta = std::atan2(old[1],old[0]);
-		theta += 0.75*old[2];
+		if (old[2]<0) {return old;}
+
+		double r = std::sqrt(old[0]*old[0] + old[2]*old[2]);
+		double theta = std::atan2(old[2],old[0]);
+		theta += 0.75*old[1];
 
 		old[0] = r*std::cos(theta);
-		old[1] = r*std::sin(theta); 
+		old[2] = r*std::sin(theta); 
 		return old;
 	};
 	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-		mesh.moveVertex(it->index, fun(it->vertex));
+		if (it->vertex[1]>0) {
+			mesh.moveVertex(it->index, fun(it->vertex));
+		}
 	}
 
 
@@ -72,25 +83,6 @@ int main(int argc, char* argv[])
 	// mesh.recolor();
 
 
-	Box_t bbox = mesh.bbox();
-	Mesh_t boundary(bbox);
-	mesh.getBoundaryMesh(boundary);
-	
-	// std::cout << "colors are valid? " << mesh.colors_are_valid() << std::endl;
-
-	//loop though boundary elements
-	// for (auto it=mesh.boundaryBegin(); it!=mesh.boundaryEnd(); ++it) {std::cout << *it << std::endl;}
-
-	// std::cout << "NODES\n";
-	// for (size_t i=0; i<mesh.nNodes(); i++) {
-	// 	for (size_t j=i+1; j<mesh.nNodes(); j++) {
-	// 		if (mesh.getNode(i).vertex == mesh.getNode(j).vertex) {
-	// 			std::cout << "=============\n" << mesh.getNode(i) << "\n" << mesh.getNode(j) << "\n================";
-	// 		}
-	// 	}
-	// }
-
-
 	//loop though elements
 	// std::cout << "ELEMENTS\n";
 	// for (const auto &ELEM : mesh) {std::cout << ELEM << std::endl;}
@@ -101,12 +93,22 @@ int main(int argc, char* argv[])
 	gv::mesh::memorySummary(mesh);
 
 
+	// Box_t<3> bbox = mesh.bbox();
+	// Mesh_t boundary(bbox);
+	// mesh.getBoundaryMesh(boundary);
+	// std::cout << std::endl << boundary << std::endl;
+	// gv::mesh::memorySummary(boundary);
 
-	std::cout << std::endl << boundary << std::endl;
-	gv::mesh::memorySummary(boundary);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
+}
 
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
-	boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
+
+int main(int argc, char* argv[])
+{
+	int nTests = 1;
+	if (argc > 1) {nTests = atoi(argv[1]);}
+	for (int i = 0; i < nTests; i++) {test();}
 
 	return 0;
 }

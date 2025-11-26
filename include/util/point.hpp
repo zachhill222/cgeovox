@@ -17,8 +17,8 @@ namespace gv::util {
 	///////////////////////////////////////
 	template<typename T>
 	concept PointLike = requires(T point) {
-		typename T::data_type;
-		requires Scalar<typename T::data_type>;
+		typename T::Scalar_t;
+		requires Scalar<typename T::Scalar_t>;
 		requires T::dimension > 0;
 	};
 
@@ -33,7 +33,7 @@ namespace gv::util {
 		T _data[dim];
 
 	public:
-		using data_type = T;
+		using Scalar_t = T;
 		static constexpr int dimension = dim;
 
 		//============================================================
@@ -430,8 +430,11 @@ namespace gv::util {
 	}
 
 	/// Sum points in careful precision order
-	template <int dim, Scalar T, Scalar U>
-	Point<dim,T> sorted_sum(const std::vector<Point<dim,U>> &points) {
+	/// W is the input point type
+	/// U is the type that the arithmetic should be done in
+	/// T is the output type
+	template <int dim, Scalar T, Scalar U, Scalar W>
+	Point<dim,T> sorted_sum(const std::vector<Point<dim,W>> &points) {
 		if (points.empty()) {return Point<dim,T>();}
 		
 		Point<dim,T> result;
@@ -439,16 +442,19 @@ namespace gv::util {
 		component.reserve(points.size());
 		for (int i = 0; i < dim; i++) {
 			component.clear();
-			for ( const Point<dim,U> &p : points) {
-				component.push_back(static_cast<T>(p[i]));
+			for ( const Point<dim,W> &p : points) {
+				component.push_back(static_cast<U>(p[i]));
 			}
 
 			std::sort(component.begin(), component.end(), [](T a, T b) {
 				            return std::abs(a) < std::abs(b);});
 
-			for (T val : component) {
-				result[i] += val;
+			U sum = U{0};
+			for (U val : component) {
+				sum += val;
 			}
+
+			result[i] = static_cast<T>(sum);
 		}
 
 		return result;

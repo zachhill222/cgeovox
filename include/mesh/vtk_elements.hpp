@@ -232,21 +232,16 @@ namespace gv::mesh
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
-			//round to lower precision
-			for (Point_t &v : vertices) {
-				for (int i = 0; i < 3; i++) {
-					v[i] = static_cast<double>(static_cast<float>(v[i]));
-				}
-			}
-
+			using T = typename Point_t::Scalar_t;
+			
 			//edge midpoints
-			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //4 - bottom (B)
-			vertices.emplace_back(0.5*(vertices[1]+vertices[2])); //5 - right (R)
-			vertices.emplace_back(0.5*(vertices[2]+vertices[3])); //6 - top (T)
-			vertices.emplace_back(0.5*(vertices[0]+vertices[3])); //7 - left (L)
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //4 - bottom (B)
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[2]})); //5 - right (R)
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //6 - top (T)
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3]})); //7 - left (L)
 
 			//center
-			vertices.emplace_back(0.25*(vertices[0]+vertices[1]+vertices[2]+vertices[3])); //8 (C)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1],vertices[2],vertices[3]})); //8 (C)
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
@@ -309,7 +304,40 @@ namespace gv::mesh
 			}
 		}
 
-		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {}
+		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {
+			split_face_nodes.resize(vtk_n_nodes_when_split(vtk_face_id(VTK_ID)));
+			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+
+			switch (face_number) {
+				case (0): // Bottom [0, 1]
+				split_face_nodes[0] = split_node_numbers[ 0]; //0
+				split_face_nodes[1] = split_node_numbers[ 1]; //1
+				split_face_nodes[2] = split_node_numbers[ 4]; //0-1
+				break;
+
+			case (1): // Right [1, 2]
+				split_face_nodes[0] = split_node_numbers[ 1]; //1
+				split_face_nodes[1] = split_node_numbers[ 2]; //2
+				split_face_nodes[2] = split_node_numbers[ 5]; //1-2
+				break;
+
+			case (2): // Top [2, 3]
+				split_face_nodes[0] = split_node_numbers[ 2]; //2
+				split_face_nodes[1] = split_node_numbers[ 3]; //3
+				split_face_nodes[2] = split_node_numbers[ 6]; //2-3
+				break;
+
+			case (3): // Left [3, 0]
+				split_face_nodes[0] = split_node_numbers[ 3]; //3
+				split_face_nodes[1] = split_node_numbers[ 0]; //0
+				split_face_nodes[2] = split_node_numbers[ 7]; //0-3
+				break;
+
+			default:
+				throw std::out_of_range("face number out of bounds");
+				break;
+			}
+		}
 	};
 
 
@@ -326,39 +354,35 @@ namespace gv::mesh
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
-			//round to lower precision
-			for (Point_t &v : vertices) {
-				for (int i = 0; i < 3; i++) {
-					v[i] = static_cast<double>(static_cast<float>(v[i]));
-				}
-			}
+
+			using T = typename Point_t::Scalar_t;
 
 			//edge midpoints
-			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //8  - back face
-			vertices.emplace_back(0.5*(vertices[1]+vertices[3])); //9  - back face
-			vertices.emplace_back(0.5*(vertices[2]+vertices[3])); //10 - back face
-			vertices.emplace_back(0.5*(vertices[0]+vertices[2])); //11 - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //8  - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[3]})); //9  - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //10 - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[2]})); //11 - back face
 
-			vertices.emplace_back(0.5*(vertices[0]+vertices[4])); //12 - connecting edge
-			vertices.emplace_back(0.5*(vertices[2]+vertices[6])); //13 - connecting edge
-			vertices.emplace_back(0.5*(vertices[3]+vertices[7])); //14 - connecting edge
-			vertices.emplace_back(0.5*(vertices[1]+vertices[5])); //15 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[4]})); //12 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[6]})); //13 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[3],vertices[7]})); //14 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[5]})); //15 - connecting edge
 			
-			vertices.emplace_back(0.5*(vertices[4]+vertices[5])); //16 - front face
-			vertices.emplace_back(0.5*(vertices[5]+vertices[7])); //17 - front face
-			vertices.emplace_back(0.5*(vertices[6]+vertices[7])); //18 - front face
-			vertices.emplace_back(0.5*(vertices[4]+vertices[6])); //19 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[5]})); //16 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[5],vertices[7]})); //17 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[6],vertices[7]})); //18 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[6]})); //19 - front face
 
 			//face midpoints
-			vertices.emplace_back(0.5*(vertices[0]+vertices[6])); //20 - left face
-			vertices.emplace_back(0.5*(vertices[1]+vertices[7])); //21 - right face
-			vertices.emplace_back(0.5*(vertices[2]+vertices[7])); //22 - top face
-			vertices.emplace_back(0.5*(vertices[0]+vertices[5])); //23 - bottom face
-			vertices.emplace_back(0.5*(vertices[0]+vertices[3])); //24 - back face
-			vertices.emplace_back(0.5*(vertices[4]+vertices[7])); //25 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[6]})); //20 - left face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[7]})); //21 - right face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[7]})); //22 - top face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[5]})); //23 - bottom face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3]})); //24 - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[7]})); //25 - front face
 
 			//center
-			vertices.emplace_back(0.5*(vertices[0]+vertices[7])); //26
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[7]})); //26
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
@@ -504,7 +528,88 @@ namespace gv::mesh
 			}
 		}
 
-		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {}
+		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {
+			split_face_nodes.resize(vtk_n_nodes_when_split(vtk_face_id(VTK_ID)));
+			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+
+			switch (face_number) {
+				case (0): // Left face [0, 4, 2, 6]
+				split_face_nodes[0] = split_node_numbers[ 0]; //0
+				split_face_nodes[1] = split_node_numbers[ 4]; //4
+				split_face_nodes[2] = split_node_numbers[ 2]; //2
+				split_face_nodes[3] = split_node_numbers[ 6]; //6
+				split_face_nodes[4] = split_node_numbers[12]; //0-4
+				split_face_nodes[5] = split_node_numbers[19]; //4-6
+				split_face_nodes[6] = split_node_numbers[13]; //2-6
+				split_face_nodes[7] = split_node_numbers[11]; //0-2
+				split_face_nodes[8] = split_node_numbers[20]; //left face center
+				break;
+
+			case (1): // Right face [1, 3, 5, 7]
+				split_face_nodes[0] = split_node_numbers[ 1]; //1
+				split_face_nodes[1] = split_node_numbers[ 3]; //3
+				split_face_nodes[2] = split_node_numbers[ 5]; //5
+				split_face_nodes[3] = split_node_numbers[ 7]; //7
+				split_face_nodes[4] = split_node_numbers[ 9]; //1-3
+				split_face_nodes[5] = split_node_numbers[14]; //3-7
+				split_face_nodes[6] = split_node_numbers[17]; //5-7
+				split_face_nodes[7] = split_node_numbers[15]; //1-5
+				split_face_nodes[8] = split_node_numbers[21]; //right face center
+				break;
+
+			case (2): // Top face [2, 6, 3, 7]
+				split_face_nodes[0] = split_node_numbers[ 2]; //2
+				split_face_nodes[1] = split_node_numbers[ 6]; //6
+				split_face_nodes[2] = split_node_numbers[ 3]; //3
+				split_face_nodes[3] = split_node_numbers[ 7]; //7
+				split_face_nodes[4] = split_node_numbers[13]; //2-6
+				split_face_nodes[5] = split_node_numbers[18]; //6-7
+				split_face_nodes[6] = split_node_numbers[14]; //3-7
+				split_face_nodes[7] = split_node_numbers[10]; //2-3
+				split_face_nodes[8] = split_node_numbers[22]; //top face center
+				break;
+
+			case (3): // Bottom face [0, 1, 4, 5]
+				split_face_nodes[0] = split_node_numbers[ 0]; //0
+				split_face_nodes[1] = split_node_numbers[ 1]; //1
+				split_face_nodes[2] = split_node_numbers[ 4]; //4
+				split_face_nodes[3] = split_node_numbers[ 5]; //5
+				split_face_nodes[4] = split_node_numbers[ 8]; //0-1
+				split_face_nodes[5] = split_node_numbers[15]; //1-5
+				split_face_nodes[6] = split_node_numbers[16]; //4-5
+				split_face_nodes[7] = split_node_numbers[12]; //0-4
+				split_face_nodes[8] = split_node_numbers[23]; //bottom face center
+				break;
+
+			case (4): // Back face [1, 0, 3, 2]
+				split_face_nodes[0] = split_node_numbers[ 1]; //1
+				split_face_nodes[1] = split_node_numbers[ 0]; //0
+				split_face_nodes[2] = split_node_numbers[ 3]; //3
+				split_face_nodes[3] = split_node_numbers[ 2]; //2
+				split_face_nodes[4] = split_node_numbers[ 8]; //1-0
+				split_face_nodes[5] = split_node_numbers[11]; //0-2
+				split_face_nodes[6] = split_node_numbers[10]; //2-3
+				split_face_nodes[7] = split_node_numbers[ 9]; //3-1
+				split_face_nodes[8] = split_node_numbers[24]; //back face center
+				break;
+
+			case (5): // Front face [4, 5, 6, 7]
+				split_face_nodes[0] = split_node_numbers[ 4]; //4
+				split_face_nodes[1] = split_node_numbers[ 5]; //5
+				split_face_nodes[2] = split_node_numbers[ 6]; //6
+				split_face_nodes[3] = split_node_numbers[ 7]; //7
+				split_face_nodes[4] = split_node_numbers[16]; //4-5
+				split_face_nodes[5] = split_node_numbers[17]; //5-7
+				split_face_nodes[6] = split_node_numbers[18]; //6-7
+				split_face_nodes[7] = split_node_numbers[19]; //4-6
+				split_face_nodes[8] = split_node_numbers[25]; //front face center
+				break;
+
+			default:
+				throw std::out_of_range("face number out of bounds");
+				break;
+			}
+		}
 	};
 
 	/////////////////////////////////////////////////
@@ -536,39 +641,33 @@ namespace gv::mesh
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
-			//round to lower precision
-			for (Point_t &v : vertices) {
-				for (int i = 0; i < 3; i++) {
-					v[i] = static_cast<double>(static_cast<float>(v[i]));
-				}
-			}
-
+			using T = typename Point_t::Scalar_t;
 			//edge midpoints
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[1]})); //8  - back face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[1],vertices[2]})); //9  - back face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[2],vertices[3]})); //10 - back face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[3]})); //11 - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //8  - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[2]})); //9  - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //10 - back face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3]})); //11 - back face
 
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[4]})); //12 - connecting edge
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[3],vertices[7]})); //13 - connecting edge
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[2],vertices[6]})); //14 - connecting edge
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[1],vertices[5]})); //15 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[4]})); //12 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[3],vertices[7]})); //13 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[6]})); //14 - connecting edge
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[5]})); //15 - connecting edge
 			
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[4],vertices[5]})); //16 - front face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[5],vertices[6]})); //17 - front face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[6],vertices[7]})); //18 - front face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,double,double>({vertices[4],vertices[7]})); //19 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[5]})); //16 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[5],vertices[6]})); //17 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[6],vertices[7]})); //18 - front face
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[7]})); //19 - front face
 
 			//face midpoints
-			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[3],vertices[4],vertices[7]})); //20 - left face  (L)
-			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[1],vertices[2],vertices[5],vertices[6]})); //21 - right face (R)
-			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[2],vertices[3],vertices[6],vertices[7]})); //22 - up face    (U)
-			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[1],vertices[4],vertices[5]})); //23 - down face  (D)
-			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[1],vertices[2],vertices[3]})); //24 - back face  (B)
-			vertices.emplace_back(0.25*gv::util::sorted_sum<3,double,double>({vertices[4],vertices[5],vertices[6],vertices[7]})); //25 - front face (F)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3],vertices[4],vertices[7]})); //20 - left face  (L)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[2],vertices[5],vertices[6]})); //21 - right face (R)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3],vertices[6],vertices[7]})); //22 - up face    (U)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1],vertices[4],vertices[5]})); //23 - down face  (D)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1],vertices[2],vertices[3]})); //24 - back face  (B)
+			vertices.emplace_back(0.25*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[5],vertices[6],vertices[7]})); //25 - front face (F)
 
 			//center
-			vertices.emplace_back(0.125*gv::util::sorted_sum<3,double,double>({vertices[0],vertices[1],vertices[2],vertices[3]
+			vertices.emplace_back(0.125*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1],vertices[2],vertices[3]
 										,vertices[4],vertices[5],vertices[6],vertices[7]})); //26
 		}
 
