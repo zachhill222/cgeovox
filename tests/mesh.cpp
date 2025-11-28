@@ -9,7 +9,7 @@
 
 #include "util/octree_stats.hpp"
 
-const int dim = 3;
+const int dim = 2;
 using T = double;
 	
 template<int n>
@@ -18,8 +18,6 @@ using Box_t    = gv::util::Box<n,T>;
 
 
 void test() {	
-	
-
 	using Point_t  = gv::util::Point<dim,T>;
 
 	
