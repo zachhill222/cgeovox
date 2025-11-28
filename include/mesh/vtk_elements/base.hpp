@@ -7,7 +7,6 @@
 #include "mesh/vtk_defs.hpp"
 
 #include <vector>
-
 #include <cassert>
 
 

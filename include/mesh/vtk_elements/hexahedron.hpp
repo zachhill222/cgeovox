@@ -11,6 +11,19 @@
 
 
 namespace gv::mesh {
+	// Hexahedron element node labels
+	//
+	// 			3 ------- 2
+	//			|\	      |\
+	//			| \		  | \
+	//			0 -\----- 1  \
+	//			 \	\      \  \
+	//			  \	 7 ------- 6
+	//			   \ |		 \ |
+	//				\|        \|
+	//				 4 ------- 5
+	//
+
 	/////////////////////////////////////////////////
 	/// Hexahedral element
 	/// Note that this is an iso-parametric element. The edge-midpoints can be found via an average of the endpoints,

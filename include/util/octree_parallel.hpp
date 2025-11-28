@@ -16,9 +16,7 @@
 #include "util/octree_util.hpp"
 #include "util/thread_queue.hpp"
 
-#ifdef _OPENMP
 #include <omp.h>
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// BasicParallelOctree - Thread-safe spatial data structure
@@ -108,7 +106,6 @@ namespace gv::util {
 			for (int i = 0; i < DIM; i++) {
 				//mask for clearing the least significant bits of a float
 				uint32_t mask = ( (uint32_t) 1 << 5) - 1;
-				// mask = ~mask;
 
 				//round low
 				float coord = static_cast<float>(low[i]);
@@ -128,8 +125,6 @@ namespace gv::util {
 
 			//set _root with rounded bounding box
 			_root = new Node_t(Box_t{low, high});
-
-
 			resetDataIdx(_root);
 
 			// Set up thread-local queues
@@ -420,7 +415,6 @@ namespace gv::util {
 		//============================================================
 		// Data validation
 		//============================================================
-		
 		/// Check if there are any duplicate values
 		/// All data must be pushed down for this method to work.
 		/// Data will be pushed down after flush() is called.

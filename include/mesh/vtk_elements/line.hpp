@@ -10,6 +10,11 @@
 #include <cassert>
 
 namespace gv::mesh {
+	// Voxel element node labels
+	//
+	//	0 ------ 1  
+	//
+
 	/////////////////////////////////////////////////
 	/// Line element
 	/////////////////////////////////////////////////
@@ -22,14 +27,8 @@ namespace gv::mesh {
 		void split(std::vector<Point_t> &vertices) const override {
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 
-			//round to lower precision
-			for (Point_t &v : vertices) {
-				for (int i = 0; i < 3; i++) {
-					v[i] = static_cast<double>(static_cast<float>(v[i]));
-				}
-			}
-
-			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //center
+			using T = typename Point_t::Scalar_t;
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]}));
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
@@ -56,6 +55,25 @@ namespace gv::mesh {
 			face_nodes[0] = this->ELEM.nodes[face_number];
 		}
 
-		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {}
+		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {
+			split_face_nodes.resize(vtk_n_nodes_when_split(vtk_face_id(VTK_ID)));
+			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+
+			switch (face_number) {
+				case (0): // Left [0, 2]
+				split_face_nodes[0] = split_node_numbers[0];
+				split_face_nodes[1] = split_node_numbers[2];
+				break;
+
+			case (1): // Right [2, 1]
+				split_face_nodes[0] = split_node_numbers[2];
+				split_face_nodes[1] = split_node_numbers[1];
+				break;
+
+			default:
+				throw std::out_of_range("face number out of bounds");
+				break;
+			}
+		}
 	};
 }

@@ -12,6 +12,19 @@
 
 
 namespace gv::mesh {
+	// Voxel element node labels
+	//
+	// 			2 ------- 3
+	//			|\	      |\
+	//			| \		  | \
+	//			0 -\----- 1  \
+	//			 \	\      \  \
+	//			  \	 6 ------- 7
+	//			   \ |		 \ |
+	//				\|        \|
+	//				 4 ------- 5
+	//
+
 	/////////////////////////////////////////////////
 	/// Voxel element
 	/// Note that this is not an iso-parametric element.

@@ -18,9 +18,6 @@ namespace gv::mesh {
 	//			|		|
 	//			0 ----- 1
 	//
-	//
-
-
 
 	/////////////////////////////////////////////////
 	/// Pixel element
@@ -53,18 +50,13 @@ namespace gv::mesh {
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
-			//round to lower precision
-			for (Point_t &v : vertices) {
-				for (int i = 0; i < 3; i++) {
-					v[i] = static_cast<double>(static_cast<float>(v[i]));
-				}
-			}
+			using T = typename Point_t::Scalar_t;
 
 			//edge midpoints
-			vertices.emplace_back(0.5*(vertices[0]+vertices[1])); //4 - bottom
-			vertices.emplace_back(0.5*(vertices[1]+vertices[3])); //5 - right
-			vertices.emplace_back(0.5*(vertices[2]+vertices[3])); //6 - top
-			vertices.emplace_back(0.5*(vertices[0]+vertices[2])); //7 - left
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //4 - bottom
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[3]})); //5 - right
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //6 - top
+			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[2]})); //7 - left
 
 			//center
 			vertices.emplace_back(0.5*(vertices[0]+vertices[3])); //8

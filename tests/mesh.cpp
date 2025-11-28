@@ -19,7 +19,6 @@ using Box_t    = gv::util::Box<n,T>;
 
 void test() {	
 	using Point_t  = gv::util::Point<dim,T>;
-
 	
 	using Index_t  = gv::util::Point<dim,size_t>;
 
@@ -90,7 +89,7 @@ void test() {
 	std::cout << std::endl << boundary << std::endl;
 	gv::mesh::memorySummary(boundary);
 
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
 	// gv::util::makeOctreeLeafMesh(mesh.getNodeOctree(), "./outfiles/topological_mesh_node_octree.vtk");
 }
