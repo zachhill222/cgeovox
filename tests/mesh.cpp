@@ -9,7 +9,7 @@
 
 #include "util/octree_stats.hpp"
 
-const int dim = 2;
+const int dim = 3;
 using T = double;
 	
 template<int n>
@@ -33,7 +33,7 @@ void test() {
 	using Mesh_t  = gv::mesh::HierarchicalMesh<Node_t,Element_t,Face_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
-	Point_t corner {1.0,1.0,1.0};
+	Point_t corner {10.00031,10.001,10.013};
 	Box_t<dim> domain(-corner, corner);
 	Index_t N{1, 1, 1};
 	Mesh_t mesh(domain,N,false);
@@ -49,24 +49,23 @@ void test() {
 	}
 
 
-	auto fun = [](Vertex_t old) -> Vertex_t {
-		double r = std::sqrt(old[0]*old[0] + old[2]*old[2]);
-		double theta = std::atan2(old[2],old[0]);
-		theta += 0.75*old[1];
+	auto fun = [corner](Vertex_t old) -> Vertex_t {
+		double r = std::sqrt(old[0]*old[0] + old[1]*old[1]);
+		double theta = std::atan2(old[1],old[0]);
+		theta += 2.0*0.78539816339*old[2]/corner[2];
 
 		old[0] = r*std::cos(theta);
-		old[1] *= 1+0.5*r;
-		old[2] = r*std::sin(theta); 
+		old[1] = r*std::sin(theta); 
 		return old;
 	};
 	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-		if (it->vertex[1]>0) {
+		if (it->vertex[2]>0) {
 			mesh.moveVertex(it->index, fun(it->vertex));
 		}
 	}
 
 
-	for (int n=0; n<3; n++){
+	for (int n=0; n<4; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}

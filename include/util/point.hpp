@@ -3,6 +3,7 @@
 #include <iostream>
 #include <initializer_list>
 #include <cmath>
+// #include <cstring>
 #include <limits>
 #include <cassert>
 #include <concepts>
@@ -63,7 +64,9 @@ namespace gv::util {
 
 		// Copy constructor (same type)
 		constexpr Point(const Point<dim,T> &other) {
-			for (int i=0; i<dim; i++) {_data[i] = other[i];}
+			// for (int i=0; i<dim; i++) {_data[i] = other[i];}
+			// std::memcpy(_data, other._data, sizeof(other._data));
+			std::copy(other._data, other._data+dim, _data);
 		}
 
 		// Copy constructor with type conversion
@@ -82,7 +85,9 @@ namespace gv::util {
 
 		// Move constructor
 		constexpr Point(Point<dim,T>&& other) noexcept {
-			for (int i=0; i<dim; i++) {_data[i] = std::move(other._data[i]);}
+			// for (int i=0; i<dim; i++) {_data[i] = std::move(other._data[i]);}
+			// std::memmove(_data, other._data, sizeof(other._data));
+			std::move(other._data, other._data+dim, _data);
 		}
 
 		// Destructor (default is fine for array member)
@@ -95,7 +100,9 @@ namespace gv::util {
 		// Copy assignment
 		constexpr Point& operator=(const Point<dim,T>& other) {
 			if (this != &other) {
-				for (int i=0; i<dim; i++) {_data[i] = other._data[i];}
+				// for (int i=0; i<dim; i++) {_data[i] = other._data[i];}
+				// std::memcpy(_data, other._data, sizeof(other._data));
+				std::copy(other._data, other._data+dim, _data);
 			}
 			return *this;
 		}
@@ -103,7 +110,9 @@ namespace gv::util {
 		// Move assignment
 		constexpr Point& operator=(Point<dim,T>&& other) noexcept {
 			if (this != &other) {
-				for (int i=0; i<dim; i++) {_data[i] = std::move(other._data[i]);}
+				// for (int i=0; i<dim; i++) {_data[i] = std::move(other._data[i]);}
+				// std::memmove(_data, other._data, sizeof(other._data));
+				std::move(other._data, other._data+dim, _data);
 			}
 			return *this;
 		}

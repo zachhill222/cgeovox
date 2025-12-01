@@ -11,13 +11,13 @@
 
 
 namespace gv::mesh {
-	// Quad element node labels
-	//
-	// 			3 ----- 2
-	//			|		|
-	//			|		|
-	//			0 ----- 1
-	//
+	/* Quad element node labels
+	
+	 			3 ----- 2
+				|		|
+				|		|
+				0 ----- 1
+	*/
 
 	/////////////////////////////////////////////////
 	/// Quad element

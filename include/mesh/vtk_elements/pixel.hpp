@@ -11,13 +11,13 @@
 
 
 namespace gv::mesh {
-	// Pixel element node labels
-	//
-	// 			2 ----- 3
-	//			|		|
-	//			|		|
-	//			0 ----- 1
-	//
+	/* Pixel element node labels
+	
+	 			2 ----- 3
+				|		|
+				|		|
+				0 ----- 1
+	*/
 
 	/////////////////////////////////////////////////
 	/// Pixel element

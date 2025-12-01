@@ -10,10 +10,10 @@
 #include <cassert>
 
 namespace gv::mesh {
-	// Voxel element node labels
-	//
-	//	0 ------ 1  
-	//
+	/* Voxel element node labels
+	
+		0 ------ 1  
+	*/
 
 	/////////////////////////////////////////////////
 	/// Line element

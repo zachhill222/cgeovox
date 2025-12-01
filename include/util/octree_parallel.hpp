@@ -10,6 +10,7 @@
 #include <condition_variable>
 
 #include <cstring>
+#include <cmath>
 
 #include "util/point.hpp"
 #include "util/box.hpp"
@@ -88,7 +89,7 @@ namespace gv::util {
 		std::atomic<size_t> _total_pending{0};
 		
 		// Per-thread work queues
-		using Queue_t = ThreadLocalQueue<DataBuffer,32000>;
+		using Queue_t = ThreadLocalQueue<DataBuffer,4096>;
 		std::vector<Queue_t*> _all_queues;
 
 	public:
@@ -97,31 +98,20 @@ namespace gv::util {
 		//============================================================
 		explicit BasicParallelOctree(const Box_t &bbox)  
 		{
-			//change precision help avoid rounding errors
-			Point_t _low  = (T{1.125}*bbox).low();
-			Point_t _high = (T{1.125}*bbox).high();
-			Point_t low   = T{0.5}*(_low + bbox.low());
-			Point_t high  = T{0.5}*(_high + bbox.high());
+			//increase bounding box to closest power of 2 to better avoid floating point arithmetic errors
+			Point_t low(bbox.low());
+			Point_t high(bbox.high());
 
 			for (int i = 0; i < DIM; i++) {
-				//mask for clearing the least significant bits of a float
-				uint32_t mask = ( (uint32_t) 1 << 5) - 1;
+				int n  = 1+static_cast<int>(std::log2(std::fabs(low[i])));
+				if (low[i]<0) {low[i] = -static_cast<T>(std::pow(2.0, n));}
+				else {low[i] = static_cast<T>(std::exp2(n));}
 
-				//round low
-				float coord = static_cast<float>(low[i]);
-				uint32_t low_bits;
-				std::memcpy(&low_bits, &coord, sizeof(low_bits));
-				low_bits &= ~mask;
-				std::memcpy(&coord, &low_bits, sizeof(coord));
-				low[i] = static_cast<T>(coord);
-
-				//round high
-				coord = static_cast<float>(high[i]);
-				std::memcpy(&low_bits, &coord, sizeof(low_bits));
-				low_bits &= ~mask;
-				std::memcpy(&coord, &low_bits, sizeof(coord));
-				high[i] = static_cast<T>(coord);
+				n  = 1+static_cast<int>(std::log2(std::fabs(high[i])));
+				if (high[i]<0) {high[i] = -static_cast<T>(std::pow(2.0, n));}
+				else {high[i] = static_cast<T>(std::exp2(n));}
 			}
+
 
 			//set _root with rounded bounding box
 			_root = new Node_t(Box_t{low, high});
@@ -150,7 +140,7 @@ namespace gv::util {
 
 		virtual ~BasicParallelOctree() {
 			// Signal worker thread to stop
-			_running.store(false, std::memory_order_release);
+			_running.store(false);
 			_inserter_cv.notify_one();
 
 			// Wait for worker thread
@@ -184,7 +174,7 @@ namespace gv::util {
 
 		void shrink_to_fit() {
 			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
-			_data.resize(_next_data_idx.load(std::memory_order_acquire));
+			_data.resize(_next_data_idx.load());
 			_data.shrink_to_fit();
 		}
 
@@ -194,7 +184,7 @@ namespace gv::util {
 		}
 
 		size_t size() const {
-			return _next_data_idx.load(std::memory_order_acquire);
+			return _next_data_idx.load();
 		}
 
 		size_t capacity() const {
@@ -218,7 +208,7 @@ namespace gv::util {
 			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
 
 			_data.clear();
-			_next_data_idx.store(0, std::memory_order_release);
+			_next_data_idx.store(0);
 			
 			// Rebuild tree structure
 			Node_t* new_root = new Node_t(_root->bbox);
@@ -326,7 +316,7 @@ namespace gv::util {
 			}
 
 			// Insert new data
-			idx = _next_data_idx.fetch_add(1, std::memory_order_acq_rel);
+			idx = _next_data_idx.fetch_add(1);
 			if (_data.size() <= idx) {
 				_data.resize(idx + 1);
 			}
@@ -360,7 +350,7 @@ namespace gv::util {
 			}
 
 			// Reserve index and store data immediately
-			idx = _next_data_idx.fetch_add(1, std::memory_order_acq_rel);
+			idx = _next_data_idx.fetch_add(1);
 			_data[idx] = std::move(val);
 
 			// Queue tree update for worker thread
@@ -378,7 +368,7 @@ namespace gv::util {
 			}
 
 			// Notify worker thread
-			_total_pending.fetch_add(1, std::memory_order_release);
+			_total_pending.fetch_add(1);
 			_inserter_cv.notify_one();
 
 			return idx;
@@ -386,20 +376,35 @@ namespace gv::util {
 
 		/// Wait for all pending async insertions to complete
 		void flush() {
-			std::shared_lock<std::shared_mutex> lock(_tree_mutex);
+			//best to call this after exiting the openMP parallel block
+			//for example:
+			// #pragma omp parallel for
+			// for ... {
+			//    octree.push_back_async(guarenteed_unique_data);
+			// }
+			// octree.flush();
 
-			// Wake up worker thread
-			_inserter_cv.notify_one();
+			{
+				std::shared_lock<std::shared_mutex> lock(_tree_mutex);
 
-			// Spin until all work is done
-			while (_total_pending.load(std::memory_order_acquire) > 0) {
-				std::this_thread::yield();
+				// Wake up worker thread
+				_inserter_cv.notify_one();
+
+				// Spin until all work is done
+				while (_total_pending.load() > 0) {
+					std::this_thread::yield();
+				}
+
+				// Ensure all memory writes are visible
+				std::atomic_thread_fence(std::memory_order_seq_cst);
 			}
 
-			// Ensure all memory writes are visible
-			std::atomic_thread_fence(std::memory_order_seq_cst);
-			_recursive_push_data_down(_root);
-
+			//push all new data down
+			{
+				std::lock_guard<std::shared_mutex> lock(_tree_mutex);
+				_recursive_push_data_down(_root);
+			}
+			
 			//check if the buffers were ever full
 			for (size_t i=0; i<_all_queues.size(); i++) {
 				Queue_t* thread_queue = _all_queues[i];
@@ -409,6 +414,9 @@ namespace gv::util {
 					#endif
 					thread_queue->buffer_bumps=0;
 				}
+
+				assert(thread_queue->count.load()==0);
+				assert(thread_queue->empty());
 			}
 		}
 
@@ -448,7 +456,7 @@ namespace gv::util {
 		//============================================================
 		
 		void _inserter_loop() {
-			while (_running.load(std::memory_order_acquire)) {
+			while (_running.load()) {
 				// Wait for work
 				{
 					std::unique_lock<std::mutex> lock(_inserter_mtx);
@@ -456,7 +464,7 @@ namespace gv::util {
 				}
 
 				// Process all queued work
-				while (_total_pending.load(std::memory_order_acquire) > 0) {
+				while (_total_pending.load() > 0) {
 					std::shared_lock<std::shared_mutex> lock(_tree_mutex);
 
 					for (auto* thread_queue : _all_queues) {
@@ -476,18 +484,20 @@ namespace gv::util {
 									work.target_node, _data[work.idx], work.idx);
 								assert(flag == 1);
 							} else if (existing_idx != work.idx) {
-								// Found duplicate this shouldn't happen (user messed up)
-								std::cout << "ParallelOctree: tried to insert index " << work.idx << " but the data already exists at index " << existing_idx << std::endl;
-								try {
-									std::cout << "new data:\n" << _data[work.idx] << std::endl;
-									std::cout << "old data:\n" << _data[existing_idx] << std::endl;
-								} catch(...) {} //no printing method implemented
-								assert(false);
+								// Found duplicate
+								// The user must ensure that no duplicate data will be inserted in parallel
+								#ifndef NDEBUG
+									std::cout << "ParallelOctree: tried to insert index " << work.idx << " but the data already exists at index " << existing_idx << std::endl;
+									try {
+										std::cout << "new data:\n" << _data[work.idx] << std::endl;
+										std::cout << "old data:\n" << _data[existing_idx] << std::endl;
+									} catch(...) {} //no printing method implemented
+								#endif
+								throw std::runtime_error("ParallelOctree: duplicate data inserted in push_back_async");
 							}
 
 							// Decrement counters AFTER work is complete
-							// thread_queue->pending_count.fetch_sub(1, std::memory_order_release);
-							_total_pending.fetch_sub(1, std::memory_order_release);
+							_total_pending.fetch_sub(1);
 						}
 					}
 				}
@@ -734,7 +744,7 @@ namespace gv::util {
 			}
 
 			// Clear parent node
-			node->is_leaf.store(false, std::memory_order_release);
+			node->is_leaf.store(false);
 		}
 
 		/// Insert data into tree

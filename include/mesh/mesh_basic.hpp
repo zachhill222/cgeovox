@@ -723,8 +723,7 @@ namespace gv::mesh
 			for (int i=0; i<vtk_n_faces(ELEM.vtkID); i++) {
 				Face_t FACE = vtk_elem->getFace(i);
 
-				//loop 
-
+				//add each face or increment the existing count
 				all_faces[FACE].count +=1;
 				all_faces[FACE].elem = e_idx;
 				all_faces[FACE].elem_face = i;

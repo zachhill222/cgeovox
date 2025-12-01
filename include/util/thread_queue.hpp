@@ -35,30 +35,32 @@ namespace gv::util {
 	        size_t current_tail = tail.load(std::memory_order_relaxed);
 	        size_t next_tail = (current_tail + 1) % CAPACITY;
 	        
-	        if (next_tail == head.load(std::memory_order_acquire)) {
+	        if (next_tail == head.load()) {
 	        	buffer_bumps++;
 	            return false;  // Queue full
 	        }
 	        
 	        queue[current_tail] = std::move(item);
-	        tail.store(next_tail, std::memory_order_release);
+	        tail.store(next_tail);
+	        count++;
 	        return true;
 	    }
 	    
 	    bool try_pop(Data_t& item) {
 	        size_t current_head = head.load(std::memory_order_relaxed);
 	        
-	        if (current_head == tail.load(std::memory_order_acquire)) {
+	        if (current_head == tail.load()) {
 	            return false;  // Queue empty
 	        }
 	        
 	        item = queue[current_head];
-	        head.store((current_head + 1) % CAPACITY, std::memory_order_release);
+	        head.store((current_head + 1) % CAPACITY);
+	        count--;
 	        return true;
 	    }
 	    
 	    bool empty() const {
-	        return head.load(std::memory_order_acquire) == tail.load(std::memory_order_acquire);
+	        return head.load() == tail.load();
 	    }
 	};
 }
