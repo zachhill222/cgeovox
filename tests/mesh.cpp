@@ -11,13 +11,11 @@
 #include "util/octree_stats.hpp"
 
 const int dim = 3;
-using T = double;
-// using T = gv::util::FixedPoint<int64_t,0>;
+// using T = double;
+using T = gv::util::FixedPoint<int64_t,0>;
 	
 template<int n>
 using Box_t    = gv::util::Box<n,T>;
-
-
 
 void test() {	
 	using Point_t  = gv::util::Point<dim,T>;
@@ -40,12 +38,9 @@ void test() {
 	Index_t N{1, 1, 1};
 	Mesh_t mesh(domain,N,false);
 
-	// mesh.reserveElements((size_t) 1 << 21); //128x128x128
-	// mesh.reserveNodes((size_t) 1 << 22); //just over 129x129x129
-
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
-	for (int n=0; n<4; n++){
+	for (int n=0; n<3; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
@@ -67,7 +62,7 @@ void test() {
 	}
 
 
-	for (int n=0; n<4; n++){
+	for (int n=0; n<2; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
@@ -83,16 +78,16 @@ void test() {
 	gv::mesh::memorySummary(mesh);
 
 
-	// Box_t<3> bbox = mesh.bbox();
-	// Mesh_t boundary(bbox);
-	// mesh.getBoundaryMesh(boundary);
-	// std::cout << "\n\n";
-	// std::cout << std::endl << boundary << std::endl;
-	// gv::mesh::memorySummary(boundary);
+	Box_t<3> bbox = mesh.bbox();
+	Mesh_t boundary(bbox);
+	mesh.getBoundaryMesh(boundary);
+	std::cout << "\n\n";
+	std::cout << std::endl << boundary << std::endl;
+	gv::mesh::memorySummary(boundary);
 
-	// mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
-	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
-	// gv::util::makeOctreeLeafMesh(mesh.getNodeOctree(), "./outfiles/topological_mesh_node_octree.vtk");
+	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
+	gv::util::makeOctreeLeafMesh(mesh.getNodeOctree(), "./outfiles/topological_mesh_node_octree.vtk");
 }
 
 

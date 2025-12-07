@@ -7,153 +7,10 @@
 #include <bit>
 #include <cmath>
 
+#include "util/scalars/float_manipulation.hpp"
+
 namespace gv::util
 {
-	///////////////////////////////////////////////////////////////
-	/// Union type for integer/float identification and manipulation
-	///////////////////////////////////////////////////////////////
-	template<int nBits>
-		requires (nBits == 32 || nBits == 64) //add 128 later?
-	union FloatingPointBits
-	{
-		///////////////////////////////////////////////////////////////
-		/// Type defs
-		///////////////////////////////////////////////////////////////
-		static constexpr int BITS = nBits;
-
-		using float_type = decltype([]() {
-			if constexpr (BITS == 32) {return float{};}
-			else if constexpr (BITS == 64) {return double{};}
-			else static_assert(BITS == 32, "FloatingPointBits: unsuported number of bits");
-		}());
-
-		using int_type = decltype([]() {
-			if constexpr (BITS == 32) {return int32_t{};}
-			else if constexpr (BITS == 64) {return int64_t{};}
-			else static_assert(BITS == 32, "FloatingPointBits: unsuported number of bits");
-		}());
-
-
-		using uint_type = decltype([]() {
-			if constexpr (BITS == 32) {return uint32_t{};}
-			else if constexpr (BITS == 64) {return uint64_t{};}
-			else static_assert(BITS == 32, "FloatingPointBits: unsuported number of bits");
-		}());
-
-		///////////////////////////////////////////////////////////////
-		/// Size of bit fields and exponent bias (IEEE 754)
-		///////////////////////////////////////////////////////////////
-		static constexpr int_type SIGN_BITS{1};
-		static constexpr int_type MANTISSA_BITS = []() {
-			if constexpr (BITS == 32) {return 23;}
-			else if constexpr (BITS == 64) {return 52;}
-			else static_assert(BITS == 32, "FloatingPointBits: unsuported number of bits");
-		}();
-		static constexpr int_type EXPONENT_BITS = []() {
-			if constexpr (BITS == 32) {return 8;}
-			else if constexpr (BITS == 64) {return 11;}
-			else static_assert(BITS == 32, "FloatingPointBits: unsuported number of bits");
-		}();
-		static_assert(SIGN_BITS + MANTISSA_BITS + EXPONENT_BITS == BITS, "FloatingPointBits: inconsistent number of bits");
-
-		static constexpr int_type EXPONENT_BIAS = []() {
-			if constexpr (BITS == 32) {return 127;}
-			else if constexpr (BITS == 64) {return 1023;}
-			else static_assert(BITS == 32, "FloatingPointBits: unsuported number of bits");
-		}();
-
-
-		///////////////////////////////////////////////////////////////
-		/// Get bit masks for each field
-		///////////////////////////////////////////////////////////////
-		static constexpr uint_type SIGN_MASK     =   uint_type(1) << (BITS - 1);                           //only need to shift 1 into place
-		static constexpr uint_type EXPONENT_MASK = ((uint_type(1) << EXPONENT_BITS) - 1) << MANTISSA_BITS; //set correct number of ones, then shift into place
-		static constexpr uint_type MANTISSA_MASK =  (uint_type(1) << MANTISSA_BITS) - 1;                    //only need to set the correct number of ones
-		static_assert(SIGN_MASK + EXPONENT_MASK + MANTISSA_MASK == static_cast<uint_type>(-1), "FloatingPointBits: inconsistent masks");
-		static_assert((SIGN_MASK & EXPONENT_MASK) == 0, "FloatingPointBits: inconsistent masks");
-		static_assert((SIGN_MASK & MANTISSA_MASK) == 0, "FloatingPointBits: inconsistent masks");
-		static_assert((MANTISSA_MASK & EXPONENT_MASK) == 0, "FloatingPointBits: inconsistent masks");
-
-		///////////////////////////////////////////////////////////////
-		/// Union fields
-		///////////////////////////////////////////////////////////////
-		float_type f;
-		uint_type  i;
-
-		///////////////////////////////////////////////////////////////
-		/// Constructors
-		///////////////////////////////////////////////////////////////
-		constexpr FloatingPointBits() noexcept : i(0) {};
-		constexpr explicit FloatingPointBits(float_type val) noexcept : f(val) {};
-		constexpr explicit FloatingPointBits(uint_type  val) noexcept : i(val) {};
-
-		///////////////////////////////////////////////////////////////
-		/// Bit setting
-		///////////////////////////////////////////////////////////////
-		constexpr void set_sign(const bool negative) noexcept
-		{
-			if (negative) {i |= SIGN_MASK;}
-			else {i &= ~SIGN_MASK;}
-		}
-		
-		constexpr void set_exponent(const uint_type exp) noexcept
-		{
-			i &= ~EXPONENT_MASK; //clear bits
-			i |= (exp << MANTISSA_BITS) & EXPONENT_MASK; //shift bits into place and set
-		}
-
-		constexpr void set_exponent_from_power_of_2(const int_type power) noexcept
-		{
-			set_exponent(power + EXPONENT_BIAS);
-		}
-
-		constexpr void set_mantissa(const uint_type mantissa) noexcept
-		{
-			i &= ~MANTISSA_MASK; //clear bits
-			i |= mantissa & MANTISSA_MASK; //set bits
-		}
-
-		///////////////////////////////////////////////////////////////
-		/// Bit views
-		///////////////////////////////////////////////////////////////
-		constexpr uint_type sign() const noexcept
-		{
-			return (i & SIGN_MASK) >> BITS - 1;
-		}
-
-		// extract or set the exponent as it appears in the bits
-		constexpr uint_type exponent_raw() const noexcept
-		{
-			return (i & EXPONENT_MASK) >> MANTISSA_BITS;
-		}
-		
-
-		// extract exponent as the power for scientific notation
-		constexpr int64_t exponent_actual() const noexcept
-		{
-			return static_cast<int64_t>(exponent_raw()) - EXPONENT_BIAS;
-		}
-
-		// extract or set the mantissa bits
-		constexpr uint_type mantissa() const noexcept
-		{
-			return i & MANTISSA_MASK;
-		}
-		
-
-		// get bits as a string for debugging
-		std::string to_string() const noexcept
-		{
-			std::string raw = std::bitset<BITS>(i).to_string();
-			std::string result;
-			result += raw[0];
-			result += "|" + raw.substr(SIGN_BITS, EXPONENT_BITS);
-			result += "|" + raw.substr(SIGN_BITS + EXPONENT_BITS, MANTISSA_BITS);
-			return result;
-		}
-	};
-
-
 	///////////////////////////////////////////////////////////////
 	/// This class provides exact arithmetic in fixed point precision.
 	/// All numbers are stored as 
@@ -175,6 +32,7 @@ namespace gv::util
 		///////////////////////////////////////////////////////////////
 		/// allow Scalar concept to see this
 		static constexpr bool IS_SCALAR = true;
+		static constexpr bool IS_FLOAT = true; //this is a replacement class for floats in some contexts
 
 		/// Underlying integer type
 		using mantissa_type = Mantissa_t;
@@ -240,7 +98,7 @@ namespace gv::util
 			return std::bit_cast<Float_t>(bits);
 		}();
 
-		static constexpr Float_t EPSILON = SCALE; //the scale is also the  spacing between consecutive numbers
+		static constexpr Float_t EPSILON   = SCALE; //the scale is also the  spacing between consecutive numbers
 		static constexpr Float_t MAX_FLOAT = Float_t(static_cast<Float_t>(std::numeric_limits<Mantissa_t>::max()) * SCALE);
 
 		//overflow if a positive intermediate calculation is larger than this
@@ -286,8 +144,8 @@ namespace gv::util
 				//shift left
 				conv.set_mantissa(abs_mantissa << (Conversion_t::MANTISSA_BITS - leading_bit_pos));
 			}
-
-			return conv.f;
+			
+			return static_cast<Float_t>(conv);
 		}
 
 		///////////////////////////////////////////////////////////////
@@ -324,6 +182,7 @@ namespace gv::util
 			Mantissa_t m_val = result_negative ? -static_cast<Mantissa_t>(uval) : static_cast<Mantissa_t>(uval);
 			return FixedPoint(m_val, 0);
 		}
+
 		constexpr FixedPoint& operator*=(const FixedPoint &other) noexcept
 		{
 			// Determine signs
@@ -377,6 +236,7 @@ namespace gv::util
 			Mantissa_t m_val = result_negative ? -static_cast<Mantissa_t>(uval) : static_cast<Mantissa_t>(uval);
 			return FixedPoint(m_val, 0);
 		}
+
 		constexpr FixedPoint& operator/=(const FixedPoint &other) noexcept
 		{
 			constexpr int M  = 4*sizeof(Intermediate_t);
@@ -435,14 +295,13 @@ namespace gv::util
 		///////////////////////////////////////////////////////////////
 		/// Float Comparisons
 		///////////////////////////////////////////////////////////////
-		constexpr bool operator<(const Float_t &other)  const noexcept {return *this < FixedPoint(other);}
-		constexpr bool operator<=(const Float_t &other) const noexcept {return *this <= FixedPoint(other);}
-		constexpr bool operator>(const Float_t &other)  const noexcept {return *this > FixedPoint(other);}
-		constexpr bool operator>=(const Float_t &other) const noexcept {return *this >= FixedPoint(other);}
+		constexpr bool operator<(const std::floating_point auto &other)  const noexcept {return *this  < FixedPoint(static_cast<Float_t>(other));}
+		constexpr bool operator<=(const std::floating_point auto &other) const noexcept {return *this <= FixedPoint(static_cast<Float_t>(other));}
+		constexpr bool operator>(const std::floating_point auto &other)  const noexcept {return *this  > FixedPoint(static_cast<Float_t>(other));}
+		constexpr bool operator>=(const std::floating_point auto &other) const noexcept {return *this >= FixedPoint(static_cast<Float_t>(other));}
 
-		constexpr bool operator==(const Float_t &other) const noexcept {return *this == FixedPoint(other);}
-		constexpr bool operator!=(const Float_t &other) const noexcept {return *this != FixedPoint(other);}
-
+		constexpr bool operator==(const std::floating_point auto &other) const noexcept {return *this == FixedPoint(static_cast<Float_t>(other));}
+		constexpr bool operator!=(const std::floating_point auto &other) const noexcept {return *this != FixedPoint(static_cast<Float_t>(other));}
 
 
 		// get bits as a string for debugging

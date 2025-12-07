@@ -23,39 +23,38 @@ namespace gv::util {
 		requires T::dimension > 0;
 	};
 
-	///Class for points in space.
-	/** Points are partially ordered by using the positive quadrant/octant cone. 
-	 * The data type T must be totally ordered, for example double or float.
-	 * Note that Point p {1,2,3} gives type Point<3,int> while Point p {1.0, 2.0, 3.0} 
-	 * gives type Point<3,double>.*/
+	////////////////////////////////////////////////////////////////
+	/// Class for points in space.
+	/// Points are partially ordered by using the positive quadrant/octant cone.
+	/// If floating point comparisons need to be made carefully,
+	/// this should be implemented in the Scalar T type.
+	///
+	/// @tparam dim The number of components.
+	/// @tparam T   The scalar type (e.g., float, double, gv::util::FixedPoint)
+	////////////////////////////////////////////////////////////////
 	template <int dim=3, Scalar T=double>
-	class Point {
-	private:
+	struct Point {
+		
 		T _data[dim];
 
-	public:
 		using Scalar_t = T;
 		static constexpr int dimension = dim;
 
 		//////////////////////////////////////////////////////////
 		// Constructors
 		//////////////////////////////////////////////////////////
-		
-		// Default constructor (all zeros)
-		constexpr Point() {
+		constexpr Point() noexcept {
 			for (int i = 0; i < dim; i++) {
-				_data[i] = T{0};
-			}
+				_data[i] = T{0}; }
 		}
 
-		// Constructor for constant value
-		constexpr explicit Point(const T val) {
+		constexpr explicit Point(const T val) noexcept {
 			for (int i=0; i<dim; i++) {_data[i] = val;}
 		}
 
 		// Initialize via braces {1,2,3}
 		template <Scalar U>
-		constexpr Point(std::initializer_list<U> init) : _data{} {
+		constexpr Point(std::initializer_list<U> init) noexcept : _data{} {
 			int i=0;
 			for (auto it=init.begin(); it!=init.end() && i<dim; ++it, ++i) {
 				_data[i] = static_cast<T>(*it);
@@ -63,21 +62,19 @@ namespace gv::util {
 		}
 
 		// Copy constructor (same type)
-		constexpr Point(const Point<dim,T> &other) {
-			// for (int i=0; i<dim; i++) {_data[i] = other[i];}
-			// std::memcpy(_data, other._data, sizeof(other._data));
+		constexpr Point(const Point<dim,T> &other) noexcept {
 			std::copy(other._data, other._data+dim, _data);
 		}
 
 		// Copy constructor with type conversion
 		template <Scalar U>
-		constexpr explicit Point(const Point<dim,T> &other) {
+		constexpr explicit Point(const Point<dim,T> &other) noexcept {
 			for (int i=0; i<dim; i++) {_data[i] = static_cast<T>(other[i]);}
 		}
 
 		// Copy constructor with dimension change (trim/zero pad)
 		template<int otherdim, Scalar U>
-		constexpr explicit Point(const Point<otherdim,U> &other) {
+		constexpr explicit Point(const Point<otherdim,U> &other) noexcept {
 			constexpr int min_dim = std::min(dim, otherdim);
 			for (int i=0; i<min_dim; i++) {_data[i] = static_cast<T>(other[i]);}
 			for (int i=min_dim; i<dim; i++) {_data[i] = T{};}
@@ -85,23 +82,16 @@ namespace gv::util {
 
 		// Move constructor
 		constexpr Point(Point<dim,T>&& other) noexcept {
-			// for (int i=0; i<dim; i++) {_data[i] = std::move(other._data[i]);}
-			// std::memmove(_data, other._data, sizeof(other._data));
 			std::move(other._data, other._data+dim, _data);
 		}
 
-		// Destructor (default is fine for array member)
 		~Point() = default;
 
 		//////////////////////////////////////////////////////////
 		// Assignment operators
 		//////////////////////////////////////////////////////////
-		
-		// Copy assignment
-		constexpr Point& operator=(const Point<dim,T>& other) {
+		constexpr Point& operator=(const Point<dim,T>& other) noexcept {
 			if (this != &other) {
-				// for (int i=0; i<dim; i++) {_data[i] = other._data[i];}
-				// std::memcpy(_data, other._data, sizeof(other._data));
 				std::copy(other._data, other._data+dim, _data);
 			}
 			return *this;
@@ -110,8 +100,6 @@ namespace gv::util {
 		// Move assignment
 		constexpr Point& operator=(Point<dim,T>&& other) noexcept {
 			if (this != &other) {
-				// for (int i=0; i<dim; i++) {_data[i] = std::move(other._data[i]);}
-				// std::memmove(_data, other._data, sizeof(other._data));
 				std::move(other._data, other._data+dim, _data);
 			}
 			return *this;
@@ -120,13 +108,12 @@ namespace gv::util {
 		//////////////////////////////////////////////////////////
 		// Element access
 		//////////////////////////////////////////////////////////
-		
-		constexpr T& operator[](int idx) {
+		constexpr T& operator[](int idx) noexcept{
 			assert(0 <= idx && idx < dim); 
 			return _data[idx];
 		}
 		
-		constexpr const T& operator[](int idx) const {
+		constexpr const T& operator[](int idx) const noexcept {
 			assert(0 <= idx && idx < dim); 
 			return _data[idx];
 		}
@@ -154,9 +141,6 @@ namespace gv::util {
 	//////////////////////////////////////////////////////////
 	// Arithmetic
 	//////////////////////////////////////////////////////////
-
-
-	/// Point addition
 	template <int dim, Scalar T>
 	constexpr Point<dim, T> operator+(const Point<dim,T> &left, const Point<dim,T> &right) {
 		Point<dim, T> result;
@@ -164,14 +148,12 @@ namespace gv::util {
 		return result;
 	}
 
-	/// In-place addition
 	template <int dim, Scalar T>
 	constexpr Point<dim,T>& operator+=(Point<dim,T> &left, const Point<dim,T> &right) {
 		for (int i=0; i<dim; i++) {left[i] += right[i];}
 		return left;
 	}
 
-	/// Point subtraction
 	template <int dim, Scalar T>
 	constexpr Point<dim, T> operator-(const Point<dim,T> &left, const Point<dim,T> &right) {
 		Point<dim, T> result;
@@ -179,14 +161,12 @@ namespace gv::util {
 		return result;
 	}
 
-	/// In-place subtraction
 	template <int dim, Scalar T>
 	constexpr Point<dim,T>& operator-=(Point<dim,T> &left, const Point<dim,T> &right) {
 		for (int i=0; i<dim; i++) {left[i] -= right[i];}
 		return left;
 	}
 
-	/// Negation
 	template <int dim, Scalar T>
 	constexpr Point<dim,T> operator-(const Point<dim,T> &right) {
 		Point<dim,T> result;
@@ -194,7 +174,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// Scalar multiplication (scalar * point, with type promotion)
 	template <int dim, Scalar T, Scalar U>
 	constexpr Point<dim, T> operator*(const U &left, const Point<dim,T> &right) {
 		Point<dim, T> result;
@@ -202,20 +181,17 @@ namespace gv::util {
 		return result;
 	}
 
-	/// Scalar multiplication (point * scalar, with type promotion)
 	template <int dim, Scalar T, Scalar U>
 	constexpr Point<dim, T> operator*(const Point<dim,T> &left, const U &right) {
 		return right * left;
 	}
 
-	/// In-place scalar multiplication
 	template <int dim, Scalar T, Scalar U>
 	constexpr Point<dim,T>& operator*=(Point<dim,T> &left, const U &right) {
 		for (int i=0; i<dim; i++) {left[i] *= static_cast<T>(right);}
 		return left;
 	}
 
-	/// Component-wise multiplication
 	template <int dim, Scalar T>
 	constexpr Point<dim, T> operator*(const Point<dim,T> &left, const Point<dim,T> &right) {
 		Point<dim, T> result;
@@ -223,27 +199,23 @@ namespace gv::util {
 		return result;
 	}
 
-	/// In-place component-wise multiplication
 	template <int dim, Scalar T>
 	constexpr Point<dim,T>& operator*=(Point<dim,T> &left, const Point<dim,T> &right) {
 		for (int i=0; i<dim; i++) {left[i] *= right[i];}
 		return left;
 	}
 
-	/// Division by scalar
 	template <int dim, Scalar T, Scalar U>
 	constexpr Point<dim, T> operator/(const Point<dim,T> &left, const U &right) {
 		return left * (T{1} / static_cast<T>(right));
 	}
 
-	/// In-place division by scalar
 	template <int dim, Scalar T, Scalar U>
 	constexpr Point<dim,T>& operator/=(Point<dim,T> &left, const U &right) {
 		left *= (T{1} / static_cast<T>(right));
 		return left;
 	}
 
-	/// Component-wise division
 	template <int dim, Scalar T>
 	constexpr Point<dim, T> operator/(const Point<dim,T> &left, const Point<dim,T> &right) {
 		Point<dim, T> result;
@@ -251,7 +223,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// In-place component-wise division
 	template <int dim, Scalar T>
 	constexpr Point<dim,T>& operator/=(Point<dim,T> &left, const Point<dim,T> &right) {
 		for (int i=0; i<dim; i++) {left[i] /= right[i];}
@@ -259,11 +230,8 @@ namespace gv::util {
 	}
 
 	//////////////////////////////////////////////////////////
-	// Comparison operators
+	// Comparison
 	//////////////////////////////////////////////////////////
-
-	
-	/// Point equality (using approximate comparison on squared norm)
 	template <int dim, Scalar T>
 	constexpr bool operator==(const Point<dim,T> &left, const Point<dim,T> &right) {
 		for (int i=0; i<dim; i++) {
@@ -272,13 +240,11 @@ namespace gv::util {
 		return true;
 	}
 
-	/// Point inequality
 	template <int dim, Scalar T>
 	constexpr bool operator!=(const Point<dim,T> &left, const Point<dim,T> &right) {
 		return !(left == right);
 	}
 
-	/// Point less than (cone ordering)
 	template <int dim, Scalar T>
 	constexpr bool operator<(const Point<dim,T> &left, const Point<dim,T> &right) {
 		for (int i=0; i<dim; i++) {
@@ -287,7 +253,6 @@ namespace gv::util {
 		return true;
 	}
 
-	/// Point less than or equal to
 	template <int dim, Scalar T>
 	constexpr bool operator<=(const Point<dim,T> &left, const Point<dim,T> &right) {
 		for (int i=0; i<dim; i++) {
@@ -296,7 +261,6 @@ namespace gv::util {
 		return true;
 	}
 
-	/// Point greater than
 	template <int dim, Scalar T>
 	constexpr bool operator>(const Point<dim,T> &left, const Point<dim,T> &right) {
 		for (int i=0; i<dim; i++) {
@@ -305,7 +269,6 @@ namespace gv::util {
 		return true;
 	}
 
-	/// Point greater than or equal to
 	template <int dim, Scalar T>
 	constexpr bool operator>=(const Point<dim,T> &left, const Point<dim,T> &right) {
 		for (int i=0; i<dim; i++) {
@@ -317,8 +280,6 @@ namespace gv::util {
 	//////////////////////////////////////////////////////////
 	// Vector operations
 	//////////////////////////////////////////////////////////
-
-	/// Dot product
 	template <int dim, Scalar T>
 	constexpr T dot(const Point<dim,T> &left, const Point<dim,T> &right) {
 		T result = 0;
@@ -326,7 +287,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// Cross product (3D only)
 	template <Scalar T, Scalar U>
 	constexpr Point<3, T> cross(const Point<3,T> &left, const Point<3,T> &right) {
 		Point<3, T> result;
@@ -336,7 +296,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// Squared norm
 	template <int dim, Scalar T>
 	constexpr T squaredNorm(const Point<dim,T> &point) {
 		T result = 0;
@@ -344,13 +303,11 @@ namespace gv::util {
 		return result;
 	}
 
-	/// L2-norm
 	template <int dim, Scalar T>
 	inline T norm2(const Point<dim,T> &point) {
 		return std::sqrt(squaredNorm(point));
 	}
 
-	/// L1-norm
 	template <int dim, Scalar T>
 	constexpr T norm1(const Point<dim,T> &point) {
 		T result = 0;
@@ -358,7 +315,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// L-infinity norm
 	template <int dim, Scalar T>
 	constexpr T norminfty(const Point<dim,T> &point) {
 		T result = 0;
@@ -368,7 +324,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// Normalize (returns normalized copy)
 	template <int dim, Scalar T>
 	inline Point<dim,T> normalize(const Point<dim,T> &point) {
 		T scale = norm2(point);
@@ -378,8 +333,6 @@ namespace gv::util {
 	//////////////////////////////////////////////////////////
 	// Element-wise operations
 	//////////////////////////////////////////////////////////
-
-	/// Element-wise absolute value
 	template <int dim, Scalar T>
 	constexpr Point<dim,T> abs(const Point<dim,T> &point) {
 		Point<dim,T> result;
@@ -387,7 +340,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// Element-wise maximum
 	template <int dim, Scalar T>
 	constexpr Point<dim, T> elmax(const Point<dim,T> &left, const Point<dim,T> &right) {
 		Point<dim, T> result;
@@ -395,7 +347,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// Element-wise minimum
 	template <int dim, Scalar T>
 	constexpr Point<dim, T> elmin(const Point<dim,T> &left, const Point<dim,T> &right) {
 		Point<dim, T> result;
@@ -403,7 +354,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// Maximum element
 	template <int dim, Scalar T>
 	constexpr T max(const Point<dim,T> &point) {
 		T result = point[0];
@@ -411,7 +361,6 @@ namespace gv::util {
 		return result;
 	}
 
-	/// Minimum element
 	template <int dim, Scalar T>
 	constexpr T min(const Point<dim,T> &point) {
 		T result = point[0];
@@ -419,12 +368,18 @@ namespace gv::util {
 		return result;
 	}
 
+
+	////////////////////////////////////////////////////////////////////////////////
 	/// Sum points in careful precision order
-	/// W is the input point type
-	/// U is the type that the arithmetic should be done in
-	/// T is the output type
+	///
+	/// @param points A vector of points to add
+	///
+	/// @tparam W is the input point type
+	/// @tparam U is the type that the arithmetic should be done in
+	/// @tparam T is the output type
+	////////////////////////////////////////////////////////////////////////////////
 	template <int dim, Scalar T, Scalar U, Scalar W>
-	Point<dim,T> sorted_sum(const std::vector<Point<dim,W>> &points) {
+	constexpr Point<dim,T> sorted_sum(const std::vector<Point<dim,W>> &points) noexcept {
 		if (points.empty()) {return Point<dim,T>();}
 		
 		Point<dim,T> result;
@@ -443,21 +398,18 @@ namespace gv::util {
 			for (U val : component) {
 				sum += val;
 			}
-
 			result[i] = static_cast<T>(sum);
 		}
-
 		return result;
 	}
 
+	////////////////////////////////////////////////////////////////////////////////
+	/// Convenient way to call the sorted sum.
+	////////////////////////////////////////////////////////////////////////////////
 	template <int dim, Scalar T, Scalar U, Scalar W>
-	Point<dim,T> sorted_sum(std::initializer_list<Point<dim,W>> points) {
+	constexpr Point<dim,T> sorted_sum(std::initializer_list<Point<dim,W>> points) noexcept {
 	    return sorted_sum<dim, T, U, W>(std::vector<Point<dim,W>>(points.begin(), points.end()));
 	}
-
-	//////////////////////////////////////////////////////////
-	// I/O
-	//////////////////////////////////////////////////////////
 
 	/// Print to ostream
 	template <int dim, Scalar T>
@@ -467,4 +419,4 @@ namespace gv::util {
 		return os;
 	}
 
-} // namespace gv::util
+}
