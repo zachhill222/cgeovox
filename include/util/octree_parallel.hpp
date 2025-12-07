@@ -12,6 +12,7 @@
 #include <cstring>
 #include <cmath>
 
+#include "concepts.hpp"
 #include "util/point.hpp"
 #include "util/box.hpp"
 #include "util/octree_util.hpp"
@@ -48,12 +49,12 @@ namespace gv::util {
 	/// @tparam N_DATA      Max data indices per leaf node
 	/// @tparam T           Floating-point type for bounding boxes
 	/////////////////////////////////////////////////
-	template<typename Data_t, bool SINGLE_DATA, int DIM=3, int N_DATA=16, Float T=float>
+	template<typename Data_t, bool SINGLE_DATA, int DIM=3, int N_DATA=16, Scalar T=float>
 	class BasicParallelOctree {
 		static_assert(DIM==3 or DIM==2, "The octree must be in 2 or 3 dimensions");
 		static_assert(N_DATA > 0, "N_DATA must be positive");
 
-	template<typename data_t, bool single_data, int dim, int n_data, Float t>
+	template<typename data_t, bool single_data, int dim, int n_data, Scalar t>
 	friend void makeOctreeLeafMesh(const BasicParallelOctree<data_t, single_data, dim, n_data, t> &octree, const std::string filename);
 
 	public:
@@ -104,11 +105,11 @@ namespace gv::util {
 
 			for (int i = 0; i < DIM; i++) {
 				int n  = 1+static_cast<int>(std::log2(std::fabs(low[i])));
-				if (low[i]<0) {low[i] = -static_cast<T>(std::pow(2.0, n));}
+				if (low[i]<0.0) {low[i] = -static_cast<T>(std::pow(2.0, n));}
 				else {low[i] = static_cast<T>(std::exp2(n));}
 
 				n  = 1+static_cast<int>(std::log2(std::fabs(high[i])));
-				if (high[i]<0) {high[i] = -static_cast<T>(std::pow(2.0, n));}
+				if (high[i]<0.0) {high[i] = -static_cast<T>(std::pow(2.0, n));}
 				else {high[i] = static_cast<T>(std::exp2(n));}
 			}
 

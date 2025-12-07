@@ -142,13 +142,13 @@ namespace gv::util
 		
 
 		// get bits as a string for debugging
-		constexpr std::string to_string() const noexcept
+		std::string to_string() const noexcept
 		{
 			std::string raw = std::bitset<BITS>(i).to_string();
 			std::string result;
 			result += raw[0];
-			result += "|" + raw.substr(1, EXPONENT_BITS);
-			result += "|" + raw.substr(EXPONENT_BITS+1, MANTISSA_BITS);
+			result += "|" + raw.substr(SIGN_BITS, EXPONENT_BITS);
+			result += "|" + raw.substr(SIGN_BITS + EXPONENT_BITS, MANTISSA_BITS);
 			return result;
 		}
 	};
@@ -173,6 +173,8 @@ namespace gv::util
 		///////////////////////////////////////////////////////////////
 		/// Type defs
 		///////////////////////////////////////////////////////////////
+		/// allow Scalar concept to see this
+		static constexpr bool IS_SCALAR = true;
 
 		/// Underlying integer type
 		using mantissa_type = Mantissa_t;
@@ -198,6 +200,20 @@ namespace gv::util
 			#endif
 		}());
 
+		/// Unsigned intermediate type for bit shifting
+		using uIntermediate_t = decltype([]() {
+			if constexpr (sizeof(Mantissa_t) <= 2) {return uint32_t{};}
+			else if constexpr (sizeof(Mantissa_t) <= 4) {return uint64_t{};}
+			#ifdef __SIZEOF_INT128__ //should work on most compilers/machines. maybe not windows?
+				else {return (unsigned __int128){};}
+			#else
+				else {
+					static_assert(sizeof(Mantissa_t) <= 8, "FixedPoint: 128-bit arithmetic not available (__SIZEOF_INT128__ not defined)");
+					return uint64_t{};
+				}
+			#endif
+		}());
+
 		/// Conversion type to help cast to float or double
 		using Conversion_t = FloatingPointBits<sizeof(Mantissa_t)*8>;
 
@@ -205,7 +221,7 @@ namespace gv::util
 		/// Current value and exponent
 		///////////////////////////////////////////////////////////////
 		Mantissa_t mantissa;
-		static constexpr Mantissa_t FRACTION_BITS = Mantissa_t{sizeof(Mantissa_t) * 8 / 2};
+		static constexpr Mantissa_t FRACTION_BITS = Mantissa_t{sizeof(Mantissa_t) * 4}; //half the bits
 		static constexpr Mantissa_t EXPONENT      = Mantissa_t{OFFSET} - FRACTION_BITS;
 
 		static constexpr Float_t SCALE = []() {
@@ -225,8 +241,12 @@ namespace gv::util
 		}();
 
 		static constexpr Float_t EPSILON = SCALE; //the scale is also the  spacing between consecutive numbers
-		
 		static constexpr Float_t MAX_FLOAT = Float_t(static_cast<Float_t>(std::numeric_limits<Mantissa_t>::max()) * SCALE);
+
+		//overflow if a positive intermediate calculation is larger than this
+		//intermediate calculations are done in a larger unsigned type for easier bit shifting
+		//this bound is the same if the final result is positive or negative
+		static constexpr uIntermediate_t MAX_MANTISSA = static_cast<uIntermediate_t>(std::numeric_limits<Mantissa_t>::max());
 
 		///////////////////////////////////////////////////////////////
 		/// Constructors
@@ -281,16 +301,50 @@ namespace gv::util
 		constexpr FixedPoint  operator*(const FixedPoint &other)  noexcept
 		{
 			// (m1 * 2^EXP) * (m2 * 2^EXP) = m3 * 2^EXP where m3 = m1*m2*2^EXP
-			// we can set m3 = (m1*m2 >> EXP) if EXP>0.
-			Intermediate_t val = static_cast<Intermediate_t>(mantissa) * static_cast<Intermediate_t>(other.mantissa);
-			if constexpr (EXPONENT < 0) {return FixedPoint(static_cast<Mantissa_t>(val << -EXPONENT), 0);}
-			else {return FixedPoint(static_cast<Mantissa_t>(val >> EXPONENT), 0);}
+			// we can set m3 = (m1*m2 << EXP) if EXP>0.
+			
+			// Determine signs
+			bool num_negative = mantissa < 0;
+			bool den_negative = other.mantissa < 0;
+			bool result_negative = num_negative != den_negative;
+
+			// Work with absolute values
+			uIntermediate_t unum = num_negative ? static_cast<uIntermediate_t>(-mantissa) : static_cast<uIntermediate_t>(mantissa);
+			uIntermediate_t uden = den_negative ? static_cast<uIntermediate_t>(-other.mantissa) : static_cast<uIntermediate_t>(other.mantissa);
+
+			// Perform division with unsigned values and apply shift
+			uIntermediate_t uval = unum * uden;
+			if constexpr (EXPONENT > 0) {uval <<= EXPONENT;}
+			else {uval >>= -EXPONENT;}
+
+			//check for overflow
+			assert(uval<MAX_MANTISSA);
+
+			// Get final result
+			Mantissa_t m_val = result_negative ? -static_cast<Mantissa_t>(uval) : static_cast<Mantissa_t>(uval);
+			return FixedPoint(m_val, 0);
 		}
 		constexpr FixedPoint& operator*=(const FixedPoint &other) noexcept
 		{
-			Intermediate_t val = static_cast<Intermediate_t>(mantissa) * static_cast<Intermediate_t>(other.mantissa);
-			if constexpr (EXPONENT < 0) {mantissa = static_cast<Mantissa_t>(val << -EXPONENT);}
-			else {mantissa = static_cast<Mantissa_t>(val >> EXPONENT);}
+			// Determine signs
+			bool num_negative = mantissa < 0;
+			bool den_negative = other.mantissa < 0;
+			bool result_negative = num_negative != den_negative;
+
+			// Work with absolute values
+			uIntermediate_t unum = num_negative ? static_cast<uIntermediate_t>(-mantissa) : static_cast<uIntermediate_t>(mantissa);
+			uIntermediate_t uden = den_negative ? static_cast<uIntermediate_t>(-other.mantissa) : static_cast<uIntermediate_t>(other.mantissa);
+
+			// Perform division with unsigned values and apply shift
+			uIntermediate_t uval = unum * uden;
+			if constexpr (EXPONENT > 0) {uval <<= EXPONENT;}
+			else {uval >>= -EXPONENT;}
+
+			//check for overflow
+			assert(uval<MAX_MANTISSA);
+
+			// Get final result
+			mantissa = result_negative ? -static_cast<Mantissa_t>(uval) : static_cast<Mantissa_t>(uval);
 			return *this;
 		}
 
@@ -298,32 +352,66 @@ namespace gv::util
 		{
 			// (m1 / 2^EXP) * (m2 / 2^EXP) = m3 * 2^EXP where m3 = (m1 / m2) * 2^-EXP = ((m1 * 2^M) / m2 )* 2^(-M-EXP) 
 			// where we choose M to take advantage of the full intermediate precision
+			constexpr int M  = 4*sizeof(Intermediate_t);
+			constexpr int final_shift = M + EXPONENT; //negative of what is in the comment
+			static_assert(M == 8*sizeof(Mantissa_t));
 
-			constexpr int half_shift  = 4*sizeof(Intermediate_t);
-			constexpr int final_shift = half_shift + EXPONENT;
+			// Determine signs
+			const bool num_negative    = mantissa < 0;
+			const bool den_negative    = other.mantissa < 0;
+			const bool result_negative = num_negative != den_negative;
 
-			static_assert(half_shift == 8*sizeof(Mantissa_t));
-			
-			Intermediate_t val = (static_cast<Intermediate_t>(mantissa) << half_shift) / static_cast<Intermediate_t>(other.mantissa);
-			if constexpr (final_shift > 0) {return FixedPoint(static_cast<Mantissa_t>(val >> final_shift), 0);}
-			else {return FixedPoint(static_cast<Mantissa_t>(val << -final_shift), 0);}
+			// Work with absolute values
+			const uIntermediate_t unum = num_negative ? static_cast<uIntermediate_t>(-mantissa) : static_cast<uIntermediate_t>(mantissa);
+			const uIntermediate_t uden = den_negative ? static_cast<uIntermediate_t>(-other.mantissa) : static_cast<uIntermediate_t>(other.mantissa);
+
+			// Perform division with unsigned values and apply shift
+			uIntermediate_t uval = (unum << M) / uden;
+			if constexpr (final_shift > 0) {uval >>= final_shift;}
+			else {uval <<= -final_shift;}
+
+			//check for overflow
+			assert(uval<MAX_MANTISSA);
+
+			//convert back to signed integer and convert to mantissa
+			Mantissa_t m_val = result_negative ? -static_cast<Mantissa_t>(uval) : static_cast<Mantissa_t>(uval);
+			return FixedPoint(m_val, 0);
 		}
 		constexpr FixedPoint& operator/=(const FixedPoint &other) noexcept
 		{
-			constexpr int half_shift = 4*sizeof(Intermediate_t);
-			constexpr int final_shift = half_shift + EXPONENT;
-			
-			static_assert(half_shift == 8*sizeof(Mantissa_t));
-			
-			Intermediate_t val = (static_cast<Intermediate_t>(mantissa) << half_shift) / static_cast<Intermediate_t>(other.mantissa);
-			if constexpr (final_shift > 0) {mantissa = static_cast<Mantissa_t>(val >> final_shift);}
-			else {mantissa = static_cast<Mantissa_t>(val << -final_shift);}
+			constexpr int M  = 4*sizeof(Intermediate_t);
+			constexpr int final_shift = M + EXPONENT; //negative of what is in the comment
+			static_assert(M == 8*sizeof(Mantissa_t));
+
+			// Determine signs
+			const bool num_negative    = mantissa < 0;
+			const bool den_negative    = other.mantissa < 0;
+			const bool result_negative = num_negative != den_negative;
+
+			// Work with absolute values
+			const uIntermediate_t unum = num_negative ? static_cast<uIntermediate_t>(-mantissa) : static_cast<uIntermediate_t>(mantissa);
+			const uIntermediate_t uden = den_negative ? static_cast<uIntermediate_t>(-other.mantissa) : static_cast<uIntermediate_t>(other.mantissa);
+
+			// Perform division with unsigned values and apply shift
+			uIntermediate_t uval = (unum << M) / uden;
+			if constexpr (final_shift > 0) {uval >>= final_shift;}
+			else {uval <<= -final_shift;}
+
+			//check for overflow
+			assert(uval<MAX_MANTISSA);
+
+			//convert back to signed integer and convert to mantissa
+			mantissa = result_negative ? -static_cast<Mantissa_t>(uval) : static_cast<Mantissa_t>(uval);
 			return *this;
 		}
 
+		///////////////////////////////////////////////////////////////
+		/// Extra Math
+		///////////////////////////////////////////////////////////////
+		constexpr FixedPoint operator-() const noexcept {return FixedPoint(-mantissa,0);}
 
 		///////////////////////////////////////////////////////////////
-		/// Comparisons
+		/// FixedPoint Comparisons
 		///////////////////////////////////////////////////////////////
 		constexpr bool operator<(const FixedPoint &other)  const noexcept {return mantissa  < other.mantissa;}
 		constexpr bool operator<=(const FixedPoint &other) const noexcept {return mantissa <= other.mantissa;}
@@ -333,20 +421,39 @@ namespace gv::util
 		constexpr bool operator==(const FixedPoint &other) const noexcept {return mantissa == other.mantissa;}
 		constexpr bool operator!=(const FixedPoint &other) const noexcept {return mantissa != other.mantissa;}
 
+		///////////////////////////////////////////////////////////////
+		/// Integer Comparisons
+		///////////////////////////////////////////////////////////////
+		// constexpr bool operator<(const Mantissa_t &other)  const noexcept {return *this < FixedPoint(other);}
+		// constexpr bool operator<=(const Mantissa_t &other) const noexcept {return *this <= FixedPoint(other);}
+		// constexpr bool operator>(const Mantissa_t &other)  const noexcept {return *this > FixedPoint(other);}
+		// constexpr bool operator>=(const Mantissa_t &other) const noexcept {return *this >= FixedPoint(other);}
+
+		// constexpr bool operator==(const Mantissa_t &other) const noexcept {return *this == FixedPoint(other);}
+		// constexpr bool operator!=(const Mantissa_t &other) const noexcept {return *this != FixedPoint(other);}
+
+		///////////////////////////////////////////////////////////////
+		/// Float Comparisons
+		///////////////////////////////////////////////////////////////
+		constexpr bool operator<(const Float_t &other)  const noexcept {return *this < FixedPoint(other);}
+		constexpr bool operator<=(const Float_t &other) const noexcept {return *this <= FixedPoint(other);}
+		constexpr bool operator>(const Float_t &other)  const noexcept {return *this > FixedPoint(other);}
+		constexpr bool operator>=(const Float_t &other) const noexcept {return *this >= FixedPoint(other);}
+
+		constexpr bool operator==(const Float_t &other) const noexcept {return *this == FixedPoint(other);}
+		constexpr bool operator!=(const Float_t &other) const noexcept {return *this != FixedPoint(other);}
+
+
 
 		// get bits as a string for debugging
-		constexpr std::string to_string() const noexcept
+		std::string to_string() const noexcept
 		{
 			std::string raw = std::bitset<Conversion_t::BITS>(std::abs(mantissa)).to_string();
 			std::string result;
 			result += std::to_string(mantissa<0); //get correct sign bit
-			result += "|" + raw.substr(1, Conversion_t::BITS - FRACTION_BITS);
-			result += "." + raw.substr(Conversion_t::BITS - FRACTION_BITS, Conversion_t::BITS);
+			result += "|" + raw.substr(1, Conversion_t::BITS - 1);
 			result += " * 2^" + std::to_string(EXPONENT);
 			return result;
 		}
 	};
-
-
-
 }

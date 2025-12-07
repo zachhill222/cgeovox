@@ -6,6 +6,7 @@
 #include <shared_mutex>
 #include <atomic>
 
+#include "concepts.hpp"
 #include "util/point.hpp"
 #include "util/box.hpp"
 
@@ -19,7 +20,7 @@ namespace gv::util {
 	/////////////////////////////////////////////////
 	/// Octree node structure
 	/////////////////////////////////////////////////
-	template<int DIM=3, int N_DATA=16, Float T=float>
+	template<int DIM=3, int N_DATA=16, Scalar T=float>
 	struct OctreeParallelNode {
 		static constexpr int N_CHILDREN = 1 << DIM;  // 2^DIM
 		using Point_t = Point<DIM,T>;
@@ -71,14 +72,14 @@ namespace gv::util {
 	/// Node data management helpers
 	/////////////////////////////////////////////////
 	
-	template<int DIM, int N_DATA, Float T>
+	template<int DIM, int N_DATA, Scalar T>
 	void resetDataIdx(OctreeParallelNode<DIM,N_DATA,T>* node) {
 		delete[] node->data_idx;
 		node->data_idx = new size_t[N_DATA];
 		node->cursor = 0;
 	}
 
-	template<int DIM, int N_DATA, Float T>
+	template<int DIM, int N_DATA, Scalar T>
 	void clearDataIdx(OctreeParallelNode<DIM,N_DATA,T>* node) {
 		delete[] node->data_idx;
 		node->data_idx = nullptr;
@@ -87,7 +88,7 @@ namespace gv::util {
 
 	/// Append data index to node
 	/// Returns: 1 if added, 0 if already present, -1 if no room
-	template<int DIM, int N_DATA, Float T>
+	template<int DIM, int N_DATA, Scalar T>
 	int appendDataIdx(OctreeParallelNode<DIM,N_DATA,T>* node, size_t idx) {
 		if (node->data_idx == nullptr) {
 			resetDataIdx(node);
@@ -112,7 +113,7 @@ namespace gv::util {
 	}
 
 	/// Remove data index from node
-	template<int DIM, int N_DATA, Float T>
+	template<int DIM, int N_DATA, Scalar T>
 	void removeDataIdx(OctreeParallelNode<DIM,N_DATA,T>* node, size_t idx) {
 		if (node == nullptr) {return;}
 		if (node->data_idx == nullptr) {return;}
@@ -128,13 +129,13 @@ namespace gv::util {
 	}
 
 	/// Check if node is a leaf (thread-safe)
-	template<int DIM, int N_DATA, Float T>
+	template<int DIM, int N_DATA, Scalar T>
 	bool isLeaf(const OctreeParallelNode<DIM,N_DATA,T>* node) {
 		return node->is_leaf.load(std::memory_order_acquire);
 	}
 
 	/// Check if a node contains a specific index
-	template<int DIM, int N_DATA, Float T>
+	template<int DIM, int N_DATA, Scalar T>
 	bool containsIndex(const OctreeParallelNode<DIM,N_DATA,T>* node, const size_t idx) {
 		if (node==nullptr) {return false;}
 		if (node->data_idx==nullptr) {return false;}

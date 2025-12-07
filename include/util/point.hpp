@@ -37,9 +37,9 @@ namespace gv::util {
 		using Scalar_t = T;
 		static constexpr int dimension = dim;
 
-		//============================================================
+		//////////////////////////////////////////////////////////
 		// Constructors
-		//============================================================
+		//////////////////////////////////////////////////////////
 		
 		// Default constructor (all zeros)
 		constexpr Point() {
@@ -71,7 +71,7 @@ namespace gv::util {
 
 		// Copy constructor with type conversion
 		template <Scalar U>
-		constexpr explicit Point(const Point<dim,U> &other) {
+		constexpr explicit Point(const Point<dim,T> &other) {
 			for (int i=0; i<dim; i++) {_data[i] = static_cast<T>(other[i]);}
 		}
 
@@ -93,9 +93,9 @@ namespace gv::util {
 		// Destructor (default is fine for array member)
 		~Point() = default;
 
-		//============================================================
+		//////////////////////////////////////////////////////////
 		// Assignment operators
-		//============================================================
+		//////////////////////////////////////////////////////////
 		
 		// Copy assignment
 		constexpr Point& operator=(const Point<dim,T>& other) {
@@ -117,9 +117,9 @@ namespace gv::util {
 			return *this;
 		}
 
-		//============================================================
+		//////////////////////////////////////////////////////////
 		// Element access
-		//============================================================
+		//////////////////////////////////////////////////////////
 		
 		constexpr T& operator[](int idx) {
 			assert(0 <= idx && idx < dim); 
@@ -144,14 +144,6 @@ namespace gv::util {
 			}
 			return _data[idx];
 		}
-
-		//============================================================
-		// Utility
-		//============================================================
-		
-		static constexpr Point<dim,T> zero() {
-			return Point<dim,T>();
-		}
 	};
 
 	static_assert(PointLike<Point<3,double>>, "Point<3,double> is not PointLike");
@@ -159,41 +151,38 @@ namespace gv::util {
 	static_assert(PointLike<Point<3,float>>, "Point<3,float> is not PointLike");
 	static_assert(PointLike<Point<2,float>>, "Point<2,float> is not PointLike");
 
-	//============================================================
-	// Arithmetic operators with automatic type promotion
-	//============================================================
+	//////////////////////////////////////////////////////////
+	// Arithmetic
+	//////////////////////////////////////////////////////////
 
-	/// Determine result type for binary operations
-	template<Scalar T, Scalar U>
-	using promoted_t = decltype(T{} + U{});
 
-	/// Point addition (with type promotion)
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim, promoted_t<T,U>> operator+(const Point<dim,T> &left, const Point<dim,U> &right) {
-		Point<dim, promoted_t<T,U>> result;
+	/// Point addition
+	template <int dim, Scalar T>
+	constexpr Point<dim, T> operator+(const Point<dim,T> &left, const Point<dim,T> &right) {
+		Point<dim, T> result;
 		for (int i=0; i<dim; i++) {result[i] = left[i] + right[i];}
 		return result;
 	}
 
 	/// In-place addition
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim,T>& operator+=(Point<dim,T> &left, const Point<dim,U> &right) {
-		for (int i=0; i<dim; i++) {left[i] += static_cast<T>(right[i]);}
+	template <int dim, Scalar T>
+	constexpr Point<dim,T>& operator+=(Point<dim,T> &left, const Point<dim,T> &right) {
+		for (int i=0; i<dim; i++) {left[i] += right[i];}
 		return left;
 	}
 
-	/// Point subtraction (with type promotion)
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim, promoted_t<T,U>> operator-(const Point<dim,T> &left, const Point<dim,U> &right) {
-		Point<dim, promoted_t<T,U>> result;
+	/// Point subtraction
+	template <int dim, Scalar T>
+	constexpr Point<dim, T> operator-(const Point<dim,T> &left, const Point<dim,T> &right) {
+		Point<dim, T> result;
 		for (int i=0; i<dim; i++) {result[i] = left[i] - right[i];}
 		return result;
 	}
 
 	/// In-place subtraction
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim,T>& operator-=(Point<dim,T> &left, const Point<dim,U> &right) {
-		for (int i=0; i<dim; i++) {left[i] -= static_cast<T>(right[i]);}
+	template <int dim, Scalar T>
+	constexpr Point<dim,T>& operator-=(Point<dim,T> &left, const Point<dim,T> &right) {
+		for (int i=0; i<dim; i++) {left[i] -= right[i];}
 		return left;
 	}
 
@@ -207,15 +196,15 @@ namespace gv::util {
 
 	/// Scalar multiplication (scalar * point, with type promotion)
 	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim, promoted_t<T,U>> operator*(const U &left, const Point<dim,T> &right) {
-		Point<dim, promoted_t<T,U>> result;
-		for (int i=0; i<dim; i++) {result[i] = left * right[i];}
+	constexpr Point<dim, T> operator*(const U &left, const Point<dim,T> &right) {
+		Point<dim, T> result;
+		for (int i=0; i<dim; i++) {result[i] = static_cast<T>(left) * right[i];}
 		return result;
 	}
 
 	/// Scalar multiplication (point * scalar, with type promotion)
 	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim, promoted_t<T,U>> operator*(const Point<dim,T> &left, const U &right) {
+	constexpr Point<dim, T> operator*(const Point<dim,T> &left, const U &right) {
 		return right * left;
 	}
 
@@ -226,69 +215,61 @@ namespace gv::util {
 		return left;
 	}
 
-	/// Component-wise multiplication (with type promotion)
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim, promoted_t<T,U>> operator*(const Point<dim,T> &left, const Point<dim,U> &right) {
-		Point<dim, promoted_t<T,U>> result;
+	/// Component-wise multiplication
+	template <int dim, Scalar T>
+	constexpr Point<dim, T> operator*(const Point<dim,T> &left, const Point<dim,T> &right) {
+		Point<dim, T> result;
 		for (int i=0; i<dim; i++) {result[i] = left[i] * right[i];}
 		return result;
 	}
 
 	/// In-place component-wise multiplication
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim,T>& operator*=(Point<dim,T> &left, const Point<dim,U> &right) {
-		for (int i=0; i<dim; i++) {left[i] *= static_cast<T>(right[i]);}
+	template <int dim, Scalar T>
+	constexpr Point<dim,T>& operator*=(Point<dim,T> &left, const Point<dim,T> &right) {
+		for (int i=0; i<dim; i++) {left[i] *= right[i];}
 		return left;
 	}
 
-	/// Division by scalar (with type promotion)
+	/// Division by scalar
 	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim, promoted_t<T,U>> operator/(const Point<dim,T> &left, const U &right) {
-		Point<dim, promoted_t<T,U>> result;
-		for (int i=0; i<dim; i++) {result[i] = left[i] / right;}
-		return result;
+	constexpr Point<dim, T> operator/(const Point<dim,T> &left, const U &right) {
+		return left * (T{1} / static_cast<T>(right));
 	}
 
 	/// In-place division by scalar
 	template <int dim, Scalar T, Scalar U>
 	constexpr Point<dim,T>& operator/=(Point<dim,T> &left, const U &right) {
-		for (int i=0; i<dim; i++) {left[i] /= static_cast<T>(right);}
+		left *= (T{1} / static_cast<T>(right));
 		return left;
 	}
 
-	/// Component-wise division (with type promotion)
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim, promoted_t<T,U>> operator/(const Point<dim,T> &left, const Point<dim,U> &right) {
-		Point<dim, promoted_t<T,U>> result;
+	/// Component-wise division
+	template <int dim, Scalar T>
+	constexpr Point<dim, T> operator/(const Point<dim,T> &left, const Point<dim,T> &right) {
+		Point<dim, T> result;
 		for (int i=0; i<dim; i++) {result[i] = left[i] / right[i];}
 		return result;
 	}
 
 	/// In-place component-wise division
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim,T>& operator/=(Point<dim,T> &left, const Point<dim,U> &right) {
-		for (int i=0; i<dim; i++) {left[i] /= static_cast<T>(right[i]);}
+	template <int dim, Scalar T>
+	constexpr Point<dim,T>& operator/=(Point<dim,T> &left, const Point<dim,T> &right) {
+		for (int i=0; i<dim; i++) {left[i] /= right[i];}
 		return left;
 	}
 
-	//============================================================
+	//////////////////////////////////////////////////////////
 	// Comparison operators
-	//============================================================
+	//////////////////////////////////////////////////////////
 
-	/// Scalar approximately equal (using relative epsilon)
-	template <Scalar T>
-	constexpr bool approxEqual(const T &left, const T &right) {
-		if (left == right) {return true;}
-		
-		T absmax = std::max(std::abs(left), std::abs(right));
-		T delta = std::abs(left - right);
-		return delta <= std::numeric_limits<T>::epsilon() * 2 * absmax;
-	}
-
+	
 	/// Point equality (using approximate comparison on squared norm)
 	template <int dim, Scalar T>
 	constexpr bool operator==(const Point<dim,T> &left, const Point<dim,T> &right) {
-		return approxEqual(squaredNorm(left - right), T{0});
+		for (int i=0; i<dim; i++) {
+			if (left[i]!=right[i]) {return false;}
+		}
+		return true;
 	}
 
 	/// Point inequality
@@ -333,22 +314,22 @@ namespace gv::util {
 		return true;
 	}
 
-	//============================================================
+	//////////////////////////////////////////////////////////
 	// Vector operations
-	//============================================================
+	//////////////////////////////////////////////////////////
 
 	/// Dot product
-	template <int dim, Scalar T, Scalar U>
-	constexpr promoted_t<T,U> dot(const Point<dim,T> &left, const Point<dim,U> &right) {
-		promoted_t<T,U> result = 0;
+	template <int dim, Scalar T>
+	constexpr T dot(const Point<dim,T> &left, const Point<dim,T> &right) {
+		T result = 0;
 		for (int i=0; i<dim; i++) {result += left[i] * right[i];}
 		return result;
 	}
 
 	/// Cross product (3D only)
 	template <Scalar T, Scalar U>
-	constexpr Point<3, promoted_t<T,U>> cross(const Point<3,T> &left, const Point<3,U> &right) {
-		Point<3, promoted_t<T,U>> result;
+	constexpr Point<3, T> cross(const Point<3,T> &left, const Point<3,T> &right) {
+		Point<3, T> result;
 		result[0] = left[1]*right[2] - left[2]*right[1];
 		result[1] = left[2]*right[0] - left[0]*right[2];
 		result[2] = left[0]*right[1] - left[1]*right[0];
@@ -394,9 +375,9 @@ namespace gv::util {
 		return point / scale;
 	}
 
-	//============================================================
+	//////////////////////////////////////////////////////////
 	// Element-wise operations
-	//============================================================
+	//////////////////////////////////////////////////////////
 
 	/// Element-wise absolute value
 	template <int dim, Scalar T>
@@ -407,17 +388,17 @@ namespace gv::util {
 	}
 
 	/// Element-wise maximum
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim, promoted_t<T,U>> elmax(const Point<dim,T> &left, const Point<dim,U> &right) {
-		Point<dim, promoted_t<T,U>> result;
+	template <int dim, Scalar T>
+	constexpr Point<dim, T> elmax(const Point<dim,T> &left, const Point<dim,T> &right) {
+		Point<dim, T> result;
 		for (int i=0; i<dim; i++) {result[i] = std::max(left[i], right[i]);}
 		return result;
 	}
 
 	/// Element-wise minimum
-	template <int dim, Scalar T, Scalar U>
-	constexpr Point<dim, promoted_t<T,U>> elmin(const Point<dim,T> &left, const Point<dim,U> &right) {
-		Point<dim, promoted_t<T,U>> result;
+	template <int dim, Scalar T>
+	constexpr Point<dim, T> elmin(const Point<dim,T> &left, const Point<dim,T> &right) {
+		Point<dim, T> result;
 		for (int i=0; i<dim; i++) {result[i] = std::min(left[i], right[i]);}
 		return result;
 	}
@@ -474,9 +455,9 @@ namespace gv::util {
 	    return sorted_sum<dim, T, U, W>(std::vector<Point<dim,W>>(points.begin(), points.end()));
 	}
 
-	//============================================================
+	//////////////////////////////////////////////////////////
 	// I/O
-	//============================================================
+	//////////////////////////////////////////////////////////
 
 	/// Print to ostream
 	template <int dim, Scalar T>

@@ -311,13 +311,13 @@ namespace gv::mesh
 	/// A container for storing the nodes in an octree for more efficeint lookup. This is important as we must query if a node already exists in the mesh.
 	/// @todo Determine if a kd-tree is better.
 	/////////////////////////////////////////////////
-	template<BasicMeshNode Node_t, int N_DATA=64>
-	class NodeOctree : public gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, typename Node_t::Scalar_t>
+	template<BasicMeshNode Node_t, int N_DATA=64, Scalar T=double>
+	class NodeOctree : public gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, T>
 	{
 	public:
-		using Parent_t = gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, typename Node_t::Scalar_t>;
+		using Parent_t = gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, T>;
 		using Data_t = Node_t;
-		using Box_t  = gv::util::Box<Node_t::dim, typename Node_t::Scalar_t>;
+		using Box_t  = gv::util::Box<Node_t::dim, T>;
 
 
 		NodeOctree() : Parent_t() {}

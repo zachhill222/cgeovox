@@ -1,5 +1,6 @@
 #pragma once
 
+#include "concepts.hpp"
 #include "util/octree_parallel.hpp"
 #include "util/octree_util.hpp"
 #include "mesh/mesh_basic.hpp"
@@ -11,7 +12,7 @@
 
 namespace gv::util {
 
-	template<typename Data_t, bool SINGLE_DATA, int DIM, int N_DATA, Float T>
+	template<typename Data_t, bool SINGLE_DATA, int DIM, int N_DATA, Scalar T>
 	void makeOctreeLeafMesh(const BasicParallelOctree<Data_t, SINGLE_DATA, DIM, N_DATA, T> &octree, const std::string filename) {
 		using Vertex_t  = gv::util::Point<3,T>;
 		using Node_t    = gv::mesh::BasicNode<Vertex_t>;

@@ -1,5 +1,6 @@
 #include "util/box.hpp"
 #include "util/point.hpp"
+#include "util/scalars/fixed_point.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/mesh_basic.hpp"
@@ -11,6 +12,7 @@
 
 const int dim = 3;
 using T = double;
+// using T = gv::util::FixedPoint<int64_t,0>;
 	
 template<int n>
 using Box_t    = gv::util::Box<n,T>;
@@ -59,7 +61,7 @@ void test() {
 		return old;
 	};
 	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-		if (it->vertex[2]>0) {
+		if (it->vertex[2]>0.0) {
 			mesh.moveVertex(it->index, fun(it->vertex));
 		}
 	}
@@ -72,7 +74,7 @@ void test() {
 
 
 	// unrefine
-	mesh.joinDescendents(1);
+	// mesh.joinDescendents(1);
 
 
 	//print mesh summary
@@ -81,15 +83,15 @@ void test() {
 	gv::mesh::memorySummary(mesh);
 
 
-	Box_t<3> bbox = mesh.bbox();
-	Mesh_t boundary(bbox);
-	mesh.getBoundaryMesh(boundary);
-	std::cout << "\n\n";
-	std::cout << std::endl << boundary << std::endl;
-	gv::mesh::memorySummary(boundary);
+	// Box_t<3> bbox = mesh.bbox();
+	// Mesh_t boundary(bbox);
+	// mesh.getBoundaryMesh(boundary);
+	// std::cout << "\n\n";
+	// std::cout << std::endl << boundary << std::endl;
+	// gv::mesh::memorySummary(boundary);
 
-	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
-	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true, true);
+	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
 	// gv::util::makeOctreeLeafMesh(mesh.getNodeOctree(), "./outfiles/topological_mesh_node_octree.vtk");
 }
 

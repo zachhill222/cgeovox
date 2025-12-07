@@ -63,12 +63,13 @@ namespace gv::mesh
 		static_assert(Node_t::Vertex_t::dimension==3, "All meshes are considered to be embedded in three dimensions.");
 	public:
 		//aliases
+		using OctreeScalar_t     = typename Node_t::Scalar_t;
 		template<int n=3>
 		using Index_t            = gv::util::Point<n,size_t>;
 		template<int n=3>
-		using Box_t              = gv::util::Box<n, typename Node_t::Scalar_t>;
+		using Box_t              = gv::util::Box<n, OctreeScalar_t>;
 		using Vertex_t           = Node_t::Vertex_t;
-		using NodeList_t         = NodeOctree<Node_t, 64>;
+		using NodeList_t         = NodeOctree<Node_t, 64, OctreeScalar_t>;
 		using ElementIterator_t  = ElementIterator<BasicMesh<Node_t,Element_t,Face_t>, ContainerType::ELEMENTS>;
 		using BoundaryIterator_t = ElementIterator<BasicMesh<Node_t,Element_t,Face_t>, ContainerType::BOUNDARY>;
 
