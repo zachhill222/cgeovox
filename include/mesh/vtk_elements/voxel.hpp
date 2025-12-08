@@ -309,5 +309,14 @@ namespace gv::mesh {
 				break;
 			}
 		}
+
+		bool isInterior(const std::vector<Point_t>& vertices, const Point_t& coord) const override {
+			//check if point lies in each coordinate interval
+			//vertex 0 is minimal and vertex 7 is maximal for voxels
+			for (int i=0; i<3; i++) {
+				if (coord[i]<vertices[0][i] or vertices[7][i]<coord[i]) {return false;}
+			}
+			return true;
+		}
 	};
 }

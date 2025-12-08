@@ -75,5 +75,15 @@ namespace gv::mesh {
 				break;
 			}
 		}
+
+		bool isInterior(const std::vector<Point_t>& vertices, const Point_t& coord) const override {
+			assert(false); //probably shouldn't be using this...
+			using T = typename Point_t::Scalar_t;
+
+			//check if coord is a convex combination of vertices[0] and vertices[1].
+			//if so, coord = (1-t)*vertices[0] + t*vertices[1] = vertices[0] + t*(vertices[1]-vertices[0])
+			T t = (coord[0] - vertices[0][0]) / (vertices[1][0] - vertices[0][0]);
+			return coord == vertices[0] + t*(vertices[1]-vertices[0]);
+		}
 	};
 }

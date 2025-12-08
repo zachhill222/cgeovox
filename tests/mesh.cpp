@@ -12,7 +12,7 @@
 
 const int dim = 3;
 // using T = double;
-using T = gv::util::FixedPoint<int64_t,-10>;
+using T = gv::util::FixedPoint<int64_t,-15>;
 	
 template<int n>
 using Box_t    = gv::util::Box<n,T>;

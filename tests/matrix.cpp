@@ -1,5 +1,5 @@
 #include "util/matrix.hpp"
-
+#include "util/scalars/fixed_point.hpp"
 
 template<int n, int m, typename Scalar_t>
 gv::util::Matrix<n,m,Scalar_t> create_matrix()
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 	const int m=3;
 	const int p=3;
 
-	using Scalar_t = double;
+	using Scalar_t = gv::util::FixedPoint<int64_t,-10>;
 
 	//create and print matrix
 	gv::util::Matrix<n,m,Scalar_t> M = create_matrix<n,m,Scalar_t>();

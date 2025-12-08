@@ -307,5 +307,10 @@ namespace gv::mesh {
 		        break;
 		    }
 		}
+		
+		bool isInterior(const std::vector<Point_t>& vertices, const Point_t& coord) const override {
+			assert(false);
+			return false;
+		}
 	};
 }

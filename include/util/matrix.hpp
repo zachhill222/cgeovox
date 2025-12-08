@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <cassert>
+#include <algorithm>
 
 namespace gv::util
 {
@@ -19,73 +20,134 @@ namespace gv::util
 	class Matrix
 	{
 	protected:
-		Scalar_t _data[n*m] {0};
-		int _index(const int i, const int j) const {return n*j+i;}
+		Scalar_t _data[n*m];
+		static constexpr int _col_major_index(const int i, const int j) noexcept {return n*j+i;}
+		static constexpr int _row_major_index(const int i, const int j) noexcept {return m*i+j;}
+
+		using IndexFunction_t = int(*)(int, int);
+		IndexFunction_t _index = _col_major_index;
 
 	public:
 		using Row_t = gv::util::Point<m,Scalar_t>;
 		using Col_t = gv::util::Point<n,Scalar_t>;
+		static constexpr bool IS_SQUARE = n==m;
 
-		constexpr Matrix() {}
-
-		Matrix(const Scalar_t a)
+		constexpr Matrix() noexcept : _data{0} {}
+		
+		constexpr Matrix(const Scalar_t a) noexcept
 		{
-			for (int k=0; k<n*m; k++) {_data[k]=a;}
-		}
-
-
-		//element access
-		Scalar_t at(int i, int j) const {assert(i<n); assert(j<m); return _data[_index(i,j)];}
-		Scalar_t& at(int i, int j) {assert(i<n); assert(j<m); return _data[_index(i,j)];}
-
-		Scalar_t operator()(int i, int j) const {return _data[_index(i,j)];}
-		Scalar_t& operator()(int i, int j) {return _data[_index(i,j)];}
-
-		Scalar_t operator[](int k) const {return _data[k];}
-		Scalar_t& operator[](int k) {return _data[k];}
-
-		//set identity along the main diagonal and zeros elsewhere
-		void eye()
-		{
-			for (int i=0; i<n; i++)
-			{
-				for (int j=0; j<m; j++)
-				{
-					if (i==j) {(*this)(i,j)=1;}
-					else {(*this)(i,j)=0;}
+			for (int i=0; i<n; i++) {
+				for (int j=0; j<m; j++) {
+					if (i==j) {_data[_index(i,j)] = a;}
+					else {_data[_index(i,j)] = Scalar_t{0};}
 				}
 			}
 		}
 
-		//row and column access
-		Row_t row(int i) const
+		constexpr Matrix(const Matrix& other) noexcept
 		{
-			assert(i<n);
+			std::copy(other._data, other._data+n*m, _data);
+			_index = other._index;
+		}
+
+		constexpr Matrix(Matrix&& other) noexcept
+		{
+			std::move(other._data, other._data+n*m, _data);
+			_index = other._index;
+		}
+
+		//element access
+		constexpr Scalar_t at(int i, int j) const
+		{
+			if (0 <= i and i < n) {
+				if (0 <= j and j < m) {
+					return _data[_index(i,j)];
+				}
+			}
+			
+			throw std::runtime_error("Matrix: index out of bounds");
+		}
+
+		constexpr Scalar_t& at(int i, int j)
+		{
+			if (0 <= i and i < n) {
+				if (0 <= j and j < m) {
+					return _data[_index(i,j)];
+				}
+			}
+			
+			throw std::runtime_error("Matrix: index out of bounds");
+		}
+
+		constexpr Scalar_t operator()(int i, int j) const noexcept
+		{
+			assert(0 <= i and i < n);
+			assert(0 <= j and j < m);
+			return _data[_index(i,j)];
+		}
+
+		constexpr Scalar_t& operator()(int i, int j) noexcept
+		{
+			assert(0 <= i and i < n);
+			assert(0 <= j and j < m);
+			return _data[_index(i,j)];
+		}
+
+		constexpr Scalar_t operator[](int k) const noexcept
+		{
+			assert(0 <= k and k<m*n);
+			return _data[k];
+		}
+
+		constexpr Scalar_t& operator[](int k) noexcept
+		{
+			assert(0 <= k and k<m*n);
+			return _data[k];
+		}
+
+		//copy and move assignment
+		constexpr Matrix<n,m,Scalar_t>& operator=(const Matrix<n,m,Scalar_t>& other) noexcept
+		{
+			std::copy(other._data, other._data+n*m, _data);
+			_index = other._index;
+			return *this;
+		}
+
+		constexpr Matrix<n,m,Scalar_t>& operator=(Matrix<n,m,Scalar_t>&& other) noexcept
+		{
+			std::move(other._data, other._data+n*m, _data);
+			_index = other._index;
+			return *this;
+		}
+
+
+		//set identity along the main diagonal and zeros elsewhere
+		constexpr void fill(const Scalar_t val) noexcept {std::fill(_data, _data+n*m, val);}
+
+		//row and column access
+		constexpr Row_t row(int i) const noexcept
+		{
+			assert(0<=i and i<n);
 			Row_t result;
 			for (int k=0; k<m; k++) {result[k]=_data[_index(i,k)];}
 			return result;
 		}
 
-		Col_t col(int j) const
+		constexpr Col_t col(int j) const noexcept
 		{
-			assert(j<m);
+			assert(0<=j and j<m);
 			Col_t result;
 			for (int k=0; k<n; k++) {result[k]=_data[_index(k,j)];}
 			return result;
 		}
 
 		//transpose
-		Matrix<m,n,Scalar_t> tr() const
+		Matrix<m,n,Scalar_t> tr() const noexcept
 		{
 			Matrix<m,n,Scalar_t> result;
-			for (int i=0; i<n; i++)
-			{
-				for (int j=0; j<m; j++)
-				{
-					result(j,i) = (*this)(i,j);
-				}
-			}
-
+			std::copy(_data, _data+n*m, result._data);
+			if (_index == _col_major_index) {result._index = result._row_major_index;}
+			else {result._index = result._col_major_index;}
 			return result;
 		}
 	};
@@ -100,18 +162,18 @@ namespace gv::util
 	}
 
 	//scalar-matrix multiplication
-	template<int n, int m, Scalar Scalar_t>
-	Matrix<n,m,Scalar_t> operator*(const Scalar_t a, const Matrix<n,m,Scalar_t> &matrix)
+	template<int n, int m, Scalar Scalar_t, Scalar Scalar_u>
+	constexpr Matrix<n,m,Scalar_t> operator*(const Scalar_u a, const Matrix<n,m,Scalar_t> &matrix) noexcept
 	{
 		Matrix<n,m,Scalar_t> result = matrix;
-		for (int k=0; k<n*m; k++) {result[k] *= a;}
+		for (int k=0; k<n*m; k++) {result[k] *= static_cast<Scalar_t>(a);}
 		return result;
 	}
 
 
 	//matrix-vector multiplication
 	template<int n, int m, Scalar Scalar_t>
-	gv::util::Point<n,Scalar_t> operator*(const Matrix<n,m,Scalar_t> &matrix, const gv::util::Point<m,Scalar_t> &vector)
+	constexpr gv::util::Point<n,Scalar_t> operator*(const Matrix<n,m,Scalar_t> &matrix, const gv::util::Point<m,Scalar_t> &vector) noexcept
 	{
 		gv::util::Point<n,Scalar_t> result; //all zeros
 		for (int j=0; j<m; j++) {result += vector[j]*matrix.col(j);}
@@ -120,7 +182,7 @@ namespace gv::util
 
 	//vector-vector outer product
 	template<int n, int m, Scalar Scalar_t>
-	Matrix<n,m,Scalar_t> outer(const gv::util::Point<n,Scalar_t> &left, const gv::util::Point<m,Scalar_t> &right)
+	constexpr Matrix<n,m,Scalar_t> outer(const gv::util::Point<n,Scalar_t> &left, const gv::util::Point<m,Scalar_t> &right) noexcept
 	{
 		Matrix<n,m,Scalar_t> result;
 		for (int i=0; i<n; i++)
@@ -134,7 +196,7 @@ namespace gv::util
 	}
 	
 	template<int n, int m, Scalar Scalar_t>
-	gv::util::Point<m,Scalar_t> operator*(const gv::util::Point<n,Scalar_t> &vector, const Matrix<n,m,Scalar_t> &matrix)
+	constexpr gv::util::Point<m,Scalar_t> operator*(const gv::util::Point<n,Scalar_t> &vector, const Matrix<n,m,Scalar_t> &matrix) noexcept
 	{
 		gv::util::Point<m,Scalar_t> result; //all zeros
 		for (int j=0; j<m; j++) {result[j] = gv::util::dot(matrix.col(j),vector);}
@@ -143,7 +205,7 @@ namespace gv::util
 
 	//matrix-matrix multiplication
 	template<int n, int m, int p, Scalar Scalar_t>
-	Matrix<n,p,Scalar_t> operator*(const Matrix<n,m,Scalar_t> &left, const Matrix<m,p,Scalar_t> &right)
+	constexpr Matrix<n,p,Scalar_t> operator*(const Matrix<n,m,Scalar_t> &left, const Matrix<m,p,Scalar_t> &right) noexcept
 	{
 		Matrix<n,p,Scalar_t> result;
 		for (int i=0; i<n; i++)
@@ -152,7 +214,7 @@ namespace gv::util
 			{
 				for (int k=0; k<m; k++)
 				{
-					result.at(i,j) += left.at(i,k)*right.at(k,j);
+					result(i,j) += left(i,k)*right(k,j);
 				}
 			}
 		}
@@ -162,7 +224,7 @@ namespace gv::util
 
 	//matrix least squares solution (must columns must be linearly independent)
 	template<int n, int m, Scalar Scalar_t>
-	typename Matrix<n,m,Scalar_t>::Row_t operator/(const Matrix<n,m,Scalar_t> A, const typename Matrix<n,m,Scalar_t>::Col_t &b)
+	constexpr typename Matrix<n,m,Scalar_t>::Row_t operator/(const Matrix<n,m,Scalar_t> A, const typename Matrix<n,m,Scalar_t>::Col_t &b) noexcept
 	{
 		Matrix<n,m,Scalar_t> Q;
 		Matrix<m,m,Scalar_t> R;
@@ -173,7 +235,7 @@ namespace gv::util
 
 	//matrix-matrix addition
 	template<int n, int m, Scalar Scalar_t>
-	Matrix<n,m,Scalar_t> operator+(const Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right)
+	constexpr Matrix<n,m,Scalar_t> operator+(const Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right) noexcept
 	{
 		Matrix<n,m,Scalar_t> result;
 		for (int k=0; k<n*m; k++) {result[k] = left[k]+right[k];}
@@ -181,7 +243,7 @@ namespace gv::util
 	}
 
 	template<int n, int m, Scalar Scalar_t>
-	Matrix<n,m,Scalar_t>& operator+=(Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right)
+	constexpr Matrix<n,m,Scalar_t>& operator+=(Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right) noexcept
 	{
 		for (int k=0; k<n*m; k++) {left[k]+=right[k];}
 		return left;
@@ -189,7 +251,7 @@ namespace gv::util
 
 	//matrix-matrix subtraction
 	template<int n, int m, Scalar Scalar_t>
-	Matrix<n,m,Scalar_t> operator-(const Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right)
+	constexpr Matrix<n,m,Scalar_t> operator-(const Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right) noexcept
 	{
 		Matrix<n,m,Scalar_t> result;
 		for (int k=0; k<n*m; k++) {result[k] = left[k]-right[k];}
@@ -197,14 +259,14 @@ namespace gv::util
 	}
 
 	template<int n, int m, Scalar Scalar_t>
-	Matrix<n,m,Scalar_t>& operator-=(Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right)
+	constexpr Matrix<n,m,Scalar_t>& operator-=(Matrix<n,m,Scalar_t> &left, const Matrix<n,m,Scalar_t> &right) noexcept
 	{
 		for (int k=0; k<n*m; k++) {left[k]-=right[k];}
 		return left;
 	}
 
 	template<int n, int m, Scalar Scalar_t>
-	Matrix<n,m,Scalar_t> operator-(const Matrix<n,m,Scalar_t> &right)
+	constexpr Matrix<n,m,Scalar_t> operator-(const Matrix<n,m,Scalar_t> &right) noexcept
 	{
 		Matrix<n,m,Scalar_t> result;
 		for (int k=0; k<n*m; k++) {result[k]=-right[k];}
@@ -213,12 +275,12 @@ namespace gv::util
 
 	//triangular matrix solve Ux=b with U upper triangular
 	template<int n, Scalar Scalar_t>
-	gv::util::Point<n,Scalar_t> solve_upper(const Matrix<n,n,Scalar_t> &U, const gv::util::Point<n,Scalar_t> &b)
+	constexpr gv::util::Point<n,Scalar_t> solve_upper(const Matrix<n,n,Scalar_t> &U, const gv::util::Point<n,Scalar_t> &b) noexcept
 	{
 		gv::util::Point<n,Scalar_t> x=b;
 		for (int i=n-1; i>=0; i--)
 		{
-			assert(U(i,i)!=0);
+			assert(U(i,i)!=Scalar_t{0});
 
 			for(int j=i+1; j<n; j++)
 			{
@@ -231,12 +293,12 @@ namespace gv::util
 
 	//triangular matrix solve Lx=b with L lower triangular
 	template<int n, Scalar Scalar_t>
-	gv::util::Point<n,Scalar_t> solve_lower(const Matrix<n,n,Scalar_t> &L, const gv::util::Point<n,Scalar_t> &b)
+	constexpr gv::util::Point<n,Scalar_t> solve_lower(const Matrix<n,n,Scalar_t> &L, const gv::util::Point<n,Scalar_t> &b) noexcept
 	{
 		gv::util::Point<n,Scalar_t> x=b;
 		for (int i=0; i<n; i++)
 		{
-			assert(L(i,i)!=0);
+			assert(L(i,i)!=Scalar_t{0});
 
 			for(int j=0; j<i; j++)
 			{
@@ -250,7 +312,7 @@ namespace gv::util
 
 	//Partial QR decomposition (modified Gram-Schmidt)
 	template<int n, int m, Scalar Scalar_t>
-	void partialQR(const Matrix<n,m,Scalar_t> &A, Matrix<n,m,Scalar_t> &Q, Matrix<m,m,Scalar_t> &R)
+	constexpr void partialQR(const Matrix<n,m,Scalar_t> &A, Matrix<n,m,Scalar_t> &Q, Matrix<m,m,Scalar_t> &R) noexcept
 	{
 		//Ensure that R and Q are zeros
 		R = Matrix<m,m,Scalar_t>(0);
