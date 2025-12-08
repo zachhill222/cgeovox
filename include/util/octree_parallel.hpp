@@ -360,6 +360,8 @@ namespace gv::util {
 				int thread_no = 0;
 			#endif
 			
+			
+			_total_pending.fetch_add(1);
 			Queue_t* thread_queue = _all_queues[thread_no];
 			while(!thread_queue->try_push(DataBuffer{idx, start_node})) {
 				//keep trying to insert if the buffer is full
@@ -368,7 +370,6 @@ namespace gv::util {
 			}
 
 			// Notify worker thread
-			_total_pending.fetch_add(1);
 			_inserter_cv.notify_one();
 
 			return idx;

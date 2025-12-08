@@ -33,7 +33,7 @@ void test() {
 	using Mesh_t  = gv::mesh::HierarchicalMesh<Node_t,Element_t,Face_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
-	Point_t corner {10.00031,10.001,10.013};
+	Point_t corner {10.01,10.03,10.013};
 	Box_t<dim> domain(-corner, corner);
 	Index_t N{1, 1, 1};
 	Mesh_t mesh(domain,N,false);
@@ -65,14 +65,14 @@ void test() {
 	}
 
 
-	for (int n=0; n<4; n++){
+	for (int n=0; n<3; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
 
 
 	// unrefine
-	mesh.joinDescendents(1);
+	// mesh.joinDescendents(1);
 
 
 	//print mesh summary
@@ -81,12 +81,12 @@ void test() {
 	gv::mesh::memorySummary(mesh);
 
 
-	Box_t<3> bbox = mesh.bbox();
-	Mesh_t boundary(bbox);
-	mesh.getBoundaryMesh(boundary);
-	std::cout << "\n\n";
-	std::cout << std::endl << boundary << std::endl;
-	gv::mesh::memorySummary(boundary);
+	// Box_t<3> bbox = mesh.bbox();
+	// Mesh_t boundary(bbox);
+	// mesh.getBoundaryMesh(boundary);
+	// std::cout << "\n\n";
+	// std::cout << std::endl << boundary << std::endl;
+	// gv::mesh::memorySummary(boundary);
 
 	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, false);

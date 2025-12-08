@@ -7,9 +7,7 @@
 #include <atomic>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// This file provides helper classes for the BasicParallelOctree class. Specifically,
-/// it provides classes for the tree nodes and a thread-safe queue that multiple
-/// threads can write to while the worker thread reads from it.
+/// Single producer single consumer queue
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace gv::util {
