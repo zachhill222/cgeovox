@@ -51,13 +51,13 @@ namespace gv::mesh {
 			using T = typename Point_t::Scalar_t;
 			
 			//edge midpoints
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //4 - bottom (B)
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[2]})); //5 - right (R)
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //6 - top (T)
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3]})); //7 - left (L)
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //4 - bottom (B)
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[2]})); //5 - right (R)
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //6 - top (T)
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3]})); //7 - left (L)
 
 			//center
-			vertices.emplace_back(0.25*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1],vertices[2],vertices[3]})); //8 (C)
+			vertices.emplace_back(T{0.25}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1],vertices[2],vertices[3]})); //8 (C)
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {

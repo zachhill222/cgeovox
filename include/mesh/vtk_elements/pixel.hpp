@@ -29,7 +29,7 @@ namespace gv::mesh {
 	/// The reference element for a VTK_QUAD is [-1,1]x[-1,1].
 	/// 
 	/// The basis/shape function located at each vertex is a product of the coresponding linear basis functions on the connecting edges.
-	/// For example, the basis function located at the reference vertex (-1,+1) is 0.5(1-e0)*0.5(1+e1) where e0 and e1 are the cartesian coordinates
+	/// For example, the basis function located at the reference vertex (-1,+1) is T{0.5}(1-e0)*0.5(1+e1) where e0 and e1 are the cartesian coordinates
 	/// in the reference element.
 	///
 	/// The mapping from the reference element to the actual/mesh element is of the form:
@@ -53,13 +53,13 @@ namespace gv::mesh {
 			using T = typename Point_t::Scalar_t;
 
 			//edge midpoints
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //4 - bottom
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[3]})); //5 - right
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //6 - top
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[2]})); //7 - left
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //4 - bottom
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[3]})); //5 - right
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //6 - top
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[2]})); //7 - left
 
 			//center
-			vertices.emplace_back(0.5*(vertices[0]+vertices[3])); //8
+			vertices.emplace_back(T{0.5}*(vertices[0]+vertices[3])); //8
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {

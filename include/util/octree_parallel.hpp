@@ -94,9 +94,9 @@ namespace gv::util {
 		std::vector<Queue_t*> _all_queues;
 
 	public:
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Construction and destruction
-		//============================================================
+		////////////////////////////////////////////////////////////
 		explicit BasicParallelOctree(const Box_t &bbox)  
 		{
 			//increase bounding box to closest power of 2 to better avoid floating point arithmetic errors
@@ -164,9 +164,9 @@ namespace gv::util {
 		BasicParallelOctree(BasicParallelOctree&&) = delete;
 		BasicParallelOctree& operator=(BasicParallelOctree&&) = delete;
 
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Container interface
-		//============================================================
+		////////////////////////////////////////////////////////////
 		
 		void reserve(size_t length) {
 			std::lock_guard<std::shared_mutex> lock(_tree_mutex);
@@ -218,10 +218,9 @@ namespace gv::util {
 			_root = new_root;
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Element access
-		//============================================================
-		
+		////////////////////////////////////////////////////////////
 		const Data_t& operator[](size_t idx) const {
 			assert(idx < size());
 			return _data[idx];
@@ -232,10 +231,9 @@ namespace gv::util {
 			return _data[idx];
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Iterators
-		//============================================================
-		
+		////////////////////////////////////////////////////////////
 		auto begin()        { return _data.begin(); }
 		auto begin()  const { return _data.cbegin(); }
 		auto cbegin() const { return _data.cbegin(); }
@@ -243,10 +241,9 @@ namespace gv::util {
 		auto end()    const { return _data.cend(); }
 		auto cend()   const { return _data.cend(); }
 
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Spatial queries
-		//============================================================
-		
+		////////////////////////////////////////////////////////////
 		const Box_t& bbox() const {
 			return _root->bbox;
 		}
@@ -292,17 +289,16 @@ namespace gv::util {
 			}
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Insertion operations
-		//============================================================
-		
-		/// Synchronous insertion
+		////////////////////////////////////////////////////////////
+		/// Single thread copy and move
 		size_t push_back(const Data_t &val) {
 			Data_t copy(val);
 			return push_back(std::move(copy));
 		}
 
-		/// Synchronous insertion (move version)
+		/// Single thread move
 		size_t push_back(Data_t &&val) {
 			std::shared_lock<std::shared_mutex> lock(_tree_mutex);
 
@@ -332,7 +328,7 @@ namespace gv::util {
 			return idx;
 		}
 
-		/// Asynchronous insertion (for parallel use with OpenMP)
+		/// Asynchronous move (for parallel use with OpenMP)
 		size_t push_back_async(Data_t &&val) {
 			std::shared_lock<std::shared_mutex> lock(_tree_mutex);
 
@@ -362,7 +358,7 @@ namespace gv::util {
 			#endif
 			
 			
-			_total_pending.fetch_add(1);
+			_total_pending.fetch_add(1, std::memory_order_release);
 			Queue_t* thread_queue = _all_queues[thread_no];
 			while(!thread_queue->try_push(DataBuffer{idx, start_node})) {
 				//keep trying to insert if the buffer is full
@@ -393,7 +389,7 @@ namespace gv::util {
 				_inserter_cv.notify_one();
 
 				// Spin until all work is done
-				while (_total_pending.load() > 0) {
+				while (_total_pending.load(std::memory_order_acquire) > 0) {
 					std::this_thread::yield();
 				}
 
@@ -408,23 +404,22 @@ namespace gv::util {
 			}
 			
 			//check if the buffers were ever full
+			#ifndef NDEBUG
 			for (size_t i=0; i<_all_queues.size(); i++) {
 				Queue_t* thread_queue = _all_queues[i];
-				if (thread_queue->buffer_bumps>0) {
-					#ifndef NDEBUG
-						std::cout << "WARNING: thread buffer " << i << " was full " << thread_queue->buffer_bumps << " times since last flush" << std::endl;
-					#endif
-					thread_queue->buffer_bumps=0;
+				if (thread_queue->buffer_bumps.load(std::memory_order_acquire)>0) {	
+					std::cout << "WARNING: thread buffer " << i << " was full " << thread_queue->buffer_bumps << " times since last flush" << std::endl;
+					thread_queue->buffer_bumps.store(0, std::memory_order_release);
 				}
-
-				assert(thread_queue->count.load()==0);
-				assert(thread_queue->empty());
+				assert(thread_queue->count.load(std::memory_order_acquire)==0);
+				assert(thread_queue->empty(std::memory_order_seq_cst));
 			}
+			#endif
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Data validation
-		//============================================================
+		////////////////////////////////////////////////////////////
 		/// Check if there are any duplicate values
 		/// All data must be pushed down for this method to work.
 		/// Data will be pushed down after flush() is called.
@@ -444,18 +439,18 @@ namespace gv::util {
 			}
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Summary information
-		//============================================================
+		////////////////////////////////////////////////////////////
 		void treeSummary(size_t &n_nodes, size_t &n_idx, size_t &n_idx_cap, size_t &n_leafs, int &max_depth) const {
 			_recursive_node_properties(_root, n_nodes, n_idx, n_idx_cap, n_leafs, max_depth);
 			max_depth -= _root->depth; //if the bounding box was re-sized, the root may now have a negative depth
 		}
 
 	private:
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Worker thread
-		//============================================================
+		////////////////////////////////////////////////////////////
 		
 		void _inserter_loop() {
 			while (_running.load()) {
@@ -466,7 +461,7 @@ namespace gv::util {
 				}
 
 				// Process all queued work
-				while (_total_pending.load() > 0) {
+				while (_total_pending.load(std::memory_order_acquire) > 0) {
 					std::shared_lock<std::shared_mutex> lock(_tree_mutex);
 
 					for (auto* thread_queue : _all_queues) {
@@ -499,23 +494,23 @@ namespace gv::util {
 							}
 
 							// Decrement counters AFTER work is complete
-							_total_pending.fetch_sub(1);
+							_total_pending.fetch_sub(1, std::memory_order_release);
 						}
 					}
 				}
 			}
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Abstract interface (must be overridden)
-		//============================================================
+		////////////////////////////////////////////////////////////
 		
 		/// Determine if data belongs in the given bounding box
 		virtual bool isValid(const Box_t &bbox, const Data_t &val) const = 0;
 
-		//============================================================
+		////////////////////////////////////////////////////////////
 		// Tree operations
-		//============================================================
+		////////////////////////////////////////////////////////////
 		
 		/// Remove index from node and all descendants
 		void _recursive_remove_idx(Node_t* node, size_t idx) {

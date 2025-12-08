@@ -6,6 +6,7 @@
 #include <bitset>
 #include <bit>
 #include <cmath>
+#include <iostream>
 
 #include "util/scalars/float_manipulation.hpp"
 
@@ -117,6 +118,11 @@ namespace gv::util
 		///////////////////////////////////////////////////////////////
 		/// Conversions
 		///////////////////////////////////////////////////////////////
+
+		// Convert to float implicitly to allow this type as a drop-in replacement into existing code
+		// Care should be taken where it is important that operations should be done in FixedPoint precision
+		// instead of converting double, performing the operation, and then converting back.
+		// e.g., FixedPoint a =  std::sqrt(FixedPoint b) will cast b to a float, compute the square root, and the cast back.
 		constexpr operator Float_t() const noexcept
 		{
 			if (mantissa==0) {return Float_t(0);}
@@ -148,15 +154,19 @@ namespace gv::util
 			return static_cast<Float_t>(conv);
 		}
 
+		//sometimes this is more convenient. especially if the implicit cast is disabled during debugging.
+		constexpr Float_t as_float() const {return static_cast<Float_t>(*this);}
+
+
 		///////////////////////////////////////////////////////////////
 		/// Arithmetic
 		///////////////////////////////////////////////////////////////
-		constexpr FixedPoint  operator+( const FixedPoint &other) noexcept {return FixedPoint(mantissa + other.mantissa, 0);}
+		constexpr FixedPoint  operator+( const FixedPoint &other) const noexcept {return FixedPoint(mantissa + other.mantissa, 0);}
 		constexpr FixedPoint& operator+=(const FixedPoint &other) noexcept {mantissa += other.mantissa; return *this;}
-		constexpr FixedPoint  operator-( const FixedPoint &other) noexcept {return FixedPoint(mantissa - other.mantissa, 0);}
+		constexpr FixedPoint  operator-( const FixedPoint &other) const noexcept {return FixedPoint(mantissa - other.mantissa, 0);}
 		constexpr FixedPoint& operator-=(const FixedPoint &other) noexcept {mantissa -= other.mantissa; return *this;}
 		
-		constexpr FixedPoint  operator*(const FixedPoint &other)  noexcept
+		constexpr FixedPoint  operator*(const FixedPoint &other) const noexcept
 		{
 			// (m1 * 2^EXP) * (m2 * 2^EXP) = m3 * 2^EXP where m3 = m1*m2*2^EXP
 			// we can set m3 = (m1*m2 << EXP) if EXP>0.
@@ -207,7 +217,7 @@ namespace gv::util
 			return *this;
 		}
 
-		constexpr FixedPoint  operator/(const FixedPoint &other)  noexcept
+		constexpr FixedPoint operator/(const FixedPoint &other) const noexcept
 		{
 			// (m1 / 2^EXP) * (m2 / 2^EXP) = m3 * 2^EXP where m3 = (m1 / m2) * 2^-EXP = ((m1 * 2^M) / m2 )* 2^(-M-EXP) 
 			// where we choose M to take advantage of the full intermediate precision
@@ -268,7 +278,16 @@ namespace gv::util
 		///////////////////////////////////////////////////////////////
 		/// Extra Math
 		///////////////////////////////////////////////////////////////
-		constexpr FixedPoint operator-() const noexcept {return FixedPoint(-mantissa,0);}
+		constexpr FixedPoint  operator-() const noexcept {return FixedPoint(-mantissa,0);}
+		constexpr FixedPoint  operator+( const std::floating_point auto &other) const noexcept {return (*this)+ FixedPoint(other);}
+		constexpr FixedPoint& operator+=(const std::floating_point auto &other) noexcept {return (*this)+=FixedPoint(other);}
+		constexpr FixedPoint  operator-( const std::floating_point auto &other) const noexcept {return (*this)- FixedPoint(other);}
+		constexpr FixedPoint& operator-=(const std::floating_point auto &other) noexcept {return (*this)-=FixedPoint(other);}
+		constexpr FixedPoint  operator*( const std::floating_point auto &other) const noexcept {return (*this)* FixedPoint(other);}
+		constexpr FixedPoint& operator*=(const std::floating_point auto &other) noexcept {return (*this)*=FixedPoint(other);}
+		constexpr FixedPoint  operator/( const std::floating_point auto &other) const noexcept {return (*this)/ FixedPoint(other);}
+		constexpr FixedPoint& operator/=(const std::floating_point auto &other) noexcept {return (*this)/=FixedPoint(other);}
+
 
 		///////////////////////////////////////////////////////////////
 		/// FixedPoint Comparisons
@@ -280,17 +299,6 @@ namespace gv::util
 
 		constexpr bool operator==(const FixedPoint &other) const noexcept {return mantissa == other.mantissa;}
 		constexpr bool operator!=(const FixedPoint &other) const noexcept {return mantissa != other.mantissa;}
-
-		///////////////////////////////////////////////////////////////
-		/// Integer Comparisons
-		///////////////////////////////////////////////////////////////
-		// constexpr bool operator<(const Mantissa_t &other)  const noexcept {return *this < FixedPoint(other);}
-		// constexpr bool operator<=(const Mantissa_t &other) const noexcept {return *this <= FixedPoint(other);}
-		// constexpr bool operator>(const Mantissa_t &other)  const noexcept {return *this > FixedPoint(other);}
-		// constexpr bool operator>=(const Mantissa_t &other) const noexcept {return *this >= FixedPoint(other);}
-
-		// constexpr bool operator==(const Mantissa_t &other) const noexcept {return *this == FixedPoint(other);}
-		// constexpr bool operator!=(const Mantissa_t &other) const noexcept {return *this != FixedPoint(other);}
 
 		///////////////////////////////////////////////////////////////
 		/// Float Comparisons
@@ -315,4 +323,17 @@ namespace gv::util
 			return result;
 		}
 	};
+
+
+	///////////////////////////////////////////////////////////////
+	/// Utility functions
+	///////////////////////////////////////////////////////////////
+	template<std::signed_integral Mantissa_t, int OFFSET>
+	std::ostream& operator<<(std::ostream& os, const FixedPoint<Mantissa_t,OFFSET> val)
+	{
+		//print as a float is usually best
+		//explicitly cast in case the implicit cast is disabled during debugging
+		os << static_cast<FixedPoint<Mantissa_t,OFFSET>::Float_t>(val);
+		return os;
+	}
 }

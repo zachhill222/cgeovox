@@ -277,6 +277,19 @@ namespace gv::util {
 		return true;
 	}
 
+	
+	//////////////////////////////////////////////////////////
+	/// Utility scalar operations
+	//////////////////////////////////////////////////////////
+	template<Scalar T>
+	constexpr T abs(const T val) {return val<T{0} ? -val : val;}
+
+	template<Scalar T>
+	constexpr T min(const T a, const T b) {return a<b ? a : b;}
+
+	template<Scalar T>
+	constexpr T max(const T a, const T b) {return a>b ? a : b;} 
+
 	//////////////////////////////////////////////////////////
 	// Vector operations
 	//////////////////////////////////////////////////////////
@@ -305,13 +318,13 @@ namespace gv::util {
 
 	template <int dim, Scalar T>
 	inline T norm2(const Point<dim,T> &point) {
-		return std::sqrt(squaredNorm(point));
+		return T{std::sqrt(static_cast<double>(squaredNorm(point)))}; //calcualate as a double. try not to use.
 	}
 
 	template <int dim, Scalar T>
 	constexpr T norm1(const Point<dim,T> &point) {
 		T result = 0;
-		for (int i=0; i<dim; i++) {result += std::abs(point[i]);}
+		for (int i=0; i<dim; i++) {result += abs(point[i]);}
 		return result;
 	}
 
@@ -319,13 +332,13 @@ namespace gv::util {
 	constexpr T norminfty(const Point<dim,T> &point) {
 		T result = 0;
 		for (int i=0; i<dim; i++) {
-			result = std::max(result, std::abs(point[i]));
+			result = max(result, abs(point[i]));
 		}
 		return result;
 	}
 
 	template <int dim, Scalar T>
-	inline Point<dim,T> normalize(const Point<dim,T> &point) {
+	constexpr Point<dim,T> normalize(const Point<dim,T> &point) {
 		T scale = norm2(point);
 		return point / scale;
 	}
@@ -336,35 +349,35 @@ namespace gv::util {
 	template <int dim, Scalar T>
 	constexpr Point<dim,T> abs(const Point<dim,T> &point) {
 		Point<dim,T> result;
-		for (int i=0; i<dim; i++) {result[i] = std::abs(point[i]);}
+		for (int i=0; i<dim; i++) {result[i] = abs(point[i]);}
 		return result;
 	}
 
 	template <int dim, Scalar T>
 	constexpr Point<dim, T> elmax(const Point<dim,T> &left, const Point<dim,T> &right) {
 		Point<dim, T> result;
-		for (int i=0; i<dim; i++) {result[i] = std::max(left[i], right[i]);}
+		for (int i=0; i<dim; i++) {result[i] = max(left[i], right[i]);}
 		return result;
 	}
 
 	template <int dim, Scalar T>
 	constexpr Point<dim, T> elmin(const Point<dim,T> &left, const Point<dim,T> &right) {
 		Point<dim, T> result;
-		for (int i=0; i<dim; i++) {result[i] = std::min(left[i], right[i]);}
+		for (int i=0; i<dim; i++) {result[i] = min(left[i], right[i]);}
 		return result;
 	}
 
 	template <int dim, Scalar T>
 	constexpr T max(const Point<dim,T> &point) {
 		T result = point[0];
-		for (int i=1; i<dim; i++) {result = std::max(result, point[i]);}
+		for (int i=1; i<dim; i++) {result = max(result, point[i]);}
 		return result;
 	}
 
 	template <int dim, Scalar T>
 	constexpr T min(const Point<dim,T> &point) {
 		T result = point[0];
-		for (int i=1; i<dim; i++) {result = std::min(result, point[i]);}
+		for (int i=1; i<dim; i++) {result = min(result, point[i]);}
 		return result;
 	}
 
@@ -392,7 +405,7 @@ namespace gv::util {
 			}
 
 			std::sort(component.begin(), component.end(), [](T a, T b) {
-				            return std::abs(a) < std::abs(b);});
+				            return abs(a) < abs(b);});
 
 			U sum = U{0};
 			for (U val : component) {

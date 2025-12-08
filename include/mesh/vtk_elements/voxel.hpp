@@ -57,31 +57,31 @@ namespace gv::mesh {
 			using T = typename Point_t::Scalar_t;
 
 			//edge midpoints
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //8  - back face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[3]})); //9  - back face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //10 - back face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[2]})); //11 - back face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //8  - back face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[3]})); //9  - back face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //10 - back face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[2]})); //11 - back face
 
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[4]})); //12 - connecting edge
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[6]})); //13 - connecting edge
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[3],vertices[7]})); //14 - connecting edge
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[5]})); //15 - connecting edge
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[4]})); //12 - connecting edge
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[6]})); //13 - connecting edge
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[3],vertices[7]})); //14 - connecting edge
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[5]})); //15 - connecting edge
 			
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[5]})); //16 - front face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[5],vertices[7]})); //17 - front face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[6],vertices[7]})); //18 - front face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[6]})); //19 - front face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[5]})); //16 - front face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[5],vertices[7]})); //17 - front face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[6],vertices[7]})); //18 - front face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[6]})); //19 - front face
 
 			//face midpoints
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[6]})); //20 - left face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[7]})); //21 - right face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[7]})); //22 - top face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[5]})); //23 - bottom face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3]})); //24 - back face
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[7]})); //25 - front face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[6]})); //20 - left face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[7]})); //21 - right face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[7]})); //22 - top face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[5]})); //23 - bottom face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3]})); //24 - back face
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[7]})); //25 - front face
 
 			//center
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[7]})); //26
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[7]})); //26
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {

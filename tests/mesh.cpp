@@ -12,7 +12,7 @@
 
 const int dim = 3;
 // using T = double;
-using T = gv::util::FixedPoint<int64_t,0>;
+using T = gv::util::FixedPoint<int64_t,-10>;
 	
 template<int n>
 using Box_t    = gv::util::Box<n,T>;
@@ -33,14 +33,16 @@ void test() {
 	using Mesh_t  = gv::mesh::HierarchicalMesh<Node_t,Element_t,Face_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
-	Point_t corner {10.00031,10.001,10.013};
+	Point_t corner {0.000001,0.00000125,0.000002235};
+	std::cout << "EPS= " << T::EPSILON << std::endl;
+	std::cout << std::pow(0.5,7)*corner << std::endl;
 	Box_t<dim> domain(-corner, corner);
 	Index_t N{1, 1, 1};
 	Mesh_t mesh(domain,N,false);
 
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
-	for (int n=0; n<3; n++){
+	for (int n=0; n<4; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}

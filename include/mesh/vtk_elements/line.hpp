@@ -28,7 +28,7 @@ namespace gv::mesh {
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 
 			using T = typename Point_t::Scalar_t;
-			vertices.emplace_back(0.5*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]}));
+			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]}));
 		}
 
 		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
