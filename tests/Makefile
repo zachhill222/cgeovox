@@ -13,7 +13,7 @@ DEBUG      = -pg -g3 -Wall
 #redefine for testing optimizations
 OPT        = -O3
 PAR        = -fopenmp
-# DEBUG      = -DNDEBUG
+DEBUG      = -DNDEBUG
 
 #final compiler command
 CC = $(CXX) $(OPT) $(PAR) $(DEBUG)
@@ -23,7 +23,7 @@ all: $(TARGETS)
 
 # rules to make tests individually. listing individually helps autocomplete.
 # using .PHONY forces re-build when header files have changed but not source files.
-.PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh
+.PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh fixedpoint
 
 assembly:
 	$(CC) $(INC_DIR) assembly.cpp assembly
@@ -46,6 +46,8 @@ matrix:
 mesh:
 	$(CC) $(INC_DIR) mesh.cpp -o mesh
 
+fixedpoint:
+	$(CC) $(INC_DIR) fixedpoint.cpp -o fixedpoint
 
 .PHONY: clean
 clean:

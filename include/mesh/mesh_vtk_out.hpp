@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesh/mesh_util.hpp"
+#include "util/scalars/float_manipulation.hpp"
 
 #include <cstring>
 #include <fstream>
@@ -245,61 +246,14 @@ namespace gv::mesh {
 	    if (nNodes > max_legacy_vtk_nodes) {
 	    	throw std::runtime_error("Node index " + std::to_string(nNodes) + " exceeds legacy VTK format limit.");
 	    }
-
-	    // Helper lambda to write big-endian integers (cast to int32_t due to legacy vtk)
-	    // PC is in little-endian, vtk/Paraview wants big-endian
-	    auto write_be_size_t = [&file](const size_t value) {
-	    	int32_t legacy_vtk_value = static_cast<int32_t>(value);
-
-	    	//mask each BYTE and shift into place
-	    	uint32_t be_value = ((legacy_vtk_value & 0xFF000000) >> 24) |
-	    						((legacy_vtk_value & 0x00FF0000) >> 8)  |
-	    						((legacy_vtk_value & 0x0000FF00) << 8)  |
-	    						((legacy_vtk_value & 0x000000FF) << 24);
-	    	file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
-	    };
-
-	    auto write_be_int = [&file](const int value) {
-	    	int32_t legacy_vtk_value = static_cast<int32_t>(value);
-
-	    	//mask each BYTE and shift into place
-	    	uint32_t be_value = ((legacy_vtk_value & 0xFF000000) >> 24) |
-	    						((legacy_vtk_value & 0x00FF0000) >> 8)  |
-	    						((legacy_vtk_value & 0x0000FF00) << 8)  |
-	    						((legacy_vtk_value & 0x000000FF) << 24);
-	    	file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
-	    };
 	    
-	    // Helper lambda to write big-endian floats (handles float, double, etc.)
+	    // Helper lambda to write numbers in big-endian format. gv::util::FloatingPointBits
+	    // can be initialized with types convertible to integer or floating point types
 	    // PC is in little-endian, vtk/Paraview wants big-endian
-	    auto write_be_float = [&file](Node_t::Scalar_t value) {
-	        if constexpr (sizeof(typename Node_t::Scalar_t) == 4) {
-	            // 32-bit float
-	            uint32_t temp;
-
-	            //mask each BYTE and shift into place
-	            std::memcpy(&temp, &value, sizeof(typename Node_t::Scalar_t));
-	            uint32_t be_value = ((temp & 0xFF000000) >> 24) |
-	                                ((temp & 0x00FF0000) >> 8)  |
-	                                ((temp & 0x0000FF00) << 8)  |
-	                                ((temp & 0x000000FF) << 24);
-	            file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
-	        } else if constexpr (sizeof(typename Node_t::Scalar_t) == 8) {
-	            // 64-bit double
-	            uint64_t temp;
-
-	            //mask each BYTE and shift into place
-	            std::memcpy(&temp, &value, sizeof(typename Node_t::Scalar_t));
-	            uint64_t be_value = ((temp & 0xFF00000000000000ULL) >> 56) |
-	                                ((temp & 0x00FF000000000000ULL) >> 40) |
-	                                ((temp & 0x0000FF0000000000ULL) >> 24) |
-	                                ((temp & 0x000000FF00000000ULL) >> 8)  |
-	                                ((temp & 0x00000000FF000000ULL) << 8)  |
-	                                ((temp & 0x0000000000FF0000ULL) << 24) |
-	                                ((temp & 0x000000000000FF00ULL) << 40) |
-	                                ((temp & 0x00000000000000FFULL) << 56);
-	            file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
-	        }
+	    auto write_big_endian = [&file](auto value) {
+	        gv::util::FloatingPointBits<8*sizeof(value)> converter(value);
+	        auto be_value = converter.big_endian();
+	        file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
 	    };
 	    
 	    // HEADER (note legacy vtk can combine ascii and binary data)
@@ -314,9 +268,17 @@ namespace gv::mesh {
 	    
 	    for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
 			const Node_t &NODE = *it;
-	        write_be_float(NODE.vertex[0]);
-	        write_be_float(NODE.vertex[1]);
-	        write_be_float(NODE.vertex[2]);
+			if constexpr (sizeof(typename Node_t::Scalar_t)==4) {
+				write_big_endian(static_cast<float>(NODE.vertex[0]));
+				write_big_endian(static_cast<float>(NODE.vertex[1]));
+				write_big_endian(static_cast<float>(NODE.vertex[2]));
+			}
+		    else if constexpr (sizeof(typename Node_t::Scalar_t)==8) {
+		    	write_big_endian(static_cast<double>(NODE.vertex[0]));
+				write_big_endian(static_cast<double>(NODE.vertex[1]));
+				write_big_endian(static_cast<double>(NODE.vertex[2]));
+		    }
+	        
 	    }
 	    file << "\n";
 	    
@@ -327,14 +289,14 @@ namespace gv::mesh {
 	    // CELLS (binary data)
 	    file << "CELLS " << nElements << " " << nEntries << "\n";
 	    for (const Element_t &ELEM : mesh) {
-			write_be_size_t(ELEM.nodes.size());
-			for (size_t n_idx : ELEM.nodes) {write_be_size_t(n_idx);}
+			write_big_endian(static_cast<int>(ELEM.nodes.size()));
+			for (size_t n_idx : ELEM.nodes) {write_big_endian(static_cast<int>(n_idx));}
 	    }
 	    file << "\n";
 	    
 	    // CELL_TYPES (binary data)
 	    file << "CELL_TYPES " << nElements << "\n";
-	    for (const Element_t &ELEM : mesh) {write_be_int(ELEM.vtkID);}
+	    for (const Element_t &ELEM : mesh) {write_big_endian(static_cast<int>(ELEM.vtkID));}
 	    file << "\n";
 	}
 
@@ -376,24 +338,13 @@ namespace gv::mesh {
 	    	throw std::runtime_error("Node index " + std::to_string(nNodes) + " exceeds legacy VTK format limit.");
 	    }
 
-		// Helper lambda to write big-endian integers (cast to int32_t due to legacy vtk)
+	     // Helper lambda to write numbers in big-endian format. gv::util::FloatingPointBits
+	    // can be initialized with types convertible to integer or floating point types
 	    // PC is in little-endian, vtk/Paraview wants big-endian
-	    auto write_be_size_t = [&file](const size_t value) {
-	    	int32_t legacy_vtk_value = static_cast<int32_t>(value);
-	    	uint32_t be_value = ((legacy_vtk_value & 0xFF000000) >> 24) |
-	    						((legacy_vtk_value & 0x00FF0000) >> 8)  |
-	    						((legacy_vtk_value & 0x0000FF00) << 8)  |
-	    						((legacy_vtk_value & 0x000000FF) << 24);
-	    	file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
-	    };
-
-	    auto write_be_int = [&file](const int value) {
-	    	int32_t legacy_vtk_value = static_cast<int32_t>(value);
-	    	uint32_t be_value = ((legacy_vtk_value & 0xFF000000) >> 24) |
-	    						((legacy_vtk_value & 0x00FF0000) >> 8)  |
-	    						((legacy_vtk_value & 0x0000FF00) << 8)  |
-	    						((legacy_vtk_value & 0x000000FF) << 24);
-	    	file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
+	    auto write_big_endian = [&file](auto value) {
+	        gv::util::FloatingPointBits<8*sizeof(value)> converter(value);
+	        auto be_value = converter.big_endian();
+	        file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
 	    };
 		
 		//NODE DETAILS
@@ -414,8 +365,8 @@ namespace gv::mesh {
 			const Node_t &NODE = *it;
 			
 			size_t i;
-			for (i = 0; i < NODE.boundary_faces.size(); i++) {write_be_size_t(NODE.boundary_faces[i]);}
-			for (; i < max_boundary_faces; i++) {write_be_int(-1);}
+			for (i = 0; i < NODE.boundary_faces.size(); i++) {write_big_endian(static_cast<int>(NODE.boundary_faces[i]));}
+			for (; i < max_boundary_faces; i++) {write_big_endian(int(-1));}
 		}
 		file << "\n";
 		
@@ -429,15 +380,15 @@ namespace gv::mesh {
 		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
 			const Node_t &NODE = *it;
 			size_t i;
-			for (i = 0; i < NODE.elems.size(); i++) {write_be_size_t(NODE.elems[i]);}
-			for (; i < max_elem; i++) {write_be_int(-1);}
+			for (i = 0; i < NODE.elems.size(); i++) {write_big_endian(static_cast<int>(NODE.elems[i]));}
+			for (; i < max_elem; i++) {write_big_endian(int(-1));}
 		}
 		file << "\n";
 
 		if constexpr (requires {Node_t::index;}) {
 		    file << "index 1 " << nNodes << " int\n";
 		    for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-		        write_be_size_t(it->index);
+		        write_big_endian(static_cast<int>(it->index));
 		    }
 		    file << "\n";
 		}
@@ -457,22 +408,22 @@ namespace gv::mesh {
 		
 		if constexpr (requires {Element_t::index;}) {
 			file << "index 1 " << nElements << " integer\n";
-			for (const Element_t &ELEM : mesh) {write_be_size_t(ELEM.index);}
+			for (const Element_t &ELEM : mesh) {write_big_endian(static_cast<int>(ELEM.index));}
 		}
 		
 		if constexpr (requires {Element_t::color;}) {
 			file << "color 1 " << nElements << " integer\n";
 			for (const Element_t &ELEM : mesh) {
-				if (ELEM.color < (size_t)-1) {write_be_size_t(ELEM.color);} //valid color
-				else {write_be_int(-1);} //invalid color
+				if (ELEM.color < (size_t)-1) {write_big_endian(static_cast<int>(ELEM.color));} //valid color
+				else {write_big_endian(int(-1));} //invalid color
 			}
 		}
 
 		if constexpr (requires {Element_t::parent;}) {
 			file << "parent 1 " << nElements << " integer\n";
 			for (const Element_t &ELEM : mesh) {
-				if (ELEM.parent < (size_t)-1) {write_be_size_t(ELEM.parent);} //valid parent
-				else {write_be_int(-1);} //invalid parent
+				if (ELEM.parent < (size_t)-1) {write_big_endian(static_cast<int>(ELEM.parent));} //valid parent
+				else {write_big_endian(int(-1));} //invalid parent
 			}
 		}
 		
@@ -486,12 +437,12 @@ namespace gv::mesh {
 				file << "children " << max_children << " " << nElements << " integer\n";
 				for (const Element_t &ELEM : mesh) {
 					size_t i;
-					for (i=0; i<ELEM.children.size(); i++) {write_be_size_t(ELEM.children[i]);}
-					for (; i<max_children; i++) {write_be_int(-1);}
+					for (i=0; i<ELEM.children.size(); i++) {write_big_endian(static_cast<int>(ELEM.children[i]));}
+					for (; i<max_children; i++) {write_big_endian(int(-1));}
 				}
 			} else {
 				file << "children " << 1 << " " << nElements << " integer\n";
-				for (size_t i=0; i<nElements; i++) {write_be_int(-1);}
+				for (size_t i=0; i<nElements; i++) {write_big_endian(int(-1));}
 			}
 		}
 	}

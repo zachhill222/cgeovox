@@ -22,9 +22,9 @@ namespace gv::util {
 	public:
 		using Point_t = Point<dim,T>;
 
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		// Constructors
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		
 		// Default constructor: unit box centered at origin
 		constexpr Box() : _low(Point_t(-1.0)), _high(Point_t(1.0)) {}
@@ -50,9 +50,9 @@ namespace gv::util {
 		// Destructor
 		~Box() = default;
 
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		// Assignment operators
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		
 		// Copy assignment
 		constexpr Box& operator=(const Box &other) = default;
@@ -60,9 +60,9 @@ namespace gv::util {
 		// Move assignment
 		constexpr Box& operator=(Box &&other) noexcept = default;
 
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		// Attributes
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		
 		constexpr const Point_t& low() const {return _low;}
 		constexpr const Point_t& high() const {return _high;}
@@ -77,9 +77,9 @@ namespace gv::util {
 			return vol;
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		// Vertex access
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		
 		/// Get i-th vertex in VTK pixel/voxel order
 		/// Binary encoding: bit i determines whether to use low[i] or high[i]
@@ -123,9 +123,9 @@ namespace gv::util {
 			return vertex;
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		// Containment and intersection
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		
 		/// Check if point is in the closed box
 		constexpr bool contains(const Point_t &point) const {
@@ -167,9 +167,9 @@ namespace gv::util {
 			return (*this)[maxind];
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		// Geometric transformations
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		
 		/// Shift box by vector
 		constexpr Box& operator+=(const Point_t &shift) {
@@ -237,9 +237,9 @@ namespace gv::util {
 			return Box(elmax(_low, other._low), elmin(_high, other._high));
 		}
 
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		// Comparison
-		//============================================================
+		////////////////////////////////////////////////////////////////
 		
 		constexpr bool operator==(const Box<dim,T> &other) const {
 			return _low == other._low && _high == other._high;
@@ -250,17 +250,14 @@ namespace gv::util {
 		}
 	};
 
-	//============================================================
+	////////////////////////////////////////////////////////////////
 	// Free functions
-	//============================================================
-
-	/// Scalar multiplication (left-hand side)
+	////////////////////////////////////////////////////////////////
 	template <int dim, Scalar T, Scalar U>
 	constexpr Box<dim,T> operator*(const U &scale, const Box<dim,T> &box) {
 		return box * scale;
 	}
 
-	/// Distance squared from point to box
 	template <int dim, Scalar T>
 	constexpr T distance_squared(const Box<dim,T> &box, const Point<dim,T> &point) {
 		if (box.contains(point)) {
@@ -281,16 +278,13 @@ namespace gv::util {
 		return dist_sq;
 	}
 
-	/// Distance from point to box
 	template <int dim, Scalar T>
 	inline T distance(const Box<dim,T> &box, const Point<dim,T> &point) {
 		return std::sqrt(distance_squared(box, point));
 	}
 
-	/// Print box to stream
 	template<int dim, Scalar T>
 	std::ostream& operator<<(std::ostream& os, const Box<dim,T>& box) {
 		return os << "(" << box.low() << ") to (" << box.high() << ")";
 	}
-
-} // namespace gv::util
+}
