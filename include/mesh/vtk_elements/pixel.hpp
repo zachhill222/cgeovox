@@ -2,12 +2,14 @@
 
 #include "util/point.hpp"
 #include "util/box.hpp"
+#include "util/matrix.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/vtk_defs.hpp"
 
 #include <vector>
 #include <cassert>
+#include <functional>
 
 
 namespace gv::mesh {
@@ -40,17 +42,25 @@ namespace gv::mesh {
 	/// In fact sqrt(J^t J) = 0.25*h1*h2 where h1 and h2 are the side-lengths of the mesh element.
 	///
 	/////////////////////////////////////////////////
-	template <typename Point_t>
-	class VTK_PIXEL : public VTK_ELEMENT<Point_t> {
+	template <typename Vertex_t>
+	class VTK_PIXEL : public VTK_ELEMENT<Vertex_t> {
 	public:
-		VTK_PIXEL(const BasicElement &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nodes.size()==vtk_n_nodes(elem.vtkID));}
-		static constexpr int VTK_ID = PIXEL_VTK_ID;
+		VTK_PIXEL(const BasicElement &elem) : VTK_ELEMENT<Vertex_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nodes.size()==vtk_n_nodes(elem.vtkID));}
+		static constexpr int VTK_ID  = PIXEL_VTK_ID;
+		static constexpr int REF_DIM = 2; //dimension of the reference element
+		using Scalar_t    = typename Vertex_t::Scalar_t;
+		using RefPoint_t  = gv::util::Point<REF_DIM, Scalar_t>; //type of point in the reference element
+		using Matrix_t    = gv::util::Matrix<3,REF_DIM,Scalar_t>; //dimensions of the jacobian matrix (output space is always R3)
 
-		void split(std::vector<Point_t> &vertices) const override {
+		using ScalarFun_t = std::function<Scalar_t(RefPoint_t)>; //function type to evaluate a basis in the element
+		using VectorFun_t = std::function<Vertex_t(RefPoint_t)>; //function type to evaluate the gradient of a basis function
+		using MatrixFun_t = std::function<Matrix_t(RefPoint_t)>; //function type to evaluate the jacobian of the isoparametric mapping
+
+		void split(std::vector<Vertex_t> &vertices) const override {
 			assert(vertices.size()==vtk_n_nodes(VTK_ID));
 			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
 
-			using T = typename Point_t::Scalar_t;
+			using T = typename Vertex_t::Scalar_t;
 
 			//edge midpoints
 			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //4 - bottom
@@ -157,7 +167,7 @@ namespace gv::mesh {
 			}
 		}
 
-		bool isInterior(const std::vector<Point_t>& vertices, const Point_t& coord) const override {
+		bool isInterior(const std::vector<Vertex_t>& vertices, const Vertex_t& coord) const override {
 			assert(false);
 			return false;
 		}

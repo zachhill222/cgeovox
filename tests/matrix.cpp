@@ -54,10 +54,11 @@ gv::util::Matrix<n,n,Scalar_t> create_lower()
 int main(int argc, char* argv[])
 {
 	const int n=3;
-	const int m=3;
+	const int m=4;
 	const int p=3;
 
-	using Scalar_t = gv::util::FixedPoint<int64_t,-10>;
+	// using Scalar_t = gv::util::FixedPoint<int64_t,-10>;
+	using Scalar_t = long double;
 
 	//create and print matrix
 	gv::util::Matrix<n,m,Scalar_t> M = create_matrix<n,m,Scalar_t>();
@@ -105,7 +106,7 @@ int main(int argc, char* argv[])
 
 
 	//test QR
-	gv::util::Matrix<n,m,Scalar_t> Q;
+	gv::util::Matrix<m,m,Scalar_t> Q;
 	gv::util::Matrix<m,m,Scalar_t> R;
 	gv::util::partialQR(L,Q,R);
 

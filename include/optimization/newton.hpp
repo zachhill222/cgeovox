@@ -14,7 +14,9 @@
 #define LINESEARCH_MAXITER 128
 
 #define NEWTON_MAXITER 16
-#define GRADTOL 1E-10
+#define GRAD_TOL 1E-10
+#define INFTY_TOL 1E10
+#define ZERO_TOL 1E-15
 
 namespace gv::optimization
 {
@@ -25,16 +27,35 @@ namespace gv::optimization
 	using Matrix = gv::util::Matrix<dim, dim, Scalar_t>;
 
 	template<int dim, Scalar Scalar_t>
-	using ScalarFun_t = std::function<double(Point<dim,Scalar_t>)>;
+	using ScalarFun_t = std::function<Scalar_t(Point<dim,Scalar_t>)>;
 
 	template<int dim, Scalar Scalar_t>
-	using GradFun_t = std::function<Point<dim,Scalar_t>(Point<dim,Scalar_t>)>;
+	using VecFun_t = std::function<Point<dim,Scalar_t>(Point<dim,Scalar_t>)>;
 
+	template<int dim, Scalar Scalar_t>
+	using MatFun_t = std::function<Matrix<dim,Scalar_t>(Point<dim,Scalar_t>)>;
 
+	//////////////////////////////////////////////////////////////////
+	/// Attempt to minimize the function f along the specified direction.
+	/// This function uses the backtracking algorithm with the Armijo-Goldstein stopping criteria.
+	/// If the linesearch converges, it returns alpha such that
+	///
+	///         f(x0+alpha*direction) <= f(x0) + alpha*C*dot(gradf(x0), direction)
+	///
+	/// where 0<C<1 is a parameter (set by LINESEARCH_C) that determines the strictness of the improvement
+	/// of the step. 
+	///
+	/// @param x0        The initial guess
+	/// @param f         The function to minimize
+	/// @param grad0     The gradient of f at x0
+	/// @param direction The search direction
+	//////////////////////////////////////////////////////////////////
 	template<int dim, Scalar Scalar_t>
 	Scalar_t linesearch(const Point<dim,Scalar_t> &x0, const ScalarFun_t<dim,Scalar_t>& f, const Point<dim,Scalar_t> &grad0, const Point<dim,Scalar_t> &direction)
 	{
-		Scalar_t alpha = (Scalar_t) LINESEARCH_A0;
+		static_assert(0<LINESEARCH_C and LINESEARCH_C<1, "linesearch: The parameter LINESEARCH_C must be between 0 and 1.");
+
+		Scalar_t alpha(LINESEARCH_A0);
 		Scalar_t f0    = f(x0);
 		Scalar_t CgradDir = LINESEARCH_C * gv::util::dot(grad0,direction);
 
@@ -50,7 +71,7 @@ namespace gv::optimization
 
 
 	template<int dim, Scalar Scalar_t>
-	Point<dim,Scalar_t> quasiNewtonDFP(const ScalarFun_t<dim,Scalar_t>&f, const GradFun_t<dim,Scalar_t>&grad, const Point<dim,Scalar_t> &x0)
+	Point<dim,Scalar_t> quasiNewtonDFP(const ScalarFun_t<dim,Scalar_t>&f, const VecFun_t<dim,Scalar_t>&grad, const Point<dim,Scalar_t> &x0)
 	{
 		//initialize estimate of the inverse hessian
 		Matrix<dim,Scalar_t> D;
@@ -71,7 +92,7 @@ namespace gv::optimization
 			//update and check for convergence
 			next_x    = last_x + step;
 			Point<dim,Scalar_t> next_grad = grad(next_x);
-			if (gv::util::norminfty(next_grad) < GRADTOL) {return next_x;}
+			if (gv::util::norminfty(next_grad) < GRAD_TOL) {return next_x;}
 
 			//update estimate of the inverse hessian
 			Point<dim,Scalar_t> delta_grad = next_grad - last_grad;
@@ -84,7 +105,7 @@ namespace gv::optimization
 			last_x    = next_x;
 			last_grad = next_grad;
 		}
-
+		
 		std::cout << "WARNING: Newton (DFP) did not converge" << std::endl;
 		return next_x;
 	}
@@ -94,7 +115,7 @@ namespace gv::optimization
 	template<int dim, Scalar Scalar_t>
 	Point<dim,Scalar_t> minimum_distanceNewtonBFGS(
 		const ScalarFun_t<dim,Scalar_t>&g,
-		const GradFun_t<dim,Scalar_t>&grad, 
+		const VecFun_t<dim,Scalar_t>&grad, 
 		const Point<dim,Scalar_t> &x0, 
 		const Point<dim,Scalar_t> &initial_guess)
 	{
@@ -121,8 +142,8 @@ namespace gv::optimization
 			}
 			rhs[dim] = g(last_x);
 
-			if (gv::util::norminfty(rhs) < GRADTOL) {return last_x;}
-			if (gv::util::norminfty(last_grad) < GRADTOL or gv::util::norminfty(last_grad)>1E10) {return last_x;}
+			if (gv::util::norminfty(rhs) < GRAD_TOL) {return last_x;}
+			if (gv::util::norminfty(last_grad) < GRAD_TOL or gv::util::norminfty(last_grad)>INFTY_TOL) {return last_x;}
 
 			//assemble hessian+constraint matrix
 			for (int i=0; i<dim; i++)
@@ -171,7 +192,7 @@ namespace gv::optimization
 
 			//update estimate of the inverse hessian (BFGS update rule)
 			Point<dim,Scalar_t> delta_grad = next_grad - last_grad;
-			if (gv::util::norminfty(delta_grad)<GRADTOL) {return next_x;}
+			if (gv::util::norminfty(delta_grad)<GRAD_TOL) {return next_x;}
 
 			B += (((Scalar_t) 1)/gv::util::dot(step_x,delta_grad)) * gv::util::outer(delta_grad,delta_grad);
 			Point<dim,Scalar_t> B_step_x = B*step_x;
@@ -185,5 +206,41 @@ namespace gv::optimization
 
 		// std::cout << "WARNING: constrained Newton (BFGS) did not converge" << std::endl;
 		return next_x;
+	}
+
+
+	/////////////////////////////////////////////////////////////
+	/// Solve F(x)=0 where J=F'(x) is provided
+	///
+	/// @param F   Funcion to find the zero of
+	/// @param J   Jacobian matrix of the function F
+	/// @param x0  Initial guess (defaults to the origin)
+	/// @param tol Tolerance of the stopping criteria. Stop when norminfty(F(x)<tol).
+	///
+	/// @tparam dim The dimension of the vector space we are working in (should be small for this implementation)
+	/// @tparam Scalar_t The type of scalars we are workng with (should probably convert to float rather than passing in a FixedPrecision type)
+	/////////////////////////////////////////////////////////////
+	template<int dim, Scalar Scalar_t>
+	Point<dim,Scalar_t> solve_nlin_newton(
+		const VecFun_t<dim,Scalar_t>& F, 
+		const MatFun_t<dim,Scalar_t>& J, 
+		const Point<dim,Scalar_t>&    x0 = Point<dim,Scalar_t>(Scalar_t{0}),
+		const Scalar_t               tol = Scalar_t(ZERO_TOL)
+		)
+	{
+		Point<dim,Scalar_t> x = x0;
+		
+		//main loop
+		for (int k=0; k<NEWTON_MAXITER; k++)
+		{
+			Matrix<dim,Scalar_t> jac = J(x);
+			Point<dim,Scalar_t>  fun = F(x);
+			Point<dim,Scalar_t>  dir = jac/fun;
+			x-=dir; //might be worth it to do a linesearch here?
+			if (gv::util::norminfty(fun) < tol) {return x;}
+		}
+
+		std::cout << "WARNING: unconstranded newton (solve_nlin_newton) did not converge: " << "||F(x)||_infty= " << gv::util::norminfty(F(x)) << std::endl;
+		return x;
 	}
 }
