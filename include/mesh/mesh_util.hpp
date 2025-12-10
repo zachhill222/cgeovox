@@ -26,9 +26,9 @@ namespace gv::mesh
 	/////////////////////////////////////////////////
 	template<typename T>
 	concept BasicMeshElement = requires(T elem) {
-		{ elem.nodes } -> std::convertible_to<std::vector<size_t>>;
-		{ elem.vtkID } -> std::convertible_to<int>;
-		{ elem.index } -> std::convertible_to<size_t>;
+		{ elem.vertices } -> std::convertible_to<std::vector<size_t>>;
+		{ elem.vtkID    } -> std::convertible_to<int>;
+		{ elem.index    } -> std::convertible_to<size_t>;
 	};
 
 	/////////////////////////////////////////////////
@@ -74,14 +74,14 @@ namespace gv::mesh
 	/// Struct for tracking basic element information
 	/////////////////////////////////////////////////
 	struct BasicElement {
-		std::vector<size_t> nodes;
+		std::vector<size_t> vertices;
 		int vtkID;
 		size_t index = (size_t) -1;
-		BasicElement() : nodes(), vtkID(0) {}
-		BasicElement(const BasicElement& other) : nodes(other.nodes), vtkID(other.vtkID), index(other.index) {}
-		BasicElement(const int vtkID) : nodes(vtk_n_nodes(vtkID)), vtkID(vtkID) {}
-		BasicElement(const std::vector<size_t> &nodes, const int vtkID) : nodes(nodes), vtkID(vtkID) {
-			assert(nodes.size()==vtk_n_nodes(vtkID));
+		BasicElement() : vertices(), vtkID(0) {}
+		BasicElement(const BasicElement& other) : vertices(other.vertices), vtkID(other.vtkID), index(other.index) {}
+		BasicElement(const int vtkID) : vertices(vtk_n_vertices(vtkID)), vtkID(vtkID) {}
+		BasicElement(const std::vector<size_t> &vertices, const int vtkID) : vertices(vertices), vtkID(vtkID) {
+			assert(vertices.size()==vtk_n_vertices(vtkID));
 		}
 	};
 	static_assert(BasicMeshElement<BasicElement>, "BasicElement is not a BasicMeshElement");
@@ -93,7 +93,7 @@ namespace gv::mesh
 		size_t color = (size_t) -1;
 		ColoredElement() : BasicElement() {}
 		ColoredElement(const int vtkID) : BasicElement(vtkID) {}
-		ColoredElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID) {}
+		ColoredElement(const std::vector<size_t> &vertices, const int vtkID) : BasicElement(vertices, vtkID) {}
 		ColoredElement(const BasicElement& other) : BasicElement(other) {}
 		ColoredElement(const ColoredElement& other) : 
 			BasicElement(other),
@@ -112,7 +112,7 @@ namespace gv::mesh
 		std::vector<size_t> children;
 		HierarchicalElement() : BasicElement(), children{} {}
 		HierarchicalElement(const int vtkID) : BasicElement(vtkID), children{} {children.reserve(vtk_n_children(vtkID));}
-		HierarchicalElement(const std::vector<size_t> &nodes, const int vtkID) : BasicElement(nodes, vtkID), children{} {children.reserve(vtk_n_children(vtkID));}
+		HierarchicalElement(const std::vector<size_t> &vertices, const int vtkID) : BasicElement(vertices, vtkID), children{} {children.reserve(vtk_n_children(vtkID));}
 		HierarchicalElement(const BasicElement& other) : BasicElement(other), children{} {children.reserve(vtk_n_children(vtkID));}
 		HierarchicalElement(const HierarchicalElement& other) : 
 			BasicElement(other),
@@ -131,7 +131,7 @@ namespace gv::mesh
 		size_t color = (size_t) -1;
 		HierarchicalColoredElement() {}
 		HierarchicalColoredElement(const int vtkID) : HierarchicalElement(vtkID) {}
-		HierarchicalColoredElement(const std::vector<size_t> &nodes, const int vtkID) : HierarchicalElement(nodes, vtkID) {}
+		HierarchicalColoredElement(const std::vector<size_t> &vertices, const int vtkID) : HierarchicalElement(vertices, vtkID) {}
 		HierarchicalColoredElement(const BasicElement& other) : HierarchicalElement(other) {}
 		HierarchicalColoredElement(const HierarchicalColoredElement& other) : 
 			HierarchicalElement(other),
@@ -151,10 +151,10 @@ namespace gv::mesh
 	/// Check if two elements are the same (up to orientation)
 	bool operator==(const BasicElement &A, const BasicElement &B) {
 		if (A.vtkID!=B.vtkID) {return false;}
-		if (A.nodes.size()!=B.nodes.size()) {return false;}
+		if (A.vertices.size()!=B.vertices.size()) {return false;}
 
-		std::vector<size_t> a = A.nodes;
-		std::vector<size_t> b = B.nodes;
+		std::vector<size_t> a = A.vertices;
+		std::vector<size_t> b = B.vertices;
 		std::sort(a.begin(), a.end());
 		std::sort(b.begin(), b.end());
 
@@ -162,24 +162,24 @@ namespace gv::mesh
 	};
 
 
-	/// Element hashing function for use in unordered_set (for example). The order of the element nodes is irrelevent to the hash value.
+	/// Element hashing function for use in unordered_set (for example). The order of the element vertices is irrelevent to the hash value.
 	struct ElemHashBitPack {
 		size_t operator()(const BasicElement& ELEM) const {
-			//sort the nodes
-			std::vector<size_t> nodes = ELEM.nodes;
-			std::sort(nodes.begin(), nodes.end());
+			//sort the vertices
+			std::vector<size_t> vertices = ELEM.vertices;
+			std::sort(vertices.begin(), vertices.end());
 
 			//initialize the hash by getting the last few bits from each node index
 			size_t hash = 0;
 			size_t bits_per_node;
-			if constexpr (sizeof(size_t)==4) {bits_per_node=32/nodes.size();} //32-bit
-			else if constexpr (sizeof(size_t)==8) {bits_per_node=64/nodes.size();} //64-bit
+			if constexpr (sizeof(size_t)==4) {bits_per_node=32/vertices.size();} //32-bit
+			else if constexpr (sizeof(size_t)==8) {bits_per_node=64/vertices.size();} //64-bit
 			else {bits_per_node=1;}
 
 			size_t mask = (((size_t) 1) << bits_per_node) - 1; //exactly the last bits_per_node bits are 1
 
-			for (size_t i=0; i<nodes.size(); i++) {
-				size_t node_bits = nodes[i] & mask;
+			for (size_t i=0; i<vertices.size(); i++) {
+				size_t node_bits = vertices[i] & mask;
 				hash |= (node_bits << (i*bits_per_node));
 			}
 
@@ -208,8 +208,8 @@ namespace gv::mesh
 	std::ostream& operator<<(std::ostream& os, const Element_t &elem) {
 		os << "vtkID= " << elem.vtkID << " (" << vtk_id_to_string(elem.vtkID) << ")\n";
 		os << "index= " << elem.index << "\n";
-		os << "nodes (" << elem.nodes.size() << ") : [ ";
-		for (size_t n : elem.nodes) {os << n << " ";}
+		os << "vertices (" << elem.vertices.size() << ") : [ ";
+		for (size_t n : elem.vertices) {os << n << " ";}
 		os << "]\n";
 
 		if constexpr (ColorableMeshElement<Element_t>) {
@@ -244,53 +244,53 @@ namespace gv::mesh
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/////////////////////////////////////////////////
-	/// Concept for a node
+	/// Concept for a vertex
 	/////////////////////////////////////////////////
 	template<typename T>
-	concept BasicMeshNode = requires(T node) {
-		typename T::Vertex_t;
+	concept BasicMeshVertex = requires(T vertex) {
+		typename T::Point_t;
 		typename T::Scalar_t;
-		requires gv::util::PointLike<decltype(node.vertex)>;
-		{ node.elems  } -> std::convertible_to<std::vector<size_t>>;
-		{ node.boundary_faces  } -> std::convertible_to<std::vector<size_t>>;
+		requires gv::util::PointLike<decltype(vertex.coord)>;
+		{ vertex.elems  } -> std::convertible_to<std::vector<size_t>>;
+		{ vertex.boundary_faces  } -> std::convertible_to<std::vector<size_t>>;
 	};
 
 
 	/////////////////////////////////////////////////
 	/// A container for tracking the node information.
 	/// Usually Point_t = gv::util::Point<3,double>, but 2-D meshes or different precisions are allowed.
-	/// If the mesh has more than one element type, should be the maximum number of nodes required to define any of the used element types.
-	/// This allows the nodes to be stored in a contiguous array as they all will require the same amount of memory. For a hexahedral mesh,=8.
+	/// If the mesh has more than one element type, should be the maximum number of vertices required to define any of the used element types.
+	/// This allows the vertices to be stored in a contiguous array as they all will require the same amount of memory. For a hexahedral mesh,=8.
 	/////////////////////////////////////////////////
 	template <gv::util::PointLike Point_type>
-	struct BasicNode {
-		using Vertex_t = Point_type;
-		using Scalar_t = typename Vertex_t::Scalar_t;
-		static constexpr int dim = Vertex_t::dimension;
+	struct BasicVertex {
+		using Point_t  = Point_type;
+		using Scalar_t = typename Point_t::Scalar_t;
+		static constexpr int dim = Point_t::dimension;
 
-		Vertex_t vertex; /// The location of this node in space.
+		Point_t coord; /// The location of this node in space.
 		std::vector<size_t> elems; /// The elements that use this node
 		std::vector<size_t> boundary_faces; /// The boundary faces/elements that use this node
-		size_t index = (size_t) -1; /// The index of this node in _nodes. Sometimes helpful to have this recorded in the node.
-		BasicNode(const Vertex_t &coord) : vertex(coord), elems(), boundary_faces(0) {}
-		BasicNode() : vertex(), elems(), boundary_faces(0) {}
+		size_t index = (size_t) -1; /// The index of this node in _vertices. Sometimes helpful to have this recorded in the node.
+		BasicVertex(const Point_t &coord) : coord(coord), elems(), boundary_faces(0) {}
+		BasicVertex() : coord(), elems(), boundary_faces(0) {}
 	};
-	static_assert(BasicMeshNode<BasicNode<gv::util::Point<3,double>>>, "BasicNode<Point<3,double>> is not a BasicMeshNode");
-	static_assert(BasicMeshNode<BasicNode<gv::util::Point<2,double>>>, "BasicNode<Point<2,double>> is not a BasicMeshNode");
-	static_assert(BasicMeshNode<BasicNode<gv::util::Point<3,float>>>,  "BasicNode<Point<3,float>> is not a BasicMeshNode");
-	static_assert(BasicMeshNode<BasicNode<gv::util::Point<2,float>>>,  "BasicNode<Point<2,float>> is not a BasicMeshNode");
+	static_assert(BasicMeshVertex<BasicVertex<gv::util::Point<3,double>>>, "BasicVertex<Point<3,double>> is not a BasicMeshVertex");
+	static_assert(BasicMeshVertex<BasicVertex<gv::util::Point<2,double>>>, "BasicVertex<Point<2,double>> is not a BasicMeshVertex");
+	static_assert(BasicMeshVertex<BasicVertex<gv::util::Point<3,float>>>,  "BasicVertex<Point<3,float>> is not a BasicMeshVertex");
+	static_assert(BasicMeshVertex<BasicVertex<gv::util::Point<2,float>>>,  "BasicVertex<Point<2,float>> is not a BasicMeshVertex");
 
-	/// Equality check for mesh nodes for use in the octree.
-	template <BasicMeshNode Node_t>
+	/// Equality check for mesh vertices for use in the octree.
+	template <BasicMeshVertex Node_t>
 	bool operator==(const Node_t &A, const Node_t &B) {
-		return A.vertex==B.vertex;
+		return A.coord==B.coord;
 	}
 
 	/// Node printing
-	template<BasicMeshNode Node_t>
+	template<BasicMeshVertex Node_t>
 	std::ostream& operator<<(std::ostream& os, const Node_t &node) {
 		os << "index= " << node.index << "\n";
-		os << "vertex= " << node.vertex << "\n";
+		os << "coord= " << node.coord << "\n";
 		os << "elems (" << node.elems.size() << "): ";
 		for (size_t n : node.elems) {
 			os << n << " ";
@@ -301,17 +301,17 @@ namespace gv::mesh
 	}
 
 	/// Node name printing
-	template<BasicMeshNode Node_t>
+	template<BasicMeshVertex Node_t>
 	std::string nodeTypeName() {
-		if constexpr (std::same_as<Node_t,BasicNode<typename Node_t::Vertex_t>>) {return "BasicNode";}
+		if constexpr (std::same_as<Node_t,BasicVertex<typename Node_t::Point_t>>) {return "BasicVertex";}
 		else {return "UNKNOWN";}
 	}
 
 	/////////////////////////////////////////////////
-	/// A container for storing the nodes in an octree for more efficeint lookup. This is important as we must query if a node already exists in the mesh.
+	/// A container for storing the vertices in an octree for more efficeint lookup. This is important as we must query if a node already exists in the mesh.
 	/// @todo Determine if a kd-tree is better.
 	/////////////////////////////////////////////////
-	template<BasicMeshNode Node_t, int N_DATA=64, Scalar T=double>
+	template<BasicMeshVertex Node_t, int N_DATA=64, Scalar T=double>
 	class NodeOctree : public gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, T>
 	{
 	public:
@@ -324,8 +324,7 @@ namespace gv::mesh
 		NodeOctree(const Box_t &bbox) : Parent_t(bbox) {}
 
 	private:
-		bool isValid(const Box_t &box, const Data_t &data) const override {return box.contains(data.vertex);}
-		// bool isValid(const Box_t &box, const Data_t &data) const override {return gv::util::distance_squared(box,data.vertex) < 1e-2;}
+		bool isValid(const Box_t &box, const Data_t &data) const override {return box.contains(data.coord);}
 	};
 
 
@@ -339,7 +338,7 @@ namespace gv::mesh
 		typename T::element_type;
 		typename T::face_type;
 		typename T::node_type;
-		typename T::Vertex_t;
+		typename T::Point_t;
 		typename T::ElementIterator_t;
 		typename T::BoundaryIterator_t;
 	};

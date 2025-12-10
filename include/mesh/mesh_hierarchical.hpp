@@ -28,29 +28,29 @@ namespace gv::mesh {
 	/// The original element is the parent of the children elements and this relationship is stored in each element. The number of child
 	/// elements depends on the element type. For example, voxels and hexahedra have eight children while pixels and quads have four.
 	/// 
-	/// @tparam Node_t       The type of node to use. Usually BasicNode<gv::util::Point<3,double>>.
+	/// @tparam Vertex_t       The type of node to use. Usually BasicVertex<gv::util::Point<3,double>>.
 	/// @tparam Element_t    The type of element to use. This is usually set by the class that inherits from this class.
 	/// @tparam Face_t       The type of boundary element to use. This is usually set by the class that inherits from this class.
 	/// @tparam COLOR_METHOD The method used to color the elements. Either greedy (ColorMethod::GREEDY) or balanced (ColorMethod::BALANCED).
 	/// @tparam MAX_COLORS   The maximum number of colors that the mesh can have. Colors are stored in an std::array<std::atomic<size_t>> structure that is not resized.
 	/////////////////////////////////////////////////
-	template<BasicMeshNode                    Node_t       = BasicNode<gv::util::Point<3,double>>,
+	template<BasicMeshVertex                  Vertex_t     = BasicVertex<gv::util::Point<3,double>>,
 			 HierarchicalColorableMeshElement Element_t    = HierarchicalColoredElement,
 			 HierarchicalMeshElement          Face_t       = HierarchicalElement,
 			 ColorMethod                      COLOR_METHOD = ColorMethod::GREEDY,
 			 size_t                           MAX_COLORS   = 32>
-	class HierarchicalMesh : public ColoredMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS> {
+	class HierarchicalMesh : public ColoredMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS> {
 	private:
-		using BaseClass = ColoredMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>;
+		using BaseClass = ColoredMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>;
 		mutable std::shared_mutex   _el_split_rw_mtx;   //mutex to lock _elements_to_split
 		std::unordered_set<size_t>	_elements_to_split; //indices of elements that are to be refined
 	public:
 		//aliases
 		template<int n=3>
-		using Index_t            = gv::util::Point<n,size_t>;
+		using Index_t           = gv::util::Point<n,size_t>;
 		template<int n=3>
-		using Box_t              = gv::util::Box<n, typename Node_t::Scalar_t>;
-		using Vertex_t           = Node_t::Vertex_t;
+		using Box_t             = gv::util::Box<n, typename Vertex_t::Scalar_t>;
+		using Point_t           = Vertex_t::Point_t;
 
 		/////////////////////////////////////////////////
 		/// Pass constructors to BaseClass
@@ -114,7 +114,7 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		/// A method to mark an element to be split/refined. The element that is split will have the new elements added as children,
 		/// and the new elements that are created will have the element that was split as a parent. The new elements are of the same type as the original.
-		/// New nodes will most likely be created and old nodes updated during this process.
+		/// New vertices will most likely be created and old vertices updated during this process.
 		///
 		/// If the specified element has already been split and re-joined (i.e., the children exist), then the children are simply activated and
 		/// no new elements are created in memory. If this _elements[elem_idx].is_active is false, then the method returns without making any changes.
@@ -161,7 +161,7 @@ namespace gv::mesh {
 
 
 		/// Friend function to print the mesh information
-		template<BasicMeshNode                Node_u,
+		template<BasicMeshVertex                Node_u,
 			 HierarchicalColorableMeshElement Element_u,
 			 HierarchicalMeshElement          Face_u,
 			 ColorMethod                      color_method,
@@ -185,28 +185,28 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		template<BasicMeshElement Element_u>
 		std::vector<size_t> generateNodesForSplit(const Element_u &ELEM) {
-			VTK_ELEMENT<Vertex_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Vertex_t>(ELEM);
+			VTK_ELEMENT<Point_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Point_t>(ELEM);
 
 			//initialize storage for the values that will be needed to create the children elements
-			std::vector<Vertex_t> child_vertex_coords;
-			std::vector<size_t>   split_node_numbers(vtk_n_nodes_when_split(ELEM.vtkID));
+			std::vector<Point_t> child_vertex_coords;
+			std::vector<size_t>   split_node_numbers(vtk_n_vertices_when_split(ELEM.vtkID));
 			
-			//handle parent nodes/vertices that will be re-used
+			//handle parent vertices/vertices that will be re-used
 			size_t j;
-			for (j=0; j<ELEM.nodes.size(); j++) {
-				child_vertex_coords.push_back(this->_nodes[ELEM.nodes[j]].vertex);
-				split_node_numbers[j] = ELEM.nodes[j];
+			for (j=0; j<ELEM.vertices.size(); j++) {
+				child_vertex_coords.push_back(this->_vertices[ELEM.vertices[j]].coord);
+				split_node_numbers[j] = ELEM.vertices[j];
 			}
 
-			//get the verticices of the remaining nodes that the children will need
+			//get the verticices of the remaining vertices that the children will need
 			vtk_elem->split(child_vertex_coords);
 
-			//add any new nodes
+			//add any new vertices
 			std::vector<size_t> local_node;
 			for (;j<child_vertex_coords.size(); j++) {
-				Node_t NODE(child_vertex_coords[j]);
-				size_t n_idx = this->_nodes.push_back_async(std::move(NODE));
-				this->_nodes[n_idx].index = n_idx;
+				Vertex_t VERTEX(child_vertex_coords[j]);
+				size_t n_idx = this->_vertices.push_back_async(std::move(VERTEX));
+				this->_vertices[n_idx].index = n_idx;
 				split_node_numbers[j] = n_idx;
 			}
 
@@ -216,12 +216,12 @@ namespace gv::mesh {
 	};
 	
 
-	template<BasicMeshNode                    Node_t,
+	template<BasicMeshVertex                  Vertex_t,
 			 HierarchicalColorableMeshElement Element_t,
 			 HierarchicalMeshElement          Face_t,
 			 ColorMethod                      COLOR_METHOD,
 			 size_t                           MAX_COLORS>
-	void HierarchicalMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::getElementDescendents_Unlocked(
+	void HierarchicalMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::getElementDescendents_Unlocked(
 		const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly) const 
 	{	
 		const Element_t &ELEM = this->_elements[elem_idx];
@@ -238,12 +238,12 @@ namespace gv::mesh {
 	}
 
 
-	template<BasicMeshNode                    Node_t,
+	template<BasicMeshVertex                    Vertex_t,
 			 HierarchicalColorableMeshElement Element_t,
 			 HierarchicalMeshElement          Face_t,
 			 ColorMethod                      COLOR_METHOD,
 			 size_t                           MAX_COLORS>
-	void HierarchicalMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::getBoundaryFaceDescendents_Unlocked(
+	void HierarchicalMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::getBoundaryFaceDescendents_Unlocked(
 		const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly) const 
 	{	
 		const Face_t &ELEM = this->_boundary[elem_idx];
@@ -259,12 +259,12 @@ namespace gv::mesh {
 		}
 	}
 
-	template<BasicMeshNode                    Node_t,
+	template<BasicMeshVertex                    Vertex_t,
 			 HierarchicalColorableMeshElement Element_t,
 			 HierarchicalMeshElement          Face_t,
 			 ColorMethod                      COLOR_METHOD,
 			 size_t                           MAX_COLORS>
-	void HierarchicalMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::joinDescendents(const size_t elem_idx) {
+	void HierarchicalMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::joinDescendents(const size_t elem_idx) {
 		//get the active descendents of the element
 		std::vector<size_t> descendents;
 		getElementDescendents_Unlocked(elem_idx, descendents, false);
@@ -312,12 +312,12 @@ namespace gv::mesh {
 	}
 
 
-	template<BasicMeshNode                    Node_t,
+	template<BasicMeshVertex                    Vertex_t,
 			 HierarchicalColorableMeshElement Element_t,
 			 HierarchicalMeshElement          Face_t,
 			 ColorMethod                      COLOR_METHOD,
 			 size_t                           MAX_COLORS>
-	void HierarchicalMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::splitElement(const size_t elem_idx) {
+	void HierarchicalMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::splitElement(const size_t elem_idx) {
 		//any changes to _elements[elem_idx] are not protected by a unique mutex lock
 		//calling splitElement(k) for the same value of k in different threads will lead to undefined behavior
 		//calling splitElement(k) for different values of k in defferent threads is safe
@@ -379,27 +379,27 @@ namespace gv::mesh {
 	}
 
 	
-	template<BasicMeshNode                    Node_t,
+	template<BasicMeshVertex                    Vertex_t,
 			 HierarchicalColorableMeshElement Element_t,
 			 HierarchicalMeshElement          Face_t,
 			 ColorMethod                      COLOR_METHOD,
 			 size_t                           MAX_COLORS>
-	void HierarchicalMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::splitElement_Unlocked(const size_t elem_idx, const size_t child_idx_start, const size_t child_face_start) {
+	void HierarchicalMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::splitElement_Unlocked(const size_t elem_idx, const size_t child_idx_start, const size_t child_face_start) {
 		Element_t &ELEM = this->_elements[elem_idx];
 		std::vector<size_t> split_node_numbers = generateNodesForSplit(ELEM);
 
-		VTK_ELEMENT<Vertex_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Vertex_t>(ELEM);
+		VTK_ELEMENT<Point_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Point_t>(ELEM);
 
-		//now all nodes have been created to create the children
+		//now all vertices have been created to create the children
 		assert(ELEM.is_active);
 		ELEM.is_active = false;
 
 		
 
 		for (size_t k=0; k<vtk_n_children(ELEM.vtkID); k++) {
-			//get the indices of the nodes that define child k in the correct order
+			//get the indices of the vertices that define child k in the correct order
 			std::vector<size_t> childNodes;
-			vtk_elem->getChildNodes(childNodes, k, split_node_numbers);
+			vtk_elem->getChildVertices(childNodes, k, split_node_numbers);
 
 			//create the child
 			const size_t global_child_index = child_idx_start + k;
@@ -425,15 +425,15 @@ namespace gv::mesh {
 			FACE.is_active = false;
 			const FaceTracker &TRACKER = this->_boundary_track[f_idx];
 
-			VTK_ELEMENT<Vertex_t>* vtk_face = _VTK_ELEMENT_FACTORY<Vertex_t>(FACE);
+			VTK_ELEMENT<Point_t>* vtk_face = _VTK_ELEMENT_FACTORY<Point_t>(FACE);
 
-			std::vector<size_t> face_split_nodes;
-			vtk_elem->getSplitFaceNodes(face_split_nodes, TRACKER.elem_face, split_node_numbers);
+			std::vector<size_t> face_split_vertices;
+			vtk_elem->getSplitFaceVertices(face_split_vertices, TRACKER.elem_face, split_node_numbers);
 
 			//split the face
 			std::vector<size_t> faceChildNodes;
 			for (size_t k=0; k<vtk_n_children(FACE.vtkID); k++) {
-				vtk_face->getChildNodes(faceChildNodes, k, face_split_nodes);
+				vtk_face->getChildVertices(faceChildNodes, k, face_split_vertices);
 
 				//get the index for the new face
 				const size_t global_face_child_index = child_face_start + n_faces;
@@ -446,7 +446,7 @@ namespace gv::mesh {
 				FaceTracker newTracker {(size_t)-1,-1};
 				for (size_t c_idx : ELEM.children) {
 					const Element_t &CHILD = this->_elements[c_idx];
-					VTK_ELEMENT<Vertex_t>* vtk_child = _VTK_ELEMENT_FACTORY<Vertex_t>(CHILD);
+					VTK_ELEMENT<Point_t>* vtk_child = _VTK_ELEMENT_FACTORY<Point_t>(CHILD);
 					for (int cf_idx=0; cf_idx<vtk_n_faces(CHILD.vtkID); cf_idx++) {
 						if (newFace == vtk_child->getFace(cf_idx)) {
 							newTracker.elem_idx = CHILD.index;
@@ -478,12 +478,12 @@ namespace gv::mesh {
 
 	
 
-	template<BasicMeshNode                    Node_t,
+	template<BasicMeshVertex                    Vertex_t,
 			 HierarchicalColorableMeshElement Element_t,
 			 HierarchicalMeshElement          Face_t,
 			 ColorMethod                      COLOR_METHOD,
 			 size_t                           MAX_COLORS>
-	void HierarchicalMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::processSplit() {
+	void HierarchicalMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS>::processSplit() {
 		//This method refines all elements in _elements_to_split by color batches
 		//Each batch consists of all elements with a specific color
 		//No two elements in the same color batch share a node
@@ -541,7 +541,7 @@ namespace gv::mesh {
 
 				const Element_t &ELEM = this->_elements[e_idx];
 				nNewElements += vtk_n_children(ELEM.vtkID);
-				maxNewNodes  += vtk_n_nodes_when_split(ELEM.vtkID) - vtk_n_nodes(ELEM.vtkID);
+				maxNewNodes  += vtk_n_vertices_when_split(ELEM.vtkID) - vtk_n_vertices(ELEM.vtkID);
 
 				std::vector<size_t> faces;
 				this->getBoundaryFaces_Unlocked(e_idx, faces);
@@ -558,7 +558,7 @@ namespace gv::mesh {
 			this->_elements.resize(nStartingElements+nNewElements);
 			this->_boundary.resize(nStartingFaces+nNewFaces);
 			this->_boundary_track.resize(nStartingFaces+nNewFaces);
-			this->_nodes.resize(this->_nodes.size()+maxNewNodes);
+			this->_vertices.resize(this->_vertices.size()+maxNewNodes);
 
 			//decrement the _colorCount by the number of elements that will be deactivated
 			this->_color_manager.decrementCount(color,this_color_elems.size());
@@ -569,24 +569,24 @@ namespace gv::mesh {
 				assert(this->_elements[this_color_elems[i]].color == color);
 				splitElement_Unlocked(this_color_elems[i], child_element_index_start[i], child_face_index_start[i]);
 			}
-			this->_nodes.flush(); //ensure nodes are up-to-date before starting the next color
+			this->_vertices.flush(); //ensure vertices are up-to-date before starting the next color
 		}
 		
 		//clean up data structures
 		_elements_to_split.clear();
-		this->_nodes.shrink_to_fit();
+		this->_vertices.shrink_to_fit();
 	}
 
 
 
 
-	template<BasicMeshNode                    Node_t,
+	template<BasicMeshVertex                    Vertex_t,
 			 HierarchicalColorableMeshElement Element_t,
 			 HierarchicalMeshElement          Face_t,
 			 ColorMethod                      COLOR_METHOD,
 			 size_t                           MAX_COLORS>
-	std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS> &mesh) {
-		const ColoredMesh<Node_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS> &base_mesh = mesh;
+	std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS> &mesh) {
+		const ColoredMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD,MAX_COLORS> &base_mesh = mesh;
 		os << base_mesh;
 		os << mesh._color_manager;
 		return os;

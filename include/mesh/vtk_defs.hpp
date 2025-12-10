@@ -43,8 +43,8 @@ namespace gv::mesh {
 
 
 
-	/// Helper function to pair vtkID to number of nodes
-	constexpr size_t vtk_n_nodes(const int vtkID) {
+	/// Helper function to pair vtkID to number of vertices
+	constexpr size_t vtk_n_vertices(const int vtkID) {
 		switch (vtkID) {
 			case VERTEX_VTK_ID: 				 return 1;
 			case LINE_VTK_ID: 					 return 2;
@@ -132,7 +132,7 @@ namespace gv::mesh {
 	}
 
 	/// Helper function get the number nodes after split
-	constexpr int vtk_n_nodes_when_split(const int vtkID) {
+	constexpr int vtk_n_vertices_when_split(const int vtkID) {
 		switch (vtkID) {
 			case VERTEX_VTK_ID: assert(false); 	 return 0;
 			case LINE_VTK_ID: 					 return 3;

@@ -38,15 +38,16 @@ namespace gv::mesh
 	/// Some methods that are locked will still run in parallel if they are read only, but others will be locked to a single thread if they write to shared memory.
 	///
 	/// Note that below, the "type of element" does not refer to Voxel/Quad/... It refers to the data stored in the struct (color, is_active, children, ...)
-	/// All element types (in the C++ sense) contain an "int vtkID" and "std::vector<size_t> nodes" fields to track their type (in the FEM sense).
+	/// All element types (in the C++ sense) contain an "int vtkID" and "std::vector<size_t> vertices" fields to track their type (in the FEM sense).
 	///
-	/// @tparam Node_t The type of node to use. Usually BasicNode<gv::util::Point<3,float>>.
+	/// @tparam Vertex_t The type of node to use. Usually BasicVertex<gv::util::Point<3,T>>. Where T is a class that emulates the real numbers
+	///                    with a stable comparison (e.g., FixedPrecision rather than double).
 	/// @tparam Element_t The type of element to use. This is usually set by the class that inherits from this class.
 	/// @tparam Face_t The type of boundary element to use. This is usually set by the class that inherits from this class.
 	///
 	/// @todo Add data and types to this description.
 	/////////////////////////////////////////////////
-	template<BasicMeshNode    Node_t    = BasicNode<gv::util::Point<3,float>>,
+	template<BasicMeshVertex    Vertex_t  = BasicVertex<gv::util::Point<3,float>>,
 			 BasicMeshElement Element_t = BasicElement,
 			 BasicMeshElement Face_t    = BasicElement>
 	class BasicMesh	{
@@ -55,26 +56,26 @@ namespace gv::mesh
 		friend class ElementIterator;
 
 		/// Make the MeshView class a friend
-		template<BasicMeshNode Node_u, BasicMeshElement Element_u, BasicMeshElement Face_u>
+		template<BasicMeshVertex Vertex_u, BasicMeshElement Element_u, BasicMeshElement Face_u>
 		friend class MeshView;
 
 		static_assert(HierarchicalMeshElement<Element_t> ? HierarchicalMeshElement<Face_t> : true, "If Element_t is Hierarchical, then Face_t must be Hierarchical");
 		static_assert(HierarchicalMeshElement<Face_t> ? HierarchicalMeshElement<Element_t> : true, "If Face_t is Hierarchical, then Element_t must be Hierarchical");
-		static_assert(Node_t::Vertex_t::dimension==3, "All meshes are considered to be embedded in three dimensions.");
+		static_assert(Vertex_t::Point_t::dimension==3, "All meshes are considered to be embedded in three dimensions.");
 	public:
 		//aliases
-		using OctreeScalar_t     = typename Node_t::Scalar_t;
+		using OctreeScalar_t     = typename Vertex_t::Scalar_t;
 		template<int n=3>
 		using Index_t            = gv::util::Point<n,size_t>;
 		template<int n=3>
 		using Box_t              = gv::util::Box<n, OctreeScalar_t>;
-		using Vertex_t           = Node_t::Vertex_t;
-		using NodeList_t         = NodeOctree<Node_t, 64, OctreeScalar_t>;
-		using ElementIterator_t  = ElementIterator<BasicMesh<Node_t,Element_t,Face_t>, ContainerType::ELEMENTS>;
-		using BoundaryIterator_t = ElementIterator<BasicMesh<Node_t,Element_t,Face_t>, ContainerType::BOUNDARY>;
+		using Point_t            = Vertex_t::Point_t;
+		using VertexList_t       = NodeOctree<Vertex_t, 64, OctreeScalar_t>;
+		using ElementIterator_t  = ElementIterator<BasicMesh<Vertex_t,Element_t,Face_t>, ContainerType::ELEMENTS>;
+		using BoundaryIterator_t = ElementIterator<BasicMesh<Vertex_t,Element_t,Face_t>, ContainerType::BOUNDARY>;
 
 		//template aliases are useful for other classes
-		using node_type    = Node_t;
+		using node_type    = Vertex_t;
 		using element_type = Element_t;
 		using face_type    = Face_t;
 	protected:
@@ -94,22 +95,22 @@ namespace gv::mesh
 		std::vector<FaceTracker> _boundary_track;
 
 		/////////////////////////////////////////////////
-		/// Container for the mesh nodes. This has an octree structure for quickly finding nodes from their location in space.
-		/// This method has parallel read (_nodes.find) and serial write (_nodes.push_back) built in.
+		/// Container for the mesh vertices. This has an octree structure for quickly finding vertices from their location in space.
+		/// This method has parallel read (_vertices.find) and serial write (_vertices.push_back) built in.
 		/////////////////////////////////////////////////
-		NodeList_t _nodes;
+		VertexList_t _vertices;
 
 	private:
 		mutable std::shared_mutex _rw_mtx;
 
 	public:
-		BasicMesh() : _elements(),_nodes() {}
-		BasicMesh(const Box_t<3> &domain) : _elements(), _nodes(1.125*domain) {}
-		BasicMesh(const Box_t<2> &domain) : _elements(), _nodes() {
-			Vertex_t low, high;
+		BasicMesh() : _elements(),_vertices() {}
+		BasicMesh(const Box_t<3> &domain) : _elements(), _vertices(1.125*domain) {}
+		BasicMesh(const Box_t<2> &domain) : _elements(), _vertices() {
+			Point_t low, high;
 			low[0]  = domain.low()[0];  low[1]  = domain.low()[1];  low[2]  = -1.0;
 			high[0] = domain.high()[0]; high[1] = domain.high()[1]; high[2] =  1.0;
-			_nodes.set_bbox(1.125*Box_t{low,high});
+			_vertices.set_bbox(1.125*Box_t{low,high});
 		}
 		BasicMesh(const Box_t<3> &domain, const Index_t<3> &N, const bool useIsopar=false) : BasicMesh(domain) {setVoxelMesh_Locked(domain, N, useIsopar);}
 		BasicMesh(const Box_t<2> &domain, const Index_t<2> &N, const bool useIsopar=false) : BasicMesh(domain) {setPixelMesh_Locked(domain, N, useIsopar);}
@@ -124,10 +125,10 @@ namespace gv::mesh
 
 
 		/////////////////////////////////////////////////
-		/// Get the total number of nodes in the mesh.
+		/// Get the total number of vertices in the mesh.
 		/////////////////////////////////////////////////
 		virtual size_t nNodes() const {
-			return _nodes.size();
+			return _vertices.size();
 		}
 
 
@@ -142,17 +143,17 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Read elements and vertices externally
 		/////////////////////////////////////////////////
-		const Node_t&    getNode(const size_t idx) const {return _nodes[idx];}
+		const Vertex_t&    getNode(const size_t idx) const {return _vertices[idx];}
 		const Element_t& getElement(const size_t idx) const {return _elements[idx];}
 		const Face_t&    getBoundaryFace(const size_t idx) const {return _boundary[idx];}
-		const Box_t<3>   bbox() const {return _nodes.bbox();}
-		const NodeList_t& getNodeOctree() const {return _nodes;}
+		const Box_t<3>   bbox() const {return _vertices.bbox();}
+		const VertexList_t& getNodeOctree() const {return _vertices;}
 
 		/////////////////////////////////////////////////
 		/// Allocate space
 		/////////////////////////////////////////////////
 		inline void reserveElements(const size_t length) {_elements.reserve(length);}
-		inline void reserveNodes(const size_t length) {_nodes.reserve(length);}
+		inline void reserveNodes(const size_t length) {_vertices.reserve(length);}
 		inline void reserveBoundary(const size_t length) {_boundary.reserve(length); _boundary_track.reserve(length);}
 
 		/////////////////////////////////////////////////
@@ -161,8 +162,8 @@ namespace gv::mesh
 		template<BasicMeshType Mesh_t>
 		void getBoundaryMesh(Mesh_t &mesh) const {
 			for (auto it=boundaryBegin(); it!=boundaryEnd(); ++it) {
-				std::vector<Vertex_t> vertices;
-				for (size_t n : it->nodes) {vertices.push_back(_nodes[n].vertex);}
+				std::vector<Point_t> vertices;
+				for (size_t n : it->vertices) {vertices.push_back(_vertices[n].coord);}
 				mesh.constructElement_Locked(vertices, it->vtkID);
 			}
 		}
@@ -234,59 +235,59 @@ namespace gv::mesh
 
 
 		/////////////////////////////////////////////////
-		/// A method to prepare and create the nodes for a new element to be created. If a node at the specified vertex already exists, that index is used.
+		/// A method to prepare and create the vertices for a new element to be created. If a node at the specified vertex already exists, that index is used.
 		///
-		/// @param vertices A reference to an existing vector of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
+		/// @param vertex_coords A reference to an existing vector of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
 		/// @param vtkID The vtk identifier to track the type of element. Look up the vtk documentation to see which node order is required.
-		/// @param nodes The vector that will store the indices to the appropriate nodes
+		/// @param vertices The vector that will store the indices to the appropriate vertices
 		/////////////////////////////////////////////////
-		void prepareNodes_Safe(const std::vector<Vertex_t> &vertices, const int vtkID, std::vector<size_t> &nodes);
+		void prepareNodes_Safe(const std::vector<Point_t> &vertex_coords, const int vtkID, std::vector<size_t> &vertices);
 		
 
 		/////////////////////////////////////////////////
-		/// A method to insert a new element into the mesh. The element must be constructed from specified existing nodes.
-		/// The existing nodes will be updated but no new nodes will be created.
+		/// A method to insert a new element into the mesh. The element must be constructed from specified existing vertices.
+		/// The existing vertices will be updated but no new vertices will be created.
 		///
 		/// Marked as virtual so classes that inherit can populate special fields (e.g., color).
 		///
-		/// @param ELEM The element to be inserted. The nodes must already be populated. The element will be appended to _elements via _elements.push_back(std::move(ELEM)).
+		/// @param ELEM The element to be inserted. The vertices must already be populated. The element will be appended to _elements via _elements.push_back(std::move(ELEM)).
 		/////////////////////////////////////////////////
 		virtual void insertElement_Locked(Element_t &ELEM);
 		void insertBoundaryFace_Locked(Face_t &FACE, FaceTracker &bt);
 
 		/////////////////////////////////////////////////
-		/// A method to insert a new element into the mesh. The element must be constructed from specified existing nodes.
-		/// The existing nodes will be updated but no new nodes will be created.
+		/// A method to insert a new element into the mesh. The element must be constructed from specified existing vertices.
+		/// The existing vertices will be updated but no new vertices will be created.
 		///
 		/// The method that calls this must ensure that it is done in a thread-safe way.
 		/// If only one color of element is being inserted, then it will be safe.
 		///
 		/// Marked as virtual so classes that inherit can populate special fields (e.g., color).
 		///
-		/// @param ELEM The element to be inserted. The nodes must already be populated. The element will moved to _elements[elem_idx].
+		/// @param ELEM The element to be inserted. The vertices must already be populated. The element will moved to _elements[elem_idx].
 		/// @param elem_idx The inded where the element is to be inserted.
 		/////////////////////////////////////////////////
 		virtual void insertElement_Unlocked(Element_t &ELEM, const size_t elem_idx);
 		void insertBoundaryFace_Unlocked(Face_t &FACE, const size_t face_idx, FaceTracker &bt);
 
 		/////////////////////////////////////////////////
-		/// A method to create a new element by its vertices and insert it into the mesh. The element is constructed from specified vertices, which may or may not correspond to existing nodes.
+		/// A method to create a new element by its vertices and insert it into the mesh. The element is constructed from specified vertices, which may or may not correspond to existing vertices.
 		/// If a vertex corresponds to an existing node, that node will be updated. Otherwise a new node will be created.
 		///
 		/// @param vertices A reference to an existing vector of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
 		/// @param vtkID The vtk identifier to track the type of element. Look up the vtk documentation to see which node order is required.
 		/////////////////////////////////////////////////
-		void constructElement_Locked(const std::vector<Vertex_t> &vertices, const int vtkID);
+		void constructElement_Locked(const std::vector<Point_t> &vertices, const int vtkID);
 
 
 		/////////////////////////////////////////////////
-		/// A method to create a new element by its vertices and insert it into the mesh. The element is constructed from specified vertices, which may or may not correspond to existing nodes.
+		/// A method to create a new element by its vertices and insert it into the mesh. The element is constructed from specified vertices, which may or may not correspond to existing vertices.
 		/// If a vertex corresponds to an existing node, that node will be updated. Otherwise a new node will be created.
 		///
 		/// @param vertices A reference to an existing vector of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
 		/// @param vtkID The vtk identifier to track the type of element. Look up the vtk documentation to see which node order is required.
 		/////////////////////////////////////////////////
-		void constructElement_Unlocked(const std::vector<Vertex_t> &vertices, const int vtkID, const size_t elem_idx);
+		void constructElement_Unlocked(const std::vector<Point_t> &vertices, const int vtkID, const size_t elem_idx);
 
 
 		/////////////////////////////////////////////////
@@ -299,16 +300,16 @@ namespace gv::mesh
 		/// Method to move a vertex in the mesh. If any of the elements associated with this node
 		/// are not isoparametric, they are converted to their isoparametric versions.
 		///
-		/// @param node_idx   The index of the node that will be moved
-		/// @param new_vertex The coordinate where the node will be moved to
+		/// @param vertex_idx  The index of the node that will be moved
+		/// @param new_coord   The coordinate where the node will be moved to
 		/////////////////////////////////////////////////
-		void moveVertex(const size_t node_idx, Vertex_t new_vertex) {
-			Node_t &NODE = _nodes[node_idx];
-			for (size_t e_idx : NODE.elems) {makeIsoparametric(_elements[e_idx]);}
-			for (size_t f_idx : NODE.boundary_faces) {makeIsoparametric(_boundary[f_idx]);}
+		void moveVertex(const size_t vertex_idx, Point_t new_coord) {
+			Vertex_t &VERTEX = _vertices[vertex_idx];
+			for (size_t e_idx : VERTEX.elems) {makeIsoparametric(_elements[e_idx]);}
+			for (size_t f_idx : VERTEX.boundary_faces) {makeIsoparametric(_boundary[f_idx]);}
 			
-			NODE.vertex = new_vertex;
-			_nodes.reinsert(node_idx);
+			VERTEX.coord = new_coord;
+			_vertices.reinsert(vertex_idx);
 		}
 		
 
@@ -325,7 +326,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Friend functions to print the mesh information
 		/////////////////////////////////////////////////
-		template <BasicMeshNode U, BasicMeshElement Element_u, BasicMeshElement Face_u>
+		template <BasicMeshVertex U, BasicMeshElement Element_u, BasicMeshElement Face_u>
 		friend std::ostream& operator<<(std::ostream& os, const BasicMesh<U,Element_u,Face_u> &mesh);
 
 		template<BasicMeshType Mesh_t>
@@ -340,8 +341,8 @@ namespace gv::mesh
 		template<BasicMeshType Mesh_t>
 		friend void print_mesh_details_binary_vtk(std::ofstream &file, const Mesh_t &mesh);
 
-		template<BasicMeshNode Node_u, BasicMeshElement Element_u, BasicMeshElement Face_u>
-		friend void memorySummary(const BasicMesh<Node_u,Element_u,Face_u> &mesh);
+		template<BasicMeshVertex Vertex_u, BasicMeshElement Element_u, BasicMeshElement Face_u>
+		friend void memorySummary(const BasicMesh<Vertex_u,Element_u,Face_u> &mesh);
 
 		/////////////////////////////////////////////////
 		/// Check if an element is valid. This is so that derived classes do not need to re-implement the entire iterator if
@@ -367,8 +368,8 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		virtual ElementIterator_t begin()       {return ElementIterator_t(this, 0);}
 		virtual ElementIterator_t end()         {return ElementIterator_t(this, _elements.size());}
-		virtual ElementIterator_t begin() const {return ElementIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), 0);}
-		virtual ElementIterator_t end()   const {return ElementIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), _elements.size());}
+		virtual ElementIterator_t begin() const {return ElementIterator_t(const_cast<BasicMesh<Vertex_t,Element_t,Face_t>*>(this), 0);}
+		virtual ElementIterator_t end()   const {return ElementIterator_t(const_cast<BasicMesh<Vertex_t,Element_t,Face_t>*>(this), _elements.size());}
 
 	
 		/////////////////////////////////////////////////
@@ -376,52 +377,52 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		virtual BoundaryIterator_t boundaryBegin()       {return BoundaryIterator_t(this,0);}
 		virtual BoundaryIterator_t boundaryEnd()         {return BoundaryIterator_t(this, _boundary.size());}
-		virtual BoundaryIterator_t boundaryBegin() const {return BoundaryIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), 0);}
-		virtual BoundaryIterator_t boundaryEnd()   const {return BoundaryIterator_t(const_cast<BasicMesh<Node_t,Element_t,Face_t>*>(this), _boundary.size());}
+		virtual BoundaryIterator_t boundaryBegin() const {return BoundaryIterator_t(const_cast<BasicMesh<Vertex_t,Element_t,Face_t>*>(this), 0);}
+		virtual BoundaryIterator_t boundaryEnd()   const {return BoundaryIterator_t(const_cast<BasicMesh<Vertex_t,Element_t,Face_t>*>(this), _boundary.size());}
 
 
 		/////////////////////////////////////////////////
-		/// Iterators for _nodes
+		/// Iterators for _vertices
 		/////////////////////////////////////////////////
-		virtual std::vector<Node_t>::iterator nodeBegin()             {return _nodes.begin();}
-		virtual std::vector<Node_t>::iterator nodeEnd()               {return _nodes.end();}
-		virtual std::vector<Node_t>::const_iterator nodeBegin() const {return _nodes.cbegin();}
-		virtual std::vector<Node_t>::const_iterator nodeEnd()   const {return _nodes.cend();}
+		virtual std::vector<Vertex_t>::iterator nodeBegin()             {return _vertices.begin();}
+		virtual std::vector<Vertex_t>::iterator nodeEnd()               {return _vertices.end();}
+		virtual std::vector<Vertex_t>::const_iterator nodeBegin() const {return _vertices.cbegin();}
+		virtual std::vector<Vertex_t>::const_iterator nodeEnd()   const {return _vertices.cend();}
 
 	};
-	static_assert(BasicMeshType< BasicMesh<BasicNode<gv::util::Point<3,double>>, BasicElement, BasicElement >>,
+	static_assert(BasicMeshType< BasicMesh<BasicVertex<gv::util::Point<3,double>>, BasicElement, BasicElement >>,
 		"BasicMesh is not a BasicMeshType with default template parameters.");
 
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::setVoxelMesh_Locked(
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::setVoxelMesh_Locked(
 			const Box_t<3> &domain,
-			const typename BasicMesh<Node_t,Element_t,Face_t>::Index_t<3>& N,
+			const typename BasicMesh<Vertex_t,Element_t,Face_t>::Index_t<3>& N,
 			const bool useIsopar) {
 		
-		using Vertex_t = Node_t::Vertex_t;
+		using Point_t = Vertex_t::Point_t;
 
 		//switch to hex if needed
 		int ID = VOXEL_VTK_ID;
 		if (useIsopar) {ID=HEXAHEDRON_VTK_ID;}
 
 		//reserve space
-		_nodes.clear();
+		_vertices.clear();
 		_elements.clear();
 
-		_nodes.reserve((N[0]+1) * (N[1]+1) * (N[2]+1));
+		_vertices.reserve((N[0]+1) * (N[1]+1) * (N[2]+1));
 		_elements.resize(N[0]*N[1]*N[2]);
 		
-		//initialize the nodes
-		const Vertex_t H = domain.sidelength() / Vertex_t(N);
+		//initialize the vertices
+		const Point_t H = domain.sidelength() / Point_t(N);
 		for (size_t i=0; i<=N[0]; i++) {
 			for (size_t j=0; j<=N[1]; j++) {
 				for (size_t k=0; k<=N[2]; k++) {
-					Vertex_t vertex  = domain.low() + Vertex_t{i,j,k} * H;
-					Node_t NODE(vertex);
-					size_t idx = _nodes.push_back(NODE);
-					_nodes[idx].index = idx;
+					Point_t vertex  = domain.low() + Point_t{i,j,k} * H;
+					Vertex_t VERTEX(vertex);
+					size_t idx = _vertices.push_back(VERTEX);
+					_vertices[idx].index = idx;
 				}
 			}
 		}
@@ -438,13 +439,13 @@ namespace gv::mesh
 						for (size_t j=jj; j<N[1]; j+=2) {
 							for (size_t k=kk; k<N[2]; k+=2) {
 								//define element extents
-								Vertex_t low  = domain.low() + Vertex_t{i,j,k} * H;
-								Vertex_t high = domain.low() + Vertex_t{i+1,j+1,k+1} * H;
+								Point_t low  = domain.low() + Point_t{i,j,k} * H;
+								Point_t high = domain.low() + Point_t{i+1,j+1,k+1} * H;
 								Box_t   elem  {low, high};
 							
 								//assemble the list of vertices
-								std::vector<Vertex_t> element_vertices(vtk_n_nodes(ID));
-								for (size_t l=0; l<vtk_n_nodes(ID); l++) {
+								std::vector<Point_t> element_vertices(vtk_n_vertices(ID));
+								for (size_t l=0; l<vtk_n_vertices(ID); l++) {
 									if (useIsopar) {element_vertices[l] = elem.hexvertex(l);}
 									else {element_vertices[l] = elem.voxelvertex(l);}
 								}
@@ -463,14 +464,14 @@ namespace gv::mesh
 	}
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::setPixelMesh_Locked(
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::setPixelMesh_Locked(
 			const Box_t<2> &domain,
-			const typename BasicMesh<Node_t,Element_t,Face_t>::Index_t<2>& N,
+			const typename BasicMesh<Vertex_t,Element_t,Face_t>::Index_t<2>& N,
 			const bool useIsopar) {
 		
-		using Vertex_t = Node_t::Vertex_t;
-		using Point_2  = gv::util::Point<2,typename Node_t::Scalar_t>;
+		using Point_t = Vertex_t::Point_t;
+		using Point_2 = gv::util::Point<2,typename Vertex_t::Scalar_t>;
 		
 		//switch to quad if needed
 		int ID = PIXEL_VTK_ID;
@@ -478,10 +479,10 @@ namespace gv::mesh
 
 
 		//reserve space
-		_nodes.clear();
+		_vertices.clear();
 		_elements.clear();
 
-		_nodes.reserve((N[0]+1) * (N[1]+1));
+		_vertices.reserve((N[0]+1) * (N[1]+1));
 		_elements.reserve(N[0]*N[1]);
 		
 		//construct the mesh
@@ -494,10 +495,10 @@ namespace gv::mesh
 				Box_t<2>   elem  {low, high};
 			
 				//assemble the list of vertices
-				std::vector<Vertex_t> element_vertices(vtk_n_nodes(ID));
-				for (size_t l=0; l<vtk_n_nodes(ID); l++) {
-					if (useIsopar) {element_vertices[l] = Vertex_t(elem.hexvertex(l));}
-					else {element_vertices[l] = Vertex_t(elem.voxelvertex(l));}
+				std::vector<Point_t> element_vertices(vtk_n_vertices(ID));
+				for (size_t l=0; l<vtk_n_vertices(ID); l++) {
+					if (useIsopar) {element_vertices[l] = Point_t(elem.hexvertex(l));}
+					else {element_vertices[l] = Point_t(elem.voxelvertex(l));}
 				}
 
 				//put the element into the mesh
@@ -509,19 +510,19 @@ namespace gv::mesh
 
 
 	
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::getElementNeighbors_Unlocked(const size_t elem_idx, std::vector<size_t> &neighbors) const {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::getElementNeighbors_Unlocked(const size_t elem_idx, std::vector<size_t> &neighbors) const {
 		const Element_t &ELEM = _elements[elem_idx];
 
-		//use unordered set to ensure unique nodes
+		//use unordered set to ensure unique vertices
 		std::unordered_set<size_t> neighbor_set;
 
-		//loop through the nodes of the current element
-		for (size_t n_idx : ELEM.nodes) {
-			const Node_t &NODE = _nodes[n_idx];
+		//loop through the vertices of the current element
+		for (size_t n_idx : ELEM.vertices) {
+			const Vertex_t &VERTEX = _vertices[n_idx];
 
 			//loop through the elements of the current node
-			for (size_t e_idx : NODE.elems) {
+			for (size_t e_idx : VERTEX.elems) {
 				bool isNeighbor = e_idx!=elem_idx;
 				if constexpr (HierarchicalMeshElement<Element_t>) {
 					isNeighbor = isNeighbor and _elements[e_idx].is_active;
@@ -538,20 +539,20 @@ namespace gv::mesh
 	}
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::getBoundaryFaces_Unlocked(const size_t elem_idx, std::vector<size_t> &faces) const {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::getBoundaryFaces_Unlocked(const size_t elem_idx, std::vector<size_t> &faces) const {
 
 		const Element_t &ELEM = _elements[elem_idx];
 
-		//use unordered set to ensure unique nodes
+		//use unordered set to ensure unique vertices
 		std::unordered_set<size_t> face_set;
 
-		//loop through the nodes of the element
-		for (size_t n_idx=0; n_idx<ELEM.nodes.size(); n_idx++) {
-			const Node_t &NODE = _nodes[ELEM.nodes[n_idx]];
+		//loop through the vertices of the element
+		for (size_t n_idx=0; n_idx<ELEM.vertices.size(); n_idx++) {
+			const Vertex_t &VERTEX = _vertices[ELEM.vertices[n_idx]];
 
 			//loop through the boundary faces of the current node
-			for (size_t f_idx : NODE.boundary_faces) {
+			for (size_t f_idx : VERTEX.boundary_faces) {
 				if (_boundary_track[f_idx].elem_idx == elem_idx) {
 					face_set.insert(f_idx);
 				}
@@ -562,28 +563,28 @@ namespace gv::mesh
 	}
 	
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::prepareNodes_Safe(
-			const std::vector<typename BasicMesh<Node_t,Element_t,Face_t>::Vertex_t> &vertices,
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::prepareNodes_Safe(
+			const std::vector<typename BasicMesh<Vertex_t,Element_t,Face_t>::Point_t> &vertex_coords,
 			const int vtkID,
-			std::vector<size_t> &nodes) {
+			std::vector<size_t> &vertices) {
 
-		assert(vertices.size()==vtk_n_nodes(vtkID));
-		//prepare the nodes vector
-		nodes.resize(vtk_n_nodes(vtkID));
+		assert(vertex_coords.size()==vtk_n_vertices(vtkID));
+		//prepare the vertices vector
+		vertices.resize(vtk_n_vertices(vtkID));
 
-		//create new nodes as needed and aggregate their indices
-		for (size_t n=0; n<vertices.size(); n++) {
-			Node_t NODE(vertices[n]);
-			NODE.index = _nodes.size();
-			size_t n_idx = _nodes.push_back(NODE);
-			nodes[n] = n_idx;
+		//create new vertices as needed and aggregate their indices
+		for (size_t n=0; n<vertex_coords.size(); n++) {
+			Vertex_t VERTEX(vertex_coords[n]);
+			VERTEX.index = _vertices.size();
+			size_t n_idx = _vertices.push_back(VERTEX);
+			vertices[n] = n_idx;
 		}
 	}
 	
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::insertElement_Locked(Element_t &ELEM) {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::insertElement_Locked(Element_t &ELEM) {
 		std::unique_lock<std::shared_mutex> lock(_rw_mtx);
 
 		//add the element to the mesh
@@ -591,9 +592,9 @@ namespace gv::mesh
 		size_t e_idx = _elements.size(); //index of the new element
 		ELEM.index   = _elements.size();
 		
-		//update existing nodes
-		for (size_t node_idx : ELEM.nodes) {
-			_nodes[node_idx].elems.push_back(e_idx);
+		//update existing vertices
+		for (size_t vertex_idx : ELEM.vertices) {
+			_vertices[vertex_idx].elems.push_back(e_idx);
 		}
 
 		//move ELEM to _elements
@@ -602,17 +603,17 @@ namespace gv::mesh
 	}
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::insertElement_Unlocked(Element_t &ELEM, const size_t elem_idx) {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::insertElement_Unlocked(Element_t &ELEM, const size_t elem_idx) {
 		//The method that calls this must ensure that this is thread-safe.
 		//If only one color of elements are being inserted, it will be safe
 		if constexpr (HierarchicalMeshElement<Element_t>) {ELEM.is_active=true;}
 
 		ELEM.index = elem_idx;
 
-		//update existing nodes
-		for (size_t node_idx : ELEM.nodes) {
-			_nodes[node_idx].elems.push_back(elem_idx);
+		//update existing vertices
+		for (size_t vertex_idx : ELEM.vertices) {
+			_vertices[vertex_idx].elems.push_back(elem_idx);
 		}
 
 		//move ELEM to _elements
@@ -620,8 +621,8 @@ namespace gv::mesh
 	}
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::insertBoundaryFace_Locked(Face_t &FACE, FaceTracker &bt) {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::insertBoundaryFace_Locked(Face_t &FACE, FaceTracker &bt) {
 		std::unique_lock<std::shared_mutex> lock(_rw_mtx);
 
 		//add the element to the mesh
@@ -629,9 +630,9 @@ namespace gv::mesh
 		size_t e_idx = _boundary.size(); //index of the new element
 		FACE.index   = _boundary.size();
 		
-		//update existing nodes
-		for (size_t node_idx : FACE.nodes) {
-			_nodes[node_idx].boundary_faces.push_back(e_idx);
+		//update existing vertices
+		for (size_t vertex_idx : FACE.vertices) {
+			_vertices[vertex_idx].boundary_faces.push_back(e_idx);
 		}
 
 		//move FACE to _boundary
@@ -640,17 +641,17 @@ namespace gv::mesh
 	}
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::insertBoundaryFace_Unlocked(Face_t &FACE, const size_t face_idx, FaceTracker &bt) {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::insertBoundaryFace_Unlocked(Face_t &FACE, const size_t face_idx, FaceTracker &bt) {
 		//The method that calls this must ensure that this is thread-safe.
 		//If only one color of elements are being inserted, it will be safe
 		if constexpr (HierarchicalMeshElement<Face_t>) {FACE.is_active=true;}
 
 		FACE.index = face_idx;
 
-		//update existing nodes
-		for (size_t node_idx : FACE.nodes) {
-			_nodes[node_idx].boundary_faces.push_back(face_idx);
+		//update existing vertices
+		for (size_t vertex_idx : FACE.vertices) {
+			_vertices[vertex_idx].boundary_faces.push_back(face_idx);
 		}
 
 		//move FACE to _boundary
@@ -659,48 +660,48 @@ namespace gv::mesh
 	}
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::constructElement_Locked(
-			const std::vector<typename BasicMesh<Node_t,Element_t,Face_t>::Vertex_t> &vertices,
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::constructElement_Locked(
+			const std::vector<typename BasicMesh<Vertex_t,Element_t,Face_t>::Point_t> &vertex_coords,
 			const int vtkID) {
-		assert(vertices.size()==vtk_n_nodes(vtkID));
+		assert(vertex_coords.size()==vtk_n_vertices(vtkID));
 
 		//initialize the new element
 		Element_t ELEM = Element_t(vtkID);
 
-		//create new nodes as needed and aggregate their indices
-		prepareNodes_Safe(vertices, vtkID, ELEM.nodes);
-		//now that the nodes are initialized, insert the element.
-		//the nodes will be updated to link back to the new element.
+		//create new vertices as needed and aggregate their indices
+		prepareNodes_Safe(vertex_coords, vtkID, ELEM.vertices);
+		//now that the vertices are initialized, insert the element.
+		//the vertices will be updated to link back to the new element.
 		insertElement_Locked(ELEM);
 	}
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::constructElement_Unlocked(
-			const std::vector<typename BasicMesh<Node_t,Element_t,Face_t>::Vertex_t> &vertices,
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::constructElement_Unlocked(
+			const std::vector<typename BasicMesh<Vertex_t,Element_t,Face_t>::Point_t> &vertex_coords,
 			const int vtkID,
 			const size_t elem_idx) {
-		assert(vertices.size()==vtk_n_nodes(vtkID));
+		assert(vertex_coords.size()==vtk_n_vertices(vtkID));
 
 		//initialize the new element
 		Element_t ELEM = Element_t(vtkID);
 
-		//create new nodes as needed and aggregate their indices
-		prepareNodes_Safe(vertices, vtkID, ELEM.nodes);
+		//create new vertices as needed and aggregate their indices
+		prepareNodes_Safe(vertex_coords, vtkID, ELEM.vertices);
 
-		//now that the nodes are initialized, insert the element.
-		//the nodes will be updated to link back to the new element.
-		//this will finalize the logic of coloring and linking the nodes back to this element.
+		//now that the vertices are initialized, insert the element.
+		//the vertices will be updated to link back to the new element.
+		//this will finalize the logic of coloring and linking the vertices back to this element.
 		insertElement_Unlocked(ELEM, elem_idx);
 	}
 
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::computeConformalBoundary() {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::computeConformalBoundary() {
 
-		using Vertex_t   = typename BasicMesh<Node_t,Element_t,Face_t>::Vertex_t;
+		using Point_t   = typename BasicMesh<Vertex_t,Element_t,Face_t>::Point_t;
 		
 
 		//create unordered maps to track the count of each face
@@ -716,7 +717,7 @@ namespace gv::mesh
 		//loop through all elements and add the faces to the map
 		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
 			const Element_t &ELEM = _elements[e_idx];
-			VTK_ELEMENT<Vertex_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Vertex_t>(ELEM);
+			VTK_ELEMENT<Point_t>* vtk_elem = _VTK_ELEMENT_FACTORY<Point_t>(ELEM);
 
 			std::vector<size_t> neighbors;
 			getElementNeighbors_Unlocked(e_idx, neighbors);
@@ -747,8 +748,8 @@ namespace gv::mesh
 	}
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void BasicMesh<Node_t,Element_t,Face_t>::save_as(const std::string filename, const bool include_details, const bool use_ascii) const {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void BasicMesh<Vertex_t,Element_t,Face_t>::save_as(const std::string filename, const bool include_details, const bool use_ascii) const {
 		if (use_ascii) {
 			//open and check file
 			std::ofstream file(filename);
@@ -784,8 +785,8 @@ namespace gv::mesh
 	
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	std::ostream& operator<<(std::ostream& os, const BasicMesh<Node_t,Element_t,Face_t> &mesh) {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	std::ostream& operator<<(std::ostream& os, const BasicMesh<Vertex_t,Element_t,Face_t> &mesh) {
 		os << "\n" << std::string(50, '=') << "\n"
 		   << "Mesh Summary\n"
 		   << std::string(50, '-') << "\n";
@@ -794,7 +795,7 @@ namespace gv::mesh
 		os << "C++ types\n" << std::string(50, '-') << "\n";
 		os << std::setw(15) << "Element_t " << std::setw(10) << elementTypeName<Element_t>() << "\n"
 		   << std::setw(15) << "Face_t    " << std::setw(10) << elementTypeName<Face_t>()    << "\n"
-		   << std::setw(15) << "Node_t    " << std::setw(10) << nodeTypeName<Node_t>()       << "\n"
+		   << std::setw(15) << "Vertex_t    " << std::setw(10) << nodeTypeName<Vertex_t>()       << "\n"
 		   << std::string(50, '-') << "\n";
 
 		os << std::left;
@@ -821,54 +822,54 @@ namespace gv::mesh
 
 
 
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	void memorySummary(const BasicMesh<Node_t,Element_t,Face_t> &mesh) {
-		double nodesUsed     = (double) sizeof(Node_t) * (double) mesh._nodes.size();
-		double nodesCap      = (double) sizeof(Node_t) * (double) mesh._nodes.capacity();
-		double nodesElemUsed = 0;
-		double nodesElemCap  = 0;
-		size_t nodesElemCount = 0;
-		for (size_t n=0; n<mesh._nodes.size(); n++) {
-			const std::vector<size_t> &vec = mesh._nodes[n].elems;
-			nodesElemUsed += (double) sizeof(size_t) * (double) vec.size();
-			nodesElemCap  += (double) sizeof(size_t) * (double) vec.capacity();
-			nodesElemCount += vec.size();
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	void memorySummary(const BasicMesh<Vertex_t,Element_t,Face_t> &mesh) {
+		double verticesUsed     = (double) sizeof(Vertex_t) * (double) mesh._vertices.size();
+		double verticesCap      = (double) sizeof(Vertex_t) * (double) mesh._vertices.capacity();
+		double verticesElemUsed = 0;
+		double verticesElemCap  = 0;
+		size_t verticesElemCount = 0;
+		for (size_t n=0; n<mesh._vertices.size(); n++) {
+			const std::vector<size_t> &vec = mesh._vertices[n].elems;
+			verticesElemUsed += (double) sizeof(size_t) * (double) vec.size();
+			verticesElemCap  += (double) sizeof(size_t) * (double) vec.capacity();
+			verticesElemCount += vec.size();
 		}
-		double nodesBoundaryUsed = 0;
-		double nodesBoundaryCap  = 0;
-		size_t nodesBoundaryCount = 0;
-		for (size_t n=0; n<mesh._nodes.size(); n++) {
-			const std::vector<size_t> &vec = mesh._nodes[n].boundary_faces;
-			nodesBoundaryUsed += (double) sizeof(size_t) * (double) vec.size();
-			nodesBoundaryCap  += (double) sizeof(size_t) * (double) vec.capacity();
-			nodesBoundaryCount += vec.size();
+		double verticesBoundaryUsed = 0;
+		double verticesBoundaryCap  = 0;
+		size_t verticesBoundaryCount = 0;
+		for (size_t n=0; n<mesh._vertices.size(); n++) {
+			const std::vector<size_t> &vec = mesh._vertices[n].boundary_faces;
+			verticesBoundaryUsed += (double) sizeof(size_t) * (double) vec.size();
+			verticesBoundaryCap  += (double) sizeof(size_t) * (double) vec.capacity();
+			verticesBoundaryCount += vec.size();
 		}
 
-		double total_nodes_used = nodesUsed + nodesElemUsed + nodesBoundaryUsed;
-		double total_nodes_cap  = nodesCap  + nodesElemCap  + nodesBoundaryCap;
+		double total_vertices_used = verticesUsed + verticesElemUsed + verticesBoundaryUsed;
+		double total_vertices_cap  = verticesCap  + verticesElemCap  + verticesBoundaryCap;
 
 
-		//memory for octree structure of _nodes
+		//memory for octree structure of _vertices
 		size_t nOctreeNodes{0}, nOctreeIdx{0}, nOctreeIdxCap{0}, nLeafs{0};
 		int maxDepth{0};
-		mesh._nodes.treeSummary(nOctreeNodes, nOctreeIdx, nOctreeIdxCap, nLeafs, maxDepth);
+		mesh._vertices.treeSummary(nOctreeNodes, nOctreeIdx, nOctreeIdxCap, nLeafs, maxDepth);
 
-		double octreeNodeMemory      = (double) sizeof(typename std::decay_t<decltype(mesh._nodes)>::Node_t) * nOctreeNodes;
+		double octreeNodeMemory      = (double) sizeof(typename std::decay_t<decltype(mesh._vertices)>::Node_t) * nOctreeNodes;
 		double octreeIndexMemoryUsed = (double) sizeof(size_t) * nOctreeIdx;
 		double octreeIndexMemoryCap  = (double) sizeof(size_t) * nOctreeIdxCap;
 
-		double total_nodes_octree_used = octreeNodeMemory + octreeIndexMemoryUsed;
-		double total_nodes_octree_cap  = octreeIndexMemoryCap;
+		double total_vertices_octree_used = octreeNodeMemory + octreeIndexMemoryUsed;
+		double total_vertices_octree_cap  = octreeIndexMemoryCap;
 
 
 		//memory for _elements
-		double elementsUsed     = (double) sizeof(Node_t) * (double) mesh._elements.size();
-		double elementsCap      = (double) sizeof(Node_t) * (double) mesh._elements.capacity();
+		double elementsUsed     = (double) sizeof(Vertex_t) * (double) mesh._elements.size();
+		double elementsCap      = (double) sizeof(Vertex_t) * (double) mesh._elements.capacity();
 		double elementsNodesUsed = 0;
 		double elementsNodesCap  = 0;
 		size_t elementsNodesCount = 0;
 		for (size_t n=0; n<mesh._elements.size(); n++) {
-			const std::vector<size_t> &vec = mesh._elements[n].nodes;
+			const std::vector<size_t> &vec = mesh._elements[n].vertices;
 			elementsNodesUsed += (double) sizeof(size_t) * (double) vec.size();
 			elementsNodesCap  += (double) sizeof(size_t) * (double) vec.capacity();
 			elementsNodesCount += vec.size();
@@ -891,13 +892,13 @@ namespace gv::mesh
 		double total_elements_cap  = elementsCap  + elementsNodesCap  + elementsChildrenCap;
 
 		//memory for _boundary
-		double boundaryUsed     = (double) sizeof(Node_t) * (double) mesh._boundary.size();
-		double boundaryCap      = (double) sizeof(Node_t) * (double) mesh._boundary.capacity();
+		double boundaryUsed     = (double) sizeof(Vertex_t) * (double) mesh._boundary.size();
+		double boundaryCap      = (double) sizeof(Vertex_t) * (double) mesh._boundary.capacity();
 		double boundaryNodesUsed = 0;
 		double boundaryNodesCap  = 0;
 		size_t boundaryNodesCount = 0;
 		for (size_t n=0; n<mesh._boundary.size(); n++) {
-			const std::vector<size_t> &vec = mesh._boundary[n].nodes;
+			const std::vector<size_t> &vec = mesh._boundary[n].vertices;
 			boundaryNodesUsed += (double) sizeof(size_t) * (double) vec.size();
 			boundaryNodesCap  += (double) sizeof(size_t) * (double) vec.capacity();
 			boundaryNodesCount += vec.size();
@@ -941,29 +942,29 @@ namespace gv::mesh
 				  << "\n" 
 				  << std::string(90, '-') << "\n";
 
-		//_nodes (data)
-		std::cout << std::left << std::setw(30) << "_nodes"
+		//_vertices (data)
+		std::cout << std::left << std::setw(30) << "_vertices"
 				  << std::right
-				  << std::setw(20) << mesh._nodes.size()
-				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesCap  / 1048576.0
+				  << std::setw(20) << mesh._vertices.size()
+				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesUsed / 1048576.0
+				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesCap  / 1048576.0
 				  << "\n"
 				  << std::left << std::setw(34) << "  \u251c\u2500 elems"
 				  << std::right
-				  << std::setw(20) << nodesElemCount
-				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesElemUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesElemCap  / 1048576.0
+				  << std::setw(20) << verticesElemCount
+				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesElemUsed / 1048576.0
+				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesElemCap  / 1048576.0
 				  << "\n"
 				  << std::left << std::setw(34) << "  \u251c\u2500 boundary_faces"
 				  << std::right
-				  << std::setw(20) << nodesBoundaryCount
-				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesBoundaryUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << nodesBoundaryCap  / 1048576.0
+				  << std::setw(20) << verticesBoundaryCount
+				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesBoundaryUsed / 1048576.0
+				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesBoundaryCap  / 1048576.0
 				  << "\n";
 
 		std::cout << std::left << std::setw(30) << "  \u2514\u2500 octree structure"
 				  << "\n"
-				  << std::left << std::setw(34) << "      \u251c\u2500 tree nodes (all)"
+				  << std::left << std::setw(34) << "      \u251c\u2500 tree vertices (all)"
 				  << std::right
 				  << std::setw(20) << nOctreeNodes
 				  << std::setw(20) << std::fixed << std::setprecision(3) << octreeNodeMemory / 1048576.0
@@ -978,7 +979,7 @@ namespace gv::mesh
 				  << std::left << std::setw(34) << "      \u251c\u2500 data index storage"
 				  << std::right;
 
-		if (nOctreeIdx!=mesh._nodes.size()) {
+		if (nOctreeIdx!=mesh._vertices.size()) {
 			std::cout << std::setw(20) << "(W) "+std::to_string(nOctreeIdx);
 		} else {
 			std::cout << std::setw(20) << nOctreeIdx;
@@ -988,8 +989,8 @@ namespace gv::mesh
 				  << "\n"
 				  << std::left << "      \u251c\u2500 maximum depth= " << maxDepth << "\n"
 				  << std::left << "      \u2514\u2500 bounding box\n"
-				  << std::left << "          \u251c\u2500 high= " << mesh._nodes.bbox().high() << "\n"
-				  << std::left << "          \u2514\u2500 low= " << mesh._nodes.bbox().low()  << "\n"
+				  << std::left << "          \u251c\u2500 high= " << mesh._vertices.bbox().high() << "\n"
+				  << std::left << "          \u2514\u2500 low= " << mesh._vertices.bbox().low()  << "\n"
 				  << std::string(90, '-') << "\n";
 
 
@@ -1001,9 +1002,9 @@ namespace gv::mesh
 				  << std::setw(20) << std::fixed << std::setprecision(3) << elementsCap  / 1048576.0
 				  << "\n";
 		if constexpr (HierarchicalMeshElement<Element_t>) {
-			std::cout << std::left << std::setw(34) << "  \u251c\u2500 nodes";
+			std::cout << std::left << std::setw(34) << "  \u251c\u2500 vertices";
 		} else {
-			std::cout << std::left << std::setw(34) << "  \u2514\u2500 nodes";
+			std::cout << std::left << std::setw(34) << "  \u2514\u2500 vertices";
 		}
 		std::cout << std::right
 				  << std::setw(20) << elementsNodesCount
@@ -1027,7 +1028,7 @@ namespace gv::mesh
 				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryUsed / 1048576.0
 				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryCap  / 1048576.0
 				  << "\n";
-		std::cout << std::left << std::setw(34) << "  \u2514\u2500 nodes";
+		std::cout << std::left << std::setw(34) << "  \u2514\u2500 vertices";
 		std::cout << std::right
 				  << std::setw(20) << boundaryNodesCount
 				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryNodesUsed / 1048576.0
@@ -1054,8 +1055,8 @@ namespace gv::mesh
 
 
 		//total
-		double totalUsed = total_nodes_used + total_nodes_octree_used + total_elements_used + total_boundary_used + boundaryTrackUsed;
-		double totalCap = total_nodes_cap + total_nodes_octree_cap + total_elements_cap + total_boundary_cap + boundaryTrackCap;
+		double totalUsed = total_vertices_used + total_vertices_octree_used + total_elements_used + total_boundary_used + boundaryTrackUsed;
+		double totalCap = total_vertices_cap + total_vertices_octree_cap + total_elements_cap + total_boundary_cap + boundaryTrackCap;
 		std::cout << std::string(90, '-') << "\n";
 		std::cout << std::left << std::setw(30) << "Total"
 				  << std::right
@@ -1066,10 +1067,10 @@ namespace gv::mesh
 
 
 		std::cout << std::string(90, '-') << "\n";
-		//duplicate check in _nodes
+		//duplicate check in _vertices
 		std::cout << "\n";
-		mesh._nodes.duplicateCheck();
-		mesh._nodes.findCheck();
+		mesh._vertices.duplicateCheck();
+		mesh._vertices.findCheck();
 	}
 }
 

@@ -10,26 +10,26 @@ namespace gv::mesh {
 	///
 	/// @tparam Mesh_t The type of mesh that a view is being created for.
 	/////////////////////////////////////////////////
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
-	class MeshView : public BasicMesh<Node_t,Element_t,Face_t> {
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	class MeshView : public BasicMesh<Vertex_t,Element_t,Face_t> {
 		/////////////////////////////////////////////////
 		/// Friend functions to print the mesh information
 		/////////////////////////////////////////////////
-		// template <BasicMeshNode U, BasicMeshElement Element_u, BasicMeshElement Face_u>
+		// template <BasicMeshVertex U, BasicMeshElement Element_u, BasicMeshElement Face_u>
 		// friend std::ostream& operator<<(std::ostream& os, const MeshView<U,Element_u,Face_u> &mesh);
 
 
 
 	public:
 		///aliases to satisfy BasicMeshType concept
-		using Mesh_t = BasicMesh<Node_t,Element_t,Face_t>;
+		using Mesh_t = BasicMesh<Vertex_t,Element_t,Face_t>;
 		using element_type = Element_t;
 		using face_type = Face_t;
-		using node_type = Node_t;
-		using Vertex_t = typename Mesh_t::Vertex_t;
+		using vertex_type = Vertex_t;
+		using Point_t = typename Mesh_t::Point_t;
 		using ElementIterator_t = typename Mesh_t::ElementIterator_t;
 		using BoundaryIterator_t = typename Mesh_t::BoundaryIterator_t;
-		using NodeList_t = typename Mesh_t::NodeList_t;
+		using VertexList_t = typename Mesh_t::VertexList_t;
 
 	protected:
 		const Mesh_t     &_parent;
@@ -75,11 +75,11 @@ namespace gv::mesh {
 		/// Marked as virtual so they can be pointed at other arrays for views into the mesh. (i.e., the MeshView class).
 		/////////////////////////////////////////////////
 		ElementIterator_t begin() const override {
-			return ElementIterator_t(const_cast<MeshView<Node_t,Element_t,Face_t>*>(this),
+			return ElementIterator_t(const_cast<MeshView<Vertex_t,Element_t,Face_t>*>(this),
 				const_cast<std::vector<Element_t>*>(&_parent._elements), 0);
 		}
 		ElementIterator_t end()   const override {
-			return ElementIterator_t(const_cast<MeshView<Node_t,Element_t,Face_t>*>(this),
+			return ElementIterator_t(const_cast<MeshView<Vertex_t,Element_t,Face_t>*>(this),
 				const_cast<std::vector<Element_t>*>(&_parent._elements), _parent._elements.size());
 		}
 
@@ -88,11 +88,11 @@ namespace gv::mesh {
 		/// Iterators for _boundary
 		/////////////////////////////////////////////////
 		BoundaryIterator_t boundaryBegin() const override {
-			return BoundaryIterator_t(const_cast<MeshView<Node_t,Element_t,Face_t>*>(this),
+			return BoundaryIterator_t(const_cast<MeshView<Vertex_t,Element_t,Face_t>*>(this),
 				const_cast<std::vector<Face_t>*>(&_parent._boundary), 0);
 		}
 		BoundaryIterator_t boundaryEnd()   const override {
-			return BoundaryIterator_t(const_cast<MeshView<Node_t,Element_t,Face_t>*>(this),
+			return BoundaryIterator_t(const_cast<MeshView<Vertex_t,Element_t,Face_t>*>(this),
 				const_cast<std::vector<Face_t>*>(&_parent._boundary), _parent._boundary.size());
 		}
 
@@ -100,14 +100,14 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		/// Iterators for _node
 		/////////////////////////////////////////////////
-		std::vector<Node_t>::const_iterator nodeBegin() const override {
+		std::vector<Vertex_t>::const_iterator nodeBegin() const override {
 			return _parent._nodes.cbegin();
 		}
-		std::vector<Node_t>::const_iterator nodeEnd()   const override {
+		std::vector<Vertex_t>::const_iterator nodeEnd()   const override {
 			return _parent._nodes.cend();
 		}
 	};
 
-	static_assert(BasicMeshType< MeshView<BasicNode<gv::util::Point<3,double>>, BasicElement, BasicElement >>,
+	static_assert(BasicMeshType< MeshView<BasicVertex<gv::util::Point<3,double>>, BasicElement, BasicElement >>,
 		"MeshView is not a BasicMeshType with default template parameters.");
 }

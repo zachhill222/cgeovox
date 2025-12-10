@@ -9,7 +9,7 @@
 namespace gv::mesh {
 	
 	// Forward declaration
-	template<BasicMeshNode Node_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
 	class BasicMesh;
 
 	/////////////////////////////////////////////////

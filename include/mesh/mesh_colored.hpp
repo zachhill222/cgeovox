@@ -24,45 +24,45 @@ namespace gv::mesh
 	/// When the ColorMethod::GREEDY is used, each element will recieve the first (lowest) valid color value. When the ColorMethod::BALANCED
 	/// is used, each element will recieve the valid color with associated with the least number of elements.
 	/// 
-	/// @tparam Node_t       The type of node to use. Usually BasicNode<gv::util::Point<3,double>>.
+	/// @tparam Vertex_t       The type of node to use. Usually BasicVertex<gv::util::Point<3,double>>.
 	/// @tparam Element_t    The type of element to use. This is usually set by the class that inherits from this class.
 	/// @tparam Face_t       The type of boundary element to use. This is usually set by the class that inherits from this class.
 	/// @tparam COLOR_METHOD The method used to color the elements. Either greedy (ColorMethod::GREEDY) or balanced (ColorMethod::BALANCED).
 	/// @tparam MAX_COLORS   The maximum number of colors that the mesh can have. Colors are stored in an std::array<std::atomic<size_t>> structure that is not resized.
 	/////////////////////////////////////////////////
-	template<BasicMeshNode        Node_t       = BasicNode<gv::util::Point<3,double>>,
+	template<BasicMeshVertex      Vertex_t     = BasicVertex<gv::util::Point<3,double>>,
 			 ColorableMeshElement Element_t    = ColoredElement,
 			 BasicMeshElement     Face_t       = BasicElement,
 			 ColorMethod          COLOR_METHOD = ColorMethod::GREEDY,
 			 size_t               MAX_COLORS   = 64>
-	class ColoredMesh : public BasicMesh<Node_t,Element_t,Face_t>
+	class ColoredMesh : public BasicMesh<Vertex_t,Element_t,Face_t>
 	{
 	public:
 		//aliases
 		template<int n=3>
-		using Index_t            = gv::util::Point<n,size_t>;
+		using Index_t           = gv::util::Point<n,size_t>;
 		template<int n=3>
-		using Box_t              = gv::util::Box<n, typename Node_t::Scalar_t>;
-		using Vertex_t           = Node_t::Vertex_t;
+		using Box_t             = gv::util::Box<n, typename Vertex_t::Scalar_t>;
+		using Point_t           = Vertex_t::Point_t;
 
 	protected:	
 		MeshColorManager<COLOR_METHOD, Element_t, MAX_COLORS> _color_manager;   //used to manage the color of the elements
 
 	public:
 		ColoredMesh() : 
-			BasicMesh<Node_t,Element_t,Face_t>(),
+			BasicMesh<Vertex_t,Element_t,Face_t>(),
 			_color_manager(this->_elements) {}
 
 		ColoredMesh(const Box_t<3> &domain) : 
-			BasicMesh<Node_t,Element_t,Face_t>(domain),
+			BasicMesh<Vertex_t,Element_t,Face_t>(domain),
 			_color_manager(this->_elements) {}
 		
 		ColoredMesh(const Box_t<3> &domain, const Index_t<3> &N, const bool useIsopar=false) :
-			BasicMesh<Node_t,Element_t,Face_t>(domain),
+			BasicMesh<Vertex_t,Element_t,Face_t>(domain),
 			_color_manager(this->_elements) {this->setVoxelMesh_Locked(domain, N, useIsopar);}
 		
 		ColoredMesh(const Box_t<2> &domain, const Index_t<2> &N, const bool useIsopar=false) :
-			BasicMesh<Node_t,Element_t,Face_t>(domain),
+			BasicMesh<Vertex_t,Element_t,Face_t>(domain),
 			_color_manager(this->_elements) {this->setPixelMesh_Locked(domain, N, useIsopar);}
 
 		virtual ~ColoredMesh() {}
@@ -75,7 +75,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		void insertElement_Locked(Element_t &ELEM) override {
 			const size_t elem_idx = this->_elements.size();
-			BasicMesh<Node_t,Element_t,Face_t>::insertElement_Locked(ELEM);
+			BasicMesh<Vertex_t,Element_t,Face_t>::insertElement_Locked(ELEM);
 			color_Locked(elem_idx);
 		}
 
@@ -91,7 +91,7 @@ namespace gv::mesh
 		/// @param elem_idx The inded where the element is to be inserted.
 		/////////////////////////////////////////////////
 		void insertElement_Unlocked(Element_t &ELEM, const size_t elem_idx) override {
-			BasicMesh<Node_t,Element_t,Face_t>::insertElement_Unlocked(ELEM, elem_idx);
+			BasicMesh<Vertex_t,Element_t,Face_t>::insertElement_Unlocked(ELEM, elem_idx);
 			color_Unlocked(elem_idx);
 		}
 
@@ -141,14 +141,14 @@ namespace gv::mesh
 
 
 		/// Friend function to print the mesh information
-		template <BasicMeshNode U, ColorableMeshElement Element_u, BasicMeshElement Face_u, ColorMethod COLORMETHOD>
+		template <BasicMeshVertex U, ColorableMeshElement Element_u, BasicMeshElement Face_u, ColorMethod COLORMETHOD>
 		friend std::ostream& operator<<(std::ostream& os, const ColoredMesh<U,Element_u,Face_u,COLORMETHOD> &mesh);
 	};
 
 
-	template<BasicMeshNode Node_t, ColorableMeshElement Element_t, BasicMeshElement Face_t, ColorMethod COLOR_METHOD>
-	std::ostream& operator<<(std::ostream& os, const ColoredMesh<Node_t,Element_t,Face_t,COLOR_METHOD> &mesh) {
-		const BasicMesh<Node_t,Element_t,Face_t> &base_mesh = mesh;
+	template<BasicMeshVertex Vertex_t, ColorableMeshElement Element_t, BasicMeshElement Face_t, ColorMethod COLOR_METHOD>
+	std::ostream& operator<<(std::ostream& os, const ColoredMesh<Vertex_t,Element_t,Face_t,COLOR_METHOD> &mesh) {
+		const BasicMesh<Vertex_t,Element_t,Face_t> &base_mesh = mesh;
 		os << base_mesh;
 		os << mesh._color_manager;
 		return os;

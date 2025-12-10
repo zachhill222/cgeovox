@@ -44,12 +44,12 @@ namespace gv::mesh
 	void makeIsoparametric(BasicElement &ELEM) {
 		switch (ELEM.vtkID) {
 		case PIXEL_VTK_ID:
-			std::swap(ELEM.nodes[2],ELEM.nodes[3]);
+			std::swap(ELEM.vertices[2],ELEM.vertices[3]);
 			ELEM.vtkID = QUAD_VTK_ID;
 			return;
 		case VOXEL_VTK_ID:
-			std::swap(ELEM.nodes[2],ELEM.nodes[3]);
-			std::swap(ELEM.nodes[6],ELEM.nodes[7]);
+			std::swap(ELEM.vertices[2],ELEM.vertices[3]);
+			std::swap(ELEM.vertices[6],ELEM.vertices[7]);
 			ELEM.vtkID = HEXAHEDRON_VTK_ID;
 			return;
 		}

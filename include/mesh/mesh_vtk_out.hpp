@@ -25,7 +25,7 @@ namespace gv::mesh {
 
 		using Element_t = typename Mesh_t::element_type;
 
-		//get number of nodes and elements
+		//get number of vertices and elements
 		const size_t nNodes    = mesh.nNodes();
 		const size_t nElements = mesh.nElems();
 
@@ -41,7 +41,7 @@ namespace gv::mesh {
 		//POINTS
 		buffer << "POINTS " << nNodes << " float\n";
 		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-			buffer << it->vertex << "\n";
+			buffer << it->coord << "\n";
 		}
 		buffer << "\n";
 		file   << buffer.rdbuf();
@@ -51,12 +51,12 @@ namespace gv::mesh {
 		//ELEMENTS
 		//calculate the number of entries required (numberOfNodes + listOfNodes)
 		size_t nEntries = 0;
-		for (const Element_t &ELEM : mesh) {nEntries += 1 + ELEM.nodes.size();}
+		for (const Element_t &ELEM : mesh) {nEntries += 1 + ELEM.vertices.size();}
 
 		buffer << "CELLS " << nElements << " " << nEntries << "\n";
 		for (const Element_t &ELEM : mesh) {
-			buffer << ELEM.nodes.size();
-			for (size_t n : ELEM.nodes) {buffer << " " << n;}
+			buffer << ELEM.vertices.size();
+			for (size_t n : ELEM.vertices) {buffer << " " << n;}
 			buffer << "\n";
 		}
 		buffer << "\n";
@@ -74,7 +74,7 @@ namespace gv::mesh {
 
 
 	/////////////////////////////////////////////////
-	/// Print the details of the nodes and elements to the output stream. This includes element colors and which elements each node belongs to.
+	/// Print the details of the vertices and elements to the output stream. This includes element colors and which elements each node belongs to.
 	/// Due to the way that field data is stored in ASCII VTK format, it will be difficult to append any additional information to a file afterwards.
 	///
 	/// @param file  A filstream into the file to write to.
@@ -89,7 +89,7 @@ namespace gv::mesh {
 		using Node_t    = typename Mesh_t::node_type;
 		using Element_t = typename Mesh_t::element_type;
 		
-		//get number of nodes and elements
+		//get number of vertices and elements
 		const size_t nNodes    = mesh.nNodes();
 		const size_t nElements = mesh.nElems();
 
@@ -231,7 +231,7 @@ namespace gv::mesh {
 	    using Node_t    = typename Mesh_t::node_type;
 		using Element_t = typename Mesh_t::element_type;
 
-		//get number of nodes and elements
+		//get number of vertices and elements
 		const size_t nNodes    = mesh.nNodes();
 		const size_t nElements = mesh.nElems();
 
@@ -239,11 +239,11 @@ namespace gv::mesh {
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
 	    static_assert(sizeof(typename Node_t::Scalar_t)==4 or sizeof(typename Node_t::Scalar_t)==8, "Unsupported floating point size");
 
-	    //in this file format, the node indices must be 4 bytes. ensure that there are not too many nodes.
+	    //in this file format, the node indices must be 4 bytes. ensure that there are not too many vertices.
 	    //additionally, the integers are expected to be signed in the legacy format.
 	    //uint32_t **might** be possible, but likely we need xml files for meshes that large.
-	    constexpr size_t max_legacy_vtk_nodes = static_cast<size_t>(std::numeric_limits<int32_t>::max());
-	    if (nNodes > max_legacy_vtk_nodes) {
+	    constexpr size_t max_legacy_vtk_vertices = static_cast<size_t>(std::numeric_limits<int32_t>::max());
+	    if (nNodes > max_legacy_vtk_vertices) {
 	    	throw std::runtime_error("Node index " + std::to_string(nNodes) + " exceeds legacy VTK format limit.");
 	    }
 	    
@@ -269,14 +269,14 @@ namespace gv::mesh {
 	    for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
 			const Node_t &NODE = *it;
 			if constexpr (sizeof(typename Node_t::Scalar_t)==4) {
-				write_big_endian(static_cast<float>(NODE.vertex[0]));
-				write_big_endian(static_cast<float>(NODE.vertex[1]));
-				write_big_endian(static_cast<float>(NODE.vertex[2]));
+				write_big_endian(static_cast<float>(NODE.coord[0]));
+				write_big_endian(static_cast<float>(NODE.coord[1]));
+				write_big_endian(static_cast<float>(NODE.coord[2]));
 			}
 		    else if constexpr (sizeof(typename Node_t::Scalar_t)==8) {
-		    	write_big_endian(static_cast<double>(NODE.vertex[0]));
-				write_big_endian(static_cast<double>(NODE.vertex[1]));
-				write_big_endian(static_cast<double>(NODE.vertex[2]));
+		    	write_big_endian(static_cast<double>(NODE.coord[0]));
+				write_big_endian(static_cast<double>(NODE.coord[1]));
+				write_big_endian(static_cast<double>(NODE.coord[2]));
 		    }
 	        
 	    }
@@ -284,13 +284,13 @@ namespace gv::mesh {
 	    
 	    // ELEMENTS - calculate counts
 	    size_t nEntries = 0;
-	    for (const Element_t &ELEM : mesh) {nEntries  += 1 + ELEM.nodes.size();}
+	    for (const Element_t &ELEM : mesh) {nEntries  += 1 + ELEM.vertices.size();}
 	    
 	    // CELLS (binary data)
 	    file << "CELLS " << nElements << " " << nEntries << "\n";
 	    for (const Element_t &ELEM : mesh) {
-			write_big_endian(static_cast<int>(ELEM.nodes.size()));
-			for (size_t n_idx : ELEM.nodes) {write_big_endian(static_cast<int>(n_idx));}
+			write_big_endian(static_cast<int>(ELEM.vertices.size()));
+			for (size_t n_idx : ELEM.vertices) {write_big_endian(static_cast<int>(n_idx));}
 	    }
 	    file << "\n";
 	    
@@ -305,7 +305,7 @@ namespace gv::mesh {
 	
 		
 	/////////////////////////////////////////////////
-	/// Print the details of the nodes and elements to the output stream. This includes element colors and which elements each node belongs to.
+	/// Print the details of the vertices and elements to the output stream. This includes element colors and which elements each node belongs to.
 	/// Due to the way that field data is stored in BINARY VTK format, it will be difficult to append any additional information to a file afterwards.
 	///
 	/// @param file  A filstream into the file to write to.
@@ -322,7 +322,7 @@ namespace gv::mesh {
 		using Node_t    = typename Mesh_t::node_type;
 		using Element_t = typename Mesh_t::element_type;
 
-		//get number of nodes and elements
+		//get number of vertices and elements
 		const size_t nNodes    = mesh.nNodes();
 		const size_t nElements = mesh.nElems();
 
@@ -330,11 +330,11 @@ namespace gv::mesh {
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
 	    static_assert(sizeof(typename Node_t::Scalar_t)==4 or sizeof(typename Node_t::Scalar_t)==8, "Unsupported floating point size");
 
-	    //in this file format, the node indices must be 4 bytes. ensure that there are not too many nodes.
+	    //in this file format, the node indices must be 4 bytes. ensure that there are not too many vertices.
 	    //additionally, the integers are expected to be signed in the legacy format.
 	    //uint32_t **might** be possible, but likely we need xml files for meshes that large.
-	    constexpr size_t max_legacy_vtk_nodes = static_cast<size_t>(std::numeric_limits<int32_t>::max());
-	    if (nNodes > max_legacy_vtk_nodes) {
+	    constexpr size_t max_legacy_vtk_vertices = static_cast<size_t>(std::numeric_limits<int32_t>::max());
+	    if (nNodes > max_legacy_vtk_vertices) {
 	    	throw std::runtime_error("Node index " + std::to_string(nNodes) + " exceeds legacy VTK format limit.");
 	    }
 

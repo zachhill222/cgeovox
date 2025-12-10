@@ -18,12 +18,12 @@ template<int n>
 using Box_t    = gv::util::Box<n,T>;
 
 void test() {	
-	using Point_t  = gv::util::Point<dim,T>;
+	using RefPoint_t = gv::util::Point<dim,T>;
 	
-	using Index_t  = gv::util::Point<dim,size_t>;
+	using Index_t   = gv::util::Point<dim,size_t>;
 
-	using Vertex_t  = gv::util::Point<3,T>;
-	using Node_t    = gv::mesh::BasicNode<Vertex_t>;
+	using Point_t   = gv::util::Point<3,T>;
+	using Node_t    = gv::mesh::BasicVertex<Point_t>;
 	using Face_t    = gv::mesh::HierarchicalElement;
 	using Element_t = gv::mesh::HierarchicalColoredElement;
 	// using Element_t = gv::mesh::BasicElement;
@@ -33,7 +33,7 @@ void test() {
 	using Mesh_t  = gv::mesh::HierarchicalMesh<Node_t,Element_t,Face_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
-	Point_t corner {0.000001,0.00000125,0.000002235};
+	RefPoint_t corner {0.000001,0.00000125,0.000002235};
 	std::cout << "EPS= " << T::EPSILON << std::endl;
 	std::cout << std::pow(0.5,7)*corner << std::endl;
 	Box_t<dim> domain(-corner, corner);
@@ -48,7 +48,7 @@ void test() {
 	}
 
 
-	auto fun = [corner](Vertex_t old) -> Vertex_t {
+	auto fun = [corner](Point_t old) -> Point_t {
 		double r = std::sqrt(old[0]*old[0] + old[1]*old[1]);
 		double theta = std::atan2(old[1],old[0]);
 		theta += 2.0*0.78539816339*old[2]/corner[2];
@@ -58,8 +58,8 @@ void test() {
 		return old;
 	};
 	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-		if (it->vertex[2]>0.0) {
-			mesh.moveVertex(it->index, fun(it->vertex));
+		if (it->coord[2]>0.0) {
+			mesh.moveVertex(it->index, fun(it->coord));
 		}
 	}
 

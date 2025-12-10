@@ -13,7 +13,7 @@
 
 
 namespace gv::mesh {
-	/* Pixel element node labels
+	/* Pixel element vertex labels
 	
 	 			2 ----- 3
 				|		|
@@ -42,64 +42,63 @@ namespace gv::mesh {
 	/// In fact sqrt(J^t J) = 0.25*h1*h2 where h1 and h2 are the side-lengths of the mesh element.
 	///
 	/////////////////////////////////////////////////
-	template <typename Vertex_t>
-	class VTK_PIXEL : public VTK_ELEMENT<Vertex_t> {
+	template<typename Point_t>
+	class VTK_PIXEL : public VTK_ELEMENT<Point_t> {
 	public:
-		VTK_PIXEL(const BasicElement &elem) : VTK_ELEMENT<Vertex_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nodes.size()==vtk_n_nodes(elem.vtkID));}
+		VTK_PIXEL(const BasicElement& elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.vertices.size()==vtk_n_vertices(elem.vtkID));}
 		static constexpr int VTK_ID  = PIXEL_VTK_ID;
 		static constexpr int REF_DIM = 2; //dimension of the reference element
-		using Scalar_t    = typename Vertex_t::Scalar_t;
+		using Scalar_t    = typename Point_t::Scalar_t;
 		using RefPoint_t  = gv::util::Point<REF_DIM, Scalar_t>; //type of point in the reference element
 		using Matrix_t    = gv::util::Matrix<3,REF_DIM,Scalar_t>; //dimensions of the jacobian matrix (output space is always R3)
 
 		using ScalarFun_t = std::function<Scalar_t(RefPoint_t)>; //function type to evaluate a basis in the element
-		using VectorFun_t = std::function<Vertex_t(RefPoint_t)>; //function type to evaluate the gradient of a basis function
+		using VectorFun_t = std::function<Point_t(RefPoint_t)>; //function type to evaluate the gradient of a basis function
 		using MatrixFun_t = std::function<Matrix_t(RefPoint_t)>; //function type to evaluate the jacobian of the isoparametric mapping
 
-		void split(std::vector<Vertex_t> &vertices) const override {
-			assert(vertices.size()==vtk_n_nodes(VTK_ID));
-			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
-
-			using T = typename Vertex_t::Scalar_t;
+		void split(std::vector<Point_t>& vertex_coords) const override {
+			assert(vertex_coords.size()==vtk_n_vertices(VTK_ID));
+			vertex_coords.reserve(vtk_n_vertices_when_split(VTK_ID));
+			using T = Scalar_t;
 
 			//edge midpoints
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //4 - bottom
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[3]})); //5 - right
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //6 - top
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[2]})); //7 - left
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]})); //4 - bottom
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[3]})); //5 - right
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[3]})); //6 - top
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[2]})); //7 - left
 
 			//center
-			vertices.emplace_back(T{0.5}*(vertices[0]+vertices[3])); //8
+			vertex_coords.emplace_back(T{0.5}*(vertex_coords[0]+vertex_coords[3])); //8
 		}
 
-		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
-			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
-			child_nodes.resize(vtk_n_nodes(VTK_ID));
+		void getChildVertices(std::vector<size_t> &child_vertices, const int child_number, const std::vector<size_t> &split_vertex_numbers) const override {
+			assert(split_vertex_numbers.size()==vtk_n_vertices_when_split(VTK_ID));
+			child_vertices.resize(vtk_n_vertices(VTK_ID));
 
 			switch (child_number) {
 				case (0):
-					child_nodes[0] = split_node_numbers[0]; //0
-					child_nodes[1] = split_node_numbers[4]; //0-1
-					child_nodes[2] = split_node_numbers[7]; //0-2
-					child_nodes[3] = split_node_numbers[8]; //0-3
+					child_vertices[0] = split_vertex_numbers[0]; //0
+					child_vertices[1] = split_vertex_numbers[4]; //0-1
+					child_vertices[2] = split_vertex_numbers[7]; //0-2
+					child_vertices[3] = split_vertex_numbers[8]; //0-3
 					break;
 				case (1):
-					child_nodes[0] = split_node_numbers[4]; //0-1
-					child_nodes[1] = split_node_numbers[1]; //1
-					child_nodes[2] = split_node_numbers[8]; //0-3
-					child_nodes[3] = split_node_numbers[5]; //1-3
+					child_vertices[0] = split_vertex_numbers[4]; //0-1
+					child_vertices[1] = split_vertex_numbers[1]; //1
+					child_vertices[2] = split_vertex_numbers[8]; //0-3
+					child_vertices[3] = split_vertex_numbers[5]; //1-3
 					break;
 				case (2):
-					child_nodes[0] = split_node_numbers[7]; //0-2
-					child_nodes[1] = split_node_numbers[8]; //0-3
-					child_nodes[2] = split_node_numbers[2]; //2
-					child_nodes[3] = split_node_numbers[6]; //2-3
+					child_vertices[0] = split_vertex_numbers[7]; //0-2
+					child_vertices[1] = split_vertex_numbers[8]; //0-3
+					child_vertices[2] = split_vertex_numbers[2]; //2
+					child_vertices[3] = split_vertex_numbers[6]; //2-3
 					break;
 				case (3):
-					child_nodes[0] = split_node_numbers[8]; //0-3
-					child_nodes[1] = split_node_numbers[5]; //1-3
-					child_nodes[2] = split_node_numbers[6]; //2-3
-					child_nodes[3] = split_node_numbers[3]; //3
+					child_vertices[0] = split_vertex_numbers[8]; //0-3
+					child_vertices[1] = split_vertex_numbers[5]; //1-3
+					child_vertices[2] = split_vertex_numbers[6]; //2-3
+					child_vertices[3] = split_vertex_numbers[3]; //3
 					break;
 				default:
 					throw std::out_of_range("child number out of bounds");
@@ -107,24 +106,24 @@ namespace gv::mesh {
 			}
 		}
 
-		void getFaceNodes(std::vector<size_t> &face_nodes, const int face_number) const override {
-			face_nodes.resize(2);
+		void getFaceVertices(std::vector<size_t> &face_vertices, const int face_number) const override {
+			face_vertices.resize(2);
 			switch (face_number) {
 			case (0):
-				face_nodes[0] = this->ELEM.nodes[0];
-				face_nodes[1] = this->ELEM.nodes[1];
+				face_vertices[0] = this->ELEM.vertices[0];
+				face_vertices[1] = this->ELEM.vertices[1];
 				break;
 			case (1):
-				face_nodes[0] = this->ELEM.nodes[1];
-				face_nodes[1] = this->ELEM.nodes[3];
+				face_vertices[0] = this->ELEM.vertices[1];
+				face_vertices[1] = this->ELEM.vertices[3];
 				break;
 			case (2):
-				face_nodes[0] = this->ELEM.nodes[3];
-				face_nodes[1] = this->ELEM.nodes[2];
+				face_vertices[0] = this->ELEM.vertices[3];
+				face_vertices[1] = this->ELEM.vertices[2];
 				break;
 			case (3):
-				face_nodes[0] = this->ELEM.nodes[2];
-				face_nodes[1] = this->ELEM.nodes[0];
+				face_vertices[0] = this->ELEM.vertices[2];
+				face_vertices[1] = this->ELEM.vertices[0];
 				break;
 			default:
 				throw std::out_of_range("face number out of bounds");
@@ -132,33 +131,33 @@ namespace gv::mesh {
 			}
 		}
 
-		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {
-			split_face_nodes.resize(vtk_n_nodes_when_split(vtk_face_id(VTK_ID)));
-			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+		void getSplitFaceVertices(std::vector<size_t> &split_face_vertices, const int face_number, const std::vector<size_t> &split_vertex_numbers) const override {
+			split_face_vertices.resize(vtk_n_vertices_when_split(vtk_face_id(VTK_ID)));
+			assert(split_vertex_numbers.size()==vtk_n_vertices_when_split(VTK_ID));
 
 			switch (face_number) {
 				case (0): // Bottom [0, 1]
-				split_face_nodes[0] = split_node_numbers[ 0]; //0
-				split_face_nodes[1] = split_node_numbers[ 1]; //1
-				split_face_nodes[2] = split_node_numbers[ 4]; //0-1
+				split_face_vertices[0] = split_vertex_numbers[ 0]; //0
+				split_face_vertices[1] = split_vertex_numbers[ 1]; //1
+				split_face_vertices[2] = split_vertex_numbers[ 4]; //0-1
 				break;
 
 			case (1): // Right [1, 3]
-				split_face_nodes[0] = split_node_numbers[ 1]; //1
-				split_face_nodes[1] = split_node_numbers[ 3]; //3
-				split_face_nodes[2] = split_node_numbers[ 5]; //1-3
+				split_face_vertices[0] = split_vertex_numbers[ 1]; //1
+				split_face_vertices[1] = split_vertex_numbers[ 3]; //3
+				split_face_vertices[2] = split_vertex_numbers[ 5]; //1-3
 				break;
 
 			case (2): // Top [3, 2]
-				split_face_nodes[0] = split_node_numbers[ 3]; //3
-				split_face_nodes[1] = split_node_numbers[ 2]; //2
-				split_face_nodes[2] = split_node_numbers[ 6]; //2-3
+				split_face_vertices[0] = split_vertex_numbers[ 3]; //3
+				split_face_vertices[1] = split_vertex_numbers[ 2]; //2
+				split_face_vertices[2] = split_vertex_numbers[ 6]; //2-3
 				break;
 
 			case (3): // Left [2, 0]
-				split_face_nodes[0] = split_node_numbers[ 2]; //2
-				split_face_nodes[1] = split_node_numbers[ 0]; //0
-				split_face_nodes[2] = split_node_numbers[ 7]; //0-2
+				split_face_vertices[0] = split_vertex_numbers[ 2]; //2
+				split_face_vertices[1] = split_vertex_numbers[ 0]; //0
+				split_face_vertices[2] = split_vertex_numbers[ 7]; //0-2
 				break;
 
 			default:
@@ -167,7 +166,7 @@ namespace gv::mesh {
 			}
 		}
 
-		bool isInterior(const std::vector<Vertex_t>& vertices, const Vertex_t& coord) const override {
+		bool isInterior(const std::vector<Point_t>& vertices, const Point_t& coord) const override {
 			assert(false);
 			return false;
 		}

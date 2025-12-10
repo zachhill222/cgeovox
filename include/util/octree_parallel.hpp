@@ -710,7 +710,7 @@ namespace gv::util {
 							assert(!containsIndex(node->children[c], idx));
 							[[maybe_unused]] int flag = appendDataIdx(node->children[c], idx);
 							assert(flag>=0);
-							if (flag==0) {std::cout << "data at index " << idx << " already pushed down: " << _data[idx].vertex << std::endl;}
+							if (flag==0) {std::cout << "data at index " << idx << " already pushed down" << std::endl;}
 							
 							if constexpr (SINGLE_DATA) {
 								break;  // Only first valid child gets the data

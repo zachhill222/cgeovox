@@ -13,7 +13,7 @@
 
 
 namespace gv::mesh {
-	/* Voxel element node labels
+	/* Voxel element vertex labels
 	
 	 			2 ------- 3
 				|\	      |\
@@ -44,143 +44,141 @@ namespace gv::mesh {
 	/// 0.125*(v0+...+v7), which cannot be simplified to the average of any two opposite vertices.
 	/// Note by a similar line of reasoning, the center of each face must be found by averaging all four vertices.
 	/////////////////////////////////////////////////
-	template <typename Vertex_t>
-	class VTK_VOXEL : public VTK_ELEMENT<Vertex_t> {
+	template<typename Point_t>
+	class VTK_VOXEL : public VTK_ELEMENT<Point_t> {
 	public:
-		VTK_VOXEL(const BasicElement &elem) : VTK_ELEMENT<Vertex_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.nodes.size()==vtk_n_nodes(elem.vtkID));}
+		VTK_VOXEL(const BasicElement &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.vertices.size()==vtk_n_vertices(elem.vtkID));}
 		static constexpr int VTK_ID  = VOXEL_VTK_ID;
 		static constexpr int REF_DIM = 3; //dimension of the reference element
 
-		using Scalar_t    = typename Vertex_t::Scalar_t;
+		using Scalar_t    = typename Point_t::Scalar_t;
 		using RefPoint_t  = gv::util::Point<REF_DIM, Scalar_t>;   //type of point in the reference element
 		using Matrix_t    = gv::util::Matrix<3,REF_DIM,Scalar_t>; //dimensions of the jacobian matrix (output space is always R3)
 
-		void split(std::vector<Vertex_t> &vertices) const override {
-			assert(vertices.size()==vtk_n_nodes(VTK_ID));
-			vertices.reserve(vtk_n_nodes_when_split(VTK_ID));
+		void split(std::vector<Point_t>& vertex_coords) const override {
+			assert(vertex_coords.size()==vtk_n_vertices(VTK_ID));
+			vertex_coords.reserve(vtk_n_vertices_when_split(VTK_ID));
 
-
-			using T = typename Vertex_t::Scalar_t;
-
+			using T = Scalar_t;
 			//edge midpoints
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[1]})); //8  - back face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[3]})); //9  - back face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[3]})); //10 - back face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[2]})); //11 - back face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]})); //8  - back face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[3]})); //9  - back face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[3]})); //10 - back face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[2]})); //11 - back face
 
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[4]})); //12 - connecting edge
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[6]})); //13 - connecting edge
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[3],vertices[7]})); //14 - connecting edge
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[5]})); //15 - connecting edge
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[4]})); //12 - connecting edge
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[6]})); //13 - connecting edge
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[3],vertex_coords[7]})); //14 - connecting edge
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[5]})); //15 - connecting edge
 			
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[5]})); //16 - front face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[5],vertices[7]})); //17 - front face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[6],vertices[7]})); //18 - front face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[6]})); //19 - front face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[4],vertex_coords[5]})); //16 - front face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[5],vertex_coords[7]})); //17 - front face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[6],vertex_coords[7]})); //18 - front face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[4],vertex_coords[6]})); //19 - front face
 
 			//face midpoints
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[6]})); //20 - left face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[1],vertices[7]})); //21 - right face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[2],vertices[7]})); //22 - top face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[5]})); //23 - bottom face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[3]})); //24 - back face
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[4],vertices[7]})); //25 - front face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[6]})); //20 - left face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[7]})); //21 - right face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[7]})); //22 - top face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[5]})); //23 - bottom face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[3]})); //24 - back face
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[4],vertex_coords[7]})); //25 - front face
 
 			//center
-			vertices.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertices[0],vertices[7]})); //26
+			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[7]})); //26
 		}
 
-		void getChildNodes(std::vector<size_t> &child_nodes, const int child_number, const std::vector<size_t> &split_node_numbers) const override {
-			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
-			child_nodes.resize(vtk_n_nodes(VTK_ID));
+		void getChildVertices(std::vector<size_t> &child_vertices, const int child_number, const std::vector<size_t> &split_vertex_numbers) const override {
+			assert(split_vertex_numbers.size()==vtk_n_vertices_when_split(VTK_ID));
+			child_vertices.resize(vtk_n_vertices(VTK_ID));
 
 			switch (child_number) {
 				case (0): //voxel element containing original vertex 0
-					child_nodes[0] = split_node_numbers[ 0]; //0
-					child_nodes[1] = split_node_numbers[ 8]; //0-1
-					child_nodes[2] = split_node_numbers[11]; //0-2
-					child_nodes[3] = split_node_numbers[24]; //0-3
-					child_nodes[4] = split_node_numbers[12]; //0-4
-					child_nodes[5] = split_node_numbers[23]; //0-5
-					child_nodes[6] = split_node_numbers[20]; //0-6
-					child_nodes[7] = split_node_numbers[26]; //0-7
+					child_vertices[0] = split_vertex_numbers[ 0]; //0
+					child_vertices[1] = split_vertex_numbers[ 8]; //0-1
+					child_vertices[2] = split_vertex_numbers[11]; //0-2
+					child_vertices[3] = split_vertex_numbers[24]; //0-3
+					child_vertices[4] = split_vertex_numbers[12]; //0-4
+					child_vertices[5] = split_vertex_numbers[23]; //0-5
+					child_vertices[6] = split_vertex_numbers[20]; //0-6
+					child_vertices[7] = split_vertex_numbers[26]; //0-7
 					break;
 
 				case (1): //voxel element containing original vertex 1
-					child_nodes[0] = split_node_numbers[ 8]; //0-1
-					child_nodes[1] = split_node_numbers[ 1]; //1
-					child_nodes[2] = split_node_numbers[24]; //0-3
-					child_nodes[3] = split_node_numbers[ 9]; //1-3
-					child_nodes[4] = split_node_numbers[23]; //0-5
-					child_nodes[5] = split_node_numbers[15]; //1-5
-					child_nodes[6] = split_node_numbers[26]; //0-7
-					child_nodes[7] = split_node_numbers[21]; //1-7
+					child_vertices[0] = split_vertex_numbers[ 8]; //0-1
+					child_vertices[1] = split_vertex_numbers[ 1]; //1
+					child_vertices[2] = split_vertex_numbers[24]; //0-3
+					child_vertices[3] = split_vertex_numbers[ 9]; //1-3
+					child_vertices[4] = split_vertex_numbers[23]; //0-5
+					child_vertices[5] = split_vertex_numbers[15]; //1-5
+					child_vertices[6] = split_vertex_numbers[26]; //0-7
+					child_vertices[7] = split_vertex_numbers[21]; //1-7
 					break;
 
 				case (2): //voxel element containing original vertex 2
-					child_nodes[0] = split_node_numbers[11]; //0-2
-					child_nodes[1] = split_node_numbers[24]; //0-3
-					child_nodes[2] = split_node_numbers[ 2]; //2
-					child_nodes[3] = split_node_numbers[10]; //2-3
-					child_nodes[4] = split_node_numbers[20]; //0-6
-					child_nodes[5] = split_node_numbers[26]; //0-7
-					child_nodes[6] = split_node_numbers[13]; //2-6
-					child_nodes[7] = split_node_numbers[22]; //2-7
+					child_vertices[0] = split_vertex_numbers[11]; //0-2
+					child_vertices[1] = split_vertex_numbers[24]; //0-3
+					child_vertices[2] = split_vertex_numbers[ 2]; //2
+					child_vertices[3] = split_vertex_numbers[10]; //2-3
+					child_vertices[4] = split_vertex_numbers[20]; //0-6
+					child_vertices[5] = split_vertex_numbers[26]; //0-7
+					child_vertices[6] = split_vertex_numbers[13]; //2-6
+					child_vertices[7] = split_vertex_numbers[22]; //2-7
 					break;
 
 				case (3): //voxel element containing original vertex 3
-					child_nodes[0] = split_node_numbers[24]; //0-3
-					child_nodes[1] = split_node_numbers[ 9]; //1-3
-					child_nodes[2] = split_node_numbers[10]; //2-3
-					child_nodes[3] = split_node_numbers[ 3]; //3
-					child_nodes[4] = split_node_numbers[26]; //0-7
-					child_nodes[5] = split_node_numbers[21]; //1-7
-					child_nodes[6] = split_node_numbers[22]; //2-7
-					child_nodes[7] = split_node_numbers[14]; //3-7
+					child_vertices[0] = split_vertex_numbers[24]; //0-3
+					child_vertices[1] = split_vertex_numbers[ 9]; //1-3
+					child_vertices[2] = split_vertex_numbers[10]; //2-3
+					child_vertices[3] = split_vertex_numbers[ 3]; //3
+					child_vertices[4] = split_vertex_numbers[26]; //0-7
+					child_vertices[5] = split_vertex_numbers[21]; //1-7
+					child_vertices[6] = split_vertex_numbers[22]; //2-7
+					child_vertices[7] = split_vertex_numbers[14]; //3-7
 					break;
 
 				case (4): //voxel element containing original vertex 4
-					child_nodes[0] = split_node_numbers[12]; //0-4
-					child_nodes[1] = split_node_numbers[23]; //0-5
-					child_nodes[2] = split_node_numbers[20]; //0-6
-					child_nodes[3] = split_node_numbers[26]; //0-7
-					child_nodes[4] = split_node_numbers[ 4]; //4
-					child_nodes[5] = split_node_numbers[16]; //4-5
-					child_nodes[6] = split_node_numbers[19]; //4-6
-					child_nodes[7] = split_node_numbers[25]; //4-7
+					child_vertices[0] = split_vertex_numbers[12]; //0-4
+					child_vertices[1] = split_vertex_numbers[23]; //0-5
+					child_vertices[2] = split_vertex_numbers[20]; //0-6
+					child_vertices[3] = split_vertex_numbers[26]; //0-7
+					child_vertices[4] = split_vertex_numbers[ 4]; //4
+					child_vertices[5] = split_vertex_numbers[16]; //4-5
+					child_vertices[6] = split_vertex_numbers[19]; //4-6
+					child_vertices[7] = split_vertex_numbers[25]; //4-7
 					break;
 
 				case (5): //voxel element containing original vertex 5
-					child_nodes[0] = split_node_numbers[23]; //0-5
-					child_nodes[1] = split_node_numbers[15]; //1-5
-					child_nodes[2] = split_node_numbers[26]; //0-7
-					child_nodes[3] = split_node_numbers[21]; //1-7
-					child_nodes[4] = split_node_numbers[16]; //4-5
-					child_nodes[5] = split_node_numbers[ 5]; //5
-					child_nodes[6] = split_node_numbers[25]; //4-7
-					child_nodes[7] = split_node_numbers[17]; //5-7
+					child_vertices[0] = split_vertex_numbers[23]; //0-5
+					child_vertices[1] = split_vertex_numbers[15]; //1-5
+					child_vertices[2] = split_vertex_numbers[26]; //0-7
+					child_vertices[3] = split_vertex_numbers[21]; //1-7
+					child_vertices[4] = split_vertex_numbers[16]; //4-5
+					child_vertices[5] = split_vertex_numbers[ 5]; //5
+					child_vertices[6] = split_vertex_numbers[25]; //4-7
+					child_vertices[7] = split_vertex_numbers[17]; //5-7
 					break;
 
 				case (6): //voxel element containing original vertex 6
-					child_nodes[0] = split_node_numbers[20]; //0-6
-					child_nodes[1] = split_node_numbers[26]; //0-7
-					child_nodes[2] = split_node_numbers[13]; //2-6
-					child_nodes[3] = split_node_numbers[22]; //2-7
-					child_nodes[4] = split_node_numbers[19]; //4-6
-					child_nodes[5] = split_node_numbers[25]; //4-7
-					child_nodes[6] = split_node_numbers[ 6]; //6
-					child_nodes[7] = split_node_numbers[18]; //6-7
+					child_vertices[0] = split_vertex_numbers[20]; //0-6
+					child_vertices[1] = split_vertex_numbers[26]; //0-7
+					child_vertices[2] = split_vertex_numbers[13]; //2-6
+					child_vertices[3] = split_vertex_numbers[22]; //2-7
+					child_vertices[4] = split_vertex_numbers[19]; //4-6
+					child_vertices[5] = split_vertex_numbers[25]; //4-7
+					child_vertices[6] = split_vertex_numbers[ 6]; //6
+					child_vertices[7] = split_vertex_numbers[18]; //6-7
 					break;
 
 				case (7): //voxel element containing original vertex 7
-					child_nodes[0] = split_node_numbers[26]; //0-7
-					child_nodes[1] = split_node_numbers[21]; //1-7
-					child_nodes[2] = split_node_numbers[22]; //2-7
-					child_nodes[3] = split_node_numbers[14]; //3-7
-					child_nodes[4] = split_node_numbers[25]; //4-7
-					child_nodes[5] = split_node_numbers[17]; //5-7
-					child_nodes[6] = split_node_numbers[18]; //6-7
-					child_nodes[7] = split_node_numbers[ 7]; //7
+					child_vertices[0] = split_vertex_numbers[26]; //0-7
+					child_vertices[1] = split_vertex_numbers[21]; //1-7
+					child_vertices[2] = split_vertex_numbers[22]; //2-7
+					child_vertices[3] = split_vertex_numbers[14]; //3-7
+					child_vertices[4] = split_vertex_numbers[25]; //4-7
+					child_vertices[5] = split_vertex_numbers[17]; //5-7
+					child_vertices[6] = split_vertex_numbers[18]; //6-7
+					child_vertices[7] = split_vertex_numbers[ 7]; //7
 					break;
 				default:
 					throw std::out_of_range("child number out of bounds");
@@ -188,44 +186,44 @@ namespace gv::mesh {
 			}
 		}
 
-		void getFaceNodes(std::vector<size_t> &face_nodes, const int face_number) const override {
-			face_nodes.resize(4);
+		void getFaceVertices(std::vector<size_t> &face_vertices, const int face_number) const override {
+			face_vertices.resize(4);
 			switch (face_number) {
 			case (0): //left
-				face_nodes[0] = this->ELEM.nodes[0];
-				face_nodes[1] = this->ELEM.nodes[4];
-				face_nodes[2] = this->ELEM.nodes[2];
-				face_nodes[3] = this->ELEM.nodes[6];
+				face_vertices[0] = this->ELEM.vertices[0];
+				face_vertices[1] = this->ELEM.vertices[4];
+				face_vertices[2] = this->ELEM.vertices[2];
+				face_vertices[3] = this->ELEM.vertices[6];
 				break;
 			case (1): //right
-				face_nodes[0] = this->ELEM.nodes[1];
-				face_nodes[1] = this->ELEM.nodes[3];
-				face_nodes[2] = this->ELEM.nodes[5];
-				face_nodes[3] = this->ELEM.nodes[7];
+				face_vertices[0] = this->ELEM.vertices[1];
+				face_vertices[1] = this->ELEM.vertices[3];
+				face_vertices[2] = this->ELEM.vertices[5];
+				face_vertices[3] = this->ELEM.vertices[7];
 				break;
 			case (2): //top
-				face_nodes[0] = this->ELEM.nodes[2];
-				face_nodes[1] = this->ELEM.nodes[6];
-				face_nodes[2] = this->ELEM.nodes[3];
-				face_nodes[3] = this->ELEM.nodes[7];
+				face_vertices[0] = this->ELEM.vertices[2];
+				face_vertices[1] = this->ELEM.vertices[6];
+				face_vertices[2] = this->ELEM.vertices[3];
+				face_vertices[3] = this->ELEM.vertices[7];
 				break;
 			case (3): //bottom
-				face_nodes[0] = this->ELEM.nodes[0];
-				face_nodes[1] = this->ELEM.nodes[1];
-				face_nodes[2] = this->ELEM.nodes[4];
-				face_nodes[3] = this->ELEM.nodes[5];
+				face_vertices[0] = this->ELEM.vertices[0];
+				face_vertices[1] = this->ELEM.vertices[1];
+				face_vertices[2] = this->ELEM.vertices[4];
+				face_vertices[3] = this->ELEM.vertices[5];
 				break;
 			case (4): //back
-				face_nodes[0] = this->ELEM.nodes[1];
-				face_nodes[1] = this->ELEM.nodes[0];
-				face_nodes[2] = this->ELEM.nodes[3];
-				face_nodes[3] = this->ELEM.nodes[2];
+				face_vertices[0] = this->ELEM.vertices[1];
+				face_vertices[1] = this->ELEM.vertices[0];
+				face_vertices[2] = this->ELEM.vertices[3];
+				face_vertices[3] = this->ELEM.vertices[2];
 				break;
 			case (5): //front
-				face_nodes[0] = this->ELEM.nodes[4];
-				face_nodes[1] = this->ELEM.nodes[5];
-				face_nodes[2] = this->ELEM.nodes[6];
-				face_nodes[3] = this->ELEM.nodes[7];
+				face_vertices[0] = this->ELEM.vertices[4];
+				face_vertices[1] = this->ELEM.vertices[5];
+				face_vertices[2] = this->ELEM.vertices[6];
+				face_vertices[3] = this->ELEM.vertices[7];
 				break;
 			default:
 				throw std::out_of_range("face number out of bounds");
@@ -233,81 +231,81 @@ namespace gv::mesh {
 			}
 		}
 
-		void getSplitFaceNodes(std::vector<size_t> &split_face_nodes, const int face_number, const std::vector<size_t> &split_node_numbers) const override {
-			split_face_nodes.resize(vtk_n_nodes_when_split(vtk_face_id(VTK_ID)));
-			assert(split_node_numbers.size()==vtk_n_nodes_when_split(VTK_ID));
+		void getSplitFaceVertices(std::vector<size_t> &split_face_vertices, const int face_number, const std::vector<size_t> &split_vertex_numbers) const override {
+			split_face_vertices.resize(vtk_n_vertices_when_split(vtk_face_id(VTK_ID)));
+			assert(split_vertex_numbers.size()==vtk_n_vertices_when_split(VTK_ID));
 
 			switch (face_number) {
 				case (0): // Left face [0, 4, 2, 6]
-				split_face_nodes[0] = split_node_numbers[ 0]; //0
-				split_face_nodes[1] = split_node_numbers[ 4]; //4
-				split_face_nodes[2] = split_node_numbers[ 2]; //2
-				split_face_nodes[3] = split_node_numbers[ 6]; //6
-				split_face_nodes[4] = split_node_numbers[12]; //0-4
-				split_face_nodes[5] = split_node_numbers[19]; //4-6
-				split_face_nodes[6] = split_node_numbers[13]; //2-6
-				split_face_nodes[7] = split_node_numbers[11]; //0-2
-				split_face_nodes[8] = split_node_numbers[20]; //left face center
+				split_face_vertices[0] = split_vertex_numbers[ 0]; //0
+				split_face_vertices[1] = split_vertex_numbers[ 4]; //4
+				split_face_vertices[2] = split_vertex_numbers[ 2]; //2
+				split_face_vertices[3] = split_vertex_numbers[ 6]; //6
+				split_face_vertices[4] = split_vertex_numbers[12]; //0-4
+				split_face_vertices[5] = split_vertex_numbers[19]; //4-6
+				split_face_vertices[6] = split_vertex_numbers[13]; //2-6
+				split_face_vertices[7] = split_vertex_numbers[11]; //0-2
+				split_face_vertices[8] = split_vertex_numbers[20]; //left face center
 				break;
 
 			case (1): // Right face [1, 3, 5, 7]
-				split_face_nodes[0] = split_node_numbers[ 1]; //1
-				split_face_nodes[1] = split_node_numbers[ 3]; //3
-				split_face_nodes[2] = split_node_numbers[ 5]; //5
-				split_face_nodes[3] = split_node_numbers[ 7]; //7
-				split_face_nodes[4] = split_node_numbers[ 9]; //1-3
-				split_face_nodes[5] = split_node_numbers[14]; //3-7
-				split_face_nodes[6] = split_node_numbers[17]; //5-7
-				split_face_nodes[7] = split_node_numbers[15]; //1-5
-				split_face_nodes[8] = split_node_numbers[21]; //right face center
+				split_face_vertices[0] = split_vertex_numbers[ 1]; //1
+				split_face_vertices[1] = split_vertex_numbers[ 3]; //3
+				split_face_vertices[2] = split_vertex_numbers[ 5]; //5
+				split_face_vertices[3] = split_vertex_numbers[ 7]; //7
+				split_face_vertices[4] = split_vertex_numbers[ 9]; //1-3
+				split_face_vertices[5] = split_vertex_numbers[14]; //3-7
+				split_face_vertices[6] = split_vertex_numbers[17]; //5-7
+				split_face_vertices[7] = split_vertex_numbers[15]; //1-5
+				split_face_vertices[8] = split_vertex_numbers[21]; //right face center
 				break;
 
 			case (2): // Top face [2, 6, 3, 7]
-				split_face_nodes[0] = split_node_numbers[ 2]; //2
-				split_face_nodes[1] = split_node_numbers[ 6]; //6
-				split_face_nodes[2] = split_node_numbers[ 3]; //3
-				split_face_nodes[3] = split_node_numbers[ 7]; //7
-				split_face_nodes[4] = split_node_numbers[13]; //2-6
-				split_face_nodes[5] = split_node_numbers[18]; //6-7
-				split_face_nodes[6] = split_node_numbers[14]; //3-7
-				split_face_nodes[7] = split_node_numbers[10]; //2-3
-				split_face_nodes[8] = split_node_numbers[22]; //top face center
+				split_face_vertices[0] = split_vertex_numbers[ 2]; //2
+				split_face_vertices[1] = split_vertex_numbers[ 6]; //6
+				split_face_vertices[2] = split_vertex_numbers[ 3]; //3
+				split_face_vertices[3] = split_vertex_numbers[ 7]; //7
+				split_face_vertices[4] = split_vertex_numbers[13]; //2-6
+				split_face_vertices[5] = split_vertex_numbers[18]; //6-7
+				split_face_vertices[6] = split_vertex_numbers[14]; //3-7
+				split_face_vertices[7] = split_vertex_numbers[10]; //2-3
+				split_face_vertices[8] = split_vertex_numbers[22]; //top face center
 				break;
 
 			case (3): // Bottom face [0, 1, 4, 5]
-				split_face_nodes[0] = split_node_numbers[ 0]; //0
-				split_face_nodes[1] = split_node_numbers[ 1]; //1
-				split_face_nodes[2] = split_node_numbers[ 4]; //4
-				split_face_nodes[3] = split_node_numbers[ 5]; //5
-				split_face_nodes[4] = split_node_numbers[ 8]; //0-1
-				split_face_nodes[5] = split_node_numbers[15]; //1-5
-				split_face_nodes[6] = split_node_numbers[16]; //4-5
-				split_face_nodes[7] = split_node_numbers[12]; //0-4
-				split_face_nodes[8] = split_node_numbers[23]; //bottom face center
+				split_face_vertices[0] = split_vertex_numbers[ 0]; //0
+				split_face_vertices[1] = split_vertex_numbers[ 1]; //1
+				split_face_vertices[2] = split_vertex_numbers[ 4]; //4
+				split_face_vertices[3] = split_vertex_numbers[ 5]; //5
+				split_face_vertices[4] = split_vertex_numbers[ 8]; //0-1
+				split_face_vertices[5] = split_vertex_numbers[15]; //1-5
+				split_face_vertices[6] = split_vertex_numbers[16]; //4-5
+				split_face_vertices[7] = split_vertex_numbers[12]; //0-4
+				split_face_vertices[8] = split_vertex_numbers[23]; //bottom face center
 				break;
 
 			case (4): // Back face [1, 0, 3, 2]
-				split_face_nodes[0] = split_node_numbers[ 1]; //1
-				split_face_nodes[1] = split_node_numbers[ 0]; //0
-				split_face_nodes[2] = split_node_numbers[ 3]; //3
-				split_face_nodes[3] = split_node_numbers[ 2]; //2
-				split_face_nodes[4] = split_node_numbers[ 8]; //1-0
-				split_face_nodes[5] = split_node_numbers[11]; //0-2
-				split_face_nodes[6] = split_node_numbers[10]; //2-3
-				split_face_nodes[7] = split_node_numbers[ 9]; //3-1
-				split_face_nodes[8] = split_node_numbers[24]; //back face center
+				split_face_vertices[0] = split_vertex_numbers[ 1]; //1
+				split_face_vertices[1] = split_vertex_numbers[ 0]; //0
+				split_face_vertices[2] = split_vertex_numbers[ 3]; //3
+				split_face_vertices[3] = split_vertex_numbers[ 2]; //2
+				split_face_vertices[4] = split_vertex_numbers[ 8]; //1-0
+				split_face_vertices[5] = split_vertex_numbers[11]; //0-2
+				split_face_vertices[6] = split_vertex_numbers[10]; //2-3
+				split_face_vertices[7] = split_vertex_numbers[ 9]; //3-1
+				split_face_vertices[8] = split_vertex_numbers[24]; //back face center
 				break;
 
 			case (5): // Front face [4, 5, 6, 7]
-				split_face_nodes[0] = split_node_numbers[ 4]; //4
-				split_face_nodes[1] = split_node_numbers[ 5]; //5
-				split_face_nodes[2] = split_node_numbers[ 6]; //6
-				split_face_nodes[3] = split_node_numbers[ 7]; //7
-				split_face_nodes[4] = split_node_numbers[16]; //4-5
-				split_face_nodes[5] = split_node_numbers[17]; //5-7
-				split_face_nodes[6] = split_node_numbers[18]; //6-7
-				split_face_nodes[7] = split_node_numbers[19]; //4-6
-				split_face_nodes[8] = split_node_numbers[25]; //front face center
+				split_face_vertices[0] = split_vertex_numbers[ 4]; //4
+				split_face_vertices[1] = split_vertex_numbers[ 5]; //5
+				split_face_vertices[2] = split_vertex_numbers[ 6]; //6
+				split_face_vertices[3] = split_vertex_numbers[ 7]; //7
+				split_face_vertices[4] = split_vertex_numbers[16]; //4-5
+				split_face_vertices[5] = split_vertex_numbers[17]; //5-7
+				split_face_vertices[6] = split_vertex_numbers[18]; //6-7
+				split_face_vertices[7] = split_vertex_numbers[19]; //4-6
+				split_face_vertices[8] = split_vertex_numbers[25]; //front face center
 				break;
 
 			default:
@@ -316,7 +314,7 @@ namespace gv::mesh {
 			}
 		}
 
-		bool isInterior(const std::vector<Vertex_t>& vertices, const Vertex_t& coord) const override {
+		bool isInterior(const std::vector<Point_t>& vertices, const Point_t& coord) const override {
 			//check if point lies in each coordinate interval
 			//vertex 0 is minimal and vertex 7 is maximal for voxels
 			for (int i=0; i<3; i++) {
@@ -325,7 +323,7 @@ namespace gv::mesh {
 			return true;
 		}
 
-		void jacobianMatrix(const std::vector<Vertex_t>& vertices, Matrix_t& jac) const {
+		void jacobianMatrix(const std::vector<Point_t>& vertices, Matrix_t& jac) const {
 			jac.fill(Scalar_t(0));
 			for (int i=0; i<3; i++) {
 				jac(i,i) = Scalar_t(2) / (vertices[7][i] - vertices[0][i]);

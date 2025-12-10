@@ -14,11 +14,11 @@ namespace gv::util {
 
 	template<typename Data_t, bool SINGLE_DATA, int DIM, int N_DATA, Scalar T>
 	void makeOctreeLeafMesh(const BasicParallelOctree<Data_t, SINGLE_DATA, DIM, N_DATA, T> &octree, const std::string filename) {
-		using Vertex_t  = gv::util::Point<3,T>;
-		using Node_t    = gv::mesh::BasicNode<Vertex_t>;
+		using Point_t   = gv::util::Point<3,T>;
+		using Vertex_t  = gv::mesh::BasicVertex<Point_t>;
 		using Face_t    = gv::mesh::BasicElement;
 		using Element_t = gv::mesh::BasicElement;
-		using Mesh_t    = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
+		using Mesh_t    = gv::mesh::BasicMesh<Vertex_t,Element_t,Face_t>;
 
 		Mesh_t mesh(octree.bbox());
 		std::vector<int> nIdx;
@@ -28,7 +28,7 @@ namespace gv::util {
 			if (node==nullptr) {return;}
 
 			if (isLeaf(node)) {
-				std::vector<Vertex_t> vertices(OctreeNode_t::N_CHILDREN);
+				std::vector<Point_t> vertices(OctreeNode_t::N_CHILDREN);
 				for (int c = 0; c < OctreeNode_t::N_CHILDREN; c++) {
 					vertices[c] = node->bbox.voxelvertex(c);
 				}
