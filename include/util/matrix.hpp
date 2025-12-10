@@ -120,7 +120,6 @@ namespace gv::util
 			return *this;
 		}
 
-
 		//set identity along the main diagonal and zeros elsewhere
 		constexpr void fill(const Scalar_t val) noexcept {std::fill(_data, _data+n*m, val);}
 
@@ -180,6 +179,15 @@ namespace gv::util
 		return result;
 	}
 
+	//vector transpose * matrix
+	template<int n, int m, Scalar Scalar_t>
+	constexpr gv::util::Point<m,Scalar_t> operator*(const gv::util::Point<n,Scalar_t> &vector, const Matrix<n,m,Scalar_t> &matrix) noexcept
+	{
+		gv::util::Point<m,Scalar_t> result; //all zeros
+		for (int j=0; j<m; j++) {result[j] = gv::util::dot(matrix.col(j),vector);}
+		return result;
+	}
+
 	//vector-vector outer product
 	template<int n, int m, Scalar Scalar_t>
 	constexpr Matrix<n,m,Scalar_t> outer(const gv::util::Point<n,Scalar_t> &left, const gv::util::Point<m,Scalar_t> &right) noexcept
@@ -195,14 +203,6 @@ namespace gv::util
 		return result;
 	}
 	
-	template<int n, int m, Scalar Scalar_t>
-	constexpr gv::util::Point<m,Scalar_t> operator*(const gv::util::Point<n,Scalar_t> &vector, const Matrix<n,m,Scalar_t> &matrix) noexcept
-	{
-		gv::util::Point<m,Scalar_t> result; //all zeros
-		for (int j=0; j<m; j++) {result[j] = gv::util::dot(matrix.col(j),vector);}
-		return result;
-	}
-
 	//matrix-matrix multiplication
 	template<int n, int m, int p, Scalar Scalar_t>
 	constexpr Matrix<n,p,Scalar_t> operator*(const Matrix<n,m,Scalar_t> &left, const Matrix<m,p,Scalar_t> &right) noexcept
@@ -230,7 +230,8 @@ namespace gv::util
 		Matrix<m,m,Scalar_t> R;
 		partialQR(A,Q,R);
 
-		return solve_upper(R,Q.tr()*b);
+		//note b*Q is b^T * Q = (Q.tr()*b)^T. For a vector, b and b^T are both the same C++ type
+		return solve_upper(R,b*Q);
 	}
 
 	//matrix-matrix addition
