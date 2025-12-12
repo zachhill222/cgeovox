@@ -40,26 +40,35 @@ namespace gv::mesh {
 	/// 
 	/// where A is a 3x2 matrix and b is the location of the center of the mesh element. Because the the map is affine, the Jacobian matrix (J=A) is constant.
 	/// In fact sqrt(J^t J) = 0.25*h1*h2 where h1 and h2 are the side-lengths of the mesh element.
-	///
 	/////////////////////////////////////////////////
-	template<typename Point_t>
-	class VTK_PIXEL : public VTK_ELEMENT<Point_t> {
+	template<Scalar VertexScalar_t, Scalar MapScalar_t>
+	class VTK_PIXEL : public VTK_ELEMENT<3,2,VertexScalar_t,MapScalar_t> {
 	public:
-		VTK_PIXEL(const BasicElement& elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.vertices.size()==vtk_n_vertices(elem.vtkID));}
-		static constexpr int VTK_ID  = PIXEL_VTK_ID;
-		static constexpr int REF_DIM = 2; //dimension of the reference element
-		using Scalar_t    = typename Point_t::Scalar_t;
-		using RefPoint_t  = gv::util::Point<REF_DIM, Scalar_t>; //type of point in the reference element
-		using Matrix_t    = gv::util::Matrix<3,REF_DIM,Scalar_t>; //dimensions of the jacobian matrix (output space is always R3)
+		//define types
+		using BASE = VTK_ELEMENT<3,2,VertexScalar_t,MapScalar_t>;
+		using typename BASE::Point_t;
+		using typename BASE::RefPoint_t;
+		using typename BASE::Jac_t;
 
-		using ScalarFun_t = std::function<Scalar_t(RefPoint_t)>; //function type to evaluate a basis in the element
-		using VectorFun_t = std::function<Point_t(RefPoint_t)>; //function type to evaluate the gradient of a basis function
-		using MatrixFun_t = std::function<Matrix_t(RefPoint_t)>; //function type to evaluate the jacobian of the isoparametric mapping
+		//constructor
+		VTK_PIXEL(const BasicElement& elem) : BASE(elem) {assert(elem.vtkID==VTK_ID); assert(elem.vertices.size()==vtk_n_vertices(elem.vtkID));}
+		
+		//vtk element type
+		static constexpr int VTK_ID  = PIXEL_VTK_ID;
+		static constexpr int N_VERTICES = vtk_n_vertices(VTK_ID);
+
+		//coordinates for the reference element. store in row-major to pull out rows easier.
+		static constexpr gv::util::Matrix<4,2,MapScalar_t,false> REF_COORDS {
+			{-1, -1},
+			{ 1, -1},
+			{-1,  1},
+			{ 1,  1}
+		};
 
 		void split(std::vector<Point_t>& vertex_coords) const override {
 			assert(vertex_coords.size()==vtk_n_vertices(VTK_ID));
 			vertex_coords.reserve(vtk_n_vertices_when_split(VTK_ID));
-			using T = Scalar_t;
+			using T = VertexScalar_t;
 
 			//edge midpoints
 			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]})); //4 - bottom
@@ -166,9 +175,38 @@ namespace gv::mesh {
 			}
 		}
 
-		bool isInterior(const std::vector<Point_t>& vertices, const Point_t& coord) const override {
-			assert(false);
-			return false;
+		
+		//evaluate the bi-linear shape function associated with vertex i on the reference element
+		inline constexpr MapScalar_t eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const noexcept override {
+			assert(0<= i and i<N_VERTICES);
+			return MapScalar_t(0.25)*(MapScalar_t(1)+REF_COORDS(i,0)*ref_coord[0])*(MapScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]);
 		}
+
+		inline constexpr RefPoint_t  eval_local_geo_shape_grad(const int i, const RefPoint_t& ref_coord) const noexcept override {
+			assert(0<= i and i<N_VERTICES);
+			
+			RefPoint_t result{};
+			result[0] = MapScalar_t(0.25) * REF_COORDS(i,0)                               * (MapScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]);
+			result[1] = MapScalar_t(0.25) * (MapScalar_t(1)+REF_COORDS(i,0)*ref_coord[0]) * REF_COORDS(i,1);
+			return result;
+		}
+
+		
+		//evaluate the geometric mapping from the reference element to the actual element
+		constexpr Point_t reference_to_geometric(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept override {
+			assert(vertex_coords.size()==vtk_n_vertices(VTK_ID));
+
+			Point_t result{}; //zero
+			for (int i=0; i<N_VERTICES; i++) {
+				result += eval_local_geo_shape_fun(i,ref_coord) * vertex_coords[i];
+			}
+			return result;
+		}
+
+		//evaluate the geometric inverse mapping from the actual/geometric element to the reference element
+		constexpr RefPoint_t geometric_to_reference(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept override {return RefPoint_t{};}
+
+		//evaluate the jacobian matrix of the mapping from the reference element to the actual element
+		constexpr Jac_t   eval_geo_shape_jac(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept override {return Jac_t{};};
 	};
 }

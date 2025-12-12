@@ -23,7 +23,8 @@ namespace gv::mesh {
 			throw std::runtime_error("File is not open");
 		}
 
-		using Element_t = typename Mesh_t::element_type;
+		using Element_t = typename Mesh_t::Element_t;
+		using PrintPoint_t = gv::util::Point<3,float>;
 
 		//get number of vertices and elements
 		const size_t nNodes    = mesh.nNodes();
@@ -41,7 +42,7 @@ namespace gv::mesh {
 		//POINTS
 		buffer << "POINTS " << nNodes << " float\n";
 		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-			buffer << it->coord << "\n";
+			buffer << static_cast<PrintPoint_t>(it->coord) << "\n";
 		}
 		buffer << "\n";
 		file   << buffer.rdbuf();
@@ -86,8 +87,8 @@ namespace gv::mesh {
 			throw std::runtime_error("File is not open");
 		}
 
-		using Node_t    = typename Mesh_t::node_type;
-		using Element_t = typename Mesh_t::element_type;
+		using Vertex_t  = typename Mesh_t::Vertex_t;
+		using Element_t = typename Mesh_t::Element_t;
 		
 		//get number of vertices and elements
 		const size_t nNodes    = mesh.nNodes();
@@ -97,7 +98,7 @@ namespace gv::mesh {
 
 		//NODE DETAILS
 		int n_node_fields = 2; //elements and boundary are always tracked
-		if constexpr (requires {Node_t::index;}) {n_node_fields++;}
+		if constexpr (requires {Vertex_t::index;}) {n_node_fields++;}
 
 		buffer << "POINT_DATA " << nNodes << "\n";
 		buffer << "FIELD node_info " << n_node_fields << "\n";
@@ -110,7 +111,7 @@ namespace gv::mesh {
 
 		buffer << "boundary " << max_boundary_faces << " " << nNodes << " integer\n";
 		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-			const Node_t &NODE = *it;
+			const Vertex_t &NODE = *it;
 
 			size_t i;
 			for (i=0; i<NODE.boundary_faces.size(); i++) { buffer << NODE.boundary_faces[i] << " ";	}
@@ -128,7 +129,7 @@ namespace gv::mesh {
 		
 		buffer << "elements " << max_elem << " " << nNodes << " integer\n";
 		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-			const Node_t &NODE = *it;
+			const Vertex_t &NODE = *it;
 			size_t i;
 			for (i=0; i<NODE.elems.size(); i++) { buffer << NODE.elems[i] << " ";}
 			for (; i<max_elem; i++) { buffer << "-1 ";}
@@ -137,7 +138,7 @@ namespace gv::mesh {
 		file   << buffer.rdbuf();
 		buffer.str("");
 
-		if constexpr (requires {Node_t::index;}) {
+		if constexpr (requires {Vertex_t::index;}) {
 			buffer << "index 1 " << nNodes << " integer\n";
 			for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {buffer << it->index << " ";}
 			buffer << "\n\n";
@@ -228,8 +229,8 @@ namespace gv::mesh {
 			throw std::runtime_error("File is not open");
 		}
 
-	    using Node_t    = typename Mesh_t::node_type;
-		using Element_t = typename Mesh_t::element_type;
+	    using Vertex_t  = typename Mesh_t::Vertex_t;
+		using Element_t = typename Mesh_t::Element_t;
 
 		//get number of vertices and elements
 		const size_t nNodes    = mesh.nNodes();
@@ -237,7 +238,7 @@ namespace gv::mesh {
 
 	    //only 32 and 64 bit data types are supported. can add more if necessary
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
-	    static_assert(sizeof(typename Node_t::Scalar_t)==4 or sizeof(typename Node_t::Scalar_t)==8, "Unsupported floating point size");
+	    static_assert(sizeof(typename Vertex_t::Scalar_t)==4 or sizeof(typename Vertex_t::Scalar_t)==8, "Unsupported floating point size");
 
 	    //in this file format, the node indices must be 4 bytes. ensure that there are not too many vertices.
 	    //additionally, the integers are expected to be signed in the legacy format.
@@ -263,17 +264,17 @@ namespace gv::mesh {
 	    file << "DATASET UNSTRUCTURED_GRID\n";
 	    
 	    // POINTS (binary data)
-	    if      constexpr (sizeof(typename Node_t::Scalar_t)==4) {file << "POINTS " << nNodes << " float\n";}
-	    else if constexpr (sizeof(typename Node_t::Scalar_t)==8) {file << "POINTS " << nNodes << " double\n";}
+	    if      constexpr (sizeof(typename Vertex_t::Scalar_t)==4) {file << "POINTS " << nNodes << " float\n";}
+	    else if constexpr (sizeof(typename Vertex_t::Scalar_t)==8) {file << "POINTS " << nNodes << " double\n";}
 	    
 	    for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-			const Node_t &NODE = *it;
-			if constexpr (sizeof(typename Node_t::Scalar_t)==4) {
+			const Vertex_t &NODE = *it;
+			if constexpr (sizeof(typename Vertex_t::Scalar_t)==4) {
 				write_big_endian(static_cast<float>(NODE.coord[0]));
 				write_big_endian(static_cast<float>(NODE.coord[1]));
 				write_big_endian(static_cast<float>(NODE.coord[2]));
 			}
-		    else if constexpr (sizeof(typename Node_t::Scalar_t)==8) {
+		    else if constexpr (sizeof(typename Vertex_t::Scalar_t)==8) {
 		    	write_big_endian(static_cast<double>(NODE.coord[0]));
 				write_big_endian(static_cast<double>(NODE.coord[1]));
 				write_big_endian(static_cast<double>(NODE.coord[2]));
@@ -319,8 +320,8 @@ namespace gv::mesh {
 		}
 
 
-		using Node_t    = typename Mesh_t::node_type;
-		using Element_t = typename Mesh_t::element_type;
+		using Vertex_t  = typename Mesh_t::Vertex_t;
+		using Element_t = typename Mesh_t::Element_t;
 
 		//get number of vertices and elements
 		const size_t nNodes    = mesh.nNodes();
@@ -328,7 +329,7 @@ namespace gv::mesh {
 
 	    //only 32 and 64 bit data types are supported. can add more if necessary
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
-	    static_assert(sizeof(typename Node_t::Scalar_t)==4 or sizeof(typename Node_t::Scalar_t)==8, "Unsupported floating point size");
+	    static_assert(sizeof(typename Vertex_t::Scalar_t)==4 or sizeof(typename Vertex_t::Scalar_t)==8, "Unsupported floating point size");
 
 	    //in this file format, the node indices must be 4 bytes. ensure that there are not too many vertices.
 	    //additionally, the integers are expected to be signed in the legacy format.
@@ -349,7 +350,7 @@ namespace gv::mesh {
 		
 		//NODE DETAILS
 		int n_node_fields = 2; //elements and boundary are always tracked
-		if constexpr (requires {Node_t::index;}) {n_node_fields++;}
+		if constexpr (requires {Vertex_t::index;}) {n_node_fields++;}
 		
 		file << "POINT_DATA " << nNodes << "\n";
 		file << "FIELD node_info " << n_node_fields << "\n";
@@ -362,7 +363,7 @@ namespace gv::mesh {
 		
 		file << "boundary " << max_boundary_faces << " " << nNodes << " int\n";
 		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-			const Node_t &NODE = *it;
+			const Vertex_t &NODE = *it;
 			
 			size_t i;
 			for (i = 0; i < NODE.boundary_faces.size(); i++) {write_big_endian(static_cast<int>(NODE.boundary_faces[i]));}
@@ -378,14 +379,14 @@ namespace gv::mesh {
 		
 		file << "elements " << max_elem << " " << nNodes << " int\n";
 		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
-			const Node_t &NODE = *it;
+			const Vertex_t &NODE = *it;
 			size_t i;
 			for (i = 0; i < NODE.elems.size(); i++) {write_big_endian(static_cast<int>(NODE.elems[i]));}
 			for (; i < max_elem; i++) {write_big_endian(int(-1));}
 		}
 		file << "\n";
 
-		if constexpr (requires {Node_t::index;}) {
+		if constexpr (requires {Vertex_t::index;}) {
 		    file << "index 1 " << nNodes << " int\n";
 		    for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
 		        write_big_endian(static_cast<int>(it->index));

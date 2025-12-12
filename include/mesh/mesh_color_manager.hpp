@@ -46,9 +46,7 @@ namespace gv::mesh
 	template <ColorMethod COLOR_METHOD, ColorableMeshElement Element_t, size_t MAX_COLORS>
 	class MeshColorManager {
 	public:
-		MeshColorManager() {
-			for (size_t c=0; c<MAX_COLORS; c++) {_counts[c]=0;}
-		}
+		MeshColorManager() = delete;
 		MeshColorManager(std::vector<Element_t> &_elements) : _elements(_elements) {
 			for (size_t c=0; c<MAX_COLORS; c++) {_counts[c]=0;}
 		}

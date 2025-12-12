@@ -131,6 +131,21 @@ namespace gv::util {
 			}
 			return _data[idx];
 		}
+
+		//////////////////////////////////////////////
+		/// Convert between point types
+		/// if converting to a larger dimension, append zeros
+		/// if converting to a smaller dimension, trim end
+		//////////////////////////////////////////////
+		template<int otherdim, Scalar U>
+		explicit constexpr operator Point<otherdim,U>() const noexcept {
+			Point<otherdim,U> result{};
+			constexpr int mindim = dim < otherdim ? dim : otherdim;
+			for (int i=0; i<mindim; i++) {
+				result[i] = static_cast<U>(_data[i]);
+			}
+			return result;
+		}
 	};
 
 	static_assert(PointLike<Point<3,double>>, "Point<3,double> is not PointLike");
@@ -378,6 +393,20 @@ namespace gv::util {
 	constexpr T min(const Point<dim,T> &point) {
 		T result = point[0];
 		for (int i=1; i<dim; i++) {result = min(result, point[i]);}
+		return result;
+	}
+
+	template <int dim, Scalar T>
+	constexpr T sum(const Point<dim,T>& point) {
+		T result(0);
+		for (int i=0; i<dim; i++) {result += point[i];}
+		return result;
+	}
+
+	template <int dim, Scalar T>
+	constexpr T prod(const Point<dim,T>& point) {
+		T result(1);
+		for (int i=0; i<dim; i++) {result *= point[i];}
 		return result;
 	}
 

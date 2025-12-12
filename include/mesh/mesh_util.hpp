@@ -281,14 +281,14 @@ namespace gv::mesh
 	static_assert(BasicMeshVertex<BasicVertex<gv::util::Point<2,float>>>,  "BasicVertex<Point<2,float>> is not a BasicMeshVertex");
 
 	/// Equality check for mesh vertices for use in the octree.
-	template <BasicMeshVertex Node_t>
-	bool operator==(const Node_t &A, const Node_t &B) {
+	template <BasicMeshVertex Vertex_t>
+	bool operator==(const Vertex_t &A, const Vertex_t &B) {
 		return A.coord==B.coord;
 	}
 
 	/// Node printing
-	template<BasicMeshVertex Node_t>
-	std::ostream& operator<<(std::ostream& os, const Node_t &node) {
+	template<BasicMeshVertex Vertex_t>
+	std::ostream& operator<<(std::ostream& os, const Vertex_t &node) {
 		os << "index= " << node.index << "\n";
 		os << "coord= " << node.coord << "\n";
 		os << "elems (" << node.elems.size() << "): ";
@@ -301,9 +301,9 @@ namespace gv::mesh
 	}
 
 	/// Node name printing
-	template<BasicMeshVertex Node_t>
-	std::string nodeTypeName() {
-		if constexpr (std::same_as<Node_t,BasicVertex<typename Node_t::Point_t>>) {return "BasicVertex";}
+	template<BasicMeshVertex Vertex_t>
+	std::string vertexTypeName() {
+		if constexpr (std::same_as<Vertex_t,BasicVertex<typename Vertex_t::Point_t>>) {return "BasicVertex";}
 		else {return "UNKNOWN";}
 	}
 
@@ -311,13 +311,13 @@ namespace gv::mesh
 	/// A container for storing the vertices in an octree for more efficeint lookup. This is important as we must query if a node already exists in the mesh.
 	/// @todo Determine if a kd-tree is better.
 	/////////////////////////////////////////////////
-	template<BasicMeshVertex Node_t, int N_DATA=64, Scalar T=double>
-	class NodeOctree : public gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, T>
+	template<BasicMeshVertex Vertex_t, int N_DATA=64, Scalar T=double>
+	class NodeOctree : public gv::util::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>
 	{
 	public:
-		using Parent_t = gv::util::BasicParallelOctree<Node_t, true, Node_t::dim, N_DATA, T>;
-		using Data_t = Node_t;
-		using Box_t  = gv::util::Box<Node_t::dim, T>;
+		using Parent_t = gv::util::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>;
+		using Data_t = Vertex_t;
+		using Box_t  = gv::util::Box<Vertex_t::dim, T>;
 
 
 		NodeOctree() : Parent_t() {}
@@ -335,12 +335,13 @@ namespace gv::mesh
 	template<typename T>
 	concept BasicMeshType = requires(T mesh) {
 		// Must have relevant type aliases
-		typename T::element_type;
-		typename T::face_type;
-		typename T::node_type;
+		typename T::Element_t;
+		typename T::Face_t;
+		typename T::Vertex_t;
 		typename T::Point_t;
 		typename T::ElementIterator_t;
 		typename T::BoundaryIterator_t;
+		typename T::VertexList_t;
 	};
 
 

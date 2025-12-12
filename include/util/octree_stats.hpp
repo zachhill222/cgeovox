@@ -15,10 +15,8 @@ namespace gv::util {
 	template<typename Data_t, bool SINGLE_DATA, int DIM, int N_DATA, Scalar T>
 	void makeOctreeLeafMesh(const BasicParallelOctree<Data_t, SINGLE_DATA, DIM, N_DATA, T> &octree, const std::string filename) {
 		using Point_t   = gv::util::Point<3,T>;
-		using Vertex_t  = gv::mesh::BasicVertex<Point_t>;
-		using Face_t    = gv::mesh::BasicElement;
 		using Element_t = gv::mesh::BasicElement;
-		using Mesh_t    = gv::mesh::BasicMesh<Vertex_t,Element_t,Face_t>;
+		using Mesh_t    = gv::mesh::BasicMesh<3,DIM,T,Element_t>;
 
 		Mesh_t mesh(octree.bbox());
 		std::vector<int> nIdx;

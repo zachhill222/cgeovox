@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesh/mesh_util.hpp"
+#include "concepts.hpp"
 
 #include <vector>
 #include <iterator>
@@ -9,7 +10,7 @@
 namespace gv::mesh {
 	
 	// Forward declaration
-	template<BasicMeshVertex Vertex_t, BasicMeshElement Element_t, BasicMeshElement Face_t>
+	template<int space_dim, int ref_dim, Scalar Scalar_t, BasicMeshElement Element_t>
 	class BasicMesh;
 
 	/////////////////////////////////////////////////
@@ -34,19 +35,14 @@ namespace gv::mesh {
 	class ElementIterator {
 	public:
 		// Iterator traits
+		using Element_t         = typename Mesh_t::Element_t;
+		using value_type        = Element_t;
 		using iterator_category = std::bidirectional_iterator_tag;
 		using difference_type   = std::ptrdiff_t;
-		using value_type        = std::conditional_t<
-			CONTAINER == ContainerType::ELEMENTS,
-			typename Mesh_t::element_type,
-			typename Mesh_t::face_type
-		>;
 		using pointer           = value_type*;
 		using reference         = value_type&;
 
 	private:
-		using Element_t = value_type;
-
 		Mesh_t* _mesh;
 		std::vector<Element_t>* _container;
 		size_t _curr_idx;
@@ -227,5 +223,4 @@ namespace gv::mesh {
 			return *this;
 		}
 	};
-
-} // namespace gv::mesh
+}

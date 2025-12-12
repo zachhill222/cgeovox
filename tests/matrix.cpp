@@ -67,6 +67,9 @@ int main(int argc, char* argv[])
 	gv::util::Matrix<m,p,Scalar_t> A(1);
 	std::cout << "A=\n" << A << std::endl;
 
+	std::cout << "A.col(1)= " << A.col(1) << std::endl;
+	std::cout << "A.row(0)= " << A.row(0) << std::endl;
+
 	//create and print vectors
 	gv::util::Point<n,Scalar_t> u(1);
 	gv::util::Point<m,Scalar_t> v(1);

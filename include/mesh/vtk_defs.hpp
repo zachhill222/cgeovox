@@ -40,9 +40,6 @@ namespace gv::mesh {
 	}
 	
 
-
-
-
 	/// Helper function to pair vtkID to number of vertices
 	constexpr size_t vtk_n_vertices(const int vtkID) {
 		switch (vtkID) {
@@ -59,6 +56,28 @@ namespace gv::mesh {
 			case QUADRATIC_TETRA_VTK_ID: 		 return 10;
 			case BIQUADRATIC_QUAD_VTK_ID: 		 return 9;
 			case TRIQUADRATIC_HEXAHEDRON_VTK_ID: return 27;
+			default:
+				throw std::invalid_argument("Unknown element type.");
+				return -1;
+		}
+	}
+
+	/// Helper function to pair vtkID the reference dimension
+	constexpr int vtk_ref_dim(const int vtkID) {
+		switch (vtkID) {
+			case VERTEX_VTK_ID: 				 return 0;
+			case LINE_VTK_ID: 					 return 1;
+			case TRIANGLE_VTK_ID: 				 return 2;
+			case PIXEL_VTK_ID: 					 return 2;
+			case QUAD_VTK_ID: 					 return 2;
+			case TETRA_VTK_ID: 					 return 3;
+			case VOXEL_VTK_ID: 					 return 3;
+			case HEXAHEDRON_VTK_ID: 			 return 3;
+			case QUADRATIC_EDGE_VTK_ID: 	 	 return 2;
+			case QUADRATIC_TRIANGLE_VTK_ID: 	 return 2;
+			case QUADRATIC_TETRA_VTK_ID: 		 return 3;
+			case BIQUADRATIC_QUAD_VTK_ID: 		 return 3;
+			case TRIQUADRATIC_HEXAHEDRON_VTK_ID: return 3;
 			default:
 				throw std::invalid_argument("Unknown element type.");
 				return -1;

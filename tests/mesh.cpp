@@ -13,40 +13,30 @@
 const int dim = 3;
 // using T = double;
 using T = gv::util::FixedPoint<int64_t,-15>;
-	
-template<int n>
-using Box_t    = gv::util::Box<n,T>;
 
-void test() {	
+void test() {
+	using Index_t    = gv::util::Point<dim,size_t>;
 	using RefPoint_t = gv::util::Point<dim,T>;
+	using Point_t    = gv::util::Point<3,T>;
+	using Box_t      = gv::util::Box<dim,T>;
+	using Element_t  = gv::mesh::HierarchicalColoredElement;
 	
-	using Index_t   = gv::util::Point<dim,size_t>;
-
-	using Point_t   = gv::util::Point<3,T>;
-	using Node_t    = gv::mesh::BasicVertex<Point_t>;
-	using Face_t    = gv::mesh::HierarchicalElement;
-	using Element_t = gv::mesh::HierarchicalColoredElement;
-	// using Element_t = gv::mesh::BasicElement;
-
 	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
-	// using Mesh_t  = gv::mesh::ColoredMesh<Node_t,Element_t,Face_t,method>;
-	using Mesh_t  = gv::mesh::HierarchicalMesh<Node_t,Element_t,Face_t,method>;
+	using Mesh_t  = gv::mesh::HierarchicalMesh<3,3,T,Element_t,method>;
+	using BoundaryMesh_t = gv::mesh::HierarchicalMesh<3,2,T,Element_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
-	RefPoint_t corner {0.000001,0.00000125,0.000002235};
-	std::cout << "EPS= " << T::EPSILON << std::endl;
-	std::cout << std::pow(0.5,7)*corner << std::endl;
-	Box_t<dim> domain(-corner, corner);
+	RefPoint_t corner {0.1,0.125,0.1235};
+	Box_t   domain(-corner, corner);
 	Index_t N{1, 1, 1};
 	Mesh_t mesh(domain,N,false);
 
 	// gv::mesh::LogicalMesh logical_mesh(mesh);
 
-	for (int n=0; n<4; n++){
+	for (int n=0; n<5; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
-
 
 	auto fun = [corner](Point_t old) -> Point_t {
 		double r = std::sqrt(old[0]*old[0] + old[1]*old[1]);
@@ -64,11 +54,10 @@ void test() {
 	}
 
 
-	for (int n=0; n<2; n++){
+	for (int n=0; n<1; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
-
 
 	// unrefine
 	// mesh.joinDescendents(1);
@@ -80,8 +69,8 @@ void test() {
 	gv::mesh::memorySummary(mesh);
 
 
-	Box_t<3> bbox = mesh.bbox();
-	Mesh_t boundary(bbox);
+	Box_t bbox = mesh.bbox();
+	BoundaryMesh_t boundary(bbox);
 	mesh.getBoundaryMesh(boundary);
 	std::cout << "\n\n";
 	std::cout << std::endl << boundary << std::endl;
@@ -95,6 +84,13 @@ void test() {
 
 int main(int argc, char* argv[])
 {
+	#ifdef _OPENMP
+		std::cout << "PARALLEL (OPENMP)" << std::endl;
+	#else
+		std::cout << "SERIAL" << std::endl;
+	#endif
+
+
 	int nTests = 1;
 	if (argc > 1) {nTests = atoi(argv[1]);}
 	for (int i = 0; i < nTests; i++) {test();}

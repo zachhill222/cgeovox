@@ -107,7 +107,7 @@ namespace gv::util {
 				int n  = 1+static_cast<int>(std::log2(std::fabs(low[i])));
 				if (low[i]<0.0) {low[i] = -static_cast<T>(std::pow(2.0, n));}
 				else {low[i] = static_cast<T>(std::exp2(n));}
-
+				
 				n  = 1+static_cast<int>(std::log2(std::fabs(high[i])));
 				if (high[i]<0.0) {high[i] = -static_cast<T>(std::pow(2.0, n));}
 				else {high[i] = static_cast<T>(std::exp2(n));}

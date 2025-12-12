@@ -50,6 +50,25 @@ namespace gv::util
 			std::move(other._data, other._data+n*m, _data);
 		}
 
+		//initializer list
+		template<Scalar T>
+		constexpr Matrix(std::initializer_list<std::initializer_list<T>> init) noexcept
+		{
+			int i=0;
+			for (const auto& row : init) {
+				assert(i<n);
+				int j=0;
+				for (const auto& val : row) {
+					assert(j<m);
+					(*this)(i, j) = static_cast<Scalar_t>(val);
+					j++;
+				}
+				assert(j==m);
+				i++;
+			}
+			assert(i==n);
+		}
+
 		//element access
 		constexpr Scalar_t at(int i, int j) const
 		{
@@ -119,16 +138,40 @@ namespace gv::util
 		constexpr Row_t row(int i) const noexcept
 		{
 			assert(0<=i and i<n);
-			Row_t result;
-			for (int k=0; k<m; k++) {result[k]=_data[_index(i,k)];}
+			Row_t result{};
+			if constexpr (COL_MAJOR) {
+				for (int j=0; j<m; j++) {
+					result[j] = _data[n*j + i]; //_data[_index(i,j)]
+				}
+			}
+			else
+			{
+				//row-major, all entries are contigous
+				for (int j=0; j<m; j++) {
+					result[j] = _data[m*i + j]; //_data[_index(i,j)]
+				}
+			}
+
 			return result;
 		}
 
 		constexpr Col_t col(int j) const noexcept
 		{
 			assert(0<=j and j<m);
-			Col_t result;
-			for (int k=0; k<n; k++) {result[k]=_data[_index(k,j)];}
+			Col_t result{};
+			if constexpr (COL_MAJOR) {
+				for (int i=0; i<n; i++) {
+					result[i] = _data[n*j + i]; //_data[_index(i,j)]
+				}
+			}
+			else
+			{
+				//row-major, all entries are contigous
+				for (int i=0; i<n; i++) {
+					result[i] = _data[m*i + j]; //_data[_index(i,j)]
+				}
+			}
+
 			return result;
 		}
 
@@ -138,6 +181,50 @@ namespace gv::util
 			Matrix<m,n,Scalar_t,!COL_MAJOR> result{};
 			std::copy(_data, _data+n*m, result._data);
 			return result;
+		}
+
+		//sum column vectors (sum across rows)
+		constexpr Col_t row_sum() const noexcept
+		{
+			Col_t result(0);
+			for (int i=0; i<n; i++) {
+				for (int j=0; j<m; j++) {
+					result[i] += (*this)(i,j);
+				}
+			}
+		}
+
+		//sum row vectors (sum up columns)
+		constexpr Row_t col_sum() const noexcept
+		{
+			Row_t result(0);
+			for (int i=0; i<n; i++) {
+				for (int j=0; j<m; j++) {
+					result[j] += (*this)(i,j);
+				}
+			}
+		}
+
+		//multiply column vector component-wise (multiply across rows)
+		constexpr Col_t row_prod() const noexcept
+		{
+			Col_t result(1);
+			for (int i=0; i<n; i++) {
+				for (int j=0; j<m; j++) {
+					result[i] *= (*this)(i,j);
+				}
+			}
+		}
+
+		//multiply row vectors component-wise (multiply up columns)
+		constexpr Row_t col_prod() const noexcept
+		{
+			Row_t result(1);
+			for (int i=0; i<n; i++) {
+				for (int j=0; j<m; j++) {
+					result[j] *= (*this)(i,j);
+				}
+			}
 		}
 	};
 

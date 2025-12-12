@@ -19,23 +19,30 @@ namespace gv::mesh {
 	/////////////////////////////////////////////////
 	/// Line element
 	/////////////////////////////////////////////////
-	template<typename Point_t>
-	class VTK_LINE : public VTK_ELEMENT<Point_t>{
+	template<Scalar VertexScalar_t, Scalar MapScalar_t>
+	class VTK_LINE : public VTK_ELEMENT<3,1,VertexScalar_t,MapScalar_t>{
 	public:
-		VTK_LINE(const BasicElement &elem) : VTK_ELEMENT<Point_t>(elem) {assert(elem.vtkID==VTK_ID); assert(elem.vertices.size()==vtk_n_vertices(elem.vtkID));}
-		static constexpr int VTK_ID  = LINE_VTK_ID;
-		static constexpr int REF_DIM = 1; //dimension of the reference element
-		using Scalar_t    = typename Point_t::Scalar_t;
-		using RefPoint_t  = gv::util::Point<REF_DIM, Scalar_t>; //type of point in the reference element
-		using Matrix_t    = gv::util::Matrix<3,REF_DIM,Scalar_t>; //dimensions of the jacobian matrix (output space is always R3)
+		//define types
+		using BASE = VTK_ELEMENT<3,1,VertexScalar_t,MapScalar_t>;
+		using typename BASE::Point_t;
+		using typename BASE::RefPoint_t;
+		using typename BASE::Jac_t;
 
-		using ScalarFun_t = std::function<Scalar_t(RefPoint_t)>; //function type to evaluate a basis in the element
-		using VectorFun_t = std::function<Point_t(RefPoint_t)>; //function type to evaluate the gradient of a basis function
-		using MatrixFun_t = std::function<Matrix_t(RefPoint_t)>; //function type to evaluate the jacobian of the isoparametric mapping
+		//constructor
+		VTK_LINE(const BasicElement &elem) : BASE(elem) {assert(elem.vtkID==VTK_ID); assert(elem.vertices.size()==vtk_n_vertices(elem.vtkID));}
+		
+		//vtk element type
+		static constexpr int VTK_ID  = LINE_VTK_ID;
+		static constexpr int N_VERTICES = vtk_n_vertices(VTK_ID);
+
+		//coordinates for the reference element
+		static constexpr gv::util::Matrix<2,1,MapScalar_t> REF_COORDS {
+			{-1}, {1}
+		};
 
 		void split(std::vector<Point_t> &vertex_coords) const override {
 			assert(vertex_coords.size()==vtk_n_vertices(VTK_ID));
-			using T = Scalar_t;
+			using T = VertexScalar_t;
 			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]}));
 		}
 
@@ -84,12 +91,27 @@ namespace gv::mesh {
 			}
 		}
 
-		bool isInterior(const std::vector<Point_t>& vertices, const Point_t& coord) const override {
-			assert(false); //probably shouldn't be using this...
-			//check if coord is a convex combination of vertices[0] and vertices[1].
-			//if so, coord = (1-t)*vertices[0] + t*vertices[1] = vertices[0] + t*(vertices[1]-vertices[0])
-			Scalar_t t = (coord[0] - vertices[0][0]) / (vertices[1][0] - vertices[0][0]);
-			return coord == vertices[0] + t*(vertices[1]-vertices[0]);
+		
+		//evaluate the local shape functions that are used to map the reference element to the actual element
+		inline constexpr MapScalar_t eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const noexcept override {return MapScalar_t{};}
+		inline constexpr RefPoint_t  eval_local_geo_shape_grad(const int i, const RefPoint_t& ref_coord) const noexcept override {return RefPoint_t{};}
+
+		
+		//evaluate the geometric mapping from the reference element to the actual element
+		constexpr Point_t reference_to_geometric(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept {
+			assert(vertex_coords.size()==vtk_n_vertices(VTK_ID));
+
+			Point_t result{}; //zero
+			for (int i=0; i<N_VERTICES; i++) {
+				result += eval_local_geo_shape_fun(i,ref_coord) * vertex_coords[i];
+			}
+			return result;
 		}
+
+		//evaluate the geometric inverse mapping from the actual/geometric element to the reference element
+		constexpr RefPoint_t geometric_to_reference(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept {return RefPoint_t{};}
+
+		//evaluate the jacobian matrix of the mapping from the reference element to the actual element
+		constexpr Jac_t   eval_geo_shape_jac(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept {return Jac_t{};};
 	};
 }
