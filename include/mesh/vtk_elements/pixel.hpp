@@ -207,6 +207,18 @@ namespace gv::mesh {
 		constexpr RefPoint_t geometric_to_reference(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept override {return RefPoint_t{};}
 
 		//evaluate the jacobian matrix of the mapping from the reference element to the actual element
-		constexpr Jac_t   eval_geo_shape_jac(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept override {return Jac_t{};};
+		constexpr Jac_t   eval_geo_shape_jac(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept override {
+			Jac_t jacobian{};
+			for (int vtx=0; vtx<4; vtx++) {
+				RefPoint_t grad = eval_local_geo_shape_grad(vtx, ref_coord);
+				for (int i=0; i<3; i++) {
+					for (int j=0; j<2; j++) {
+						jacobian(i,j) += vertex_coords[vtx][i]*grad[j];
+					}
+				}
+			}
+
+			return jacobian;
+		}
 	};
 }
