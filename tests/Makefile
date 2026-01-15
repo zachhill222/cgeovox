@@ -1,4 +1,4 @@
-INC_DIR    = -I../include -I/usr/include/eigen3
+INC_DIR    = -I../include -I/usr/include/eigen3 -I../libs/GeometryUtility/include
 
 #get all .cpp files for make all
 SRC        = $(wildcard *.cpp)

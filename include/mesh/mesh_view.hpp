@@ -1,6 +1,7 @@
 #pragma once
 
-#include "util/point.hpp"
+// #include "util/point.hpp"
+// #include "gutil.hpp"
 #include "mesh/mesh_util.hpp"
 #include "mesh/mesh_basic.hpp"
 

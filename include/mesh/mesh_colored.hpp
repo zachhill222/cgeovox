@@ -7,9 +7,9 @@
 #include "mesh/vtk_elements.hpp"
 #include "mesh/vtk_defs.hpp"
 
-#include "util/point.hpp"
-#include "util/octree.hpp"
-#include "util/box.hpp"
+// #include "util/point.hpp"
+// #include "util/octree.hpp"
+// #include "util/box.hpp"
 
 #include <vector>
 #include <cassert>

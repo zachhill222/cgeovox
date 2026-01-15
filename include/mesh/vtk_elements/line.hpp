@@ -1,8 +1,9 @@
 #pragma once
 
-#include "util/point.hpp"
-#include "util/box.hpp"
-#include "util/matrix.hpp"
+// #include "util/point.hpp"
+// #include "util/box.hpp"
+// #include "util/matrix.hpp"
+#include "gutil.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/vtk_defs.hpp"
@@ -36,14 +37,14 @@ namespace gv::mesh {
 		static constexpr int N_VERTICES = vtk_n_vertices(VTK_ID);
 
 		//coordinates for the reference element
-		static constexpr gv::util::Matrix<2,1,MapScalar_t> REF_COORDS {
+		static constexpr gutil::Matrix<2,1,MapScalar_t> REF_COORDS {
 			{-1}, {1}
 		};
 
 		void split(std::vector<Point_t> &vertex_coords) const override {
 			assert(vertex_coords.size()==vtk_n_vertices(VTK_ID));
 			using T = VertexScalar_t;
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]}));
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]}));
 		}
 
 		void getChildVertices(std::vector<size_t> &child_vertices, const int child_number, const std::vector<size_t> &split_node_numbers) const override {

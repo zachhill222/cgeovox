@@ -1,0 +1,290 @@
+#pragma once
+
+#include "util/point.hpp"
+#include "concepts.hpp"
+
+#include <stdexcept>
+#include <string>
+#include <sstream>
+#include <cmath>
+#include <iostream>
+#include <cassert>
+#include <algorithm>
+
+namespace gv::util {
+
+	template <int dim=3, Scalar T=double>
+	class Box {
+	private:
+		Point<dim,T> _low;
+		Point<dim,T> _high;
+
+	public:
+		using Point_t = Point<dim,T>;
+
+		////////////////////////////////////////////////////////////////
+		// Constructors
+		////////////////////////////////////////////////////////////////
+		
+		// Default constructor: unit box centered at origin
+		constexpr Box() : _low(Point_t(-1.0)), _high(Point_t(1.0)) {}
+		
+		// Constructor from scalar bounds
+		constexpr Box(const T low, const T high) 
+			: _low(Point_t(low)), _high(Point_t(high)) {
+			assert(low < high);
+		}
+
+		// Constructor from two points (automatically orders them)
+		constexpr Box(const Point_t &vertex1, const Point_t &vertex2) 
+			: _low(elmin(vertex1, vertex2)), _high(elmax(vertex1, vertex2)) {
+			assert(_low < _high);
+		}
+
+		// Copy constructor
+		constexpr Box(const Box &other) = default;
+
+		// Move constructor
+		constexpr Box(Box &&other) noexcept = default;
+
+		// Destructor
+		~Box() = default;
+
+		////////////////////////////////////////////////////////////////
+		// Assignment operators
+		////////////////////////////////////////////////////////////////
+		
+		// Copy assignment
+		constexpr Box& operator=(const Box &other) = default;
+
+		// Move assignment
+		constexpr Box& operator=(Box &&other) noexcept = default;
+
+		////////////////////////////////////////////////////////////////
+		// Attributes
+		////////////////////////////////////////////////////////////////
+		
+		constexpr const Point_t& low() const {return _low;}
+		constexpr const Point_t& high() const {return _high;}
+		constexpr Point_t center() const {return T(0.5) * (_low + _high);}
+		constexpr Point_t sidelength() const {return _high - _low;}
+		constexpr T diameter() const {return norm2(_high - _low);}
+		constexpr T volume() const {
+			T vol = 1;
+			for (int i = 0; i < dim; i++) {
+				vol *= (_high[i] - _low[i]);
+			}
+			return vol;
+		}
+
+		////////////////////////////////////////////////////////////////
+		// Vertex access
+		////////////////////////////////////////////////////////////////
+		
+		/// Get i-th vertex in VTK pixel/voxel order
+		/// Binary encoding: bit i determines whether to use low[i] or high[i]
+		constexpr Point_t operator[](const int idx) const {
+			assert(idx >= 0 && idx < (1 << dim));
+			Point_t vertex;
+			int p = idx;
+			for (int i = 0; i < dim; i++) {
+				vertex[i] = (p & 1) ? _high[i] : _low[i];
+				p >>= 1;
+			}
+			return vertex;
+		}
+
+		/// Get i-th vertex in VTK pixel/voxel order (alias for clarity)
+		constexpr Point_t voxelvertex(const int idx) const {
+			return (*this)[idx];
+		}
+
+		/// Get i-th vertex in VTK quad/hexahedron order
+		/// (swaps vertices 2-3 and 6-7 from voxel ordering)
+		constexpr Point_t hexvertex(const int idx) const {
+			switch (idx) {
+				case 2: return (*this)[3];
+				case 3: return (*this)[2];
+				case 6: return (*this)[7];
+				case 7: return (*this)[6];
+				default: return (*this)[idx];
+			}
+		}
+
+		/// Get normalized vertex position in [0,1]^dim
+		constexpr Point_t voxelijk(const int idx) const {
+			assert(idx >= 0 && idx < (1 << dim));
+			Point_t vertex;
+			int p = idx;
+			for (int i = 0; i < dim; i++) {
+				vertex[i] = (p & 1) ? T(1) : T(0);
+				p >>= 1;
+			}
+			return vertex;
+		}
+
+		////////////////////////////////////////////////////////////////
+		// Containment and intersection
+		////////////////////////////////////////////////////////////////
+		
+		/// Check if point is in the closed box
+		constexpr bool contains(const Point_t &point) const {
+			return _low <= point && point <= _high;
+		}
+		
+		/// Check if point is in the open box
+		constexpr bool contains_strict(const Point_t &point) const {
+			return _low < point && point < _high;
+		}
+		
+		/// Check if this box contains the other box
+		constexpr bool contains(const Box<dim,T> &other) const {
+			return _low <= other._low && other._high <= _high;
+		}
+		
+		/// Check if this box intersects the other box
+		constexpr bool intersects(const Box<dim,T> &other) const {
+			for (int i = 0; i < dim; i++) {
+				if (_high[i] < other._low[i] || other._high[i] < _low[i]) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		/// Find the support point: vertex that maximizes dot(vertex, direction)
+		constexpr Point_t support(const Point_t &direction) const {
+			T maxdot = dot(direction, (*this)[0]);
+			int maxind = 0;
+
+			for (int i = 1; i < (1 << dim); i++) {
+				T tempdot = dot(direction, (*this)[i]);
+				if (tempdot > maxdot) {
+					maxdot = tempdot;
+					maxind = i;
+				}
+			}
+			return (*this)[maxind];
+		}
+
+		////////////////////////////////////////////////////////////////
+		// Geometric transformations
+		////////////////////////////////////////////////////////////////
+		
+		/// Shift box by vector
+		constexpr Box& operator+=(const Point_t &shift) {
+			_low += shift;
+			_high += shift;
+			return *this;
+		}
+
+		constexpr Box operator+(const Point_t &shift) const {
+			return Box(_low + shift, _high + shift);
+		}
+
+		constexpr Box& operator-=(const Point_t &shift) {
+			_low -= shift;
+			_high -= shift;
+			return *this;
+		}
+
+		constexpr Box operator-(const Point_t &shift) const {
+			return Box(_low - shift, _high - shift);
+		}
+
+		/// Scale box relative to its center
+		template<Scalar U>
+		constexpr Box& operator*=(const U& scale) {
+			Point_t c = center();
+			T s = static_cast<T>(scale);
+			_low = c + s * (_low - c);
+			_high = c + s * (_high - c);
+			return *this;
+		}
+
+		template<Scalar U>
+		constexpr Box operator*(const U& scale) const {
+			Point_t c = center();
+			T s = static_cast<T>(scale);
+			return Box(c + s * (_low - c), c + s * (_high - c));
+		}
+
+		template<Scalar U>
+		constexpr Box& operator/=(const U& scale) {
+			return (*this) *= (T(1) / static_cast<T>(scale));
+		}
+
+		template<Scalar U>
+		constexpr Box operator/(const U& scale) const {
+			return (*this) * (T(1) / static_cast<T>(scale));
+		}
+
+		/// Enlarge this box to contain the other box
+		constexpr Box& combine(const Box<dim,T>& other) {
+			_low = elmin(_low, other._low);
+			_high = elmax(_high, other._high);
+			return *this;
+		}
+
+		/// Return union of two boxes
+		constexpr Box combined(const Box<dim,T>& other) const {
+			return Box(elmin(_low, other._low), elmax(_high, other._high));
+		}
+
+		/// Return intersection of two boxes (undefined if boxes don't intersect)
+		constexpr Box intersection(const Box<dim,T>& other) const {
+			assert(intersects(other));
+			return Box(elmax(_low, other._low), elmin(_high, other._high));
+		}
+
+		////////////////////////////////////////////////////////////////
+		// Comparison
+		////////////////////////////////////////////////////////////////
+		
+		constexpr bool operator==(const Box<dim,T> &other) const {
+			return _low == other._low && _high == other._high;
+		}
+
+		constexpr bool operator!=(const Box<dim,T> &other) const {
+			return !(*this == other);
+		}
+	};
+
+	////////////////////////////////////////////////////////////////
+	// Free functions
+	////////////////////////////////////////////////////////////////
+	template <int dim, Scalar T, Scalar U>
+	constexpr Box<dim,T> operator*(const U &scale, const Box<dim,T> &box) {
+		return box * scale;
+	}
+
+	template <int dim, Scalar T>
+	constexpr T distance_squared(const Box<dim,T> &box, const Point<dim,T> &point) {
+		if (box.contains(point)) {
+			return T(0);
+		}
+
+		// Compute distance to closest point on box surface
+		T dist_sq = 0;
+		for (int i = 0; i < dim; i++) {
+			if (point[i] < box.low()[i]) {
+				T diff = box.low()[i] - point[i];
+				dist_sq += diff * diff;
+			} else if (point[i] > box.high()[i]) {
+				T diff = point[i] - box.high()[i];
+				dist_sq += diff * diff;
+			}
+		}
+		return dist_sq;
+	}
+
+	template <int dim, Scalar T>
+	inline T distance(const Box<dim,T> &box, const Point<dim,T> &point) {
+		return std::sqrt(distance_squared(box, point));
+	}
+
+	template<int dim, Scalar T>
+	std::ostream& operator<<(std::ostream& os, const Box<dim,T>& box) {
+		return os << "(" << box.low() << ") to (" << box.high() << ")";
+	}
+}

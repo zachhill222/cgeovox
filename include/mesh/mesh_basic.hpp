@@ -6,8 +6,7 @@
 #include "mesh/vtk_elements.hpp"
 #include "mesh/vtk_defs.hpp"
 
-#include "util/point.hpp"
-#include "util/box.hpp"
+#include "gutil.hpp"
 
 #include <vector>
 #include <unordered_map>
@@ -68,13 +67,13 @@ namespace gv::mesh
 		using Face_t    = ElementStruct_t;
 
 		//aliases
-		using Index_t            = gv::util::Point<ref_dim,size_t>;
-		using DomainBox_t        = gv::util::Box<space_dim, Scalar_t>;
-		using RefBox_t           = gv::util::Box<ref_dim, Scalar_t>;
-		using RefPoint_t         = gv::util::Point<ref_dim, Scalar_t>;
-		using Point_t            = gv::util::Point<space_dim, Scalar_t>;
+		using Index_t            = gutil::Point<ref_dim,size_t>;
+		using DomainBox_t        = gutil::Box<space_dim, Scalar_t>;
+		using RefBox_t           = gutil::Box<ref_dim, Scalar_t>;
+		using RefPoint_t         = gutil::Point<ref_dim, Scalar_t>;
+		using Point_t            = gutil::Point<space_dim, Scalar_t>;
 		using Vertex_t           = BasicVertex<Point_t>;
-		using VertexList_t       = NodeOctree<Vertex_t, 64, Scalar_t>;
+		using VertexList_t       = VertexOctree<Vertex_t, 64, Scalar_t>;
 		using ElementIterator_t  = ElementIterator<BasicMesh<space_dim,ref_dim,Scalar_t,Element_t>, ContainerType::ELEMENTS>;
 		using BoundaryIterator_t = ElementIterator<BasicMesh<space_dim,ref_dim,Scalar_t,Element_t>, ContainerType::BOUNDARY>;
 
@@ -320,12 +319,13 @@ namespace gv::mesh
 		/// @param new_coord   The coordinate where the node will be moved to
 		/////////////////////////////////////////////////
 		void moveVertex(const size_t vertex_idx, Point_t new_coord) {
-			Vertex_t &VERTEX = _vertices[vertex_idx];
+			Vertex_t VERTEX = _vertices[vertex_idx]; //make a new copy
+
 			for (size_t e_idx : VERTEX.elems) {makeIsoparametric(_elements[e_idx]);}
 			for (size_t f_idx : VERTEX.boundary_faces) {makeIsoparametric(_boundary[f_idx]);}
 			
 			VERTEX.coord = new_coord;
-			_vertices.reinsert(vertex_idx);
+			_vertices.replace(VERTEX, vertex_idx);
 		}
 		
 
@@ -865,16 +865,12 @@ namespace gv::mesh
 
 
 		//memory for octree structure of _vertices
-		size_t nOctreeNodes{0}, nOctreeIdx{0}, nOctreeIdxCap{0}, nLeafs{0};
-		int maxDepth{0};
-		mesh._vertices.treeSummary(nOctreeNodes, nOctreeIdx, nOctreeIdxCap, nLeafs, maxDepth);
 
-		double octreeNodeMemory      = (double) sizeof(typename std::decay_t<decltype(mesh._vertices)>::Node_t) * nOctreeNodes;
-		double octreeIndexMemoryUsed = (double) sizeof(size_t) * nOctreeIdx;
-		double octreeIndexMemoryCap  = (double) sizeof(size_t) * nOctreeIdxCap;
+		// size_t nOctreeNodes{0}, nOctreeIdx{0}, nOctreeIdxCap{0}, nLeafs{0};
+		// int maxDepth{0};
+		// mesh._vertices.treeSummary(nOctreeNodes, nOctreeIdx, nOctreeIdxCap, nLeafs, maxDepth);
+		auto treeStats = mesh._vertices.get_tree_stats();
 
-		double total_vertices_octree_used = octreeNodeMemory + octreeIndexMemoryUsed;
-		double total_vertices_octree_cap  = octreeIndexMemoryCap;
 
 
 		//memory for _elements
@@ -978,31 +974,29 @@ namespace gv::mesh
 				  << "\n";
 
 		std::cout << std::left << std::setw(30) << "  \u2514\u2500 octree structure"
+				  << std::setw(24) << ""
+				  << std::right
+				  << std::setw(20) << std::fixed << std::setprecision(3) << treeStats.memory_used_bytes / 1048576.0
+				  << std::setw(20) << std::fixed << std::setprecision(3) << treeStats.memory_reserved_bytes  / 1048576.0
 				  << "\n"
 				  << std::left << std::setw(34) << "      \u251c\u2500 tree vertices (all)"
 				  << std::right
-				  << std::setw(20) << nOctreeNodes
-				  << std::setw(20) << std::fixed << std::setprecision(3) << octreeNodeMemory / 1048576.0
-				  << std::setw(20) << "n/a"
+				  << std::setw(20) << treeStats.n_nodes
 				  << "\n"
 				  << std::left << std::setw(34) << "      \u251c\u2500 tree leafs"
 				  << std::right
-				  << std::setw(20) << nLeafs 
-				  << std::setw(20) << "n/a"
-				  << std::setw(20) << "n/a"
+				  << std::setw(20) << treeStats.n_leafs
 				  << "\n"
 				  << std::left << std::setw(34) << "      \u251c\u2500 data index storage"
 				  << std::right;
 
-		if (nOctreeIdx!=mesh._vertices.size()) {
-			std::cout << std::setw(20) << "(W) "+std::to_string(nOctreeIdx);
+		if (treeStats.n_used_indices!=mesh._vertices.size()) {
+			std::cout << std::setw(20) << "(W) "+std::to_string(treeStats.n_used_indices);
 		} else {
-			std::cout << std::setw(20) << nOctreeIdx;
+			std::cout << std::setw(20) << treeStats.n_used_indices;
 		}
-		std::cout << std::setw(20) << std::fixed << std::setprecision(3) << octreeIndexMemoryUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << octreeIndexMemoryCap  / 1048576.0
-				  << "\n"
-				  << std::left << "      \u251c\u2500 maximum depth= " << maxDepth << "\n"
+		std::cout << "\n"
+				  << std::left << "      \u251c\u2500 maximum depth= " << treeStats.max_depth << "\n"
 				  << std::left << "      \u2514\u2500 bounding box\n"
 				  << std::left << "          \u251c\u2500 high= " << mesh._vertices.bbox().high() << "\n"
 				  << std::left << "          \u2514\u2500 low= " << mesh._vertices.bbox().low()  << "\n"
@@ -1070,8 +1064,8 @@ namespace gv::mesh
 
 
 		//total
-		double totalUsed = total_vertices_used + total_vertices_octree_used + total_elements_used + total_boundary_used + boundaryTrackUsed;
-		double totalCap = total_vertices_cap + total_vertices_octree_cap + total_elements_cap + total_boundary_cap + boundaryTrackCap;
+		double totalUsed = total_vertices_used + treeStats.memory_used_bytes + total_elements_used + total_boundary_used + boundaryTrackUsed;
+		double totalCap = total_vertices_cap + treeStats.memory_reserved_bytes + total_elements_cap + total_boundary_cap + boundaryTrackCap;
 		std::cout << std::string(90, '-') << "\n";
 		std::cout << std::left << std::setw(30) << "Total"
 				  << std::right
@@ -1082,10 +1076,6 @@ namespace gv::mesh
 
 
 		std::cout << std::string(90, '-') << "\n";
-		//duplicate check in _vertices
-		std::cout << "\n";
-		mesh._vertices.duplicateCheck();
-		mesh._vertices.findCheck();
-	}
 }
 
+}

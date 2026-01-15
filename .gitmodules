@@ -1,0 +1,3 @@
+[submodule "libs/GeometryUtility"]
+	path = libs/GeometryUtility
+	url = https://github.com/zachhill222/GeometryUtility

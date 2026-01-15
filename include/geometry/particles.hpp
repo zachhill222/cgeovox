@@ -1,10 +1,6 @@
 #pragma once
 
-#include "util/point.hpp"
-#include "util/quaternion.hpp"
-#include "util/box.hpp"
-#include "util/matrix.hpp"
-
+#include "gutil.hpp"
 #include "optimization/newton.hpp"
 
 #include <cmath>
@@ -15,10 +11,10 @@ namespace gv::geometry{
 	class Particle
 	{
 	public:
-		using Point_t  = gv::util::Point<3,double>;
-		using Box_t    = gv::util::Box<3,double>;
-		using Quat_t   = gv::util::Quaternion<double>;
-		using Hessian_t = gv::util::Matrix<3,3,double>;
+		using Point_t   = gutil::Point<3,double>;
+		using Box_t     = gutil::Box<3,double>;
+		using Quat_t    = gutil::Quaternion<double>;
+		using Hessian_t = gutil::Matrix<3,3,double>;
 
 		Particle() {}
 		Particle(const Point_t &radii, const Point_t &center, const Quat_t &quaternion, double eps0, double eps1) :

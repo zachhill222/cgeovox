@@ -1,6 +1,8 @@
-#include "util/box.hpp"
-#include "util/point.hpp"
-#include "util/scalars/fixed_point.hpp"
+// #include "util/box.hpp"
+// #include "util/point.hpp"
+// #include "util/scalars/fixed_point.hpp"
+
+#include "gutil.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/mesh_basic.hpp"
@@ -8,17 +10,17 @@
 #include "mesh/mesh_hierarchical.hpp"
 #include "mesh/mesh_view.hpp"
 
-#include "util/octree_stats.hpp"
+// #include "util/octree_stats.hpp"
 
 const int dim = 3;
 // using T = double;
-using T = gv::util::FixedPoint<int64_t,-15>;
+using T = gutil::FixedPoint<int64_t,-15>;
 
 void test() {
-	using Index_t    = gv::util::Point<dim,size_t>;
-	using RefPoint_t = gv::util::Point<dim,T>;
-	using Point_t    = gv::util::Point<3,T>;
-	using Box_t      = gv::util::Box<dim,T>;
+	using Index_t    = gutil::Point<dim,size_t>;
+	using RefPoint_t = gutil::Point<dim,T>;
+	using Point_t    = gutil::Point<3,T>;
+	using Box_t      = gutil::Box<dim,T>;
 	using Element_t  = gv::mesh::HierarchicalColoredElement;
 	
 	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
@@ -78,7 +80,7 @@ void test() {
 
 	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
 	boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
-	gv::util::makeOctreeLeafMesh(mesh.getNodeOctree(), "./outfiles/topological_mesh_node_octree.vtk");
+	// gv::util::makeOctreeLeafMesh(mesh.getNodeOctree(), "./outfiles/topological_mesh_node_octree.vtk");
 }
 
 

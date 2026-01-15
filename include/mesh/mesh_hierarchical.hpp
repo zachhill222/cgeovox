@@ -7,9 +7,9 @@
 #include "mesh/vtk_elements.hpp"
 #include "mesh/vtk_defs.hpp"
 
-#include "util/point.hpp"
-#include "util/octree.hpp"
-#include "util/box.hpp"
+// #include "util/point.hpp"
+// #include "util/octree.hpp"
+// #include "util/box.hpp"
 
 #include <vector>
 #include <cassert>
@@ -619,7 +619,6 @@ namespace gv::mesh {
 	std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS> &mesh) {
 		const ColoredMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS> &base_mesh = mesh;
 		os << base_mesh;
-		os << mesh._color_manager;
 		return os;
 	}
 }

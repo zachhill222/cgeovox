@@ -2,9 +2,10 @@
 
 #include "mesh/vtk_defs.hpp"
 
-#include "util/point.hpp"
-#include "util/box.hpp"
-#include "util/octree_parallel.hpp"
+// #include "util/point.hpp"
+#include "gutil.hpp"
+// #include "util/box.hpp"
+// #include "util/octree_parallel.hpp"
 
 #include <concepts>
 #include <vector>
@@ -250,7 +251,7 @@ namespace gv::mesh
 	concept BasicMeshVertex = requires(T vertex) {
 		typename T::Point_t;
 		typename T::Scalar_t;
-		requires gv::util::PointLike<decltype(vertex.coord)>;
+		requires gutil::pointlike<decltype(vertex.coord)>;
 		{ vertex.elems  } -> std::convertible_to<std::vector<size_t>>;
 		{ vertex.boundary_faces  } -> std::convertible_to<std::vector<size_t>>;
 	};
@@ -258,15 +259,15 @@ namespace gv::mesh
 
 	/////////////////////////////////////////////////
 	/// A container for tracking the node information.
-	/// Usually Point_t = gv::util::Point<3,double>, but 2-D meshes or different precisions are allowed.
+	/// Usually Point_t = gutil::Point<3,double>, but 2-D meshes or different precisions are allowed.
 	/// If the mesh has more than one element type, should be the maximum number of vertices required to define any of the used element types.
 	/// This allows the vertices to be stored in a contiguous array as they all will require the same amount of memory. For a hexahedral mesh,=8.
 	/////////////////////////////////////////////////
-	template <gv::util::PointLike Point_type>
+	template <gutil::pointlike Point_type>
 	struct BasicVertex {
 		using Point_t  = Point_type;
-		using Scalar_t = typename Point_t::Scalar_t;
-		static constexpr int dim = Point_t::dimension;
+		using Scalar_t = typename Point_t::scalar_type;
+		static constexpr int dim = Point_t::dim;
 
 		Point_t coord; /// The location of this node in space.
 		std::vector<size_t> elems; /// The elements that use this node
@@ -275,10 +276,10 @@ namespace gv::mesh
 		BasicVertex(const Point_t &coord) : coord(coord), elems(), boundary_faces(0) {}
 		BasicVertex() : coord(), elems(), boundary_faces(0) {}
 	};
-	static_assert(BasicMeshVertex<BasicVertex<gv::util::Point<3,double>>>, "BasicVertex<Point<3,double>> is not a BasicMeshVertex");
-	static_assert(BasicMeshVertex<BasicVertex<gv::util::Point<2,double>>>, "BasicVertex<Point<2,double>> is not a BasicMeshVertex");
-	static_assert(BasicMeshVertex<BasicVertex<gv::util::Point<3,float>>>,  "BasicVertex<Point<3,float>> is not a BasicMeshVertex");
-	static_assert(BasicMeshVertex<BasicVertex<gv::util::Point<2,float>>>,  "BasicVertex<Point<2,float>> is not a BasicMeshVertex");
+	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<3,double>>>, "BasicVertex<Point<3,double>> is not a BasicMeshVertex");
+	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<2,double>>>, "BasicVertex<Point<2,double>> is not a BasicMeshVertex");
+	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<3,float>>>,  "BasicVertex<Point<3,float>> is not a BasicMeshVertex");
+	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<2,float>>>,  "BasicVertex<Point<2,float>> is not a BasicMeshVertex");
 
 	/// Equality check for mesh vertices for use in the octree.
 	template <BasicMeshVertex Vertex_t>
@@ -311,17 +312,17 @@ namespace gv::mesh
 	/// A container for storing the vertices in an octree for more efficeint lookup. This is important as we must query if a node already exists in the mesh.
 	/// @todo Determine if a kd-tree is better.
 	/////////////////////////////////////////////////
-	template<BasicMeshVertex Vertex_t, int N_DATA=64, Scalar T=double>
-	class NodeOctree : public gv::util::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>
+	template<BasicMeshVertex Vertex_t, int N_DATA=64, typename T=double>
+	class VertexOctree : public gutil::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>
 	{
 	public:
-		using Parent_t = gv::util::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>;
+		using Parent_t = gutil::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>;
 		using Data_t = Vertex_t;
-		using Box_t  = gv::util::Box<Vertex_t::dim, T>;
+		using Box_t  = gutil::Box<Vertex_t::dim, T>;
 
 
-		NodeOctree() : Parent_t() {}
-		NodeOctree(const Box_t &bbox) : Parent_t(bbox) {}
+		VertexOctree() : Parent_t() {}
+		VertexOctree(const Box_t &bbox) : Parent_t(bbox) {}
 
 	private:
 		bool isValid(const Box_t &box, const Data_t &data) const override {return box.contains(data.coord);}

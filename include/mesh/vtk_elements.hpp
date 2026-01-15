@@ -1,8 +1,5 @@
 #pragma once
 
-#include "util/point.hpp"
-#include "util/box.hpp"
-
 #include "mesh/mesh_util.hpp"
 #include "mesh/vtk_defs.hpp"
 

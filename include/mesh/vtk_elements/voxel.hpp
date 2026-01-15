@@ -1,8 +1,9 @@
 #pragma once
 
-#include "util/point.hpp"
-#include "util/box.hpp"
-#include "util/matrix.hpp"
+// #include "util/point.hpp"
+// #include "util/box.hpp"
+// #include "util/matrix.hpp"
+#include "gutil.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/vtk_defs.hpp"
@@ -60,7 +61,7 @@ namespace gv::mesh {
 		static constexpr int N_VERTICES = vtk_n_vertices(VTK_ID);
 
 		//coordinates for the reference element. store in row-major to pull out rows easier.
-		static constexpr gv::util::Matrix<8,3,MapScalar_t,false> REF_COORDS {
+		static constexpr gutil::Matrix<8,3,MapScalar_t,false> REF_COORDS {
 			{-1, -1, -1},
 			{ 1, -1, -1},
 			{-1,  1, -1},
@@ -77,31 +78,31 @@ namespace gv::mesh {
 
 			using T = VertexScalar_t;
 			//edge midpoints
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]})); //8  - back face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[3]})); //9  - back face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[3]})); //10 - back face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[2]})); //11 - back face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]})); //8  - back face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[3]})); //9  - back face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[3]})); //10 - back face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[2]})); //11 - back face
 
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[4]})); //12 - connecting edge
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[6]})); //13 - connecting edge
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[3],vertex_coords[7]})); //14 - connecting edge
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[5]})); //15 - connecting edge
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[4]})); //12 - connecting edge
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[6]})); //13 - connecting edge
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[3],vertex_coords[7]})); //14 - connecting edge
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[5]})); //15 - connecting edge
 			
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[4],vertex_coords[5]})); //16 - front face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[5],vertex_coords[7]})); //17 - front face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[6],vertex_coords[7]})); //18 - front face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[4],vertex_coords[6]})); //19 - front face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[4],vertex_coords[5]})); //16 - front face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[5],vertex_coords[7]})); //17 - front face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[6],vertex_coords[7]})); //18 - front face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[4],vertex_coords[6]})); //19 - front face
 
 			//face midpoints
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[6]})); //20 - left face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[7]})); //21 - right face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[7]})); //22 - top face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[5]})); //23 - bottom face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[3]})); //24 - back face
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[4],vertex_coords[7]})); //25 - front face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[6]})); //20 - left face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[7]})); //21 - right face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[7]})); //22 - top face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[5]})); //23 - bottom face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[3]})); //24 - back face
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[4],vertex_coords[7]})); //25 - front face
 
 			//center
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[7]})); //26
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[7]})); //26
 		}
 
 		void getChildVertices(std::vector<size_t> &child_vertices, const int child_number, const std::vector<size_t> &split_vertex_numbers) const override {

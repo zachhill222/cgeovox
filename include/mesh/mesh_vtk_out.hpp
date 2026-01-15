@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gutil.hpp"
 #include "mesh/mesh_util.hpp"
 #include "util/scalars/float_manipulation.hpp"
 
@@ -24,7 +25,7 @@ namespace gv::mesh {
 		}
 
 		using Element_t = typename Mesh_t::Element_t;
-		using PrintPoint_t = gv::util::Point<3,float>;
+		using PrintPoint_t = gutil::Point<3,float>;
 
 		//get number of vertices and elements
 		const size_t nNodes    = mesh.nNodes();

@@ -1,8 +1,9 @@
 #pragma once
 
-#include "util/point.hpp"
-#include "util/box.hpp"
-#include "util/matrix.hpp"
+// #include "util/point.hpp"
+// #include "util/box.hpp"
+// #include "util/matrix.hpp"
+#include "gutil.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/vtk_defs.hpp"
@@ -32,9 +33,9 @@ namespace gv::mesh {
 		VTK_ELEMENT(const BasicElement &elem) : ELEM(elem) {}
 		virtual ~VTK_ELEMENT() {}
 		
-		using Point_t    = gv::util::Point<space_dim, VertexScalar_t>;    //type of point in space (e.g., mesh vertex coordinates)
-		using RefPoint_t = gv::util::Point<ref_dim, MapScalar_t>;   //type of point in the reference domain
-		using Jac_t      = gv::util::Matrix<space_dim, ref_dim, MapScalar_t, false>; //type of jacobian matrix
+		using Point_t    = gutil::Point<space_dim, VertexScalar_t>;    //type of point in space (e.g., mesh vertex coordinates)
+		using RefPoint_t = gutil::Point<ref_dim, MapScalar_t>;   //type of point in the reference domain
+		using Jac_t      = gutil::Matrix<space_dim, ref_dim, MapScalar_t, false>; //type of jacobian matrix
 
 		const BasicElement &ELEM;
 		virtual void split(std::vector<Point_t>& vertex_coords) const = 0;

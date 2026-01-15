@@ -1,8 +1,9 @@
 #pragma once
 
-#include "util/point.hpp"
-#include "util/box.hpp"
-#include "util/matrix.hpp"
+// #include "util/point.hpp"
+// #include "util/box.hpp"
+// #include "util/matrix.hpp"
+#include "gutil.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/vtk_defs.hpp"
@@ -57,7 +58,7 @@ namespace gv::mesh {
 		static constexpr int N_VERTICES = vtk_n_vertices(VTK_ID);
 
 		//coordinates for the reference element. store in row-major to pull out rows easier.
-		static constexpr gv::util::Matrix<4,2,MapScalar_t,false> REF_COORDS {
+		static constexpr gutil::Matrix<4,2,MapScalar_t,false> REF_COORDS {
 			{-1, -1},
 			{ 1, -1},
 			{-1,  1},
@@ -70,13 +71,13 @@ namespace gv::mesh {
 			using T = VertexScalar_t;
 			
 			//edge midpoints
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]})); //4 - bottom (B)
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[2]})); //5 - right (R)
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[3]})); //6 - top (T)
-			vertex_coords.emplace_back(T{0.5}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[3]})); //7 - left (L)
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]})); //4 - bottom (B)
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[2]})); //5 - right (R)
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[3]})); //6 - top (T)
+			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[3]})); //7 - left (L)
 
 			//center
-			vertex_coords.emplace_back(T{0.25}*gv::util::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1],vertex_coords[2],vertex_coords[3]})); //8 (C)
+			vertex_coords.emplace_back(T{0.25}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1],vertex_coords[2],vertex_coords[3]})); //8 (C)
 		}
 
 		void getChildVertices(std::vector<size_t> &child_vertices, const int child_number, const std::vector<size_t> &split_vertex_numbers) const override {
