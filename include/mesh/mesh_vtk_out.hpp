@@ -28,8 +28,8 @@ namespace gv::mesh {
 		using PrintPoint_t = gutil::Point<3,float>;
 
 		//get number of vertices and elements
-		const size_t nNodes    = mesh.nNodes();
-		const size_t nElements = mesh.nElems();
+		const size_t nNodes    = mesh.nVertices();
+		const size_t nElements = mesh.nElements();
 
 		//create buffer
 		std::stringstream buffer;
@@ -42,7 +42,7 @@ namespace gv::mesh {
 
 		//POINTS
 		buffer << "POINTS " << nNodes << " float\n";
-		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			buffer << static_cast<PrintPoint_t>(it->coord) << "\n";
 		}
 		buffer << "\n";
@@ -92,8 +92,8 @@ namespace gv::mesh {
 		using Element_t = typename Mesh_t::Element_t;
 		
 		//get number of vertices and elements
-		const size_t nNodes    = mesh.nNodes();
-		const size_t nElements = mesh.nElems();
+		const size_t nNodes    = mesh.nVertices();
+		const size_t nElements = mesh.nElements();
 
 		std::stringstream buffer;
 
@@ -106,12 +106,12 @@ namespace gv::mesh {
 
 		//boundary
 		size_t max_boundary_faces=1;
-		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			max_boundary_faces = std::max(max_boundary_faces, it->boundary_faces.size());
 		}
 
 		buffer << "boundary " << max_boundary_faces << " " << nNodes << " integer\n";
-		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			const Vertex_t &NODE = *it;
 
 			size_t i;
@@ -124,12 +124,12 @@ namespace gv::mesh {
 		
 		//elements
 		size_t max_elem=0;
-		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			max_elem = std::max(max_elem, it->elems.size());
 		}
 		
 		buffer << "elements " << max_elem << " " << nNodes << " integer\n";
-		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			const Vertex_t &NODE = *it;
 			size_t i;
 			for (i=0; i<NODE.elems.size(); i++) { buffer << NODE.elems[i] << " ";}
@@ -141,7 +141,7 @@ namespace gv::mesh {
 
 		if constexpr (requires {Vertex_t::index;}) {
 			buffer << "index 1 " << nNodes << " integer\n";
-			for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {buffer << it->index << " ";}
+			for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {buffer << it->index << " ";}
 			buffer << "\n\n";
 			file   << buffer.rdbuf();
 			buffer.str("");
@@ -234,8 +234,8 @@ namespace gv::mesh {
 		using Element_t = typename Mesh_t::Element_t;
 
 		//get number of vertices and elements
-		const size_t nNodes    = mesh.nNodes();
-		const size_t nElements = mesh.nElems();
+		const size_t nNodes    = mesh.nVertices();
+		const size_t nElements = mesh.nElements();
 
 	    //only 32 and 64 bit data types are supported. can add more if necessary
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
@@ -268,7 +268,7 @@ namespace gv::mesh {
 	    if      constexpr (sizeof(typename Vertex_t::Scalar_t)==4) {file << "POINTS " << nNodes << " float\n";}
 	    else if constexpr (sizeof(typename Vertex_t::Scalar_t)==8) {file << "POINTS " << nNodes << " double\n";}
 	    
-	    for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+	    for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			const Vertex_t &NODE = *it;
 			if constexpr (sizeof(typename Vertex_t::Scalar_t)==4) {
 				write_big_endian(static_cast<float>(NODE.coord[0]));
@@ -325,8 +325,8 @@ namespace gv::mesh {
 		using Element_t = typename Mesh_t::Element_t;
 
 		//get number of vertices and elements
-		const size_t nNodes    = mesh.nNodes();
-		const size_t nElements = mesh.nElems();
+		const size_t nNodes    = mesh.nVertices();
+		const size_t nElements = mesh.nElements();
 
 	    //only 32 and 64 bit data types are supported. can add more if necessary
 	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
@@ -358,12 +358,12 @@ namespace gv::mesh {
 		
 		//boundary
 		size_t max_boundary_faces=1;
-		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			max_boundary_faces = std::max(max_boundary_faces, it->boundary_faces.size());
 		}
 		
 		file << "boundary " << max_boundary_faces << " " << nNodes << " int\n";
-		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			const Vertex_t &NODE = *it;
 			
 			size_t i;
@@ -374,12 +374,12 @@ namespace gv::mesh {
 		
 		//elements
 		size_t max_elem=0;
-		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			max_elem = std::max(max_elem, it->elems.size());
 		}
 		
 		file << "elements " << max_elem << " " << nNodes << " int\n";
-		for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 			const Vertex_t &NODE = *it;
 			size_t i;
 			for (i = 0; i < NODE.elems.size(); i++) {write_big_endian(static_cast<int>(NODE.elems[i]));}
@@ -389,7 +389,7 @@ namespace gv::mesh {
 
 		if constexpr (requires {Vertex_t::index;}) {
 		    file << "index 1 " << nNodes << " int\n";
-		    for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+		    for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 		        write_big_endian(static_cast<int>(it->index));
 		    }
 		    file << "\n";

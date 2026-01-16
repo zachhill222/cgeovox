@@ -333,7 +333,7 @@ namespace gv::geometry{
 			c = std::pow(gv::util::abs(rotated_direction[0]), 1.0/(2.0-_eps0));
 			s = gv::util::sgn(rotated_direction[2]) * std::pow( gv::util::abs( rotated_direction[2]*cos_pow(omega,2.0-_eps1)), 1.0/(2.0-_eps0));
 
-			double eta = atan2(s, c); //in [-pi/2,pi/2] because x >= 0
+			double eta = atan2(s, c); //in [-pi/2,pi/2] because c >= 0
 
 			//get normal in global coordinates
 			Point_t localpoint = _parametric(eta, omega);

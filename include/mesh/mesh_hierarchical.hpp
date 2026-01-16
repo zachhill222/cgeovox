@@ -81,7 +81,7 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		/// Get the total number of active elements in the mesh.
 		/////////////////////////////////////////////////
-		size_t nElems() const override {
+		size_t nElements() const override {
 			size_t nElems = 0;
 			for (const Element_t &ELEM : this->_elements) {
 				if (ELEM.is_active) {nElems++;}

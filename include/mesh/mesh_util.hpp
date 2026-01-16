@@ -1,11 +1,7 @@
 #pragma once
 
-#include "mesh/vtk_defs.hpp"
-
-// #include "util/point.hpp"
 #include "gutil.hpp"
-// #include "util/box.hpp"
-// #include "util/octree_parallel.hpp"
+#include "mesh/vtk_defs.hpp"
 
 #include <concepts>
 #include <vector>

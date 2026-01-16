@@ -1,16 +1,12 @@
-// #include "util/box.hpp"
-// #include "util/point.hpp"
-// #include "util/scalars/fixed_point.hpp"
-
 #include "gutil.hpp"
+
+// #include "fem/dofhandler.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/mesh_basic.hpp"
 #include "mesh/mesh_colored.hpp"
 #include "mesh/mesh_hierarchical.hpp"
 #include "mesh/mesh_view.hpp"
-
-// #include "util/octree_stats.hpp"
 
 const int dim = 3;
 // using T = double;
@@ -49,7 +45,7 @@ void test() {
 		old[1] = r*std::sin(theta); 
 		return old;
 	};
-	for (auto it=mesh.nodeBegin(); it!=mesh.nodeEnd(); ++it) {
+	for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
 		if (it->coord[2]>0.0) {
 			mesh.moveVertex(it->index, fun(it->coord));
 		}

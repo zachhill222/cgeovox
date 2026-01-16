@@ -131,7 +131,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Get the total number of elements in the mesh. Marked as virtual as hierarchical meshes need to check for active elements.
 		/////////////////////////////////////////////////
-		virtual size_t nElems() const {
+		virtual size_t nElements() const {
 			return _elements.size();
 		}
 
@@ -139,7 +139,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Get the total number of vertices in the mesh.
 		/////////////////////////////////////////////////
-		virtual size_t nNodes() const {
+		virtual size_t nVertices() const {
 			return _vertices.size();
 		}
 
@@ -400,10 +400,10 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Iterators for _vertices
 		/////////////////////////////////////////////////
-		virtual std::vector<Vertex_t>::iterator nodeBegin()             {return _vertices.begin();}
-		virtual std::vector<Vertex_t>::iterator nodeEnd()               {return _vertices.end();}
-		virtual std::vector<Vertex_t>::const_iterator nodeBegin() const {return _vertices.cbegin();}
-		virtual std::vector<Vertex_t>::const_iterator nodeEnd()   const {return _vertices.cend();}
+		virtual std::vector<Vertex_t>::iterator vertexBegin()             {return _vertices.begin();}
+		virtual std::vector<Vertex_t>::iterator vertexEnd()               {return _vertices.end();}
+		virtual std::vector<Vertex_t>::const_iterator vertexBegin() const {return _vertices.cbegin();}
+		virtual std::vector<Vertex_t>::const_iterator vertexEnd()   const {return _vertices.cend();}
 
 	};
 
@@ -810,9 +810,9 @@ namespace gv::mesh
 
 		os << std::left;
 		os << "Feature Counts\n" << std::string(50, '-') << "\n"; 
-		os << std::setw(15) << "Elements       " << std::setw(10) << std::right << mesh.nElems()         << "\n"
+		os << std::setw(15) << "Elements       " << std::setw(10) << std::right << mesh.nElements()         << "\n"
 		   << std::setw(15) << "Boundary_Faces " << std::setw(10) << std::right << mesh.nBoundaryFaces() << "\n"
-		   << std::setw(15) << "Nodes          " << std::setw(10) << std::right << mesh.nNodes()         << "\n"
+		   << std::setw(15) << "Nodes          " << std::setw(10) << std::right << mesh.nVertices()         << "\n"
 		   << std::string(50, '-') << "\n";
 
 

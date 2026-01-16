@@ -1,7 +1,5 @@
 #pragma once
 
-// #include "util/point.hpp"
-// #include "gutil.hpp"
 #include "mesh/mesh_util.hpp"
 #include "mesh/mesh_basic.hpp"
 
@@ -63,11 +61,11 @@ namespace gv::mesh {
 			}
 
 		// Count methods
-	    size_t nNodes() const override {
+	    size_t nVertices() const override {
 	        return std::count(_node_mask.begin(), _node_mask.end(), true);
 	    }
 
-	    size_t nElems() const override {
+	    size_t nElements() const override {
 	        return std::count(_element_mask.begin(), _element_mask.end(), true);
 	    }
 
@@ -114,11 +112,11 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		/// Iterators for _node
 		/////////////////////////////////////////////////
-		std::vector<Vertex_t>::const_iterator nodeBegin() const override {
-			return _parent._nodes.cbegin();
+		std::vector<Vertex_t>::const_iterator vertexBegin() const override {
+			return _parent._vertices.cbegin();
 		}
-		std::vector<Vertex_t>::const_iterator nodeEnd()   const override {
-			return _parent._nodes.cend();
+		std::vector<Vertex_t>::const_iterator vertexEnd()   const override {
+			return _parent._vertices.cend();
 		}
 	};
 
