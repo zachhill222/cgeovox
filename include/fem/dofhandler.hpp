@@ -42,7 +42,8 @@ namespace gv::fem
 	enum class FeatureType
 	{
 		VERTEX, //always 0D
-		FACE, //1D or 2D
+		EDGE, //always 1D
+		FACE, //1D or 2D ?
 		ELEMENT, //2D or 3D
 		NONE
 	};
@@ -65,7 +66,7 @@ namespace gv::fem
 	class HandlerDOF
 	{
 	protected:
-		std::shared_ptr<const Mesh_t> _mesh = nullptr;
+		std::shared_ptr<Mesh_t> _mesh = nullptr;
 		std::vector<InfoDOF> _dofs;
 		std::vector<InfoElem> _elem;
 		
@@ -138,12 +139,12 @@ namespace gv::fem
 				ELEM.vtkID == QUAD_VTK_ID or 
 				ELEM.vtkID == VOXEL_VTK_ID or 
 				ELEM.vtkID == HEXAHEDRON_VTK_ID) {
-				_elem.emplace_back(false, 1)
+				_elem.emplace_back(false, 1);
 			}
 			else if (ELEM.vtkID == QUADRATIC_EDGE_VTK_ID
 					 ELEM.vtkID == BIQUADRATIC_QUAD_VTK_ID or
 					 ELEM.vtkID == TRIQUADRATIC_HEXAHEDRON_VTK_ID) {
-				_elem.emplace_back(false, 2)
+				_elem.emplace_back(false, 2);
 			}
 			else {
 				throw std::runtime_error("HandlerDOF::distribute_lagrange_dofs - unknown element type with vtkID= " + std::to_string(ELEM.vtkID));
