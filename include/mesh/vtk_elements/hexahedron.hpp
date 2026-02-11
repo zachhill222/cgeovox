@@ -66,12 +66,12 @@ namespace gv::mesh {
 		static constexpr gutil::Matrix<8,3,MapScalar_t,false> REF_COORDS {
 			{-1, -1, -1},
 			{ 1, -1, -1},
-			{-1,  1, -1},
 			{ 1,  1, -1},
+			{-1,  1, -1},
 			{-1, -1,  1},
 			{ 1, -1,  1},
-			{-1,  1,  1},
 			{ 1,  1,  1},
+			{-1,  1,  1},
 		};
 
 		void split(std::vector<Point_t>& vertex_coords) const override {
