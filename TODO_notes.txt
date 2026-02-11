@@ -1,0 +1,585 @@
+================================================================================
+FEM CLASS ARCHITECTURE NOTES
+================================================================================
+
+================================================================================
+1. DOFHandler
+================================================================================
+
+PURPOSE:
+  Manages degrees of freedom for a single field on a mesh. Maps mesh topology
+  to DOFs, provides assembly iteration interface, handles solution storage.
+
+TEMPLATE PARAMETERS:
+  - MeshType: The hierarchical mesh type (e.g., HierarchicalMesh<VoxelElement>)
+  - DOFType: The basis function type (e.g., VoxelQ1, HexQ2)
+  - CoeffType: The coefficient type (double for scalar, Point<3,double> for vector)
+
+KEY MEMBERS:
+  - const MeshType& mesh_: Reference to the mesh
+  - std::vector<DOFType> dofs_: The DOF objects (basis functions + support info)
+  - std::vector<CoeffType> coefficients_: Solution values at each DOF
+  - Maps for efficient lookup:
+    * vertex_to_dofs_: Maps vertex indices to DOF indices
+    * element_to_dofs_: Maps element indices to local DOF indices
+
+REQUIRED METHODS:
+  - Constructor(const MeshType& mesh): Build DOFs from mesh topology
+  
+  - size_t n_dofs() const: Return total number of DOFs
+  
+  - const DOFType& dof(size_t idx) const: Access DOF object
+  
+  - CoeffType& coefficient(size_t idx): Access/modify solution coefficient
+  
+  - get_required_elements(const vector<size_t>& indicator_elements)
+      → vector<size_t>
+    For standard FEM: pass through (returns same list)
+    Determines which elements must be refined based on indicators
+  
+  - update(const RefinementMap& map): Update after mesh refinement
+    * Rebuild DOF structure from new mesh
+    * Interpolate old solution to new DOFs
+    * Standard interpolation: old DOFs → new DOFs directly
+  
+  - ElementData structure:
+    * elem_idx: Element index
+    * color: Element color for thread-safe assembly
+    * local_to_global: Map local DOF index → global DOF index
+    * basis_functions: Pointers to DOF objects for this element
+    * jacobian, inv_jacobian, detJ: Element map derivatives
+    * quad_points_ref: Quadrature points in reference coordinates
+    * quad_weights: Quadrature weights
+  
+  - ColoredElementRange elements() const: Return colored element groups
+    * Provides n_colors()
+    * Provides elements_of_color(c) for each color
+    * Enables thread-safe parallel assembly
+
+  - vector<size_t> boundary_dofs(boundary_spec) const:
+    Return DOF indices on specified boundary
+
+NOTES:
+  - All DOFs are always "active" (no active/inactive concept)
+  - Shares element coloring from mesh
+  - CoeffType determines scalar vs vector fields automatically
+
+
+================================================================================
+2. CHARMSDOFHandler
+================================================================================
+
+PURPOSE:
+  Specialized DOFHandler for CHARMS (Conforming Hierarchical Adaptive Refinement
+  Methods). Handles active/inactive DOF tracking and support-based refinement.
+
+TEMPLATE PARAMETERS:
+  - Same as DOFHandler: MeshType, DOFType, CoeffType
+
+INHERITS FROM:
+  DOFHandler<MeshType, DOFType, CoeffType>
+
+ADDITIONAL MEMBERS:
+  - vector<bool> is_active_: Track which DOFs are active
+  - vector<int> dof_depth_: Refinement depth of each DOF
+
+OVERRIDDEN METHODS:
+  
+  - get_required_elements(const vector<size_t>& indicator_elements)
+      → vector<size_t>
+    CHARMS-specific: Expand refinement based on support
+    * For each element in indicators
+    * Find all active DOFs that have that element in their support
+    * Return union of all support elements of those DOFs
+    This ensures basis functions remain well-defined after refinement
+  
+  - update(const RefinementMap& map):
+    CHARMS-specific update sequence:
+    1. Rebuild DOF structure from refined mesh
+    2. Mark DOFs on coarse (refined) elements as INACTIVE
+    3. Mark DOFs on new fine elements as ACTIVE
+    4. Perform depth-based interpolation:
+       * Interpolate from inactive coarse DOFs to active fine DOFs
+       * Use coarse basis functions evaluated at fine DOF locations
+       * Only consider DOFs at appropriate depths
+  
+  - ColoredElementRange elements() const override:
+    Return only elements with all active DOFs (skip elements with inactive DOFs)
+
+ADDITIONAL METHODS:
+  
+  - bool is_active(size_t dof_idx) const: Check if DOF is active
+  
+  - void set_active(size_t dof_idx, bool active): Manually set active state
+  
+  - int depth(size_t dof_idx) const: Return refinement depth of DOF
+
+NOTES:
+  - Active DOFs form the actual solution space
+  - Inactive DOFs exist but don't participate in assembly
+  - Support-based refinement is key to CHARMS: refining an element requires
+    refining all elements in support of DOFs on that element
+  - No hanging node constraints needed (major advantage of CHARMS)
+
+
+================================================================================
+3. PoissonProblem
+================================================================================
+
+PURPOSE:
+  Solves Poisson equation: -∇²u = f with given boundary conditions
+  Single scalar field problem
+
+TEMPLATE PARAMETERS:
+  - DOFHandlerType: The DOF handler type (DOFHandler or CHARMSDOFHandler)
+
+KEY MEMBERS:
+  - DOFHandlerType& dof_handler_: Reference to DOF handler
+  - SparseMatrix K_: Global stiffness matrix
+  - Vector f_: Global load vector
+  - Vector solution_: Solution vector
+  - function<double(Point<3>)> source_function_: Right-hand side f(x)
+  - BoundaryConditions boundary_conditions_: Dirichlet/Neumann BCs
+
+REQUIRED METHODS:
+  
+  - Constructor(DOFHandlerType& handler, source_function):
+    Store references, initialize structures
+  
+  - void assemble():
+    Build global system K*u = f
+    Uses colored element iteration for thread safety:
+    * For each color c:
+      * #pragma omp parallel for
+      * For each element in color c:
+        * assemble_element(elem)
+  
+  - void assemble_element(const ElementData& elem):
+    Compute local element matrix and vector:
+    * Evaluate basis functions at quadrature points (batch_eval)
+    * Evaluate basis gradients at quadrature points (batch_grad)
+    * Transform gradients to physical space (apply inv_jacobian)
+    * For each quadrature point q:
+      * For each basis i, j:
+        * K_local(i,j) += dot(grad_phi_i, grad_phi_j) * weight * detJ
+      * For each basis i:
+        * f_local(i) += f(x_q) * phi_i(x_q) * weight * detJ
+    * Scatter local contributions to global K and f using local_to_global map
+  
+  - void apply_boundary_conditions():
+    Apply Dirichlet BCs (modify K and f)
+    Apply Neumann BCs (modify f)
+  
+  - void solve():
+    Solve linear system K*u = f
+    Store result in solution_
+  
+  - RefinementIndicators compute_refinement_indicators() const:
+    Compute error estimator (e.g., gradient-based, residual-based)
+    Return elements to refine/coarsen based on thresholds
+  
+  - void adaptive_solve():
+    Main adaptive refinement loop:
+    1. Solve current problem
+    2. Compute refinement indicators
+    3. Get required elements from DOFHandler
+    4. Refine mesh with those elements
+    5. Update DOFHandler
+    6. Repeat until converged
+  
+  - const Vector& solution() const: Access solution
+
+NOTES:
+  - Single field (scalar)
+  - CoeffType = double
+  - Symmetric positive definite system
+
+
+================================================================================
+4. StokesProblem
+================================================================================
+
+PURPOSE:
+  Solves Stokes equations: -μ∇²u + ∇p = f, ∇·u = 0
+  Incompressible flow with velocity and pressure fields
+
+TEMPLATE PARAMETERS:
+  - VelocityHandlerType: DOF handler for velocity (CoeffType = Point<3,double>)
+  - PressureHandlerType: DOF handler for pressure (CoeffType = double)
+
+KEY MEMBERS:
+  - VelocityHandlerType& u_handler_: Velocity DOF handler (e.g., Q2 basis)
+  - PressureHandlerType& p_handler_: Pressure DOF handler (e.g., Q1 basis)
+  - BlockSparseMatrix K_: Global block system [K_uu, K_up; K_pu, K_pp]
+  - BlockVector f_: Global load vector [f_u; f_p]
+  - BlockVector solution_: Solution [u; p]
+  - double viscosity_: Fluid viscosity μ
+  - function<Point<3>(Point<3>)> body_force_: Body force f(x)
+
+REQUIRED METHODS:
+  
+  - Constructor(VelocityHandler& u_handler, PressureHandler& p_handler, viscosity):
+    Store references, initialize structures
+  
+  - void assemble():
+    Build coupled system
+    Both handlers must have same element coloring
+    * For each color c:
+      * Get velocity elements of color c
+      * Get pressure elements of color c
+      * #pragma omp parallel for
+      * For each element index i:
+        * assemble_element(vel_elem[i], pres_elem[i])
+  
+  - void assemble_element(const VelElementData& vel_elem,
+                         const PresElementData& pres_elem):
+    Compute local coupled matrices:
+    * vel_elem provides Q2 basis (e.g., 27 DOFs for hex)
+    * pres_elem provides Q1 basis (e.g., 8 DOFs for hex)
+    * Both refer to same geometric element
+    * Evaluate velocity and pressure basis at quadrature points
+    * Transform velocity gradients to physical space
+    * For each quadrature point q:
+      * K_uu: ∫ μ ∇u : ∇v (viscosity term, 3x3 blocks for each component)
+      * K_up: -∫ p ∇·v (pressure-velocity coupling)
+      * K_pu: -∫ q ∇·u (incompressibility constraint)
+      * K_pp: usually zero (or stabilization term)
+      * f_u: ∫ f·v (body force)
+      * f_p: 0 (incompressibility RHS)
+    * Scatter to global block system using both local_to_global maps
+  
+  - void apply_boundary_conditions():
+    Apply velocity BCs (no-slip, inlet/outlet)
+    Pressure pinning (set pressure at one point)
+  
+  - void solve():
+    Solve saddle point system
+    May need special solver (Uzawa, Schur complement, etc.)
+  
+  - RefinementIndicators compute_refinement_indicators() const:
+    Compute indicators using velocity and/or pressure
+    Could use velocity gradient, pressure jumps, etc.
+  
+  - void adaptive_solve():
+    Adaptive loop:
+    1. Solve current problem
+    2. Compute refinement indicators
+    3. Get required elements from BOTH handlers:
+       * vel_elements = u_handler_.get_required_elements(indicators)
+       * pres_elements = p_handler_.get_required_elements(indicators)
+       * all_elements = union(vel_elements, pres_elements)
+         (should be same for conforming discretization)
+    4. Refine mesh with all_elements
+    5. Update BOTH handlers:
+       * u_handler_.update(refinement_map)
+       * p_handler_.update(refinement_map)
+    6. Repeat until converged
+
+NOTES:
+  - Two fields: velocity (vector) and pressure (scalar)
+  - Must satisfy inf-sup condition (e.g., Taylor-Hood: Q2-Q1)
+  - Both handlers reference same mesh
+  - Saddle point system (indefinite)
+  - Block structure important for efficient solvers
+
+
+================================================================================
+MESH REFINEMENT FLOW
+================================================================================
+
+OVERVIEW:
+  Adaptive mesh refinement updates mesh and DOFs based on error indicators.
+  Flow differs slightly between standard FEM and CHARMS.
+
+PARTICIPANTS:
+  - Problem: Orchestrates, computes error indicators
+  - DOFHandler(s): Determine required elements, update DOFs
+  - Mesh: Performs actual refinement
+
+--------------------------------------------------------------------------------
+STANDARD FEM REFINEMENT FLOW:
+--------------------------------------------------------------------------------
+
+1. PROBLEM COMPUTES INDICATORS
+   Problem analyzes solution and computes per-element error estimates
+   Marks elements for refinement or coarsening based on thresholds
+   → List of element indices to refine
+
+2. PROBLEM QUERIES DOF HANDLER(S)
+   For single field (Poisson):
+     elements_to_refine = dof_handler.get_required_elements(indicators)
+   
+   For multi-field (Stokes):
+     vel_elems = u_handler.get_required_elements(indicators)
+     pres_elems = p_handler.get_required_elements(indicators)
+     elements_to_refine = union(vel_elems, pres_elems)
+   
+   Standard DOFHandler: Pass through (returns same list)
+
+3. PROBLEM TELLS MESH TO REFINE
+   refinement_map = mesh.refine(elements_to_refine)
+   
+   Mesh performs:
+   - Split indicated elements (e.g., hex → 8 children)
+   - Enforce conformity (refine neighbors to eliminate hanging nodes)
+   - Recompute element coloring
+   - Return refinement_map describing changes
+
+4. PROBLEM TELLS DOF HANDLER(S) TO UPDATE
+   For single field:
+     dof_handler.update(refinement_map)
+   
+   For multi-field:
+     u_handler.update(refinement_map)
+     p_handler.update(refinement_map)
+   
+   DOFHandler performs:
+   - Rebuild DOF structure from new mesh topology
+   - Create new DOFs on refined elements
+   - Interpolate solution from old DOFs to new DOFs:
+     * For each new DOF, find containing old element
+     * Evaluate old basis functions at new DOF location
+     * u_new = Σ N_old(x_new) * u_old
+   - All DOFs remain active
+
+5. PROBLEM READY FOR NEXT SOLVE
+   Solution now defined on refined mesh
+   Ready to assemble and solve again
+
+--------------------------------------------------------------------------------
+CHARMS REFINEMENT FLOW:
+--------------------------------------------------------------------------------
+
+1. PROBLEM COMPUTES INDICATORS
+   Same as standard FEM
+   → List of element indices to refine
+
+2. PROBLEM QUERIES CHARMS DOF HANDLER(S)
+   For single field:
+     elements_to_refine = charms_handler.get_required_elements(indicators)
+   
+   For multi-field:
+     vel_elems = u_handler.get_required_elements(indicators)
+     pres_elems = p_handler.get_required_elements(indicators)
+     elements_to_refine = union(vel_elems, pres_elems)
+   
+   CHARMSDOFHandler performs SUPPORT EXPANSION:
+   - For each element in indicators
+   - Find all ACTIVE DOFs that have that element in their support
+   - Collect all support elements of those DOFs
+   - Return expanded element set
+   
+   This ensures basis functions remain valid after refinement
+
+3. PROBLEM TELLS MESH TO REFINE
+   refinement_map = mesh.refine(elements_to_refine)
+   
+   Mesh performs:
+   - Split indicated elements
+   - NO conformity enforcement needed (CHARMS handles non-conforming grids)
+   - Recompute element coloring
+   - Return refinement_map
+
+4. PROBLEM TELLS CHARMS DOF HANDLER(S) TO UPDATE
+   u_handler.update(refinement_map)
+   p_handler.update(refinement_map)
+   
+   CHARMSDOFHandler performs:
+   - Rebuild DOF structure from new mesh topology
+   - Mark DOFs on refined (coarse) elements as INACTIVE
+   - Mark DOFs on new (fine) elements as ACTIVE
+   - Perform DEPTH-BASED interpolation:
+     * Interpolate from inactive coarse DOFs to active fine DOFs
+     * Use coarse basis functions at appropriate depth
+     * u_fine = Σ N_coarse(x_fine) * u_coarse (coarse DOFs now inactive)
+   - Active DOFs now represent solution on multi-level hierarchy
+
+5. PROBLEM READY FOR NEXT SOLVE
+   Solution defined using active DOFs at various refinement levels
+   Assembly only uses active DOFs
+   No hanging node constraints needed
+
+--------------------------------------------------------------------------------
+KEY DIFFERENCES:
+--------------------------------------------------------------------------------
+
+Standard FEM:
+  - Conforming mesh (no hanging nodes)
+  - All DOFs active
+  - Mesh enforces conformity
+  - Simple interpolation
+
+CHARMS:
+  - Non-conforming mesh allowed
+  - Active/inactive DOF tracking
+  - Support-based refinement expansion
+  - Depth-based interpolation
+  - No hanging node constraints
+
+
+================================================================================
+POISSON STIFFNESS MATRIX ASSEMBLY FLOW
+================================================================================
+
+GOAL:
+  Build global system K*u = f where K is stiffness matrix, f is load vector
+  For Poisson: -∇²u = f
+
+DISCRETIZATION:
+  Weak form: ∫ ∇u · ∇v dx = ∫ f v dx
+  Finite element: u ≈ Σ u_i N_i(x), v = N_j(x)
+  Results in: Σ K_ij u_i = f_j
+  Where: K_ij = ∫ ∇N_i · ∇N_j dx
+         f_j = ∫ f N_j dx
+
+--------------------------------------------------------------------------------
+ASSEMBLY ALGORITHM:
+--------------------------------------------------------------------------------
+
+INITIALIZATION:
+  - K = zero sparse matrix (n_dofs × n_dofs)
+  - f = zero vector (n_dofs)
+
+MAIN LOOP - Thread-Safe by Color:
+  
+  colored_elements = dof_handler.elements()
+  
+  FOR each color c in colored_elements.n_colors():
+    // Elements of same color share no vertices → no race conditions
+    
+    elements_c = colored_elements.elements_of_color(c)
+    
+    #pragma omp parallel for
+    FOR each elem in elements_c:
+      
+      // 1. GET ELEMENT DATA
+      n_local = elem.basis_functions.size()  // e.g., 8 for Q1 hex
+      n_quad = elem.quad_points_ref.size()   // e.g., 8 for 2×2×2 Gauss
+      
+      // 2. EVALUATE BASIS FUNCTIONS AT QUADRATURE POINTS
+      FOR i = 0 to n_local:
+        basis_vals[i] = elem.basis_functions[i]->batch_eval(
+                          elem.quad_points_ref, support_idx=0)
+        basis_grads_ref[i] = elem.basis_functions[i]->batch_grad(
+                               elem.quad_points_ref, support_idx=0)
+      
+      // 3. TRANSFORM GRADIENTS TO PHYSICAL SPACE
+      FOR i = 0 to n_local:
+        FOR q = 0 to n_quad:
+          basis_grads_phys[i][q] = elem.inv_jacobian * basis_grads_ref[i][q]
+      
+      // 4. INITIALIZE LOCAL MATRICES
+      K_local = zero matrix (n_local × n_local)
+      f_local = zero vector (n_local)
+      
+      // 5. QUADRATURE LOOP
+      FOR q = 0 to n_quad:
+        
+        weight = elem.quad_weights[q] * elem.detJ
+        
+        // Physical location of quadrature point (for evaluating source)
+        x_phys = map_to_physical(elem, elem.quad_points_ref[q])
+        
+        // Evaluate source function
+        f_value = source_function(x_phys)
+        
+        // Assemble local stiffness matrix
+        FOR i = 0 to n_local:
+          FOR j = 0 to n_local:
+            K_local(i, j) += dot(basis_grads_phys[i][q], 
+                                basis_grads_phys[j][q]) * weight
+        
+        // Assemble local load vector
+        FOR i = 0 to n_local:
+          f_local(i) += f_value * basis_vals[i][q] * weight
+      
+      // 6. SCATTER LOCAL TO GLOBAL (Thread-safe due to coloring)
+      FOR i = 0 to n_local:
+        global_i = elem.local_to_global[i]
+        
+        FOR j = 0 to n_local:
+          global_j = elem.local_to_global[j]
+          K(global_i, global_j) += K_local(i, j)
+        
+        f(global_i) += f_local(i)
+
+APPLY BOUNDARY CONDITIONS:
+  FOR each Dirichlet boundary DOF i with value u_bc:
+    K(i, :) = 0
+    K(i, i) = 1
+    f(i) = u_bc
+
+SOLVE:
+  u = K^(-1) * f
+
+--------------------------------------------------------------------------------
+VECTORIZATION OPPORTUNITIES:
+--------------------------------------------------------------------------------
+
+BATCH EVALUATION:
+  - batch_eval and batch_grad evaluate at ALL quadrature points at once
+  - Compiler can vectorize inner loops with #pragma omp simd
+  - Process 4-8 quad points simultaneously with AVX/AVX2
+
+INNER LOOPS:
+  - Quadrature loop can be vectorized over q
+  - i-j loops for K_local assembly are small and unrollable
+  - Modern compilers with -O3 -march=native do this automatically
+
+PARALLEL OUTER LOOP:
+  - #pragma omp parallel for over elements of same color
+  - Each thread processes subset of elements
+  - No synchronization needed (different colors guarantee no conflicts)
+  - Near-linear scaling with number of cores
+
+EXPECTED PERFORMANCE:
+  - SIMD: 3-4× speedup on quadrature loops
+  - Threading: 6-8× speedup on 8-core CPU
+  - Combined: 20-30× speedup vs serial code
+
+--------------------------------------------------------------------------------
+MEMORY ACCESS PATTERN:
+--------------------------------------------------------------------------------
+
+CACHE-FRIENDLY:
+  - Element data (Jacobian, quad points) accessed sequentially
+  - Basis function evaluations computed in batches
+  - Local matrices small (fits in L1 cache)
+  - Global scatter is random access but infrequent
+
+OPTIMIZATION:
+  - Coloring ensures no false sharing between threads
+  - Local assembly fully compute-bound (good for CPU)
+  - Sparse matrix uses compressed row storage for efficiency
+
+--------------------------------------------------------------------------------
+KEY DESIGN BENEFITS:
+--------------------------------------------------------------------------------
+
+1. SEPARATION OF CONCERNS:
+   - DOFHandler provides geometry and basis functions
+   - Problem implements physics (weak form)
+   - Mesh provides topology
+   - Each component independently replaceable
+
+2. THREAD SAFETY:
+   - Element coloring from mesh
+   - DOFHandler provides colored iteration
+   - Problem just loops over colors
+   - No locks or atomics needed
+
+3. PERFORMANCE:
+   - CRTP eliminates virtual call overhead in basis evaluation
+   - Batch evaluation enables vectorization
+   - Thread-parallel outer loop
+   - Cache-friendly memory access
+
+4. EXTENSIBILITY:
+   - Change basis: just swap DOFType (VoxelQ1 → HexQ2)
+   - Change mesh: just swap MeshType
+   - Change PDE: inherit from Problem and override assemble_element
+   - Add CHARMS: use CHARMSDOFHandler instead of DOFHandler
+
+================================================================================
+END OF NOTES
+================================================================================
