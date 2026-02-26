@@ -23,7 +23,7 @@ all: $(TARGETS)
 
 # rules to make tests individually. listing individually helps autocomplete.
 # using .PHONY forces re-build when header files have changed but not source files.
-.PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh fixedpoint
+.PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh fixedpoint dofhandler
 
 assembly:
 	$(CC) $(INC_DIR) assembly.cpp assembly
@@ -48,6 +48,9 @@ mesh:
 
 fixedpoint:
 	$(CC) $(INC_DIR) fixedpoint.cpp -o fixedpoint
+
+dofhandler:
+	$(CC) $(INC_DIR) dofhandler.cpp -o dofhandler
 
 .PHONY: clean
 clean:

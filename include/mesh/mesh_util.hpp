@@ -277,19 +277,13 @@ namespace gv::mesh
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<3,float>>>,  "BasicVertex<Point<3,float>> is not a BasicMeshVertex");
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<2,float>>>,  "BasicVertex<Point<2,float>> is not a BasicMeshVertex");
 
-	/// Equality check for mesh vertices for use in the octree.
-	template <BasicMeshVertex Vertex_t>
-	bool operator==(const Vertex_t &A, const Vertex_t &B) {
-		return A.coord==B.coord;
-	}
-
-	/// Node printing
+	/// Vertex printing
 	template<BasicMeshVertex Vertex_t>
-	std::ostream& operator<<(std::ostream& os, const Vertex_t &node) {
-		os << "index= " << node.index << "\n";
-		os << "coord= " << node.coord << "\n";
-		os << "elems (" << node.elems.size() << "): ";
-		for (size_t n : node.elems) {
+	std::ostream& operator<<(std::ostream& os, const Vertex_t &vertex) {
+		os << "index= " << vertex.index << "\n";
+		os << "coord= " << vertex.coord << "\n";
+		os << "elems (" << vertex.elems.size() << "): ";
+		for (size_t n : vertex.elems) {
 			os << n << " ";
 		}
 		os << "\n";
@@ -297,7 +291,7 @@ namespace gv::mesh
 		return os;
 	}
 
-	/// Node name printing
+	/// Vertex name printing
 	template<BasicMeshVertex Vertex_t>
 	std::string vertexTypeName() {
 		if constexpr (std::same_as<Vertex_t,BasicVertex<typename Vertex_t::Point_t>>) {return "BasicVertex";}
@@ -309,13 +303,15 @@ namespace gv::mesh
 	/// @todo Determine if a kd-tree is better.
 	/////////////////////////////////////////////////
 	template<BasicMeshVertex Vertex_t, int N_DATA=64, typename T=double>
-	class VertexOctree : public gutil::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>
+	class VertexOctree
 	{
+	private:
+		gutil::PointOctree<Vertex_t::dim, typename Vertex_t::Scalar_t> _octree;
+		
 	public:
 		using Parent_t = gutil::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>;
-		using Data_t = Vertex_t;
-		using Box_t  = gutil::Box<Vertex_t::dim, T>;
-
+		using Data_t   = Vertex_t;
+		using Box_t    = gutil::Box<Vertex_t::dim, T>;
 
 		VertexOctree() : Parent_t() {}
 		VertexOctree(const Box_t &bbox) : Parent_t(bbox) {}

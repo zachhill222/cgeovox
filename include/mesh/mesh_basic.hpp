@@ -104,7 +104,7 @@ namespace gv::mesh
 		mutable std::shared_mutex _rw_mtx;
 
 	public:
-		BasicMesh() : _elements(),_vertices() {}
+		BasicMesh() : _elements(), _vertices() {}
 		BasicMesh(const DomainBox_t &domain) : _elements(), _vertices(1.125*domain) {}
 		BasicMesh(const RefBox_t &domain) requires(ref_dim<space_dim) : _elements(), _vertices() {
 			Point_t low, high;
@@ -155,7 +155,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Read elements and vertices externally
 		/////////////////////////////////////////////////
-		const Vertex_t&     getNode(const size_t idx) const {return _vertices[idx];}
+		const Vertex_t&     getVertex(const size_t idx) const {return _vertices[idx];}
 		const Element_t&    getElement(const size_t idx) const {return _elements[idx];}
 		const Face_t&       getBoundaryFace(const size_t idx) const {return _boundary[idx];}
 		const DomainBox_t   bbox() const {return _vertices.bbox();}
@@ -404,6 +404,12 @@ namespace gv::mesh
 		virtual std::vector<Vertex_t>::iterator vertexEnd()               {return _vertices.end();}
 		virtual std::vector<Vertex_t>::const_iterator vertexBegin() const {return _vertices.cbegin();}
 		virtual std::vector<Vertex_t>::const_iterator vertexEnd()   const {return _vertices.cend();}
+
+
+		/////////////////////////////////////////////////
+		/// Get element that a point belongs to
+		/////////////////////////////////////////////////
+		size_t element(const Point_t& point) const;
 
 	};
 
@@ -757,6 +763,13 @@ namespace gv::mesh
 
 
 	template<int space_dim, int ref_dim, Scalar Scalar_t, BasicMeshElement Element_t>
+	size_t BasicMesh<space_dim,ref_dim,Scalar_t,Element_t>::element(const Point_t& point) const
+	{
+		const auto& VERTEX = _vertices.find_
+	}
+
+
+	template<int space_dim, int ref_dim, Scalar Scalar_t, BasicMeshElement Element_t>
 	void BasicMesh<space_dim,ref_dim,Scalar_t,Element_t>::save_as(const std::string filename, const bool include_details, const bool use_ascii) const {
 		if (use_ascii) {
 			//open and check file
@@ -804,8 +817,8 @@ namespace gv::mesh
 
 		os << std::left;
 		os << "C++ types\n" << std::string(50, '-') << "\n";
-		os << std::setw(15) << "ElementStruct_t " << std::setw(10) << elementTypeName<Element_t>() << "\n"
-		   << std::setw(15) << "Vertex_t    " << std::setw(10) << vertexTypeName<Vertex_t>()       << "\n"
+		os << std::setw(20) << "ElementStruct_t " << std::setw(15) << elementTypeName<Element_t>() << "\n"
+		   << std::setw(20) << "Vertex_t    " << std::setw(15) << vertexTypeName<Vertex_t>()       << "\n"
 		   << std::string(50, '-') << "\n";
 
 		os << std::left;

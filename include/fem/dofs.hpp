@@ -3,6 +3,7 @@
 #include "gutil.hpp"
 
 #include <array>
+#include <concepts>
 
 #include <omp.h>
 
@@ -12,7 +13,7 @@ namespace gv::fem
 	//Pass a reference to the derrived class (e.g. Q1 basis functions on a voxel) to avoid
 	//vtables (Curiously Recurring Template Pattern)
 	template<int FEATURE_DIM, int REF_DIM, int MAX_SUPPORT, typename DERRIVED>
-		requires ( (0<=FEATURE_DIM and FEATURE_DIM<=3) and (REF_DIM==2 or REF_DIM==3) );
+		requires ( (0<=FEATURE_DIM and FEATURE_DIM<=3) and (REF_DIM==2 or REF_DIM==3) )
 	struct DOF
 	{
 		using RefPoint_t = gutil::Point<REF_DIM,double>;
@@ -23,20 +24,23 @@ namespace gv::fem
 		//if feature_dim=0, then this is an index into the vertex array
 		//if feature_dim=1, then this is an index into the edge array and so on.
 		//when ref_dim=2, the edge array and face_array should be the same.
-		const size_t global_idx;
+		size_t global_idx;
 
 		//indices of support elements to be used in evaluation
 		//in CHARMS, these elements must be on the same refinement level as the basis function
-		const std::array<size_t, MAX_SUPPORT> support_idx; 
+		std::array<size_t, MAX_SUPPORT> support_idx;
 
 		//the local index of this basis function in each of the support elements.
 		//this is necessary for the evaluation methods.
-		const std::array<size_t, MAX_SUPPORT> local_idx;
+		std::array<size_t, MAX_SUPPORT> local_idx;
 
 		//track dimensions of the reference element and the mesh feature.
 		//e.g., for piecewise polynomial lagrange basis functions on triangle, ref_dim=2 and feature_dim=0
 		static constexpr int ref_dim = REF_DIM;
 		static constexpr int feature_dim = FEATURE_DIM;
+
+		//track the maximum number of support elements
+		static constexpr int max_support = MAX_SUPPORT;
 
 		//evaluation and gradient of the basis function in the reference coordinates
 		//the gradient must have the jacobian of the element map applied to it before it is used,
@@ -83,6 +87,11 @@ namespace gv::fem
 		}
 
 		virtual ~DOF() = default;
+
+		DOF() : global_idx((size_t) -1), support_idx{}, local_idx{} {}
+		
+		DOF(const size_t idx, const std::array<size_t,MAX_SUPPORT> spt, const std::array<size_t,MAX_SUPPORT> lcl) :
+			global_idx(idx), support_idx(spt), local_idx(lcl) {}
 	};
 
 
@@ -90,7 +99,7 @@ namespace gv::fem
 
 
 	//Base class for all LagrangeDOFs
-	template<int REF_DIM, int MAX_SUPPORT, typename DERRIVED> requires (REF_DIM==2 or REF_DIM==3);
+	template<int REF_DIM, int MAX_SUPPORT, typename DERRIVED> requires (REF_DIM==2 or REF_DIM==3)
 	struct LagrangeDOF : public DOF<0, REF_DIM, MAX_SUPPORT, DERRIVED>
 	{
 		using Base = DOF<0, REF_DIM, MAX_SUPPORT, DERRIVED>;
@@ -98,7 +107,20 @@ namespace gv::fem
 		using Base::Base;
 	};
 
+
+	//Concept to check if a DOF is a Lagrange type.
+	template<typename T>
+	struct derives_from_lagrange_dof
+	{
+		template<int R, int M, typename D>
+		static std::true_type test(const LagrangeDOF<R,M,D>*);
+		static std::false_type test(...);
+		static constexpr bool value = decltype(test(std::declval<T*>()))::value;
+	};
 	
+	template<typename T>
+	concept IsLagrangeDOF = derives_from_lagrange_dof<T>::value;
+
 	//Q1 elements on voxels
 	struct VoxelQ1 : public LagrangeDOF<3, 8, VoxelQ1>
 	{
