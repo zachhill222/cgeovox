@@ -9,8 +9,8 @@
 #include "mesh/mesh_view.hpp"
 
 const int dim = 3;
-// using T = double;
-using T = gutil::FixedPoint<int64_t,-15>;
+using T = double;
+// using T = gutil::FixedPoint<int64_t,-15>;
 
 void test() {
 	using Index_t    = gutil::Point<dim,size_t>;

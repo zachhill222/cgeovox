@@ -74,6 +74,7 @@ namespace gv::mesh
 		using Point_t            = gutil::Point<space_dim, Scalar_t>;
 		using Vertex_t           = BasicVertex<Point_t>;
 		using VertexList_t       = VertexOctree<Vertex_t, 64, Scalar_t>;
+		// using VertexList_t       = VertexContainer<Vertex_t, 64, Scalar_t>;
 		using ElementIterator_t  = ElementIterator<BasicMesh<space_dim,ref_dim,Scalar_t,Element_t>, ContainerType::ELEMENTS>;
 		using BoundaryIterator_t = ElementIterator<BasicMesh<space_dim,ref_dim,Scalar_t,Element_t>, ContainerType::BOUNDARY>;
 
@@ -160,6 +161,8 @@ namespace gv::mesh
 		const Face_t&       getBoundaryFace(const size_t idx) const {return _boundary[idx];}
 		const DomainBox_t   bbox() const {return _vertices.bbox();}
 		const VertexList_t& getNodeOctree() const {return _vertices;}
+		const size_t        closestVertex(const Point_t& point) {return _vertices.find_closest(point);}
+		const 
 
 		/////////////////////////////////////////////////
 		/// Allocate space
@@ -325,7 +328,8 @@ namespace gv::mesh
 			for (size_t f_idx : VERTEX.boundary_faces) {makeIsoparametric(_boundary[f_idx]);}
 			
 			VERTEX.coord = new_coord;
-			_vertices.replace(VERTEX, vertex_idx);
+			// _vertices.replace(std::move(VERTEX), std::move(new_coord), vertex_idx);
+			_vertices.replace(std::move(VERTEX), vertex_idx);
 		}
 		
 
@@ -410,7 +414,6 @@ namespace gv::mesh
 		/// Get element that a point belongs to
 		/////////////////////////////////////////////////
 		size_t element(const Point_t& point) const;
-
 	};
 
 
@@ -432,7 +435,8 @@ namespace gv::mesh
 
 		_vertices.reserve((N[0]+1) * (N[1]+1) * (N[2]+1));
 		_elements.resize(N[0]*N[1]*N[2]);
-		
+
+
 		//initialize the vertices
 		const RefPoint_t H = domain.sidelength() / RefPoint_t(N);
 		for (size_t i=0; i<=N[0]; i++) {
@@ -440,12 +444,12 @@ namespace gv::mesh
 				for (size_t k=0; k<=N[2]; k++) {
 					RefPoint_t vertex  = domain.low() + RefPoint_t{i,j,k} * H;
 					Vertex_t VERTEX(vertex);
-					size_t idx = _vertices.push_back(VERTEX);
+					// size_t idx = _vertices.push_back(std::move(VERTEX), std::move(vertex));
+					size_t idx = _vertices.push_back(std::move(VERTEX));
 					_vertices[idx].index = idx;
 				}
 			}
 		}
-
 
 
 		//construct the mesh
@@ -594,9 +598,10 @@ namespace gv::mesh
 		//create new vertices as needed and aggregate their indices
 		for (size_t n=0; n<vertex_coords.size(); n++) {
 			Vertex_t VERTEX(vertex_coords[n]);
-			VERTEX.index = _vertices.size();
-			size_t n_idx = _vertices.push_back(VERTEX);
-			vertices[n] = n_idx;
+			// size_t n_idx = _vertices.push_back(std::move(VERTEX), std::move(vertex_coords[n]));
+			size_t n_idx = _vertices.push_back(std::move(VERTEX));
+			_vertices[n_idx].index = n_idx;
+			vertices[n]  = n_idx;
 		}
 	}
 	
@@ -762,11 +767,13 @@ namespace gv::mesh
 	}
 
 
-	template<int space_dim, int ref_dim, Scalar Scalar_t, BasicMeshElement Element_t>
-	size_t BasicMesh<space_dim,ref_dim,Scalar_t,Element_t>::element(const Point_t& point) const
-	{
-		const auto& VERTEX = _vertices.find_
-	}
+	// template<int space_dim, int ref_dim, Scalar Scalar_t, BasicMeshElement Element_t>
+	// size_t BasicMesh<space_dim,ref_dim,Scalar_t,Element_t>::closest_element(const Point_t& point) const
+	// {
+	// 	size_t idx = _vertices.find_closest(point);
+	// 	const auto& VERTEX = _vertices[idx];
+	// 	for ()
+	// }
 
 
 	template<int space_dim, int ref_dim, Scalar Scalar_t, BasicMeshElement Element_t>

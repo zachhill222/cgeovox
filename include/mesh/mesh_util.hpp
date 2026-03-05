@@ -277,6 +277,12 @@ namespace gv::mesh
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<3,float>>>,  "BasicVertex<Point<3,float>> is not a BasicMeshVertex");
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<2,float>>>,  "BasicVertex<Point<2,float>> is not a BasicMeshVertex");
 
+	template<BasicMeshVertex Vertex_t>
+	bool operator==(const Vertex_t& left, const Vertex_t& right) {
+		return left.coord == right.coord;
+	}
+
+
 	/// Vertex printing
 	template<BasicMeshVertex Vertex_t>
 	std::ostream& operator<<(std::ostream& os, const Vertex_t &vertex) {
@@ -302,12 +308,12 @@ namespace gv::mesh
 	/// A container for storing the vertices in an octree for more efficeint lookup. This is important as we must query if a node already exists in the mesh.
 	/// @todo Determine if a kd-tree is better.
 	/////////////////////////////////////////////////
+	// template<BasicMeshVertex Vertex_t, int N_DATA=64, typename T=double>
+	// using VertexContainer = typename gutil::PointCollocatedOctree<Vertex_t, Vertex_t::dim, T, N_DATA>;
+
 	template<BasicMeshVertex Vertex_t, int N_DATA=64, typename T=double>
-	class VertexOctree
+	class VertexOctree : public gutil::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>
 	{
-	private:
-		gutil::PointOctree<Vertex_t::dim, typename Vertex_t::Scalar_t> _octree;
-		
 	public:
 		using Parent_t = gutil::BasicParallelOctree<Vertex_t, true, Vertex_t::dim, N_DATA, T>;
 		using Data_t   = Vertex_t;
@@ -317,8 +323,10 @@ namespace gv::mesh
 		VertexOctree(const Box_t &bbox) : Parent_t(bbox) {}
 
 	private:
-		bool isValid(const Box_t &box, const Data_t &data) const override {return box.contains(data.coord);}
+		constexpr bool isValid(const Box_t &box, const Data_t &data) const override {return box.contains(data.coord);}
+		constexpr T dist2data(const Vertex_t::Point_t& point, const Data_t& data) const override {return gutil::squaredNorm(point-data.coord);}
 	};
+
 
 
 

@@ -222,6 +222,7 @@ namespace gv::mesh {
 			std::vector<size_t> local_node;
 			for (;j<child_vertex_coords.size(); j++) {
 				Vertex_t VERTEX(child_vertex_coords[j]);
+				// size_t n_idx = this->_vertices.push_back_async(std::move(VERTEX), std::move(child_vertex_coords[j]));
 				size_t n_idx = this->_vertices.push_back_async(std::move(VERTEX));
 				this->_vertices[n_idx].index = n_idx;
 				split_node_numbers[j] = n_idx;
