@@ -53,7 +53,6 @@ namespace gv::mesh {
 
 		//evaluate the gradient of the shape functions that are used to map the referent to the actual element
 		virtual inline constexpr RefPoint_t  eval_local_geo_shape_grad(const int i, const RefPoint_t& ref_coord) const noexcept = 0;
-
 		
 		//evaluate the geometric mapping from the reference element to the actual element
 		virtual constexpr Point_t reference_to_geometric(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept = 0;
@@ -63,5 +62,8 @@ namespace gv::mesh {
 
 		//evaluate the jacobian matrix of the mapping from the reference element to the actual element
 		virtual constexpr Jac_t   eval_geo_shape_jac(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept = 0;
+
+		//determine if a point in space is interior to the element
+		virtual constexpr bool contains(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept = 0;
 	};
 }

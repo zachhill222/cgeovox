@@ -132,7 +132,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Get the total number of elements in the mesh. Marked as virtual as hierarchical meshes need to check for active elements.
 		/////////////////////////////////////////////////
-		virtual size_t nElements() const {
+		virtual size_t nElements(bool active=true) const {
 			return _elements.size();
 		}
 
@@ -156,12 +156,12 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Read elements and vertices externally
 		/////////////////////////////////////////////////
-		const Vertex_t&     getVertex(const size_t idx) const {return _vertices[idx];}
-		const Element_t&    getElement(const size_t idx) const {return _elements[idx];}
+		const Vertex_t&     getVertex(const size_t idx)       const {return _vertices[idx];}
+		const Element_t&    getElement(const size_t idx)      const {return _elements[idx];}
 		const Face_t&       getBoundaryFace(const size_t idx) const {return _boundary[idx];}
-		const DomainBox_t   bbox() const {return _vertices.bbox();}
-		const VertexList_t& getNodeOctree() const {return _vertices;}
-		const size_t        closestVertex(const Point_t& point) {return _vertices.find_closest(point);}
+		const DomainBox_t   bbox()                            const {return _vertices.bbox();}
+		const VertexList_t& getNodeOctree()                   const {return _vertices;}
+		const size_t        closestVertex(const Point_t& point)     {return _vertices.find_closest(point);}
 		const 
 
 		/////////////////////////////////////////////////
@@ -176,7 +176,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		template<BasicMeshType Mesh_t>
 		void getBoundaryMesh(Mesh_t &mesh) const {
-			static_assert(Mesh_t::REF_DIM == ref_dim-1, "BasicMesh: The boundary mesh must have reference dimension one less than the base mesh.");
+			static_assert(Mesh_t::REF_DIM   == ref_dim-1, "BasicMesh: The boundary mesh must have reference dimension one less than the base mesh.");
 			static_assert(Mesh_t::SPACE_DIM == space_dim, "BasicMesh: The boundary mesh must live in the same space dimension as the base mesh.");
 			
 			for (auto it=boundaryBegin(); it!=boundaryEnd(); ++it) {

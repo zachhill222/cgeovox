@@ -46,11 +46,11 @@ namespace gv::mesh {
 	/// 0.125*(v0+...+v7), which cannot be simplified to the average of any two opposite vertices.
 	/// Note by a similar line of reasoning, the center of each face must be found by averaging all four vertices.
 	/////////////////////////////////////////////////
-	template<Scalar VertexScalar_t, Scalar MapScalar_t>
-	class VTK_HEXAHEDRON : public VTK_ELEMENT<3,3,VertexScalar_t, MapScalar_t> {
+	template<Scalar VertexScalar_t, Scalar RefScalar_t>
+	class VTK_HEXAHEDRON : public VTK_ELEMENT<3,3,VertexScalar_t, RefScalar_t> {
 	public:
 		//define types
-		using BASE = VTK_ELEMENT<3,3,VertexScalar_t,MapScalar_t>;
+		using BASE = VTK_ELEMENT<3,3,VertexScalar_t,RefScalar_t>;
 		using typename BASE::Point_t;
 		using typename BASE::RefPoint_t;
 		using typename BASE::Jac_t;
@@ -63,7 +63,7 @@ namespace gv::mesh {
 		static constexpr int N_VERTICES = vtk_n_vertices(VTK_ID);
 
 		//coordinates for the reference element. store in row-major to pull out rows easier.
-		static constexpr gutil::Matrix<8,3,MapScalar_t,false> REF_COORDS {
+		static constexpr gutil::Matrix<8,3,RefScalar_t,false> REF_COORDS {
 			{-1, -1, -1},
 			{ 1, -1, -1},
 			{ 1,  1, -1},
@@ -334,18 +334,18 @@ namespace gv::mesh {
 		}
 		
 		//evaluate the tri-linear shape function associated with vertex i on the reference element
-		inline constexpr MapScalar_t eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const noexcept override {
+		inline constexpr RefScalar_t eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const noexcept override {
 			assert(0<= i and i<N_VERTICES);
-			return MapScalar_t(0.125)*(MapScalar_t(1)+REF_COORDS(i,0)*ref_coord[0])*(MapScalar_t(1)+REF_COORDS(i,1)*ref_coord[1])*(MapScalar_t(1)+REF_COORDS(i,2)*ref_coord[2]);
+			return RefScalar_t(0.125)*(RefScalar_t(1)+REF_COORDS(i,0)*ref_coord[0])*(RefScalar_t(1)+REF_COORDS(i,1)*ref_coord[1])*(RefScalar_t(1)+REF_COORDS(i,2)*ref_coord[2]);
 		}
 
 		inline constexpr RefPoint_t  eval_local_geo_shape_grad(const int i, const RefPoint_t& ref_coord) const noexcept override {
 			assert(0<=i and i<N_VERTICES);
 			RefPoint_t result{};
 
-			result[0] = MapScalar_t(0.125) * REF_COORDS(i,0)                               * (MapScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]) * (MapScalar_t(1)+REF_COORDS(i,2)*ref_coord[2]);
-			result[1] = MapScalar_t(0.125) * (MapScalar_t(1)+REF_COORDS(i,0)*ref_coord[0]) * REF_COORDS(i,1)                               * (MapScalar_t(1)+REF_COORDS(i,2)*ref_coord[2]);
-			result[2] = MapScalar_t(0.125) * (MapScalar_t(1)+REF_COORDS(i,0)*ref_coord[0]) * (MapScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]) * REF_COORDS(i,2);
+			result[0] = RefScalar_t(0.125) * REF_COORDS(i,0)                               * (RefScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]) * (RefScalar_t(1)+REF_COORDS(i,2)*ref_coord[2]);
+			result[1] = RefScalar_t(0.125) * (RefScalar_t(1)+REF_COORDS(i,0)*ref_coord[0]) * REF_COORDS(i,1)                               * (RefScalar_t(1)+REF_COORDS(i,2)*ref_coord[2]);
+			result[2] = RefScalar_t(0.125) * (RefScalar_t(1)+REF_COORDS(i,0)*ref_coord[0]) * (RefScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]) * REF_COORDS(i,2);
 			return result;
 		}
 
@@ -366,5 +366,18 @@ namespace gv::mesh {
 
 		//evaluate the jacobian matrix of the mapping from the reference element to the actual element
 		constexpr Jac_t   eval_geo_shape_jac(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept override {return Jac_t{};};
+
+		//determine if a point in space is interior to the element
+		constexpr bool contains(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept override {
+			assert(vertex_coords.size() == static_cast<size_t>(vtk_n_vertices(VTK_ID)));
+			
+			//check if bounding box contains the point
+			if (coord < elmin(vertex_coords)) {return false;}
+			if (coord > elmax(vertex_coords)) {return false;}
+
+			//compute inverse mapping
+			assert(false);
+			return true;
+		}
 	};
 }

@@ -42,11 +42,11 @@ namespace gv::mesh {
 	/// where A is a 3x2 matrix and b is the location of the center of the mesh element. Because the the map is affine, the Jacobian matrix (J=A) is constant.
 	/// In fact sqrt(J^t J) = 0.25*h1*h2 where h1 and h2 are the side-lengths of the mesh element.
 	/////////////////////////////////////////////////
-	template<Scalar VertexScalar_t, Scalar MapScalar_t>
-	class VTK_PIXEL : public VTK_ELEMENT<3,2,VertexScalar_t,MapScalar_t> {
+	template<Scalar VertexScalar_t, Scalar RefScalar_t>
+	class VTK_PIXEL : public VTK_ELEMENT<3,2,VertexScalar_t,RefScalar_t> {
 	public:
 		//define types
-		using BASE = VTK_ELEMENT<3,2,VertexScalar_t,MapScalar_t>;
+		using BASE = VTK_ELEMENT<3,2,VertexScalar_t,RefScalar_t>;
 		using typename BASE::Point_t;
 		using typename BASE::RefPoint_t;
 		using typename BASE::Jac_t;
@@ -59,7 +59,7 @@ namespace gv::mesh {
 		static constexpr int N_VERTICES = vtk_n_vertices(VTK_ID);
 
 		//coordinates for the reference element. store in row-major to pull out rows easier.
-		static constexpr gutil::Matrix<4,2,MapScalar_t,false> REF_COORDS {
+		static constexpr gutil::Matrix<4,2,RefScalar_t,false> REF_COORDS {
 			{-1, -1},
 			{ 1, -1},
 			{-1,  1},
@@ -178,17 +178,17 @@ namespace gv::mesh {
 
 		
 		//evaluate the bi-linear shape function associated with vertex i on the reference element
-		inline constexpr MapScalar_t eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const noexcept override {
+		inline constexpr RefScalar_t eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const noexcept override {
 			assert(0<= i and i<N_VERTICES);
-			return MapScalar_t(0.25)*(MapScalar_t(1)+REF_COORDS(i,0)*ref_coord[0])*(MapScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]);
+			return RefScalar_t(0.25)*(RefScalar_t(1)+REF_COORDS(i,0)*ref_coord[0])*(RefScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]);
 		}
 
 		inline constexpr RefPoint_t  eval_local_geo_shape_grad(const int i, const RefPoint_t& ref_coord) const noexcept override {
 			assert(0<= i and i<N_VERTICES);
 			
 			RefPoint_t result{};
-			result[0] = MapScalar_t(0.25) * REF_COORDS(i,0)                               * (MapScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]);
-			result[1] = MapScalar_t(0.25) * (MapScalar_t(1)+REF_COORDS(i,0)*ref_coord[0]) * REF_COORDS(i,1);
+			result[0] = RefScalar_t(0.25) * REF_COORDS(i,0)                               * (RefScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]);
+			result[1] = RefScalar_t(0.25) * (RefScalar_t(1)+REF_COORDS(i,0)*ref_coord[0]) * REF_COORDS(i,1);
 			return result;
 		}
 
@@ -205,7 +205,16 @@ namespace gv::mesh {
 		}
 
 		//evaluate the geometric inverse mapping from the actual/geometric element to the reference element
-		constexpr RefPoint_t geometric_to_reference(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept override {return RefPoint_t{};}
+		constexpr RefPoint_t geometric_to_reference(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept override {
+			assert(vertex_coords.size() == static_cast<size_t>(vtk_n_vertices(VTK_ID)));
+			assert(this->contains(vertex_coords));
+			Point_t center = VertexScalar_t{0.5}*(vertex_coords[3]+vertex_coords[0]);
+			Point_t delta  = VertexScalar_t{0.5}*(vertex_coords[3]-vertex_coords[0]);
+
+			//division should be in the reference scalar type (e.g. floating point) because the mesh may be fixed precision on a very large or very small scale
+			//that can't represent numbers of the order of 1.
+			return static_cast<RefPoint_t>(coord - center) / static_cast<RefPoint_t>(delta);
+		}
 
 		//evaluate the jacobian matrix of the mapping from the reference element to the actual element
 		constexpr Jac_t   eval_geo_shape_jac(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept override {
@@ -220,6 +229,12 @@ namespace gv::mesh {
 			}
 
 			return jacobian;
+		}
+
+		//determine if a point in space is interior to the element
+		constexpr bool contains(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept override {
+			assert(vertex_coords.size() == static_cast<size_t>(vtk_n_vertices(VTK_ID)));
+			return (vertex_coords[0] <= coord) and (coord <= vertex_coords[3]);
 		}
 	};
 }

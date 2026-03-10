@@ -7,10 +7,6 @@
 #include "mesh/vtk_elements.hpp"
 #include "mesh/vtk_defs.hpp"
 
-// #include "util/point.hpp"
-// #include "util/octree.hpp"
-// #include "util/box.hpp"
-
 #include <vector>
 #include <cassert>
 #include <iostream>
@@ -39,7 +35,7 @@ namespace gv::mesh {
 			int                              space_dim,
 			int                              ref_dim,
 			Scalar                           Scalar_t,
-			HierarchicalColorableMeshElement ElementStruct_t = BasicElement,
+			HierarchicalColorableMeshElement ElementStruct_t = HierarchicalColoredElement,
 			ColorMethod                      COLOR_METHOD    = ColorMethod::GREEDY,
 			size_t                           MAX_COLORS      = 64
 			>
@@ -48,7 +44,10 @@ namespace gv::mesh {
 		using BaseClass = ColoredMesh<space_dim,ref_dim,Scalar_t,ElementStruct_t,COLOR_METHOD,MAX_COLORS>;
 		
 		mutable std::shared_mutex   _el_split_rw_mtx;   //mutex to lock _elements_to_split
-		std::unordered_set<size_t>	_elements_to_split; //indices of elements that are to be refined
+
+		//indices of elements that are to be refined. Allow classes that have a const reference (e.g. dofhandler) to the mesh
+		//to mark elements for refinement, but postpone the actual refinement to a more controlled time.
+		mutable std::unordered_set<size_t>	_elements_to_split; 
 
 	public:
 		//aliases
@@ -81,13 +80,21 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		/// Get the total number of active elements in the mesh.
 		/////////////////////////////////////////////////
-		size_t nElements() const override {
-			size_t nElems = 0;
-			for (const Element_t &ELEM : this->_elements) {
-				if (ELEM.is_active) {nElems++;}
+		size_t nElements(bool active=true) const override {
+			if (active) {
+				size_t nElems = 0;
+				for (const Element_t &ELEM : this->_elements) {
+					if (ELEM.is_active) {nElems++;}
+				}
+				return nElems;
 			}
-			return nElems;
+			else {
+				return this->_elements.size();
+			}
+			
 		}
+
+
 
 
 		/////////////////////////////////////////////////
@@ -115,8 +122,7 @@ namespace gv::mesh {
 		/// @param descendents A reference to an existing vector where the result will be stored
 		/// @param activeOnly Optionally, the user can get all descendents (rather then just the leaf descendents).
 		/////////////////////////////////////////////////
-		void getElementDescendents_Unlocked(const size_t elem_idx, std::vector<size_t> &descendents=false, const bool activeOnly=true) const;
-		
+		void getElementDescendents_Unlocked(const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly=true) const;
 
 		/////////////////////////////////////////////////
 		/// A method to get the descendent elements of the specified boundary face.
@@ -125,8 +131,23 @@ namespace gv::mesh {
 		/// @param descendents A reference to an existing vector where the result will be stored
 		/// @param activeOnly Optionally, the user can get all descendents (rather then just the leaf descendents).
 		/////////////////////////////////////////////////
-		void getBoundaryFaceDescendents_Unlocked(const size_t elem_idx, std::vector<size_t> &descendents=false, const bool activeOnly=true) const;
+		void getBoundaryFaceDescendents_Unlocked(const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly=true) const;
 
+
+		/////////////////////////////////////////////////
+		/// A method to mark an element to be split/refined. The element that is split will have the new elements added as children,
+		/// and the new elements that are created will have the element that was split as a parent. The new elements are of the same type as the original.
+		/// New vertices will most likely be created and old vertices updated during this process.
+		///
+		/// This simply checks if an element can be split and marks it as such by adding its index to _elements_to_split.
+		/// Note that _element_to_split is mutable, so this method can be called as const.
+		///
+		/// If elem_idx>=_elements.size(), then _elements_to_split is processed (if it is not empty) and then the elem_idx element is re-examined.
+		/// If it is still out of bounds, an exception is thrown.
+		///
+		/// @param elem_idx The element to be split.
+		/////////////////////////////////////////////////
+		void splitElement(const size_t elem_idx) const;
 
 		/////////////////////////////////////////////////
 		/// A method to mark an element to be split/refined. The element that is split will have the new elements added as children,
@@ -149,7 +170,7 @@ namespace gv::mesh {
 		///
 		/// @todo Add support for more element types.
 		/////////////////////////////////////////////////
-		void splitElement(const size_t elem_idx);
+		void reSplitElement(const size_t elem_idx);
 		
 
 		/////////////////////////////////////////////////
@@ -232,6 +253,9 @@ namespace gv::mesh {
 			return split_node_numbers;
 		}
 	};
+
+	static_assert(HierarchicalMeshType<HierarchicalMesh<3,3,double>>);
+	static_assert(HierarchicalMeshType<HierarchicalMesh<3,2,double>>);
 	
 
 	template<
@@ -347,7 +371,7 @@ namespace gv::mesh {
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::splitElement(const size_t elem_idx) {
+	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::splitElement(const size_t elem_idx) const {
 		//any changes to _elements[elem_idx] are not protected by a unique mutex lock
 		//calling splitElement(k) for the same value of k in different threads will lead to undefined behavior
 		//calling splitElement(k) for different values of k in defferent threads is safe
@@ -359,45 +383,57 @@ namespace gv::mesh {
 			return;
 		}
 
-
 		//ensure that the element is active
-		Element_t &ELEM = this->_elements[elem_idx];
+		const Element_t &ELEM = this->_elements[elem_idx];
 		if (!ELEM.is_active) {return;}
 
+		_elements_to_split.insert(elem_idx);
+	}
 
-		//if the element has been previously refined, activate and re-color its children
-		if (!ELEM.children.empty()) {
-			ELEM.is_active = false;
-			this->_color_manager.decrementCount(ELEM.color); //when coloring using BALANCED, the parent element should no longer count.
 
-			//activate and color the children
-			for (size_t e_idx: ELEM.children) {
-				Element_t &CHILD = this->_elements[e_idx];
-				CHILD.is_active  = true;
+	template<
+			int                              space_dim,
+			int                              ref_dim,
+			Scalar                           Scalar_t,
+			HierarchicalColorableMeshElement Element_t,
+			ColorMethod                      COLOR_METHOD,
+			size_t                           MAX_COLORS
+			>
+	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::reSplitElement(const size_t elem_idx) {
+		assert(elem_idx < this->_elements.size());
+		Element_t& ELEM = this->_elements[elem_idx];
 
-				std::vector<size_t> neighbors;
-				this->getElementNeighbors_Unlocked(elem_idx, neighbors);
-				this->_color_manager.setColor_Unlocked(elem_idx, neighbors);
-			}
+		assert(ELEM.is_active);
+		assert(!ELEM.children.empty());
 
-			//update any boundary faces
-			std::vector<size_t> boundary_faces;
-			this->getBoundaryFaces_Unlocked(elem_idx, boundary_faces);
-			for (size_t f_idx : boundary_faces) {
-				Face_t &FACE   = this->_boundary[f_idx];
-				FACE.is_active = false;
+		ELEM.is_active = false;
+		this->_color_manager.decrementCount(ELEM.color); //when coloring using BALANCED, the parent element should no longer count.
 
-				assert(!FACE.children.empty());
-				for (size_t cf_idx : FACE.children) {
-					Face_t &CHILDFACE = this->_boundary[cf_idx];
-					if (CHILDFACE.depth == ELEM.depth) {
-						CHILDFACE.is_active  = true;
-						//TODO: check if we need to color the boundary faces
-					}
+		//activate and color the children
+		for (size_t e_idx: ELEM.children) {
+			Element_t &CHILD = this->_elements[e_idx];
+			CHILD.is_active  = true;
+
+			std::vector<size_t> neighbors;
+			this->getElementNeighbors_Unlocked(elem_idx, neighbors);
+			this->_color_manager.setColor_Unlocked(elem_idx, neighbors);
+		}
+
+		//update any boundary faces
+		std::vector<size_t> boundary_faces;
+		this->getBoundaryFaces_Unlocked(elem_idx, boundary_faces);
+		for (size_t f_idx : boundary_faces) {
+			Face_t &FACE   = this->_boundary[f_idx];
+			FACE.is_active = false;
+
+			assert(!FACE.children.empty());
+			for (size_t cf_idx : FACE.children) {
+				Face_t &CHILDFACE = this->_boundary[cf_idx];
+				if (CHILDFACE.depth == ELEM.depth) {
+					CHILDFACE.is_active  = true;
+					//TODO: check if we need to color the boundary faces
 				}
 			}
-		} else {
-			_elements_to_split.insert(elem_idx);
 		}
 	}
 
@@ -412,15 +448,21 @@ namespace gv::mesh {
 			>
 	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::splitElement_Unlocked(const size_t elem_idx, const size_t child_idx_start, const size_t child_face_start) {
 		Element_t &ELEM = this->_elements[elem_idx];
-		std::vector<size_t> split_node_numbers = generateNodesForSplit(ELEM);
+		assert(ELEM.is_active);
 
+		//check if this element has been split previously
+		if (!ELEM.children.empty()) {
+			reSplitElement(elem_idx);
+			return;
+		}
+
+
+		//new vertices and elements must be generated
+		std::vector<size_t> split_node_numbers = generateNodesForSplit(ELEM);
 		auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
 
 		//now all vertices have been created to create the children
-		assert(ELEM.is_active);
 		ELEM.is_active = false;
-
-		
 
 		for (size_t k=0; k<vtk_n_children(ELEM.vtkID); k++) {
 			//get the indices of the vertices that define child k in the correct order

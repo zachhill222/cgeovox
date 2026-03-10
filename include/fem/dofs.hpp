@@ -26,6 +26,9 @@ namespace gv::fem
 		//when ref_dim=2, the edge array and face_array should be the same.
 		size_t global_idx;
 
+		//marker for tracking if the dof is active. mostly useful for CHARMS
+		bool active = true;
+
 		//indices of support elements to be used in evaluation
 		//in CHARMS, these elements must be on the same refinement level as the basis function
 		std::array<size_t, MAX_SUPPORT> support_idx;
@@ -36,7 +39,7 @@ namespace gv::fem
 
 		//track dimensions of the reference element and the mesh feature.
 		//e.g., for piecewise polynomial lagrange basis functions on triangle, ref_dim=2 and feature_dim=0
-		static constexpr int ref_dim = REF_DIM;
+		static constexpr int ref_dim     = REF_DIM;
 		static constexpr int feature_dim = FEATURE_DIM;
 
 		//track the maximum number of support elements

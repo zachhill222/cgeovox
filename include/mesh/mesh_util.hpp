@@ -345,5 +345,11 @@ namespace gv::mesh
 		typename T::VertexList_t;
 	};
 
+	template<typename T>
+	concept HierarchicalMeshType = BasicMeshType<T> and HierarchicalMeshElement<typename T::Element_t>;
+
+	template<typename T>
+	concept ColorableMeshType = BasicMeshType<T> and ColorableMeshElement<typename T::Element_t>;
+
 
 }

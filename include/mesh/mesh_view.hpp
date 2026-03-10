@@ -65,8 +65,8 @@ namespace gv::mesh {
 	        return std::count(_node_mask.begin(), _node_mask.end(), true);
 	    }
 
-	    size_t nElements() const override {
-	        return std::count(_element_mask.begin(), _element_mask.end(), true);
+	    size_t nElements(const bool active=true) const override {
+	    	return std::count(_element_mask.begin(), _element_mask.end(), true);
 	    }
 
 	    size_t nBoundaryFaces() const override  {

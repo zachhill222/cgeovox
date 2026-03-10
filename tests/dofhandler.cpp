@@ -1,6 +1,6 @@
 #include "gutil.hpp"
 
-#include "fem/dofhandler.hpp"
+#include "fem/charms_dofhandler.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/mesh_basic.hpp"
@@ -23,16 +23,17 @@ int main(int argc, char* argv[])
 	//build test mesh
 	Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
 	Index_t N {16,16,16};
-	Mesh_t mesh(domain, N, true);
+	Mesh_t mesh(domain, N, false);
 
-	gv::fem::DOFhandler<Mesh_t, gv::fem::HexQ1, double> dofhandler(mesh);
+	gv::fem::CharmsDOFhandler<Mesh_t, gv::fem::VoxelQ1, double> dofhandler(mesh);
 	dofhandler.distribute();
 
 	//assign coefficients
 	for (size_t i=0; i<dofhandler.n_dofs(); ++i) {
-		dofhandler.coef[i] = 1.0;
+		dofhandler.coef(i) = 1.0;
 	}
 
+	dofhandler.make_dof_map();
 	std::cout << mesh << std::endl;
 	return 0;
 }

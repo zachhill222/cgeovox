@@ -52,7 +52,7 @@ void test() {
 	}
 
 
-	for (int n=0; n<1; n++){
+	for (int n=0; n<3; n++){
 		for (const auto &ELEM : mesh) {mesh.splitElement(ELEM.index);}
 		mesh.processSplit();
 	}
@@ -74,8 +74,8 @@ void test() {
 	std::cout << std::endl << boundary << std::endl;
 	gv::mesh::memorySummary(boundary);
 
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
-	boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
 	// gv::util::makeOctreeLeafMesh(mesh.getNodeOctree(), "./outfiles/topological_mesh_node_octree.vtk");
 }
 
