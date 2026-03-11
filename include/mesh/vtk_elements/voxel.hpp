@@ -362,7 +362,7 @@ namespace gv::mesh {
 		//evaluate the geometric inverse mapping from the actual/geometric element to the reference element
 		constexpr RefPoint_t geometric_to_reference(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept override {
 			assert(vertex_coords.size() == static_cast<size_t>(vtk_n_vertices(VTK_ID)));
-			assert(this->contains(vertex_coords));
+			assert(this->contains(vertex_coords, coord));
 			Point_t center = VertexScalar_t{0.5}*(vertex_coords[7]+vertex_coords[0]);
 			Point_t delta  = VertexScalar_t{0.5}*(vertex_coords[7]-vertex_coords[0]);
 

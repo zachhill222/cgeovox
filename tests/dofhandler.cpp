@@ -10,8 +10,7 @@
 
 //define types
 using T = gutil::FixedPoint<int64_t,0>;
-using Element_t = gv::mesh::BasicElement;
-using Mesh_t  = gv::mesh::BasicMesh<3,3,T,Element_t>;
+using Mesh_t    = gv::mesh::HierarchicalMesh<3,3,T>;
 
 //import types from the mesh
 using Box_t   = typename Mesh_t::DomainBox_t;
@@ -22,18 +21,35 @@ int main(int argc, char* argv[])
 {
 	//build test mesh
 	Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
-	Index_t N {16,16,16};
+	Index_t N {8,8,8};
 	Mesh_t mesh(domain, N, false);
 
 	gv::fem::CharmsDOFhandler<Mesh_t, gv::fem::VoxelQ1, double> dofhandler(mesh);
-	dofhandler.distribute();
-
+	
 	//assign coefficients
-	for (size_t i=0; i<dofhandler.n_dofs(); ++i) {
+	for (size_t i=0; i<dofhandler.ndof(); ++i) {
 		dofhandler.coef(i) = 1.0;
 	}
 
+	dofhandler.distribute();
 	dofhandler.make_dof_map();
+	
+	//refine elements in the [0,1/2^k]^3 region
+	double high=0.5;
+	for (int k=0; k<6; k++) {
+		Box_t box(Point_t{0,0,0}, Point_t{high,high,high});
+		high*=0.5;
+		dofhandler.mark_refine(box);
+		mesh.processSplit();
+		dofhandler.process_refine();
+	}
+
+	dofhandler.make_dof_map();
+
+	std::cout << dofhandler << std::endl;
 	std::cout << mesh << std::endl;
+	// gv::mesh::memorySummary(mesh);
+	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+
 	return 0;
 }

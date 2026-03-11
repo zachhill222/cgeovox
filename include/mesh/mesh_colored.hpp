@@ -7,10 +7,6 @@
 #include "mesh/vtk_elements.hpp"
 #include "mesh/vtk_defs.hpp"
 
-// #include "util/point.hpp"
-// #include "util/octree.hpp"
-// #include "util/box.hpp"
-
 #include <vector>
 #include <cassert>
 #include <iostream>
@@ -93,6 +89,12 @@ namespace gv::mesh
 			BaseClass::insertElement_Locked(ELEM);
 			color_Locked(elem_idx);
 		}
+
+		/////////////////////////////////////////////////
+		/// Methods to get information about the coloring
+		/////////////////////////////////////////////////
+		inline size_t nColors() const {return _color_manager.nColors();}
+		inline size_t colorCount(const size_t c) const {return _color_manager.colorCount(c);}
 
 
 		/////////////////////////////////////////////////

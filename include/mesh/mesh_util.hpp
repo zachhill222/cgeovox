@@ -351,5 +351,8 @@ namespace gv::mesh
 	template<typename T>
 	concept ColorableMeshType = BasicMeshType<T> and ColorableMeshElement<typename T::Element_t>;
 
+	template<typename T>
+	concept HierarchicalColorableMeshType = HierarchicalMeshType<T> and ColorableMeshElement<typename T::Element_t>;
+
 
 }

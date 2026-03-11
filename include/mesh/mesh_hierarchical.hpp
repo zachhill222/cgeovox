@@ -91,9 +91,7 @@ namespace gv::mesh {
 			else {
 				return this->_elements.size();
 			}
-			
 		}
-
 
 
 
@@ -114,6 +112,11 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		void processSplit();
 
+
+		/////////////////////////////////////////////////
+		/// Refine all elements that have a vertex in the specified box
+		/////////////////////////////////////////////////
+		void refineRegion(const DomainBox_t& box);
 
 		/////////////////////////////////////////////////
 		/// A method to get the descendent elements of the specified element.
@@ -649,6 +652,29 @@ namespace gv::mesh {
 	}
 
 
+	template<
+			int                              space_dim,
+			int                              ref_dim,
+			Scalar                           Scalar_t,
+			HierarchicalColorableMeshElement Element_t,
+			ColorMethod                      COLOR_METHOD,
+			size_t                           MAX_COLORS
+			>
+	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::refineRegion(const DomainBox_t& box) {
+		for (size_t e_idx=0; e_idx<this->_elements.size(); ++e_idx) {
+			const Element_t& ELEM = this->_elements[e_idx];
+			if (!ELEM.is_active) {continue;}
+
+			for (size_t v_idx : ELEM.vertices) {
+				if (box.contains(this->_vertices[v_idx].coord)) {
+					splitElement(ELEM.index);
+					break;
+				}
+			}
+		}
+
+		processSplit();
+	}
 
 
 	template<

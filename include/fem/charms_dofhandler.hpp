@@ -9,6 +9,7 @@
 
 #include <type_traits>
 #include <vector>
+#include <utility>
 #include <set>
 #include <array>
 #include <string>
@@ -25,6 +26,8 @@ namespace gv::fem
 	struct DOFMap {
 		std::vector<size_t> compressed2global;
 		std::vector<size_t> global2compressed;
+		size_t ndof() const {return compressed2global.size();}
+		void clear() {compressed2global.clear(); global2compressed.clear();}
 	};
 
 
@@ -32,7 +35,7 @@ namespace gv::fem
 
 	//DOF handler for a single DOF type
 	template<
-		gv::mesh::BasicMeshType Mesh_t,
+		gv::mesh::HierarchicalColorableMeshType Mesh_t,
 		typename DOF_t,
 		typename Coef_t = double,
 		size_t MAX_CHILDREN = 8 //maximum number of children that a basis function can have
@@ -43,7 +46,6 @@ namespace gv::fem
 		void distribute_nodal();
 
 	protected:
-		const Mesh_t& mesh;
 		std::vector<DOF_t>  dofs;
 		std::vector<std::array<size_t, MAX_CHILDREN>> dof_children;
 		std::vector<size_t> dof_parents;
@@ -53,16 +55,19 @@ namespace gv::fem
 		std::vector<Coef_t> coefs; //best tracked in a problem class and only write here for fileio
 		std::vector<size_t> boundary_dofs;
 
-		std::vector<size_t> refine_dof_list;
+		std::set<size_t> refine_dof_list;
 		
 		DOFMap dof_map;
 
 	public:
-		inline size_t n_dofs() const {return dofs.size();}
+		const Mesh_t& mesh; //just a const ref. can be public.
+
+		inline size_t ndof() const {return dofs.size();}
 		inline const DOF_t& dof(const size_t idx) const {assert(idx<dofs.size()); return dofs[idx];}
 		inline const Coef_t& coef(const size_t idx) const {assert(idx<coefs.size()); return coefs[idx];}
 		inline Coef_t& coef(const size_t idx) {assert(idx<coefs.size()); return coefs[idx];}
-		
+		inline const DOFMap& get_dof_map() const {return dof_map;}
+
 		void reserve(const size_t length) {
 			dofs.reserve(length);
 			coefs.reserve(length);
@@ -100,7 +105,7 @@ namespace gv::fem
 
 		//active/deactivate basis functions
 		void activate(const size_t idx) {
-			assert(idx<this->size());
+			assert(idx<this->ndof());
 			if (dofs[idx].active) {return;}
 			dofs[idx].active = true;
 
@@ -129,7 +134,7 @@ namespace gv::fem
 		}
 
 		void deactivate(const size_t idx) {
-			assert(idx<this->size());
+			assert(idx<this->ndof());
 			if (!dofs[idx].active) {return;}
 			dofs[idx].active = false;
 
@@ -144,7 +149,7 @@ namespace gv::fem
 
 		//refine basis functions
 		void mark_refine(const size_t idx) {
-			assert(idx<this->size());
+			assert(idx<this->ndof());
 
 			//check if this function is refinable
 			if (!dofs[idx].active) {return;}
@@ -161,43 +166,88 @@ namespace gv::fem
 			}
 
 			//add this basis function to the list to be refined
-			refine_dof_list.push_back(idx);
+			refine_dof_list.insert(idx);
+		}
+
+		//mark all active basis functions whose support intersects the box for refinement
+		void mark_refine(const typename Mesh_t::DomainBox_t& box) {
+			#pragma omp parallel for
+			for (size_t d_idx=0; d_idx<dofs.size(); ++d_idx) {
+				const auto& DOF = dofs[d_idx];
+				if (!DOF.active) {continue;}
+
+				//loop through support elements
+				for (size_t el_idx : DOF.support_idx) {
+					if (el_idx == (size_t) -1) {continue;}
+					bool added = false;
+
+					const auto& ELEM = mesh.getElement(el_idx);
+					for (size_t v_idx : ELEM.vertices) {
+						const auto& VERTEX = mesh.getVertex(v_idx);
+						if (box.contains(VERTEX.coord)) {
+							#pragma omp critical
+							{
+								mark_refine(d_idx);
+							}
+							added=true;
+							break;
+						}
+					}
+
+					if (added) {
+						#pragma omp critical
+						{
+							std::cout << "marked element " << el_idx << " for splitting\n";
+						}
+						break;
+					}
+				}
+			}
+		}
+
+
+		//process the refinement of the marked dofs
+		//mesh.processSplit() must be called between mark_refine() and process_refine()
+		//this is for h-refinemet
+		void process_refine() {
+			this->reserve(dofs.size()+MAX_CHILDREN*refine_dof_list.size());
+			for (size_t d_idx : refine_dof_list) {
+				deactivate(d_idx);
+
+			}
 		}
 
 
 		//create compressed/global DOF map
-		DOFMap make_dof_map() {
-			DOFMap map;
-			map.global2compressed.reserve(dofs.size());
-			map.compressed2global.reserve(mesh.nVertices()); //estimate
+		void make_dof_map() {
+			dof_map.clear();
+			dof_map.global2compressed.reserve(dofs.size());
+			dof_map.compressed2global.reserve(mesh.nVertices()); //estimate
 
 			size_t compressed_idx = 0;
 			for (size_t i=0; i<dofs.size(); ++i) {
 				if (dofs[i].active) {
-					map.global2compressed.push_back(compressed_idx);
-					map.compressed2global.push_back(i);
+					dof_map.global2compressed.push_back(compressed_idx);
+					dof_map.compressed2global.push_back(i);
 					compressed_idx++;
 				}
 				else {
-					map.global2compressed.push_back( (size_t) -1);
+					dof_map.global2compressed.push_back( (size_t) -1);
 				}
 			}
-
-			return map;
 		}
 
-		//create CSR matrix with the correct sparsity structure
-		//outer_index[i] and outer_index[i+1] bookend the indices of inner_index that correpsond to row i
-		//inner_index[outer_index[i]] through inner_index[outer_index[i+1]-1] store the columns with non-zero entries in the matrix
-		//later the values array needs to be constructed so that matrix(i,j) = values[inner_index]
-		void get_csr_structure(std::vector<size_t>& outer_index, std::vector<size_t>& inner_index) {
-			
-		}
+		//create CSR/CSC matrix with the correct sparsity structure
+		//the DOF Map must be current (i.e, no refines/coarsening since the last time the map was computed)
+		//RowMajor format is better for settng boundary conditions, but ColMajor might be better for Eigen routines
+		template<int Format=Eigen::RowMajor, typename T=double>
+		Eigen::SparseMatrix<T,Format> init_matrix() const;
+
 	};
 
 
 	///dispatch the distribute to the correct type
-	template<gv::mesh::BasicMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
 	void CharmsDOFhandler<Mesh_t,DOF_t,Coef_t,MAX_CHILDREN>::distribute()
 	{
 		clear();
@@ -209,7 +259,7 @@ namespace gv::fem
 
 
 	///distribute lagrange nodal dofs (it is assumed that the mesh is in a conformal state)
-	template<gv::mesh::BasicMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
 	void CharmsDOFhandler<Mesh_t,DOF_t,Coef_t,MAX_CHILDREN>::distribute_nodal()
 	{
 		auto nvert = mesh.nVertices();
@@ -221,7 +271,7 @@ namespace gv::fem
 			std::array<size_t,DOF_t::max_support> support;
 			std::array<size_t,DOF_t::max_support> local_idx;
 
-			int i;
+			size_t i;
 			for (i=0; i<VERTEX.elems.size(); ++i) {
 				support[i] = VERTEX.elems[i];
 				const auto& ELEM = mesh.getElement(support[i]);
@@ -270,6 +320,103 @@ namespace gv::fem
 			}
 		}
 	}
+
+	//create CSR/CSC matrix with the correct sparsity structure
+	//the DOF Map must be current (i.e, no refines/coarsening since the last time the map was computed)
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
+	template<int Format, typename T>
+	Eigen::SparseMatrix<T,Format> CharmsDOFhandler<Mesh_t,DOF_t,Coef_t,MAX_CHILDREN>::init_matrix() const {
+		using Triplet = Eigen::Triplet<T>;
+		std::vector<std::vector<Triplet>> color_coo_idx;
+
+		size_t ncolors = mesh.nColors();
+		color_coo_idx.resize(ncolors);
+
+		#pragma omp parallel for
+		for (size_t c=0; c<ncolors; ++c) {
+			auto& coo_idx = color_coo_idx[c];
+			coo_idx.reserve(64*mesh.colorCount(c)); //approximate. in CHARMS, it is difficult to know which basis functions interact
+			for (size_t e_idx=0; e_idx<mesh.nElements(true); ++e_idx) {
+				const auto& ELEM = mesh.getElement(e_idx);
+				if (ELEM.color != c) {continue;}
+
+				//basis_s-basis_s and basis_s-basis_a interactions
+				for (size_t global_dof_1 : element_basis_s[ELEM.index]) {
+					if (!dofs[global_dof_1].active) {continue;}
+
+					size_t compressed_dof_1 = dof_map.global2compressed[global_dof_1];
+					coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_1, T{0}));
+
+					//basis_s-basis_s
+					for (size_t global_dof_2 : element_basis_s[ELEM.index]) {
+						if (global_dof_2 <= global_dof_1) {continue;}
+						if (!dofs[global_dof_2].active) {continue;}
+
+						size_t compressed_dof_2 = dof_map.global2compressed[global_dof_2];
+						coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_2, T{0}));
+						coo_idx.push_back(Triplet(compressed_dof_2, compressed_dof_1, T{0}));
+					}
+
+					//basis_s-basis_a
+					for (size_t global_dof_2 : element_basis_a[ELEM.index]) {
+						if (!dofs[global_dof_2].active) {continue;}
+
+						size_t compressed_dof_2 = dof_map.global2compressed[global_dof_2];
+						coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_2, T{0}));
+						coo_idx.push_back(Triplet(compressed_dof_2, compressed_dof_1, T{0}));
+					}
+				}
+
+				//basis_a-basis_a interactions
+				for (size_t global_dof_1 : element_basis_a[ELEM.index]) {
+					if (!dofs[global_dof_1].active) {continue;}
+
+					size_t compressed_dof_1 = dof_map.global2compressed[global_dof_1];
+					coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_1, T{0}));
+
+					for (size_t global_dof_2 : element_basis_a[ELEM.index]) {
+						if (global_dof_2 <= global_dof_1) {continue;}
+						if (!dofs[global_dof_2].active) {continue;}
+
+						size_t compressed_dof_2 = dof_map.global2compressed[global_dof_2];
+						coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_2, T{0}));
+						coo_idx.push_back(Triplet(compressed_dof_2, compressed_dof_1, T{0}));
+					}
+				}
+			}
+		}
+
+		//join coo_idx from each color
+		size_t n_coo_idx = 0;
+		for (size_t c=0; c<mesh.nColors(); ++c) {n_coo_idx += color_coo_idx[c].size();}
+		std::vector<Triplet> all_coo_idx;
+		all_coo_idx.reserve(n_coo_idx);
+		for (size_t c=0; c<mesh.nColors(); ++c) {
+			all_coo_idx.insert(
+				all_coo_idx.end(), 
+				std::make_move_iterator(color_coo_idx[c].begin()), 
+				std::make_move_iterator(color_coo_idx[c].end())
+			);
+		}
+
+		//create matrix
+		Eigen::SparseMatrix<T,Format> mat;
+		mat.resize(dof_map.ndof(), dof_map.ndof());
+		mat.setFromTriplets(all_coo_idx.begin(), all_coo_idx.end());
+		return mat;
+	}
+
+	//print dof info
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
+	std::ostream& operator<<(std::ostream& os, const CharmsDOFhandler<Mesh_t,DOF_t,Coef_t,MAX_CHILDREN>& dofhandler) {
+		os  << "\nCHARMS dofhandler:\n"
+			<< "\tndofs (total)  : " << dofhandler.ndof() << "\n"
+			<< "\tndofs (active) : " << dofhandler.get_dof_map().ndof() << "\n"
+			<< "\tMesh at " << &dofhandler.mesh << " has " << dofhandler.mesh.nElements(true)
+			<< " elements and " << dofhandler.mesh.nVertices() << " vertices\n";
+		return os;
+	}
+
 }
 
 
