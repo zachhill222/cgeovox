@@ -271,6 +271,7 @@ namespace gv::mesh
 		size_t index = (size_t) -1; /// The index of this node in _vertices. Sometimes helpful to have this recorded in the node.
 		BasicVertex(const Point_t &coord) : coord(coord), elems(), boundary_faces(0) {}
 		BasicVertex() : coord(), elems(), boundary_faces(0) {}
+		inline bool onBoundary() const {return !boundary_faces.empty();}
 	};
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<3,double>>>, "BasicVertex<Point<3,double>> is not a BasicMeshVertex");
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<2,double>>>, "BasicVertex<Point<2,double>> is not a BasicMeshVertex");

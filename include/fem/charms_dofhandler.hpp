@@ -208,12 +208,43 @@ namespace gv::fem
 
 		//process the refinement of the marked dofs
 		//mesh.processSplit() must be called between mark_refine() and process_refine()
-		//this is for h-refinemet
-		void process_refine() {
+		void process_refine<bool HIERARCHICAL=true>() {
 			this->reserve(dofs.size()+MAX_CHILDREN*refine_dof_list.size());
-			for (size_t d_idx : refine_dof_list) {
-				deactivate(d_idx);
 
+			//add all new DOFs
+			for (size_t d_idx : refine_dof_list) {
+				DOF_t& PARENT = dofs[d_idx];
+
+				//create children, add to list of dofs, populate relations
+				std::vector<DOF_t> children = PARENT.make_children(mesh);
+				size_t start = dofs.size();
+				size_t end   = start + children.size();
+				
+				//move children dofs
+				dofs.insert(
+					dofs.end(),
+					std::make_move_iterator(children.begin()),
+					std::make_move_iterator(children.end())
+				);
+
+				//populate relations and activate children
+				size_t i=0;
+				for (size_t new_dof_idx=start; new_dof_idx<end; ++new_dof_idx) {
+					/
+					assert(dof_children[d_idx][i] == (size_t) -1);
+					dof_children[d_idx][i++] = new_dof_idx;
+					dof_parents[new_dof_idx] = d_idx;
+
+
+
+
+				}
+
+				//activate children
+				for (size_t)
+				if constexpr (HIERARCHICAL) {
+
+				}
 			}
 		}
 
@@ -306,6 +337,7 @@ namespace gv::fem
 
 			//create the DOF
 			dofs[n] = DOF_t(n, support, local_idx);
+			dofs[n].active = true;
 
 			//populate parent/child relationships with null values
 			dof_parents[n] = (size_t) -1;

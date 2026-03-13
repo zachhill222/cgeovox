@@ -112,7 +112,6 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		void processSplit();
 
-
 		/////////////////////////////////////////////////
 		/// Refine all elements that have a vertex in the specified box
 		/////////////////////////////////////////////////
@@ -152,30 +151,7 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		void splitElement(const size_t elem_idx) const;
 
-		/////////////////////////////////////////////////
-		/// A method to mark an element to be split/refined. The element that is split will have the new elements added as children,
-		/// and the new elements that are created will have the element that was split as a parent. The new elements are of the same type as the original.
-		/// New vertices will most likely be created and old vertices updated during this process.
-		///
-		/// If the specified element has already been split and re-joined (i.e., the children exist), then the children are simply activated and
-		/// no new elements are created in memory. If this _elements[elem_idx].is_active is false, then the method returns without making any changes.
-		///
-		/// An element is a valid refinement target if it is currently active.
-		/// If _elements[elem_idx].is_active is false, then the method immediately returns.
-		/// If _elements[elem_idx].children is populated, then the children are activated and re-colored (while the specified element is deactivated).
-		/// If _elements[elem_idx].children is empty, then the creation of the children elements is delayed until they are needed and then run in parallel.
-		/// These are tracked in _elements_to_split.
-		///
-		/// If elem_idx>=_elements.size(), then _elements_to_split is processed (if it is not empty) and then the elem_idx element is re-examined.
-		/// If it is still out of bounds, an exception is thrown.
-		///
-		/// @param elem_idx The element to be split.
-		///
-		/// @todo Add support for more element types.
-		/////////////////////////////////////////////////
-		void reSplitElement(const size_t elem_idx);
 		
-
 		/////////////////////////////////////////////////
 		/// A method to join/unrefine previously split elements. If _elements[elem_idx] exists, then all of the descendents of that element are de-activated and the element is activated.
 		/// The de-activated elements are not deleted. The element is re-colored.
@@ -210,6 +186,29 @@ namespace gv::mesh {
 		friend std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<space_dim_u,ref_dim_u,Scalar_u,Element_u,color_method,max_colors> &mesh);
 
 	private:
+		/////////////////////////////////////////////////
+		/// A method to mark an element to be split/refined. The element that is split will have the new elements added as children,
+		/// and the new elements that are created will have the element that was split as a parent. The new elements are of the same type as the original.
+		/// New vertices will most likely be created and old vertices updated during this process.
+		///
+		/// If the specified element has already been split and re-joined (i.e., the children exist), then the children are simply activated and
+		/// no new elements are created in memory. If this _elements[elem_idx].is_active is false, then the method returns without making any changes.
+		///
+		/// An element is a valid refinement target if it is currently active.
+		/// If _elements[elem_idx].is_active is false, then the method immediately returns.
+		/// If _elements[elem_idx].children is populated, then the children are activated and re-colored (while the specified element is deactivated).
+		/// If _elements[elem_idx].children is empty, then the creation of the children elements is delayed until they are needed and then run in parallel.
+		/// These are tracked in _elements_to_split.
+		///
+		/// If elem_idx>=_elements.size(), then _elements_to_split is processed (if it is not empty) and then the elem_idx element is re-examined.
+		/// If it is still out of bounds, an exception is thrown.
+		///
+		/// @param elem_idx The element to be split.
+		///
+		/// @todo Add support for more element types.
+		/////////////////////////////////////////////////
+		void reSplitElement(const size_t elem_idx);
+
 		/////////////////////////////////////////////////
 		/// Subroutine for processSplit()
 		/////////////////////////////////////////////////
@@ -661,13 +660,17 @@ namespace gv::mesh {
 			size_t                           MAX_COLORS
 			>
 	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::refineRegion(const DomainBox_t& box) {
+		#pragma omp parallel for
 		for (size_t e_idx=0; e_idx<this->_elements.size(); ++e_idx) {
 			const Element_t& ELEM = this->_elements[e_idx];
 			if (!ELEM.is_active) {continue;}
 
 			for (size_t v_idx : ELEM.vertices) {
 				if (box.contains(this->_vertices[v_idx].coord)) {
-					splitElement(ELEM.index);
+					#pragma omp critical
+					{
+						splitElement(ELEM.index);
+					}
 					break;
 				}
 			}

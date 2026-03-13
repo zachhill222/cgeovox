@@ -105,6 +105,7 @@ namespace gv::fem
 		using Base = DOF<0, REF_DIM, MAX_SUPPORT, DERRIVED>;
 		using RefPoint_t = typename Base::RefPoint_t;
 		using Base::Base;
+
 	};
 
 
