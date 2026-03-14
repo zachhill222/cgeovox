@@ -4,15 +4,16 @@
 
 #include <array>
 #include <concepts>
+#include <type_traits>
 
 #include <omp.h>
 
 namespace gv::fem
 {
 	//Base class for all FEM DOFs
-	//Pass a reference to the derrived class (e.g. Q1 basis functions on a voxel) to avoid
+	//Pass a reference to the derived class (e.g. Q1 basis functions on a voxel) to avoid
 	//vtables (Curiously Recurring Template Pattern)
-	template<int FEATURE_DIM, int REF_DIM, int MAX_SUPPORT, typename DERRIVED>
+	template<int FEATURE_DIM, int REF_DIM, int MAX_SUPPORT, typename DERIVED>
 		requires ( (0<=FEATURE_DIM and FEATURE_DIM<=3) and (REF_DIM==2 or REF_DIM==3) )
 	struct DOF
 	{
@@ -47,8 +48,8 @@ namespace gv::fem
 		//but that should be handled by the dofhandler.
 		//eval_impl and grad_impl must be defined in the derived class
 		//spt is the index of the support element that point is in
-		inline double eval(const RefPoint_t& point, const int spt) const {return static_cast<const DERRIVED*>(this)->eval_impl(point, spt);}
-		inline RefPoint_t grad(const RefPoint_t& point, const int spt) const {return static_cast<const DERRIVED*>(this)->grad_impl(point, spt);}
+		inline double eval(const RefPoint_t& point, const int spt) const {return static_cast<const DERIVED*>(this)->eval_impl(point, spt);}
+		inline RefPoint_t grad(const RefPoint_t& point, const int spt) const {return static_cast<const DERIVED*>(this)->grad_impl(point, spt);}
 
 		//when evaluating at all of the quadrature points, it will be nice to do so all at once.
 		//use a result parameter to help avoid excessive allocations, but a return by value is provided for debug and convenience
@@ -86,7 +87,7 @@ namespace gv::fem
 			return result;
 		}
 
-		virtual ~DOF() = default;
+		~DOF() = default;
 
 		DOF() : global_idx((size_t) -1), support_idx{}, local_idx{} {}
 		
@@ -95,14 +96,28 @@ namespace gv::fem
 	};
 
 
+	//check if two DOFs are the same. For this to work correctly, the support_idx (and local_idx) arrays
+	//MUST be populated in a consistent manner.
+	template<int FEATURE_DIM, int REF_DIM, int MAX_SUPPORT, typename DERIVED>
+		requires ( (0<=FEATURE_DIM and FEATURE_DIM<=3) and (REF_DIM==2 or REF_DIM==3) )
+	bool operator==(const DOF<FEATURE_DIM,REF_DIM,MAX_SUPPORT,DERIVED>& left,
+					const DOF<FEATURE_DIM,REF_DIM,MAX_SUPPORT,DERIVED>& right
+					)
+	{
+		if (left.global_idx != right.global_idx) {return false;}
+		if (left.support_idx != right.support_idx) {return false;}
 
+		//with the same mesh feature and same support, the local indices must be the same
+		assert(left.local_idx == right.local_idx);
+		return true;
+	}
 
 
 	//Base class for all LagrangeDOFs
-	template<int REF_DIM, int MAX_SUPPORT, typename DERRIVED> requires (REF_DIM==2 or REF_DIM==3)
-	struct LagrangeDOF : public DOF<0, REF_DIM, MAX_SUPPORT, DERRIVED>
+	template<int REF_DIM, int MAX_SUPPORT, typename DERIVED> requires (REF_DIM==2 or REF_DIM==3)
+	struct LagrangeDOF : public DOF<0, REF_DIM, MAX_SUPPORT, DERIVED>
 	{
-		using Base = DOF<0, REF_DIM, MAX_SUPPORT, DERRIVED>;
+		using Base = DOF<0, REF_DIM, MAX_SUPPORT, DERIVED>;
 		using RefPoint_t = typename Base::RefPoint_t;
 		using Base::Base;
 
@@ -123,9 +138,13 @@ namespace gv::fem
 	concept IsLagrangeDOF = derives_from_lagrange_dof<T>::value;
 
 	//Q1 elements on voxels
-	struct VoxelQ1 : public LagrangeDOF<3, 8, VoxelQ1>
+	//use DERIVED template so that CHARMS variants can inject themselves here
+	template<typename DERIVED=void>
+	struct VoxelQ1 : public LagrangeDOF<3, 8, 
+			std::conditional_t<std::is_void_v<DERIVED>, VoxelQ1<void>, DERIVED>>
 	{
-		using Base = LagrangeDOF<3, 8, VoxelQ1>;
+		using ActualDerived = std::conditional_t<std::is_void_v<DERIVED>, VoxelQ1<void>, DERIVED>;
+	    using Base = LagrangeDOF<3, 8, ActualDerived>;
 		using RefPoint_t = typename Base::RefPoint_t;
 		using Base::Base;
 
@@ -204,9 +223,13 @@ namespace gv::fem
 
 
 	//Q1 elements on hexahedrons (different corner indexing, likely iso-parametric mapping)
-	struct HexQ1 : public LagrangeDOF<3, 8, HexQ1>
+	//use DERIVED template so that CHARMS variants can inject themselves here
+	template<typename DERIVED=void>
+	struct HexQ1 : public LagrangeDOF<3, 8, 
+			std::conditional_t<std::is_void_v<DERIVED>, HexQ1<void>, DERIVED>>
 	{
-		using Base = LagrangeDOF<3, 8, HexQ1>;
+		using ActualDerived = std::conditional_t<std::is_void_v<DERIVED>, HexQ1<void>, DERIVED>;
+	    using Base = LagrangeDOF<3, 8, ActualDerived>;
 		using RefPoint_t = typename Base::RefPoint_t;
 		using Base::Base;
 

@@ -1,6 +1,9 @@
 #include "gutil.hpp"
 
+#include <format>
+
 #include "fem/charms_dofhandler.hpp"
+#include "fem/charms_dofs.hpp"
 
 #include "mesh/mesh_util.hpp"
 #include "mesh/mesh_basic.hpp"
@@ -24,7 +27,7 @@ int main(int argc, char* argv[])
 	Index_t N {8,8,8};
 	Mesh_t mesh(domain, N, false);
 
-	gv::fem::CharmsDOFhandler<Mesh_t, gv::fem::VoxelQ1, double> dofhandler(mesh);
+	gv::fem::CharmsDOFhandler<Mesh_t, gv::fem::CharmsVoxelQ1, double> dofhandler(mesh);
 	
 	//assign coefficients
 	for (size_t i=0; i<dofhandler.ndof(); ++i) {
@@ -41,7 +44,8 @@ int main(int argc, char* argv[])
 		high*=0.5;
 		dofhandler.mark_refine(box);
 		mesh.processSplit();
-		dofhandler.process_refine();
+		mesh.save_as(std::format("./outfiles/start_refine_{}.vtk", k), true);
+		dofhandler.process_refine<true>();
 	}
 
 	dofhandler.make_dof_map();

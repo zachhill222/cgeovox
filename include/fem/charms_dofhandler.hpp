@@ -1,6 +1,6 @@
 #pragma once
 
-#include "fem/dofs.hpp"
+#include "fem/charms_dofs.hpp"
 #include "mesh/mesh_basic.hpp"
 #include "mesh/mesh_util.hpp"
 #include "mesh/vtk_defs.hpp"
@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <vector>
 #include <utility>
-#include <set>
+#include <unordered_set>
 #include <array>
 #include <string>
 #include <cassert>
@@ -36,26 +36,25 @@ namespace gv::fem
 	//DOF handler for a single DOF type
 	template<
 		gv::mesh::HierarchicalColorableMeshType Mesh_t,
-		typename DOF_t,
-		typename Coef_t = double,
-		size_t MAX_CHILDREN = 8 //maximum number of children that a basis function can have
-		>
+		IsCharmsDOF DOF_t,
+		typename Coef_t = double>
 	class CharmsDOFhandler
 	{
 	private:
+		static constexpr size_t MAX_CHILDREN = static_cast<size_t>(DOF_t::nchildren);
 		void distribute_nodal();
 
 	protected:
 		std::vector<DOF_t>  dofs;
-		std::vector<std::array<size_t, MAX_CHILDREN>> dof_children;
-		std::vector<size_t> dof_parents;
-		std::vector<std::set<size_t>> element_basis_s; //track basis functions per-element on the same level of refinement
-		std::vector<std::set<size_t>> element_basis_a; //track basis functions per-element on coarser levels of refinement
+		std::vector<std::array<size_t,MAX_CHILDREN>> dof_children;
+		std::vector<std::array<size_t,MAX_CHILDREN>> dof_parents;
+		std::vector<std::unordered_set<size_t>> element_basis_s; //track basis functions per-element on the same level of refinement
+		std::vector<std::unordered_set<size_t>> element_basis_a; //track basis functions per-element on coarser levels of refinement
 
 		std::vector<Coef_t> coefs; //best tracked in a problem class and only write here for fileio
 		std::vector<size_t> boundary_dofs;
 
-		std::set<size_t> refine_dof_list;
+		std::unordered_set<size_t> refine_dof_list;
 		
 		DOFMap dof_map;
 
@@ -106,6 +105,9 @@ namespace gv::fem
 		//active/deactivate basis functions
 		void activate(const size_t idx) {
 			assert(idx<this->ndof());
+			assert(element_basis_a.size() == mesh.nElements(false));
+			assert(element_basis_s.size() == mesh.nElements(false));
+
 			if (dofs[idx].active) {return;}
 			dofs[idx].active = true;
 
@@ -113,18 +115,14 @@ namespace gv::fem
 			for (int i=0; i<DOF_t::max_support; ++i) {
 				const size_t el_idx = dofs[idx].support_idx[i];
 				if (el_idx != (size_t) -1) {
+					//element activation is handled outside the dofhandler
+					//populate basis_s and basis_a either way (in case the element is later activated)
+
 					//ensure the support elements have this basis function
 					element_basis_s[el_idx].insert(idx);
 
-					//if the support element is not active, activate it and all ancestor elements
-					const auto& ELEM = mesh.getElement(el_idx);
-					assert(ELEM.active);
-
-					//TODO: implement what to do when we activate an element.
-					//This needs to be done in the mesh, which we only have a const reference to.
-
 					//add this basis function as an ancestor basis function to any descendent elements
-					const std::vector<size_t> descendents;
+					std::vector<size_t> descendents;
 					mesh.getElementDescendents_Unlocked(el_idx, descendents, false);
 					for (size_t descendent : descendents) {
 						element_basis_a[descendent].insert(idx);
@@ -147,20 +145,34 @@ namespace gv::fem
 
 		}
 
+		bool is_refinable(const size_t idx) const {
+			assert(idx<this->ndof());
+			
+			if (!dofs[idx].active) {return false;}
+
+			for (size_t c_idx : dof_children[idx]) {
+				if (c_idx != (size_t) -1) {return false;}
+			}
+
+			return true;
+		}
+
 		//refine basis functions
 		void mark_refine(const size_t idx) {
 			assert(idx<this->ndof());
 
 			//check if this function is refinable
-			if (!dofs[idx].active) {return;}
-
-			const size_t nElem = mesh.nElements(false); //need to work with all elements, not just the active ones
+			if (!is_refinable(idx)) {return;}
 
 			//mark support elements to be split
-			for (int i=0; i<DOF_t::max_support; ++i) {
-				const size_t el_idx = dofs[idx].support_idx[i];
-				if (el_idx < nElem) {
-					//only marks element to be split. The elements must be split outside of this class.
+			for (size_t el_idx : dofs[idx].support_idx) {
+				if (el_idx != (size_t) -1) {
+					#ifndef NDEBUG
+				        const auto& ELEM = mesh.getElement(el_idx);
+				        assert(ELEM.is_active);
+				        assert(ELEM.depth == dofs[idx].depth);
+			        #endif
+
 					mesh.splitElement(el_idx);
 				}
 			}
@@ -174,7 +186,7 @@ namespace gv::fem
 			#pragma omp parallel for
 			for (size_t d_idx=0; d_idx<dofs.size(); ++d_idx) {
 				const auto& DOF = dofs[d_idx];
-				if (!DOF.active) {continue;}
+				if (!is_refinable(d_idx)) {continue;}
 
 				//loop through support elements
 				for (size_t el_idx : DOF.support_idx) {
@@ -193,14 +205,6 @@ namespace gv::fem
 							break;
 						}
 					}
-
-					if (added) {
-						#pragma omp critical
-						{
-							std::cout << "marked element " << el_idx << " for splitting\n";
-						}
-						break;
-					}
 				}
 			}
 		}
@@ -208,44 +212,104 @@ namespace gv::fem
 
 		//process the refinement of the marked dofs
 		//mesh.processSplit() must be called between mark_refine() and process_refine()
-		void process_refine<bool HIERARCHICAL=true>() {
+		template<bool HIERARCHICAL=true>
+		void process_refine() {
 			this->reserve(dofs.size()+MAX_CHILDREN*refine_dof_list.size());
 
+			//ensure basis_s and basis_a have the same length as the total number of elements
+			element_basis_s.resize(mesh.nElements(false));
+			element_basis_a.resize(mesh.nElements(false));
+
 			//add all new DOFs
-			for (size_t d_idx : refine_dof_list) {
-				DOF_t& PARENT = dofs[d_idx];
+			for (size_t parent_idx : refine_dof_list) {
+				DOF_t& PARENT = dofs[parent_idx];
+
+				std::cout << "\nrefining basis function " << parent_idx << " at vertex:\n" << mesh.getVertex(PARENT.global_idx) << std::endl;
 
 				//create children, add to list of dofs, populate relations
-				std::vector<DOF_t> children = PARENT.make_children(mesh);
-				size_t start = dofs.size();
-				size_t end   = start + children.size();
+				auto children = PARENT.make_children(mesh);
 				
-				//move children dofs
-				dofs.insert(
-					dofs.end(),
-					std::make_move_iterator(children.begin()),
-					std::make_move_iterator(children.end())
-				);
+				//determine which children are new (different parents can refine to create the same children)
+				std::array<size_t, MAX_CHILDREN> child_dof_idx;
+				child_dof_idx.fill((size_t) -1);
 
-				//populate relations and activate children
-				size_t i=0;
-				for (size_t new_dof_idx=start; new_dof_idx<end; ++new_dof_idx) {
-					/
-					assert(dof_children[d_idx][i] == (size_t) -1);
-					dof_children[d_idx][i++] = new_dof_idx;
-					dof_parents[new_dof_idx] = d_idx;
+				//add any new dofs to the list and record the index of all child dofs
+				for (size_t c_idx=0; c_idx<MAX_CHILDREN; ++c_idx) {
+					//if this child is not a new dof, then the first support element will have this
+					//child as a dof in basis_s
+					const DOF_t& CHILD = children[c_idx];
 
+					//check if the child was actually created (this should only ever fail on the boundary)
+					if (CHILD.global_idx == (size_t) -1) {continue;}
+					
+					//check if the child previously existed as a DOF
+					size_t existing_dof_idx = (size_t) -1;
+					for (size_t sib_idx : element_basis_s[CHILD.support_idx[0]]) {
+						if (CHILD == dofs[sib_idx]) {
+							existing_dof_idx = sib_idx;
+							break;
+						}
+					}
 
+					//get the index of the child DOF and add to list if needed
+					//note the contents of children[] is invalid
+					if (existing_dof_idx == (size_t) -1) {
+						const size_t new_dof_idx = dofs.size();
+						child_dof_idx[c_idx] = new_dof_idx;
+						dofs.push_back(children[c_idx]);
+						
+						dof_parents.emplace_back();
+						dof_parents[new_dof_idx].fill((size_t) -1);
+						
+						dof_children.emplace_back();
+						dof_children[new_dof_idx].fill((size_t) -1);
 
-
+						coefs.emplace_back(0);
+					} else {
+						child_dof_idx[c_idx] = existing_dof_idx;
+					}
 				}
 
-				//activate children
-				for (size_t)
-				if constexpr (HIERARCHICAL) {
+				//populate relations
+				for (size_t c_idx=0; c_idx<MAX_CHILDREN; ++c_idx) {
+					const size_t child_idx = child_dof_idx[c_idx];
+					if (child_idx == (size_t) -1) {continue;}
 
+					dof_children[parent_idx][c_idx] = child_idx;
+					dof_parents[child_idx][c_idx] = parent_idx;
+
+					//basis_s and basis_a are handled when the basis function is activated
+				}
+
+				//activate functions and update coefficients
+				if constexpr (HIERARCHICAL) {
+					for (size_t c_idx=0; c_idx<MAX_CHILDREN; ++c_idx) {
+						const size_t child_idx = child_dof_idx[c_idx];
+						if (child_idx == (size_t) -1) {continue;}
+
+						const DOF_t& CHILD = dofs[child_idx];
+						activate(child_idx); //always activate to get basis_s populated correctly
+						if (CHILD.global_idx == PARENT.global_idx) {deactivate(child_idx);}
+						
+						coefs[child_idx] = Coef_t{0};
+					}
+				}
+				else {
+					deactivate(parent_idx);
+					for (size_t c_idx=0; c_idx<children.size(); ++c_idx) {
+						const size_t child_idx = child_dof_idx[c_idx];
+						if (child_idx == (size_t) -1) {continue;}
+						
+						const DOF_t& CHILD = dofs[child_idx];
+						activate(child_idx);
+
+						//represent the parent function as a linear combination of the children functions
+						coefs[child_idx] = coefs[parent_idx]*PARENT.get_child_coef(c_idx);
+					}
 				}
 			}
+
+			refine_dof_list.clear();
 		}
 
 
@@ -278,25 +342,25 @@ namespace gv::fem
 
 
 	///dispatch the distribute to the correct type
-	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
-	void CharmsDOFhandler<Mesh_t,DOF_t,Coef_t,MAX_CHILDREN>::distribute()
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, IsCharmsDOF DOF_t, typename Coef_t>
+	void CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>::distribute()
 	{
 		clear();
 
-		if constexpr (std::is_same_v<DOF_t,VoxelQ1>) {distribute_nodal();}
-		else if constexpr (std::is_same_v<DOF_t,HexQ1>) {distribute_nodal();}
+		if constexpr (DOF_t::feature_dim == 0) {distribute_nodal();}
 		else {throw std::logic_error("this DOF_t is not supported yet");}
 	}
 
 
 	///distribute lagrange nodal dofs (it is assumed that the mesh is in a conformal state)
-	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
-	void CharmsDOFhandler<Mesh_t,DOF_t,Coef_t,MAX_CHILDREN>::distribute_nodal()
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, IsCharmsDOF DOF_t, typename Coef_t>
+	void CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>::distribute_nodal()
 	{
 		auto nvert = mesh.nVertices();
 		this->resize(nvert);
+		element_basis_s.resize(mesh.nElements(false));
+		element_basis_a.resize(mesh.nElements(false));
 
-		#pragma omp parallel for
 		for (size_t n=0; n<mesh.nVertices(); ++n) {
 			const auto& VERTEX = mesh.getVertex(n);
 			std::array<size_t,DOF_t::max_support> support;
@@ -307,18 +371,6 @@ namespace gv::fem
 				support[i] = VERTEX.elems[i];
 				const auto& ELEM = mesh.getElement(support[i]);
 
-				//ensure that the mesh and DOF are compatible
-				if constexpr (std::is_same_v<DOF_t,VoxelQ1>) {
-					if (ELEM.vtkID != VOXEL_VTK_ID) {
-						throw std::runtime_error("attempting to distribute VoxelQ1 DOF to a non-voxel element");
-					}
-				}
-				else if constexpr (std::is_same_v<DOF_t,HexQ1>) {
-					if (ELEM.vtkID != HEXAHEDRON_VTK_ID) {
-						throw std::runtime_error("attempting to distribute HexQ1 DOF to a non-hex element");
-					}
-				}
-
 				//get local index within the support element
 				for (size_t m=0; m<ELEM.vertices.size(); ++m) {
 					if (ELEM.vertices[m]==n) {
@@ -327,6 +379,9 @@ namespace gv::fem
 					}
 				}
 				assert(ELEM.vertices[local_idx[i]] == n);
+
+				//add this dof to basis_s of the support elements
+				element_basis_s[support[i]].insert(n);
 			}
 
 			//mark unused support elements if the node was on the boundary
@@ -338,26 +393,24 @@ namespace gv::fem
 			//create the DOF
 			dofs[n] = DOF_t(n, support, local_idx);
 			dofs[n].active = true;
+			dofs[n].depth = 0;
 
 			//populate parent/child relationships with null values
-			dof_parents[n] = (size_t) -1;
-			for (i=0; i<DOF_t::max_support; ++i) {dof_children[n][i] = (size_t) -1;}
+			dof_parents[n].fill((size_t) -1);
+			dof_children[n].fill((size_t) -1);
 
 			//mark DOF as part of the boundary
 			if (VERTEX.boundary_faces.size()>0) {
-				#pragma omp critical
-				{
-					boundary_dofs.push_back(n);
-				}
+				boundary_dofs.push_back(n);
 			}
 		}
 	}
 
 	//create CSR/CSC matrix with the correct sparsity structure
 	//the DOF Map must be current (i.e, no refines/coarsening since the last time the map was computed)
-	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, IsCharmsDOF DOF_t, typename Coef_t>
 	template<int Format, typename T>
-	Eigen::SparseMatrix<T,Format> CharmsDOFhandler<Mesh_t,DOF_t,Coef_t,MAX_CHILDREN>::init_matrix() const {
+	Eigen::SparseMatrix<T,Format> CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>::init_matrix() const {
 		using Triplet = Eigen::Triplet<T>;
 		std::vector<std::vector<Triplet>> color_coo_idx;
 
@@ -439,8 +492,8 @@ namespace gv::fem
 	}
 
 	//print dof info
-	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, typename DOF_t, typename Coef_t, size_t MAX_CHILDREN>
-	std::ostream& operator<<(std::ostream& os, const CharmsDOFhandler<Mesh_t,DOF_t,Coef_t,MAX_CHILDREN>& dofhandler) {
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, IsCharmsDOF DOF_t, typename Coef_t>
+	std::ostream& operator<<(std::ostream& os, const CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>& dofhandler) {
 		os  << "\nCHARMS dofhandler:\n"
 			<< "\tndofs (total)  : " << dofhandler.ndof() << "\n"
 			<< "\tndofs (active) : " << dofhandler.get_dof_map().ndof() << "\n"
