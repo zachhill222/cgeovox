@@ -1,6 +1,5 @@
 #include "gutil.hpp"
-
-#include <format>
+#include <string>
 
 #include "fem/charms_dofhandler.hpp"
 #include "fem/charms_dofs.hpp"
@@ -29,23 +28,23 @@ int main(int argc, char* argv[])
 
 	gv::fem::CharmsDOFhandler<Mesh_t, gv::fem::CharmsVoxelQ1, double> dofhandler(mesh);
 	
+	dofhandler.distribute();
+	dofhandler.make_dof_map();
+	
 	//assign coefficients
 	for (size_t i=0; i<dofhandler.ndof(); ++i) {
 		dofhandler.coef(i) = 1.0;
 	}
 
-	dofhandler.distribute();
-	dofhandler.make_dof_map();
-	
 	//refine elements in the [0,1/2^k]^3 region
 	double high=0.5;
-	for (int k=0; k<6; k++) {
+	for (int k=0; k<2; k++) {
 		Box_t box(Point_t{0,0,0}, Point_t{high,high,high});
 		high*=0.5;
 		dofhandler.mark_refine(box);
 		mesh.processSplit();
-		mesh.save_as(std::format("./outfiles/start_refine_{}.vtk", k), true);
-		dofhandler.process_refine<true>();
+		// mesh.save_as(std::string("./outfiles/start_refine_")+std::to_string(k)+std::string(".vtk"), true);
+		dofhandler.process_refine<false>();
 	}
 
 	dofhandler.make_dof_map();
@@ -53,7 +52,7 @@ int main(int argc, char* argv[])
 	std::cout << dofhandler << std::endl;
 	std::cout << mesh << std::endl;
 	// gv::mesh::memorySummary(mesh);
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	dofhandler.save_as("./outfiles/topological_mesh.vtk", 1, true);
 
 	return 0;
 }

@@ -156,12 +156,12 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Read elements and vertices externally
 		/////////////////////////////////////////////////
-		const Vertex_t&     getVertex(const size_t idx)       const {return _vertices[idx];}
-		const Element_t&    getElement(const size_t idx)      const {return _elements[idx];}
-		const Face_t&       getBoundaryFace(const size_t idx) const {return _boundary[idx];}
-		const DomainBox_t   bbox()                            const {return _vertices.bbox();}
-		const VertexList_t& getNodeOctree()                   const {return _vertices;}
-		const size_t        closestVertex(const Point_t& point)     {return _vertices.find_closest(point);}
+		const Vertex_t&     getVertex(const size_t idx)         const {return _vertices[idx];}
+		const Element_t&    getElement(const size_t idx)        const {return _elements[idx];}
+		const Face_t&       getBoundaryFace(const size_t idx)   const {return _boundary[idx];}
+		const DomainBox_t   bbox()                              const {return _vertices.bbox();}
+		const VertexList_t& getNodeOctree()                     const {return _vertices;}
+		const size_t        closestVertex(const Point_t& point) const {return _vertices.find_closest(point);}
 		const 
 
 		/////////////////////////////////////////////////

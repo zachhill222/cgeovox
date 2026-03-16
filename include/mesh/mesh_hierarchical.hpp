@@ -125,6 +125,7 @@ namespace gv::mesh {
 		/// @param activeOnly Optionally, the user can get all descendents (rather then just the leaf descendents).
 		/////////////////////////////////////////////////
 		void getElementDescendents_Unlocked(const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly=true) const;
+		void getElementAncestors_Unlocked(const size_t elem_idx, std::vector<size_t> &ancestors, const bool activeOnly=false) const;
 
 		/////////////////////////////////////////////////
 		/// A method to get the descendent elements of the specified boundary face.
@@ -281,6 +282,19 @@ namespace gv::mesh {
 
 			//recurse if needed
 			if (!CHILD.children.empty()) {getElementDescendents_Unlocked(c_idx, descendents, activeOnly);}
+		}
+	}
+
+	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::getElementAncestors_Unlocked(
+		const size_t elem_idx, std::vector<size_t> &ancestors, const bool activeOnly) const 
+	{	
+		const Element_t &ELEM = this->_elements[elem_idx];
+		//recurse through the parent
+		if (ELEM.parent != (size_t) -1) {
+			if (!activeOnly or this->_elements[ELEM.parent].is_active) {
+				ancestors.push_back(ELEM.parent);
+				getElementAncestors_Unlocked(ELEM.parent, ancestors, activeOnly);
+			}
 		}
 	}
 

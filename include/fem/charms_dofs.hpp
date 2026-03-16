@@ -121,7 +121,6 @@ namespace gv::fem
 
 			//make sure that we have the correct number of vertices
 			#ifndef NDEBUG
-				std::cout << CENTER_V << std::endl;
 				if (CENTER_V.onBoundary()) {assert(vertex_idx.size()<27);}
 				else {assert(vertex_idx.size()==27);}
 			#endif

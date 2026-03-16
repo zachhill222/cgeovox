@@ -4,6 +4,7 @@
 #include "mesh/mesh_basic.hpp"
 #include "mesh/mesh_util.hpp"
 #include "mesh/vtk_defs.hpp"
+#include "mesh/vtk_elements.hpp"
 
 #include "gutil.hpp"
 
@@ -97,10 +98,11 @@ namespace gv::fem
 		void distribute();
 
 		//interpolate the coefs to evaluate the field at the given point
-		// Coef_t interpolate(const )
+		template<typename CoefContainer_t=std::vector<Coef_t>>
+		Coef_t interpolate(const typename Mesh_t::Point_t& coord, const CoefContainer_t& container) const;
 
 		//save the mesh and nodal evaluations to a file
-		void save_as(const std::string filename, const bool use_ascii=false) const;
+		void save_as(const std::string filename, const int coef_dim=1, const bool use_ascii=false) const;
 
 		//active/deactivate basis functions
 		void activate(const size_t idx) {
@@ -224,7 +226,18 @@ namespace gv::fem
 			for (size_t parent_idx : refine_dof_list) {
 				DOF_t& PARENT = dofs[parent_idx];
 
-				std::cout << "\nrefining basis function " << parent_idx << " at vertex:\n" << mesh.getVertex(PARENT.global_idx) << std::endl;
+				//update basis_a for the newly created elements
+				for (size_t e_idx : PARENT.support_idx) {
+					if (e_idx == (size_t) -1) {continue;}
+					const auto& ELEM = mesh.getElement(e_idx);
+					assert(ELEM.children.size() > 0);
+
+					for (size_t c_idx : ELEM.children) {
+						element_basis_a[c_idx].insert(element_basis_s[parent_idx].begin(), element_basis_s[parent_idx].end());
+						element_basis_a[c_idx].insert(element_basis_a[parent_idx].begin(), element_basis_a[parent_idx].end());
+					}
+				}
+
 
 				//create children, add to list of dofs, populate relations
 				auto children = PARENT.make_children(mesh);
@@ -337,7 +350,6 @@ namespace gv::fem
 		//RowMajor format is better for settng boundary conditions, but ColMajor might be better for Eigen routines
 		template<int Format=Eigen::RowMajor, typename T=double>
 		Eigen::SparseMatrix<T,Format> init_matrix() const;
-
 	};
 
 
@@ -405,6 +417,163 @@ namespace gv::fem
 			}
 		}
 	}
+
+
+	//interpolate the coefs
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, IsCharmsDOF DOF_t, typename Coef_t>
+	template<typename CoefContainer_t>
+	Coef_t CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>::interpolate(const typename Mesh_t::Point_t& coord, const CoefContainer_t& container) const {
+		//get closest vertex in the mesh
+		const size_t vtx_idx = mesh.closestVertex(coord);
+		const auto& VERTEX = mesh.getVertex(vtx_idx);
+
+		//determine if the container provided compressid (active only) coefficents or all coefficients
+		bool all_dofs = container.size() == dofs.size();
+		if (!all_dofs) {assert(container.size() == dof_map.ndof());}
+
+		//collect all ancestor elements of contain this coordinate.
+		//this can be done by getting the ancestors of each of the active elements this coordinate belongs to
+		//(the coordinate may be on the boundary between two active elements that have different parents)
+		std::vector<size_t> support_elements;
+		for (size_t	e_idx : VERTEX.elems) {
+			const auto& ELEM = mesh.getElement(e_idx);
+			if (!ELEM.is_active) {continue;}
+
+			//construct vtk_element to check for containment
+			auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t>(ELEM);
+			std::vector<typename Mesh_t::Point_t> elem_vertices;
+			elem_vertices.reserve(ELEM.vertices.size());
+			for (size_t v_idx : ELEM.vertices) {elem_vertices.push_back(mesh.getVertex(v_idx).coord);}
+
+			if (vtk_elem->contains(elem_vertices, coord)) {
+				mesh.getElementAncestors_Unlocked(e_idx, support_elements, false);
+			}
+
+			delete vtk_elem;
+		}
+
+		//ensure we only look at each element once
+		std::sort(support_elements.begin(), support_elements.end());
+		auto last = std::unique(support_elements.begin(), support_elements.end());
+		support_elements.erase(last, support_elements.end());
+
+
+
+
+
+		//loop through elements that may contain the coordinate
+		//TODO: improve the mesh elements
+		Coef_t result{0};
+
+
+
+		for (size_t e_idx : VERTEX.elems) {
+			const auto& ELEM = mesh.getElement(e_idx);
+			
+			auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t>(ELEM);
+			std::vector<typename Mesh_t::Point_t> elem_vertices;
+			elem_vertices.reserve(ELEM.vertices.size());
+			for (size_t v_idx : ELEM.vertices) {elem_vertices.push_back(mesh.getVertex(v_idx).coord);}
+
+			if (vtk_elem->contains(elem_vertices, coord)) {
+				//get reference coordinate
+				const auto ref_coord = static_cast<typename DOF_t::RefPoint_t>(vtk_elem->geometric_to_reference(elem_vertices, coord));
+				
+				std::cout << "\nQuerry point: " << coord << " reference point: " << ref_coord << " (element " << e_idx << ")\n";
+
+				//add active basis_s
+				for (size_t d_idx : element_basis_s[e_idx]) {
+					if (computed_basis.contains(d_idx)) {continue;}
+
+					if (dofs[d_idx].active) {
+						const DOF_t& DOF   = dofs[d_idx];
+						const Coef_t& COEF = all_dofs ? container[d_idx] : container[dof_map.global2compressed[d_idx]];
+
+						//get the support index for this element in this basis function
+						int i;
+						bool found=false;
+						for (i=0; i<DOF.support_idx.size(); i++) {
+							if (DOF.support_idx[i] == e_idx) {
+								found=true;
+								break;
+							}
+						}
+						
+						//increment the result
+						if (found) {
+							assert(DOF.support_idx[i]==e_idx);
+							std::cout << "basis_s: " << d_idx << " (val= " << DOF.eval(ref_coord,i) << " coef= " << COEF << ")\n";
+							computed_basis.insert(d_idx);
+							result += COEF * DOF.eval(ref_coord, i);
+						}
+					}
+				}
+
+				//add active basis_a
+				for (size_t d_idx : element_basis_a[e_idx]) {
+					if (dofs[d_idx].active) {
+						const DOF_t& DOF   = dofs[d_idx];
+						const Coef_t& COEF = all_dofs ? container[d_idx] : container[dof_map.global2compressed[d_idx]];
+
+						//get the support index for this element in this basis function
+						int i;
+						bool found=false;
+						for (i=0; i<DOF.support_idx.size(); i++) {
+							if (DOF.support_idx[i] == e_idx) {
+								found=true;
+								break;
+							}
+						}
+
+						//increment the result
+						if (found) {
+							assert(DOF.support_idx[i]==e_idx);
+							std::cout << "basis_a: " << d_idx << " (val= " << DOF.eval(ref_coord,i) << " coef= " << COEF << ")\n";
+							computed_basis.insert(d_idx);
+							result += COEF * DOF.eval(ref_coord, i);
+						}
+						
+					}
+				}
+			}
+
+			//clean memory
+			delete vtk_elem;
+		}
+
+		return result;
+	}
+
+
+	//save the mesh and solution
+	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, IsCharmsDOF DOF_t, typename Coef_t>
+	void CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>::save_as(const std::string filename, const int coef_dim, const bool use_ascii) const {
+		//save the mesh topology
+		mesh.save_as(filename, false, use_ascii);
+
+		//re-open the file in append mode
+		std::ofstream file(filename, std::ios::app);
+		if (not file.is_open()){
+			throw std::runtime_error("Couldn't open " + filename + " in append mode");
+			return;
+		}
+
+		//write the value of the field at the mesh vertices
+		std::stringstream buffer;
+		const size_t nVertices = mesh.nVertices();
+		buffer << "POINT_DATA " << nVertices << "\n"
+		       << "FIELD field 1 \n";
+
+		buffer << "values " << coef_dim << " " << nVertices << " float\n";
+		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
+			buffer << this->interpolate(it->coord, this->coefs) << " ";
+		}
+		buffer << "\n\n";
+		file   << buffer.rdbuf();
+		buffer.str("");
+	}
+
+
 
 	//create CSR/CSC matrix with the correct sparsity structure
 	//the DOF Map must be current (i.e, no refines/coarsening since the last time the map was computed)
@@ -490,6 +659,10 @@ namespace gv::fem
 		mat.setFromTriplets(all_coo_idx.begin(), all_coo_idx.end());
 		return mat;
 	}
+
+
+
+
 
 	//print dof info
 	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, IsCharmsDOF DOF_t, typename Coef_t>
