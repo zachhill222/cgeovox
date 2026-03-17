@@ -440,7 +440,7 @@ namespace gv::fem
 			if (!ELEM.is_active) {continue;}
 
 			//construct vtk_element to check for containment
-			auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t>(ELEM);
+			auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t, double>(ELEM);
 			std::vector<typename Mesh_t::Point_t> elem_vertices;
 			elem_vertices.reserve(ELEM.vertices.size());
 			for (size_t v_idx : ELEM.vertices) {elem_vertices.push_back(mesh.getVertex(v_idx).coord);}
