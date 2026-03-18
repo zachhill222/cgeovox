@@ -78,7 +78,7 @@ namespace gv::mesh
 		BasicElement(const BasicElement& other) : vertices(other.vertices), vtkID(other.vtkID), index(other.index) {}
 		BasicElement(const int vtkID) : vertices(vtk_n_vertices(vtkID)), vtkID(vtkID) {}
 		BasicElement(const std::vector<size_t> &vertices, const int vtkID) : vertices(vertices), vtkID(vtkID) {
-			assert(vertices.size()==vtk_n_vertices(vtkID));
+			assert(vertices.size()== (size_t) vtk_n_vertices(vtkID));
 		}
 	};
 	static_assert(BasicMeshElement<BasicElement>, "BasicElement is not a BasicMeshElement");
@@ -252,6 +252,11 @@ namespace gv::mesh
 		{ vertex.boundary_faces  } -> std::convertible_to<std::vector<size_t>>;
 	};
 
+	template<typename T>
+	concept HierarchicalMeshVertex = BasicMeshVertex<T> and requires(T vertex) {
+		{ vertex.all_elements } -> std::convertible_to<std::vector<size_t>>;
+	};
+
 
 	/////////////////////////////////////////////////
 	/// A container for tracking the node information.
@@ -259,7 +264,7 @@ namespace gv::mesh
 	/// If the mesh has more than one element type, should be the maximum number of vertices required to define any of the used element types.
 	/// This allows the vertices to be stored in a contiguous array as they all will require the same amount of memory. For a hexahedral mesh,=8.
 	/////////////////////////////////////////////////
-	template <gutil::pointlike Point_type>
+	template <gutil::pointlike Point_type = gutil::Point<3,gutil::FixedPoint<int64_t,0>>>
 	struct BasicVertex {
 		using Point_t  = Point_type;
 		using Scalar_t = typename Point_t::scalar_type;
@@ -277,6 +282,17 @@ namespace gv::mesh
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<2,double>>>, "BasicVertex<Point<2,double>> is not a BasicMeshVertex");
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<3,float>>>,  "BasicVertex<Point<3,float>> is not a BasicMeshVertex");
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<2,float>>>,  "BasicVertex<Point<2,float>> is not a BasicMeshVertex");
+
+	template <gutil::pointlike Point_type= gutil::Point<3,gutil::FixedPoint<int64_t,0>>>
+	struct HierarchicalVertex : public BasicVertex<Point_type> {
+		using BasicVertex<Point_type>::BasicVertex; //use parent constructors
+		std::vector<size_t> all_elements; //when an element that this vertex is a vertex of is refined, track the relevant children here
+	};
+	static_assert(HierarchicalMeshVertex<HierarchicalVertex<gutil::Point<3,double>>>, "HierarchicalVertex<Point<3,double>> is not a HierarchicalMeshVertex");
+	static_assert(HierarchicalMeshVertex<HierarchicalVertex<gutil::Point<2,double>>>, "HierarchicalVertex<Point<2,double>> is not a HierarchicalMeshVertex");
+	static_assert(HierarchicalMeshVertex<HierarchicalVertex<gutil::Point<3,float>>>,  "HierarchicalVertex<Point<3,float>> is not a HierarchicalMeshVertex");
+	static_assert(HierarchicalMeshVertex<HierarchicalVertex<gutil::Point<2,float>>>,  "HierarchicalVertex<Point<2,float>> is not a HierarchicalMeshVertex");
+
 
 	template<BasicMeshVertex Vertex_t>
 	bool operator==(const Vertex_t& left, const Vertex_t& right) {

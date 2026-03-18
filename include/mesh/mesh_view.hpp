@@ -10,12 +10,11 @@ namespace gv::mesh {
 	/// @tparam Mesh_t The type of mesh that a view is being created for.
 	/////////////////////////////////////////////////
 	template<
-			int              space_dim,
 			int              ref_dim,
-			Scalar           Scalar_t,
-			BasicMeshElement ElementStruct_t = BasicElement
+			BasicMeshElement ElementStruct_t = BasicElement,
+			BasicMeshVertex  VertexStruct_t  = BasicVertex<>
 			>
-	class MeshView : public BasicMesh<space_dim,ref_dim,Scalar_t,ElementStruct_t> {
+	class MeshView : public BasicMesh<ref_dim,ElementStruct_t,VertexStruct_t> {
 		/////////////////////////////////////////////////
 		/// Friend functions to print the mesh information
 		/////////////////////////////////////////////////
@@ -26,7 +25,7 @@ namespace gv::mesh {
 
 	public:
 		///aliases to satisfy BasicMeshType concept
-		using Mesh_t = BasicMesh<space_dim,ref_dim,Scalar_t,ElementStruct_t>;
+		using Mesh_t = BasicMesh<ref_dim,ElementStruct_t,VertexStruct_t>;
 		
 		//aliases
 		using typename Mesh_t::Index_t;
@@ -87,11 +86,11 @@ namespace gv::mesh {
 		/// Marked as virtual so they can be pointed at other arrays for views into the mesh. (i.e., the MeshView class).
 		/////////////////////////////////////////////////
 		ElementIterator_t begin() const override {
-			return ElementIterator_t(const_cast<MeshView<space_dim,ref_dim,Scalar_t,Element_t>*>(this),
+			return ElementIterator_t(const_cast<MeshView<ref_dim,Element_t,Vertex_t>*>(this),
 				const_cast<std::vector<Element_t>*>(&_parent._elements), 0);
 		}
 		ElementIterator_t end()   const override {
-			return ElementIterator_t(const_cast<MeshView<space_dim,ref_dim,Scalar_t,Element_t>*>(this),
+			return ElementIterator_t(const_cast<MeshView<ref_dim,Element_t,Vertex_t>*>(this),
 				const_cast<std::vector<Element_t>*>(&_parent._elements), _parent._elements.size());
 		}
 
@@ -100,11 +99,11 @@ namespace gv::mesh {
 		/// Iterators for _boundary
 		/////////////////////////////////////////////////
 		BoundaryIterator_t boundaryBegin() const override {
-			return BoundaryIterator_t(const_cast<MeshView<space_dim,ref_dim,Scalar_t,Element_t>*>(this),
+			return BoundaryIterator_t(const_cast<MeshView<ref_dim,Element_t,Vertex_t>*>(this),
 				const_cast<std::vector<Face_t>*>(&_parent._boundary), 0);
 		}
 		BoundaryIterator_t boundaryEnd()   const override {
-			return BoundaryIterator_t(const_cast<MeshView<space_dim,ref_dim,Scalar_t,Element_t>*>(this),
+			return BoundaryIterator_t(const_cast<MeshView<ref_dim,Element_t,Vertex_t>*>(this),
 				const_cast<std::vector<Face_t>*>(&_parent._boundary), _parent._boundary.size());
 		}
 
@@ -120,6 +119,6 @@ namespace gv::mesh {
 		}
 	};
 
-	static_assert(BasicMeshType< MeshView<3,3,double,BasicElement >>,
+	static_assert(BasicMeshType<MeshView<3>>,
 		"MeshView is not a BasicMeshType with default template parameters.");
 }

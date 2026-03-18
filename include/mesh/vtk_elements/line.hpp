@@ -1,8 +1,5 @@
 #pragma once
 
-// #include "util/point.hpp"
-// #include "util/box.hpp"
-// #include "util/matrix.hpp"
 #include "gutil.hpp"
 
 #include "mesh/mesh_util.hpp"

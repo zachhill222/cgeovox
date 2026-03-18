@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include <string_view>
 
 //element types/ids
 #define VERTEX_VTK_ID 1
@@ -16,7 +16,7 @@
 
 namespace gv::mesh {
 
-	std::string vtk_id_to_string(const int vtkID) {
+	constexpr std::string_view vtk_id_to_string(const int vtkID) {
 		switch (vtkID) {
 			case VERTEX_VTK_ID: 				 return "VERTEX";
 			case LINE_VTK_ID: 					 return "LINE";
@@ -33,7 +33,7 @@ namespace gv::mesh {
 	
 
 	/// Helper function to pair vtkID to number of vertices
-	constexpr size_t vtk_n_vertices(const int vtkID) {
+	constexpr int vtk_n_vertices(const int vtkID) {
 		switch (vtkID) {
 			case VERTEX_VTK_ID: 				 return 1;
 			case LINE_VTK_ID: 					 return 2;
@@ -105,7 +105,7 @@ namespace gv::mesh {
 	}
 
 	/// Helper function get the number of children
-	constexpr size_t vtk_n_children(const int vtkID) {
+	constexpr int vtk_n_children(const int vtkID) {
 		switch (vtkID) {
 			case VERTEX_VTK_ID: assert(false);   return 0;
 			case LINE_VTK_ID: 					 return 2;

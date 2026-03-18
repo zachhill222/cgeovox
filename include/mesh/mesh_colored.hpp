@@ -28,51 +28,51 @@ namespace gv::mesh
 	/// @tparam MAX_COLORS       The maximum number of colors that the mesh can have. Colors are stored in an std::array<std::atomic<size_t>> structure that is not resized.
 	/////////////////////////////////////////////////
 	template<
-			int              space_dim,
 			int              ref_dim,
-			Scalar           Scalar_t,
 			BasicMeshElement ElementStruct_t = BasicElement,
+			BasicMeshVertex  VertexStruct_t  = BasicVertex<>,
 			ColorMethod      COLOR_METHOD    = ColorMethod::BALANCED,
 			size_t           MAX_COLORS      = 64
 			>
-	class ColoredMesh : public BasicMesh<space_dim,ref_dim,Scalar_t,ElementStruct_t>
+	class ColoredMesh : public BasicMesh<ref_dim,ElementStruct_t,VertexStruct_t>
 	{
-		using BaseClass = BasicMesh<space_dim,ref_dim,Scalar_t,ElementStruct_t>;
+		using BASE = BasicMesh<ref_dim,ElementStruct_t,VertexStruct_t>;
 	public:
 		//aliases
-		using typename BaseClass::Index_t;
-		using typename BaseClass::DomainBox_t;
-		using typename BaseClass::RefBox_t;
-		using typename BaseClass::Point_t;
-		using typename BaseClass::RefPoint_t;
-		using typename BaseClass::Vertex_t;
-		using typename BaseClass::VertexList_t;
-		using typename BaseClass::ElementIterator_t;
-		using typename BaseClass::BoundaryIterator_t;
+		using typename BASE::Index_t;
+		using typename BASE::DomainBox_t;
+		using typename BASE::RefBox_t;
+		using typename BASE::Point_t;
+		using typename BASE::RefPoint_t;
+		using typename BASE::Vertex_t;
+		using typename BASE::VertexList_t;
+		using typename BASE::ElementIterator_t;
+		using typename BASE::BoundaryIterator_t;
 
 		//elements and faces have the same storage struct type, but it's nice to see the distinction in the code
-		using typename BaseClass::Element_t;
-		using typename BaseClass::Face_t;
+		using typename BASE::Element_t;
+		using typename BASE::Face_t;
+		using typename BASE::Mesh_t;
 
 	protected:	
 		MeshColorManager<COLOR_METHOD, Element_t, MAX_COLORS> _color_manager;   //used to manage the color of the elements
 
 	public:
 		ColoredMesh() : 
-			BaseClass(),
+			BASE(),
 			_color_manager(this->_elements) {}
 
 		ColoredMesh(const DomainBox_t &domain) : 
-			BaseClass(domain),
+			BASE(domain),
 			_color_manager(this->_elements) {}
 
-		ColoredMesh(const RefBox_t &domain) requires (ref_dim<space_dim) : 
-			BaseClass(domain),
+		ColoredMesh(const RefBox_t &domain) requires(ref_dim<BASE::SPACE_DIM) : 
+			BASE(domain),
 			_color_manager(this->_elements) {}
 		
-		ColoredMesh(const RefBox_t &domain, const Index_t &N, const bool useIsopar=false) : BaseClass(domain), _color_manager(this->_elements) {
-			if constexpr (ref_dim==3) {this->setVoxelMesh_Locked(domain, N, useIsopar);}
-			else if constexpr (ref_dim==2) {this->setPixelMesh_Locked(domain, N, useIsopar);}
+		ColoredMesh(const RefBox_t &domain, const Index_t &N, const bool useIsopar=false) : BASE(domain), _color_manager(this->_elements) {
+			if constexpr (BASE::REF_DIM==3) {this->setVoxelMesh_Locked(domain, N, useIsopar);}
+			else if constexpr (BASE::REF_DIM==2) {this->setPixelMesh_Locked(domain, N, useIsopar);}
 			else {throw std::runtime_error("ColoredMesh: can't mesh domain");}
 		}
 
@@ -86,7 +86,7 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		void insertElement_Locked(Element_t &ELEM) override {
 			const size_t elem_idx = this->_elements.size();
-			BaseClass::insertElement_Locked(ELEM);
+			BASE::insertElement_Locked(ELEM);
 			color_Locked(elem_idx);
 		}
 
@@ -108,7 +108,7 @@ namespace gv::mesh
 		/// @param elem_idx The inded where the element is to be inserted.
 		/////////////////////////////////////////////////
 		void insertElement_Unlocked(Element_t &ELEM, const size_t elem_idx) override {
-			BaseClass::insertElement_Unlocked(ELEM, elem_idx);
+			BASE::insertElement_Unlocked(ELEM, elem_idx);
 			color_Unlocked(elem_idx);
 		}
 
@@ -158,14 +158,14 @@ namespace gv::mesh
 
 
 		/// Friend function to print the mesh information
-		template<int space_dim_u, int ref_dim_u, Scalar Scalar_u, ColorableMeshElement Element_u, ColorMethod COLORMETHOD>
-		friend std::ostream& operator<<(std::ostream& os, const ColoredMesh<space_dim_u,ref_dim_u,Scalar_u,Element_u,COLORMETHOD> &mesh);
+		template<int ref_dim_u, ColorableMeshElement Element_u, BasicMeshVertex Vertex_u, ColorMethod COLORMETHOD>
+		friend std::ostream& operator<<(std::ostream& os, const ColoredMesh<ref_dim_u,Element_u,Vertex_u,COLORMETHOD> &mesh);
 	};
 
 
-	template<int space_dim, int ref_dim, Scalar Scalar_t, ColorableMeshElement Element_t, ColorMethod COLOR_METHOD>
-	std::ostream& operator<<(std::ostream& os, const ColoredMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD> &mesh) {
-		const BasicMesh<space_dim,ref_dim,Scalar_t,Element_t> &base_mesh = mesh;
+	template<int ref_dim, ColorableMeshElement Element_t, BasicMeshVertex Vertex_t, ColorMethod COLOR_METHOD>
+	std::ostream& operator<<(std::ostream& os, const ColoredMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD> &mesh) {
+		const BasicMesh<ref_dim,Element_t,Vertex_t> &base_mesh = mesh;
 		os << base_mesh;
 		os << mesh._color_manager;
 		return os;

@@ -10,7 +10,7 @@
 namespace gv::mesh {
 	
 	// Forward declaration
-	template<int space_dim, int ref_dim, Scalar Scalar_t, BasicMeshElement Element_t>
+	template<int ref_dim, BasicMeshElement Element_t, BasicMeshVertex Vertex_t>
 	class BasicMesh;
 
 	/////////////////////////////////////////////////

@@ -32,16 +32,15 @@ namespace gv::mesh {
 	/// @tparam MAX_COLORS       The maximum number of colors that the mesh can have. Colors are stored in an std::array<std::atomic<size_t>> structure that is not resized.
 	/////////////////////////////////////////////////
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement ElementStruct_t = HierarchicalColoredElement,
+			HierarchicalMeshVertex           VertexStruct_t  = HierarchicalVertex<>,
 			ColorMethod                      COLOR_METHOD    = ColorMethod::GREEDY,
 			size_t                           MAX_COLORS      = 64
 			>
-	class HierarchicalMesh : public ColoredMesh<space_dim,ref_dim,Scalar_t,ElementStruct_t,COLOR_METHOD,MAX_COLORS> {
+	class HierarchicalMesh : public ColoredMesh<ref_dim,ElementStruct_t,VertexStruct_t,COLOR_METHOD,MAX_COLORS> {
 	private:
-		using BaseClass = ColoredMesh<space_dim,ref_dim,Scalar_t,ElementStruct_t,COLOR_METHOD,MAX_COLORS>;
+		using BASE = ColoredMesh<ref_dim,ElementStruct_t,VertexStruct_t,COLOR_METHOD,MAX_COLORS>;
 		
 		mutable std::shared_mutex   _el_split_rw_mtx;   //mutex to lock _elements_to_split
 
@@ -51,30 +50,30 @@ namespace gv::mesh {
 
 	public:
 		//aliases
-		using typename BaseClass::Index_t;
-		using typename BaseClass::DomainBox_t;
-		using typename BaseClass::RefBox_t;
-		using typename BaseClass::RefPoint_t;
-		using typename BaseClass::Point_t;
-		using typename BaseClass::Vertex_t;
-		using typename BaseClass::VertexList_t;
-		using typename BaseClass::ElementIterator_t;
-		using typename BaseClass::BoundaryIterator_t;
+		using typename BASE::Index_t;
+		using typename BASE::DomainBox_t;
+		using typename BASE::RefBox_t;
+		using typename BASE::RefPoint_t;
+		using typename BASE::Point_t;
+		using typename BASE::Vertex_t;
+		using typename BASE::VertexList_t;
+		using typename BASE::ElementIterator_t;
+		using typename BASE::BoundaryIterator_t;
 
 		//elements and faces have the same storage struct type, but it's nice to see the distinction in the code
-		using typename BaseClass::Element_t;
-		using typename BaseClass::Face_t;
-
+		using typename BASE::Element_t;
+		using typename BASE::Face_t;
+		using typename BASE::Mesh_t;
 
 		/////////////////////////////////////////////////
-		/// Pass constructors to BaseClass
+		/// Pass constructors to BASE
 		/////////////////////////////////////////////////
-		HierarchicalMesh() : BaseClass() {}
-		HierarchicalMesh(const DomainBox_t &domain) :  BaseClass(domain) {}
+		HierarchicalMesh() : BASE() {}
+		HierarchicalMesh(const DomainBox_t &domain) :  BASE(domain) {}
 
-		HierarchicalMesh(const RefBox_t &domain) requires (ref_dim<space_dim) : BaseClass(domain) {}
+		HierarchicalMesh(const RefBox_t &domain) requires(ref_dim<BASE::SPACE_DIM) : BASE(domain) {}
 		
-		HierarchicalMesh(const RefBox_t &domain, const Index_t &N, const bool useIsopar=false) : BaseClass(domain, N, useIsopar) {}
+		HierarchicalMesh(const RefBox_t &domain, const Index_t &N, const bool useIsopar=false) : BASE(domain, N, useIsopar) {}
 
 
 		/////////////////////////////////////////////////
@@ -106,6 +105,13 @@ namespace gv::mesh {
 			return nFaces;
 		}
 
+
+		/////////////////////////////////////////////////
+		/// Get a list of all elements that contain a vertex.
+		/// This will return indices of elements that contain the 
+		/// vertex as a hanging node.
+		/////////////////////////////////////////////////
+		std::vector<size_t> vertexInElements(const size_t vertex_index) const;
 
 		/////////////////////////////////////////////////
 		/// Process the elements in the refinement list
@@ -179,12 +185,13 @@ namespace gv::mesh {
 
 
 		/// Friend function to print the mesh information
-		template<int space_dim_u, int ref_dim_u,
-			 Scalar                           Scalar_u,
-			 HierarchicalColorableMeshElement Element_u,
-			 ColorMethod                      color_method,
-			 size_t                           max_colors>
-		friend std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<space_dim_u,ref_dim_u,Scalar_u,Element_u,color_method,max_colors> &mesh);
+		template<
+			int ref_dim_u,
+			HierarchicalColorableMeshElement Element_u,
+			HierarchicalMeshVertex           Vertex_u,
+			ColorMethod                      color_method,
+			size_t                           max_colors>
+		friend std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<ref_dim_u,Element_u,Vertex_u,color_method,max_colors> &mesh);
 
 	private:
 		/////////////////////////////////////////////////
@@ -226,50 +233,54 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		template<BasicMeshElement Element_u>
 		std::vector<size_t> generateNodesForSplit(const Element_u &ELEM) {
-			auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
+			// auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
+			auto vtk_elem = VTK_ELEMENT_POLY<Mesh_t>(ELEM.vtkID);
 
 			//initialize storage for the values that will be needed to create the children elements
-			std::vector<Point_t> child_vertex_coords;
-			std::vector<size_t>   split_node_numbers(vtk_n_vertices_when_split(ELEM.vtkID));
-			
+			// std::vector<Point_t> child_vertex_coords;
+			// std::vector<size_t>  split_node_numbers(vtk_n_vertices_when_split(ELEM.vtkID));
+			vtk_elem.set_element(*this, ELEM.index);
+			vtk_elem.set_child_vertices();
+			std::vector<size_t> split_node_numbers(vtk_elem.n_vert_on_split());
+
 			//handle parent vertices/vertices that will be re-used
-			size_t j;
-			for (j=0; j<ELEM.vertices.size(); j++) {
-				child_vertex_coords.push_back(this->_vertices[ELEM.vertices[j]].coord);
+			int j;
+			for (j=0; j<vtk_elem.n_vertices(); j++) {
+				// child_vertex_coords.push_back(this->_vertices[ELEM.vertices[j]].coord);
 				split_node_numbers[j] = ELEM.vertices[j];
 			}
 
-			//get the verticices of the remaining vertices that the children will need
-			vtk_elem->split(child_vertex_coords);
+			//get the coordinates of the remaining vertices that the children will need
+			// vtk_elem->split(child_vertex_coords);
 
 			//add any new vertices
-			std::vector<size_t> local_node;
-			for (;j<child_vertex_coords.size(); j++) {
-				Vertex_t VERTEX(child_vertex_coords[j]);
+			// std::vector<size_t> local_node;
+			for (;j<vtk_elem.n_vert_on_split(); j++) {
+				//create new vertex and attempt to add it to the list (or get the index of the existing vertex)
+				Vertex_t VERTEX(vtk_elem.child_vertex_coords(j));
 				// size_t n_idx = this->_vertices.push_back_async(std::move(VERTEX), std::move(child_vertex_coords[j]));
 				size_t n_idx = this->_vertices.push_back_async(std::move(VERTEX));
 				this->_vertices[n_idx].index = n_idx;
 				split_node_numbers[j] = n_idx;
 			}
 
-			delete vtk_elem;
+			// delete vtk_elem;
 			return split_node_numbers;
 		}
 	};
 
-	static_assert(HierarchicalMeshType<HierarchicalMesh<3,3,double>>);
-	static_assert(HierarchicalMeshType<HierarchicalMesh<3,2,double>>);
+	static_assert(HierarchicalMeshType<HierarchicalMesh<3>>);
+	static_assert(HierarchicalMeshType<HierarchicalMesh<2>>);
 	
 
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::getElementDescendents_Unlocked(
+	void HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::getElementDescendents_Unlocked(
 		const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly) const 
 	{	
 		const Element_t &ELEM = this->_elements[elem_idx];
@@ -285,7 +296,14 @@ namespace gv::mesh {
 		}
 	}
 
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::getElementAncestors_Unlocked(
+	template<
+			int                              ref_dim,
+			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
+			ColorMethod                      COLOR_METHOD,
+			size_t                           MAX_COLORS
+			>
+	void HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::getElementAncestors_Unlocked(
 		const size_t elem_idx, std::vector<size_t> &ancestors, const bool activeOnly) const 
 	{	
 		const Element_t &ELEM = this->_elements[elem_idx];
@@ -300,14 +318,13 @@ namespace gv::mesh {
 
 
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::getBoundaryFaceDescendents_Unlocked(
+	void HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::getBoundaryFaceDescendents_Unlocked(
 		const size_t elem_idx, std::vector<size_t> &descendents, const bool activeOnly) const 
 	{	
 		const Face_t &ELEM = this->_boundary[elem_idx];
@@ -324,14 +341,13 @@ namespace gv::mesh {
 	}
 
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::joinDescendents(const size_t elem_idx) {
+	void HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::joinDescendents(const size_t elem_idx) {
 		//get the active descendents of the element
 		std::vector<size_t> descendents;
 		getElementDescendents_Unlocked(elem_idx, descendents, false);
@@ -380,14 +396,13 @@ namespace gv::mesh {
 
 
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::splitElement(const size_t elem_idx) const {
+	void HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::splitElement(const size_t elem_idx) const {
 		//any changes to _elements[elem_idx] are not protected by a unique mutex lock
 		//calling splitElement(k) for the same value of k in different threads will lead to undefined behavior
 		//calling splitElement(k) for different values of k in defferent threads is safe
@@ -408,14 +423,13 @@ namespace gv::mesh {
 
 
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::reSplitElement(const size_t elem_idx) {
+	void HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::reSplitElement(const size_t elem_idx) {
 		assert(elem_idx < this->_elements.size());
 		Element_t& ELEM = this->_elements[elem_idx];
 
@@ -455,14 +469,13 @@ namespace gv::mesh {
 
 	
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::splitElement_Unlocked(const size_t elem_idx, const size_t child_idx_start, const size_t child_face_start) {
+	void HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::splitElement_Unlocked(const size_t elem_idx, const size_t child_idx_start, const size_t child_face_start) {
 		Element_t &ELEM = this->_elements[elem_idx];
 		assert(ELEM.is_active);
 
@@ -475,22 +488,29 @@ namespace gv::mesh {
 
 		//new vertices and elements must be generated
 		std::vector<size_t> split_node_numbers = generateNodesForSplit(ELEM);
-		auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
+		// auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
+		auto vtk_elem = VTK_ELEMENT_POLY<Mesh_t>(ELEM.vtkID);
+		vtk_elem.set_element(*this, elem_idx);
 
 		//now all vertices have been created to create the children
 		ELEM.is_active = false;
 
-		for (size_t k=0; k<vtk_n_children(ELEM.vtkID); k++) {
+		for (int k=0; k<vtk_elem.n_children(); k++) {
 			//get the indices of the vertices that define child k in the correct order
-			std::vector<size_t> childNodes;
-			vtk_elem->getChildVertices(childNodes, k, split_node_numbers);
+			// std::vector<size_t> childNodes;
+			// vtk_elem->getChildVertices(childNodes, k, split_node_numbers);
+			std::vector<size_t> local_child_nodes = vtk_elem.get_child_local_vertices(k);
 
 			//create the child
 			const size_t global_child_index = child_idx_start + k;
 			assert(global_child_index<this->_elements.size());
 			assert(!this->_elements[global_child_index].is_active);
 
-			Element_t newElem(childNodes, ELEM.vtkID);
+			Element_t newElem(ELEM.vtkID);
+			for (int i=0; i<vtk_elem.n_vertices(); ++i) {
+				newElem.vertices[i] = split_node_numbers[local_child_nodes[i]];
+			}
+
 			this->insertElement_Unlocked(newElem, global_child_index);
 			Element_t &CHILD = this->_elements[global_child_index];
 			CHILD.index      = global_child_index;
@@ -509,36 +529,46 @@ namespace gv::mesh {
 			FACE.is_active = false;
 			const FaceTracker &TRACKER = this->_boundary_track[f_idx];
 
-			auto* vtk_face = _VTK_ELEMENT_FACTORY<space_dim,ref_dim-1,Scalar_t>(FACE);
+			// auto* vtk_face = _VTK_ELEMENT_FACTORY<space_dim,ref_dim-1,Scalar_t>(FACE);
+			auto vtk_face = VTK_ELEMENT_POLY<Mesh_t>(FACE.vtkID);
 
-			std::vector<size_t> face_split_vertices;
-			vtk_elem->getSplitFaceVertices(face_split_vertices, TRACKER.elem_face, split_node_numbers);
+			// std::vector<size_t> face_split_vertices;
+			// vtk_elem->getSplitFaceVertices(face_split_vertices, TRACKER.elem_face, split_node_numbers);
+			std::vector<size_t> local_face_child_nodes = vtk_elem.get_face_child_local_vertices(TRACKER.elem_face);
 
-			//split the face
-			std::vector<size_t> faceChildNodes;
-			for (size_t k=0; k<vtk_n_children(FACE.vtkID); k++) {
-				vtk_face->getChildVertices(faceChildNodes, k, face_split_vertices);
+			// split the face
+			// std::vector<size_t> faceChildNodes;
+			for (int k=0; k<vtk_n_children(FACE.vtkID); k++) {
+				// vtk_face->getChildVertices(faceChildNodes, k, face_split_vertices);
+				std::vector<size_t> face_local_nodes = vtk_face.get_child_local_vertices(k);
+
 
 				//get the index for the new face
 				const size_t global_face_child_index = child_face_start + n_faces;
 				n_faces++;
 
 				//create the new face
-				Face_t newFace(faceChildNodes, FACE.vtkID);
+				Face_t newFace(FACE.vtkID);
+				for (int i=0; i<vtk_face.n_vertices(); ++i) {
+					newFace.vertices[i] = split_node_numbers[local_face_child_nodes[face_local_nodes[i]]];
+				}
 
 				//determine which child element the new face belongs to
 				FaceTracker newTracker {(size_t)-1,-1};
 				for (size_t c_idx : ELEM.children) {
 					const Element_t &CHILD = this->_elements[c_idx];
-					auto* vtk_child = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(CHILD);
-					for (int cf_idx=0; cf_idx<vtk_n_faces(CHILD.vtkID); cf_idx++) {
-						if (newFace == vtk_child->getFace(cf_idx)) {
+					// auto* vtk_child = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(CHILD);
+					auto vtk_child = VTK_ELEMENT_POLY<Mesh_t>(CHILD.vtkID);
+					vtk_child.set_element(*this, c_idx);
+
+					for (int cf_idx=0; cf_idx<vtk_child.n_faces(); cf_idx++) {
+						if (newFace.vertices == vtk_child.get_face_vertices(cf_idx)) {
 							newTracker.elem_idx = CHILD.index;
 							newTracker.elem_face = cf_idx;
 							break;
 						}
 					}
-					delete vtk_child;
+					// delete vtk_child;
 					if (newTracker.elem_face!=-1) {break;}
 				}
 				assert(newTracker.elem_face!=-1);
@@ -551,11 +581,11 @@ namespace gv::mesh {
 				FACE.children.push_back(newFace.index);
 				this->insertBoundaryFace_Unlocked(newFace, global_face_child_index, newTracker);
 			}
-			delete vtk_face;
+			// delete vtk_face;
 		}
 
 		//clean up memory
-		delete vtk_elem;
+		// delete vtk_elem;
 	}
 
 
@@ -563,14 +593,13 @@ namespace gv::mesh {
 	
 
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::processSplit() {
+	void HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::processSplit() {
 		//This method refines all elements in _elements_to_split by color batches
 		//Each batch consists of all elements with a specific color
 		//No two elements in the same color batch share a node
@@ -665,15 +694,78 @@ namespace gv::mesh {
 	}
 
 
+
+	// template<
+	// 		int                              ref_dim,
+	// 		HierarchicalColorableMeshElement Element_t,
+	// 		HierarchicalMeshVertex           Vertex_t,
+	// 		ColorMethod                      COLOR_METHOD,
+	// 		size_t                           MAX_COLORS
+	// 		>
+	// std::vector<size_t> HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::vertexInElements(const size_t vertex_index) const {
+	// 	//TODO: I think this only works if the level of refinement between adjacent elements only differs by 1
+	// 	// this method needs to be re-worked.
+	// 	//TODO: This method can be made trivial if this information is stored in a (new) HierarchicalVertex class
+
+	// 	//get the list of elements that this vertex is a vertex of
+	// 	const auto& VERTEX = this->getVertex(vertex_index);
+	// 	std::vector<size_t> result = VERTEX.elems;
+
+	// 	//recall that a neighbor element is one that shares a vertex
+	// 	//traverse up the hierarchy of each of the elements and collect all of those elements
+	// 	//then we will check all of their neighbors. We include active and inactive elements.
+	// 	std::vector<size_t> relatives;
+	// 	for (size_t e_idx : VERTEX.elems) {
+	// 		getElementAncestors_Unlocked(e_idx, relatives, false);
+	// 	}
+
+	// 	//make sure that we only look up the neighbors of an element once
+	// 	std::sort(relatives.begin(), relatives.end());
+	// 	auto last = std::unique(relatives.begin(), relatives.end());
+	// 	relatives.erase(last, relatives.end());
+
+	// 	//look up the neighbors of each element
+	// 	//if the vertex is contained, then add that element index to the result
+	// 	std::vector<size_t> neighbors;
+	// 	for (size_t e_idx : relatives) {
+	// 		this->getElementNeighbors_Unlocked(e_idx, neighbors);
+	// 	}
+
+	// 	//check all relatives and neighbors
+	// 	neighbors.insert(neighbors.end(), relatives.begin(), relatives.end());
+	// 	std::sort(neighbors.begin(), neighbors.end());
+	// 	last = std::unique(neighbors.begin(), neighbors.end());
+	// 	neighbors.erase(last, neighbors.end());
+
+	// 	std::vector<Point_t> elem_vertex_coords;
+	// 	for (size_t e_idx : neighbors) {
+	// 		const auto& ELEM = this->getElement(e_idx);
+	// 		auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
+	// 		elem_vertex_coords = vtk_elem->collect_vertices(*this);
+
+	// 		if (vtk_elem->contains(elem_vertex_coords, VERTEX.coord)) {
+	// 			result.push_back(e_idx);
+	// 		}
+
+	// 		delete vtk_elem;
+	// 	}
+
+	// 	std::sort(result.begin(), result.end());
+	// 	last = std::unique(result.begin(), result.end());
+	// 	result.erase(last, result.end());
+	// 	return result;
+	// }
+
+
+
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS>::refineRegion(const DomainBox_t& box) {
+	void HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS>::refineRegion(const DomainBox_t& box) {
 		#pragma omp parallel for
 		for (size_t e_idx=0; e_idx<this->_elements.size(); ++e_idx) {
 			const Element_t& ELEM = this->_elements[e_idx];
@@ -695,15 +787,14 @@ namespace gv::mesh {
 
 
 	template<
-			int                              space_dim,
 			int                              ref_dim,
-			Scalar                           Scalar_t,
 			HierarchicalColorableMeshElement Element_t,
+			HierarchicalMeshVertex           Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS> &mesh) {
-		const ColoredMesh<space_dim,ref_dim,Scalar_t,Element_t,COLOR_METHOD,MAX_COLORS> &base_mesh = mesh;
+	std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS> &mesh) {
+		const ColoredMesh<ref_dim,Element_t,Vertex_t,COLOR_METHOD,MAX_COLORS> &base_mesh = mesh;
 		os << base_mesh;
 		return os;
 	}

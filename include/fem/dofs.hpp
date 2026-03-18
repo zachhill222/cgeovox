@@ -1,6 +1,8 @@
 #pragma once
 
 #include "gutil.hpp"
+#include "mesh/mesh_util.hpp"
+#include "mesh/vtk_elements.hpp"
 
 #include <array>
 #include <concepts>
@@ -54,7 +56,69 @@ namespace gv::fem
 		//evaluate the DOF at the specified point in the mesh
 		//this will be slower than eval() because of several lookups and the transformation to the reference coordinates
 		template<gv::mesh::BasicMeshType Mesh_t>
-		inline double eval_at(const typename Mesh_t::Point_t& point, const Mesh_t& mesh) const {return static_cast<const DERIVED*>(this)->eval_at_impl(point, mesh);}
+		double eval_at(const typename Mesh_t::Point_t& point, const Mesh_t& mesh) const
+		{
+			//determine if the point is inside the support
+			//the ordering of the support elements is not assumed to be known
+			std::vector<typename Mesh_t::Point_t> elem_vertices;
+			for (int spt=0; spt<MAX_SUPPORT; ++spt) {
+				const size_t e_idx = this->support_idx[spt];
+				if (e_idx == (size_t) -1) {continue;}
+				const auto& ELEM = mesh.getElement(e_idx);
+				
+				//collect vertex coordinates and construct element
+				//TODO: remove this need
+				auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t, double>(ELEM);
+				elem_vertices = vtk_elem->collect_vertices(mesh);
+
+				//check containment
+				if (vtk_elem->contains(elem_vertices, point)) {
+					//it is contained, 
+					const RefPoint_t ref_coord = vtk_elem->geometric_to_reference(elem_vertices, point);
+
+					delete vtk_elem;
+					return eval(ref_coord, spt);
+				}
+
+				delete vtk_elem;
+			}
+
+			return 0.0;
+		}
+
+		//evaluate the DOF at the specified point in the mesh
+		//this will be slower than eval() because of several lookups and the transformation to the reference coordinates
+		template<gv::mesh::BasicMeshType Mesh_t>
+		double eval_grad_at(const typename Mesh_t::Point_t& point, const Mesh_t& mesh) const
+		{
+			//determine if the point is inside the support
+			//the ordering of the support elements is not assumed to be known
+			std::vector<typename Mesh_t::Point_t> elem_vertices;
+			for (int spt=0; spt<MAX_SUPPORT; ++spt) {
+				const size_t e_idx = this->support_idx[spt];
+				if (e_idx == (size_t) -1) {continue;}
+				const auto& ELEM = mesh.getElement(e_idx);
+				
+				//collect vertex coordinates and construct element
+				//TODO: remove this need
+				auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t, double>(ELEM);
+				elem_vertices = vtk_elem->collect_vertices(mesh);
+
+				//check containment
+				if (vtk_elem->contains(elem_vertices, point)) {
+					//it is contained, 
+					const RefPoint_t ref_coord = vtk_elem->geometric_to_reference(elem_vertices, point);
+
+					delete vtk_elem;
+					return eval_grad(ref_coord, spt);
+				}
+
+				delete vtk_elem;
+			}
+
+			return 0.0;
+		}
+
 
 		//when evaluating at all of the quadrature points, it will be nice to do so all at once.
 		//use a result parameter to help avoid excessive allocations, but a return by value is provided for debug and convenience
@@ -173,40 +237,6 @@ namespace gv::fem
 			const int i = this->local_idx[spt];
 			return COEF * (1.0d + CORNERS[i][0]*point[0]) * (1.0d + CORNERS[i][1]*point[1]) * (1.0d + CORNERS[i][2]*point[2]);
 		}
-
-
-		template<gv::mesh::BasicMeshType Mesh_t>
-		double eval_at_impl(const typename Mesh_t::Point_t& point, const Mesh_t& mesh) const
-		{
-			//determine if the point is inside the support
-			//the ordering of the support elements is not assumed to be known
-			for (int spt=0; spt<8; ++spt) {
-				cosnt size_t e_idx = this->support_idx[spt];
-				if (e_idx == (size_t) -1) {continue;}
-				const auto& ELEM = mesh.getElement(e_idx);
-				
-				//check containment before constructing the element
-				//for more complex elements, construct it here
-				const auto& low  = mesh.getVertex(ELEM.vertices[0]).coord;
-				const auto& high = mesh.getVertex(ELEM.vertices[7]).coord;
-				if (low <= point and point <= high) {
-					auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t, double>(ELEM);
-					std::vector<typename Mesh_t::Point_t> elem_vertices;
-					assert(ELEM.vertices.size()==8);
-					elem_vertices.reserve(8);
-					for (size_t v_idx : ELEM.vertices) {elem_vertices.push_back(mesh.getVertex(v_idx).coord);}
-
-					//for a simple element, this can be bypassed
-					const RefPoint_t ref_coord = vtk_elem->geometric_to_reference(elem_vertices, point);
-
-					delete vtk_elem;
-					return eval_impl(ref_coord, spt);
-				}
-			}
-
-			return 0.0;
-		}
-
 
 		
 		RefPoint_t grad_impl(const RefPoint_t& point, const int spt) const

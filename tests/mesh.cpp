@@ -1,7 +1,5 @@
 #include "gutil.hpp"
 
-// #include "fem/dofhandler.hpp"
-
 #include "mesh/mesh_util.hpp"
 #include "mesh/mesh_basic.hpp"
 #include "mesh/mesh_colored.hpp"
@@ -18,10 +16,11 @@ void test() {
 	using Point_t    = gutil::Point<3,T>;
 	using Box_t      = gutil::Box<dim,T>;
 	using Element_t  = gv::mesh::HierarchicalColoredElement;
-	
+	using Vertex_t   = gv::mesh::HierarchicalVertex<Point_t>;
+
 	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
-	using Mesh_t  = gv::mesh::HierarchicalMesh<3,3,T,Element_t,method>;
-	using BoundaryMesh_t = gv::mesh::HierarchicalMesh<3,2,T,Element_t,method>;
+	using Mesh_t  = gv::mesh::HierarchicalMesh<3,Element_t,Vertex_t,method>;
+	using BoundaryMesh_t = gv::mesh::HierarchicalMesh<2,Element_t,Vertex_t,method>;
 	// using Mesh_t  = gv::mesh::BasicMesh<Node_t,Element_t,Face_t>;
 
 	RefPoint_t corner {0.1,0.125,0.1235};

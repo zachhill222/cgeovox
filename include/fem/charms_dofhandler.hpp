@@ -425,122 +425,44 @@ namespace gv::fem
 	Coef_t CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>::interpolate(const typename Mesh_t::Point_t& coord, const CoefContainer_t& container) const {
 		//get closest vertex in the mesh
 		const size_t vtx_idx = mesh.closestVertex(coord);
-		const auto& VERTEX = mesh.getVertex(vtx_idx);
 
 		//determine if the container provided compressid (active only) coefficents or all coefficients
 		bool all_dofs = container.size() == dofs.size();
 		if (!all_dofs) {assert(container.size() == dof_map.ndof());}
 
-		//collect all ancestor elements of contain this coordinate.
-		//this can be done by getting the ancestors of each of the active elements this coordinate belongs to
-		//(the coordinate may be on the boundary between two active elements that have different parents)
-		std::vector<size_t> support_elements;
-		for (size_t	e_idx : VERTEX.elems) {
-			const auto& ELEM = mesh.getElement(e_idx);
-			if (!ELEM.is_active) {continue;}
+		//find all elements that contain this vertex
+		std::vector<size_t> elem_list = mesh.vertexInElements(vtx_idx);
 
-			//construct vtk_element to check for containment
-			auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t, double>(ELEM);
-			std::vector<typename Mesh_t::Point_t> elem_vertices;
-			elem_vertices.reserve(ELEM.vertices.size());
-			for (size_t v_idx : ELEM.vertices) {elem_vertices.push_back(mesh.getVertex(v_idx).coord);}
-
-			if (vtk_elem->contains(elem_vertices, coord)) {
-				mesh.getElementAncestors_Unlocked(e_idx, support_elements, false);
+		//find all active basis functions on these elements
+		std::vector<size_t> basis_fun_to_eval;
+		for (size_t e_idx : elem_list) {
+			//add basis_s
+			for (size_t d_idx : element_basis_s[e_idx]) {
+				if (dofs[d_idx].active) {
+					basis_fun_to_eval.push_back(d_idx);
+				}
 			}
 
-			delete vtk_elem;
+			//add basis_a
+			for (size_t d_idx : element_basis_a[e_idx]) {
+				if (dofs[d_idx].active) {
+					basis_fun_to_eval.push_back(d_idx);
+				}
+			}
 		}
 
-		//ensure we only look at each element once
-		std::sort(support_elements.begin(), support_elements.end());
-		auto last = std::unique(support_elements.begin(), support_elements.end());
-		support_elements.erase(last, support_elements.end());
+		//evaluate the basis functions
+		std::sort(basis_fun_to_eval.begin(), basis_fun_to_eval.end());
+		auto last = std::unique(basis_fun_to_eval.begin(), basis_fun_to_eval.end());
+		basis_fun_to_eval.erase(last, basis_fun_to_eval.end());
 
-
-
-
-
-		//loop through elements that may contain the coordinate
-		//TODO: improve the mesh elements
 		Coef_t result{0};
-
-
-
-		for (size_t e_idx : VERTEX.elems) {
-			const auto& ELEM = mesh.getElement(e_idx);
-			
-			auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t>(ELEM);
-			std::vector<typename Mesh_t::Point_t> elem_vertices;
-			elem_vertices.reserve(ELEM.vertices.size());
-			for (size_t v_idx : ELEM.vertices) {elem_vertices.push_back(mesh.getVertex(v_idx).coord);}
-
-			if (vtk_elem->contains(elem_vertices, coord)) {
-				//get reference coordinate
-				const auto ref_coord = static_cast<typename DOF_t::RefPoint_t>(vtk_elem->geometric_to_reference(elem_vertices, coord));
-				
-				std::cout << "\nQuerry point: " << coord << " reference point: " << ref_coord << " (element " << e_idx << ")\n";
-
-				//add active basis_s
-				for (size_t d_idx : element_basis_s[e_idx]) {
-					if (computed_basis.contains(d_idx)) {continue;}
-
-					if (dofs[d_idx].active) {
-						const DOF_t& DOF   = dofs[d_idx];
-						const Coef_t& COEF = all_dofs ? container[d_idx] : container[dof_map.global2compressed[d_idx]];
-
-						//get the support index for this element in this basis function
-						int i;
-						bool found=false;
-						for (i=0; i<DOF.support_idx.size(); i++) {
-							if (DOF.support_idx[i] == e_idx) {
-								found=true;
-								break;
-							}
-						}
-						
-						//increment the result
-						if (found) {
-							assert(DOF.support_idx[i]==e_idx);
-							std::cout << "basis_s: " << d_idx << " (val= " << DOF.eval(ref_coord,i) << " coef= " << COEF << ")\n";
-							computed_basis.insert(d_idx);
-							result += COEF * DOF.eval(ref_coord, i);
-						}
-					}
-				}
-
-				//add active basis_a
-				for (size_t d_idx : element_basis_a[e_idx]) {
-					if (dofs[d_idx].active) {
-						const DOF_t& DOF   = dofs[d_idx];
-						const Coef_t& COEF = all_dofs ? container[d_idx] : container[dof_map.global2compressed[d_idx]];
-
-						//get the support index for this element in this basis function
-						int i;
-						bool found=false;
-						for (i=0; i<DOF.support_idx.size(); i++) {
-							if (DOF.support_idx[i] == e_idx) {
-								found=true;
-								break;
-							}
-						}
-
-						//increment the result
-						if (found) {
-							assert(DOF.support_idx[i]==e_idx);
-							std::cout << "basis_a: " << d_idx << " (val= " << DOF.eval(ref_coord,i) << " coef= " << COEF << ")\n";
-							computed_basis.insert(d_idx);
-							result += COEF * DOF.eval(ref_coord, i);
-						}
-						
-					}
-				}
-			}
-
-			//clean memory
-			delete vtk_elem;
+		for (size_t d_idx : basis_fun_to_eval) {
+			size_t coef_idx = all_dofs ? d_idx : dof_map.global2compressed[d_idx];
+			result += container[coef_idx] * dofs[d_idx].eval_at(coord, mesh);
 		}
 
+		std::cout << "Coord: " << coord << " n_basis: " << basis_fun_to_eval.size() << " val: " << result << std::endl;
 		return result;
 	}
 

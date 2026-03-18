@@ -1,8 +1,5 @@
 #pragma once
 
-// #include "util/point.hpp"
-// #include "util/box.hpp"
-// #include "util/matrix.hpp"
 #include "gutil.hpp"
 
 #include "mesh/mesh_util.hpp"
@@ -10,60 +7,106 @@
 
 #include "concepts.hpp"
 
+#include <array>
 #include <vector>
+#include <string_view>
 #include <cassert>
 
-namespace gv::mesh {
+namespace gv::mesh
+{
 	/////////////////////////////////////////////////
 	/// Interface for VTK element types
 	///
-	/// @tparam space_dim       The dimension of the space that the geometric elmenent is embedded in.
-	/// @tparam ref_dim         The dimension of the space that the reference element is embedded in.
-	/// @tparam VertexScalar_t  The type that is emulating the real line that the mesh uses. This should 
-	///                              be robust for comparisons (e.g., uses exact or fixed precision arithmetic rather than floating point).
-	/// @tparam MapScalar_t     The type that is emulating the real line that the FEM computations use. This should
-	///                              be accurate and fast (e.g., use floating point rather than fixed precision)
+	/// This uses CRTP for when the element type is known at compile time
 	/////////////////////////////////////////////////
-	template<int space_dim, int ref_dim, Scalar VertexScalar_t, Scalar MapScalar_t>
-	struct VTK_ELEMENT {
-		static_assert(0<ref_dim and ref_dim<=3,     "VTK_ELEMENT: the reference element must be in dimensions 1, 2, or 3.");
-		static_assert(0<space_dim and space_dim<=3, "VTK_ELEMENT: the geometric element must be in dimensions 1, 2, or 3.");
-		static_assert(ref_dim<=space_dim,           "VTK_ELEMENT: you cannot have the dimension of the refernece element larger than the geometric element.");
+	template<BasicMeshType Mesh_t, typename DERIVED, int VTK_ID_>
+	struct VTK_ELEMENT
+	{
+		using GeoPoint_t = typename Mesh_t::Point_t;      //type of point in space (e.g., mesh vertex coordinates)
+		using Scalar_t   = typename GeoPoint_t::scalar_type; //likely a fixed precision type
+		using RefPoint_t = typename Mesh_t::RefPoint_t;   //type of point in the reference domain
+		using Jac_t      = gutil::Matrix<GeoPoint_t::dim, RefPoint_t::dim, double, false>; //type of jacobian matrix
 
-		VTK_ELEMENT(const BasicElement &elem) : ELEM(elem) {}
-		virtual ~VTK_ELEMENT() {}
-		
-		using Point_t    = gutil::Point<space_dim, VertexScalar_t>;    //type of point in space (e.g., mesh vertex coordinates)
-		using RefPoint_t = gutil::Point<ref_dim, MapScalar_t>;   //type of point in the reference domain
-		using Jac_t      = gutil::Matrix<space_dim, ref_dim, MapScalar_t, false>; //type of jacobian matrix
+		static_assert(std::is_same_v<typename RefPoint_t::scalar_type, double>);
+		static_assert(vtk_ref_dim(VTK_ID_) == RefPoint_t::dim);
 
-		const BasicElement &ELEM;
-		virtual void split(std::vector<Point_t>& vertex_coords) const = 0;
-		virtual void getChildVertices(std::vector<size_t>& child_nodes, const int child_number, const std::vector<size_t>& split_node_numbers) const = 0;
-		virtual void getFaceVertices(std::vector<size_t>& face_nodes, const int face_number) const = 0;
-		virtual void getSplitFaceVertices(std::vector<size_t>& split_face_nodes, const int face_number, const std::vector<size_t>& split_node_numbers) const = 0;
-		BasicElement getFace(const int face_number) const {
-			BasicElement face(vtk_face_id(this->ELEM.vtkID));
-			getFaceVertices(face.vertices, face_number);
-			return face;
+		static constexpr int VTK_ID            = VTK_ID_;
+		static constexpr std::string_view NAME = vtk_id_to_string(VTK_ID);
+		static constexpr int N_VERTICES        = vtk_n_vertices(VTK_ID);
+		static constexpr int N_FACES           = vtk_n_faces(VTK_ID);
+		static constexpr int FACE_VTK_ID       = vtk_face_id(VTK_ID);
+		static constexpr int N_CHILDREN        = vtk_n_children(VTK_ID);
+		static constexpr int N_VERT_ON_SPLIT   = vtk_n_vertices_when_split(VTK_ID);
+
+		size_t last_element = (size_t) -1; //the last element that was set
+		std::array<size_t, N_VERTICES> vertices;
+		std::array<GeoPoint_t, N_VERTICES> vertex_coords;
+		std::array<GeoPoint_t, N_VERT_ON_SPLIT> child_vertex_coords;
+
+		void set_element(const Mesh_t& mesh, const size_t element_index)
+		{
+			last_element = element_index;
+
+			const auto& ELEM = mesh.getElement(element_index);
+			assert(DERIVED::VTK_ID == ELEM.vtkID);
+
+			for (int i=0; i<N_VERTICES; ++i) {
+				const size_t v_idx = ELEM.vertices[i];
+				vertices[i] = v_idx;
+				vertex_coords[i] = mesh.getVertex(v_idx).coord;
+			}
 		}
 
-		//evaluate the local shape functions that are used to map the reference element to the actual element
-		virtual inline constexpr MapScalar_t eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const noexcept = 0;
+		inline void set_child_vertices()
+		{
+			static_cast<DERIVED*>(this)->set_child_vertices_impl();
+		}
 
-		//evaluate the gradient of the shape functions that are used to map the referent to the actual element
-		virtual inline constexpr RefPoint_t  eval_local_geo_shape_grad(const int i, const RefPoint_t& ref_coord) const noexcept = 0;
-		
-		//evaluate the geometric mapping from the reference element to the actual element
-		virtual constexpr Point_t reference_to_geometric(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept = 0;
+		//return indices (in the correct order) that define the specified child
+		//these indices point into this->child_vertex_coords
+		//a child element has the same element type as the parent
+		inline std::array<size_t, N_VERTICES> get_child_local_vertices(const int child_number) const
+		{
+			assert(0 <= child_number and child_number < N_CHILDREN);
+			return static_cast<const DERIVED*>(this)->get_child_local_vertices_impl(child_number);
+		}
 
-		//evaluate the geometric inverse mapping from the actual/geometric element to the reference element
-		virtual constexpr RefPoint_t geometric_to_reference(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept = 0;
+		//return indices (in the correct order of the face element type)
+		//that define the specified face. These indices are elements of this->vertices and point
+		//into mesh->vertices
+		inline std::array<size_t, vtk_n_vertices(FACE_VTK_ID)> get_face_vertices(const int face_number) const
+		{
+			assert(0 <= face_number and face_number < N_FACES);
+			return static_cast<const DERIVED*>(this)->get_face_vertices_impl(face_number);	
+		}
 
-		//evaluate the jacobian matrix of the mapping from the reference element to the actual element
-		virtual constexpr Jac_t   eval_geo_shape_jac(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept = 0;
+		//return indices (in the correct order of the face element type)
+		//that define a child of a face. These indices point into this->child_vertices.
+		//this must be compatible with creating the face element type and then getting that face's child vertices
+		inline std::array<size_t, vtk_n_vertices_when_split(FACE_VTK_ID)> get_face_child_local_vertices(const int face_number) const
+		{
+			assert(0 <= face_number and face_number < N_FACES);
+			return static_cast<const DERIVED*>(this)->get_face_child_local_vertices_impl(face_number);	
+		}
 
-		//determine if a point in space is interior to the element
-		virtual constexpr bool contains(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept = 0;
+		inline bool contains(const GeoPoint_t& point) const
+		{
+			return static_cast<const DERIVED*>(this)->contains_impl(point);
+		}
+
+		inline RefPoint_t geo2ref(const GeoPoint_t& point) const
+		{
+			return static_cast<const DERIVED*>(this)->geo2ref_impl(point);
+		}
+
+		inline GeoPoint_t ref2geo(const RefPoint_t& point) const
+		{
+			return static_cast<const DERIVED*>(this)->ref2geo_impl(point);
+		}
+
+		inline Jac_t jacobian(const RefPoint_t& point) const
+		{
+			return static_cast<const DERIVED*>(this)->jacobian_impl(point);
+		}
 	};
 }
