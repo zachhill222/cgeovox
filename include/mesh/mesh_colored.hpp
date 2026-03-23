@@ -66,11 +66,11 @@ namespace gv::mesh
 			BASE(domain),
 			_color_manager(this->_elements) {}
 
-		ColoredMesh(const RefBox_t &domain) requires(ref_dim<BASE::SPACE_DIM) : 
+		ColoredMesh(const DomainBox_t &domain) requires(ref_dim<BASE::SPACE_DIM) : 
 			BASE(domain),
 			_color_manager(this->_elements) {}
 		
-		ColoredMesh(const RefBox_t &domain, const Index_t &N, const bool useIsopar=false) : BASE(domain), _color_manager(this->_elements) {
+		ColoredMesh(const DomainBox_t &domain, const Index_t &N, const bool useIsopar=false) : BASE(domain), _color_manager(this->_elements) {
 			if constexpr (BASE::REF_DIM==3) {this->setVoxelMesh_Locked(domain, N, useIsopar);}
 			else if constexpr (BASE::REF_DIM==2) {this->setPixelMesh_Locked(domain, N, useIsopar);}
 			else {throw std::runtime_error("ColoredMesh: can't mesh domain");}

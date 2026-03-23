@@ -98,8 +98,7 @@ namespace gv::fem
 		void distribute();
 
 		//interpolate the coefs to evaluate the field at the given point
-		template<typename CoefContainer_t=std::vector<Coef_t>>
-		Coef_t interpolate(const typename Mesh_t::Point_t& coord, const CoefContainer_t& container) const;
+		Coef_t eval_at_vertex(const size_t vertex_index) const;
 
 		//save the mesh and nodal evaluations to a file
 		void save_as(const std::string filename, const int coef_dim=1, const bool use_ascii=false) const;
@@ -252,7 +251,7 @@ namespace gv::fem
 					//child as a dof in basis_s
 					const DOF_t& CHILD = children[c_idx];
 
-					//check if the child was actually created (this should only ever fail on the boundary)
+					//check if the child exists (this should only ever fail on the boundary)
 					if (CHILD.global_idx == (size_t) -1) {continue;}
 					
 					//check if the child previously existed as a DOF
@@ -421,48 +420,34 @@ namespace gv::fem
 
 	//interpolate the coefs
 	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, IsCharmsDOF DOF_t, typename Coef_t>
-	template<typename CoefContainer_t>
-	Coef_t CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>::interpolate(const typename Mesh_t::Point_t& coord, const CoefContainer_t& container) const {
+	Coef_t CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>::eval_at_vertex(const size_t vertex_index) const
+	{
 		//get closest vertex in the mesh
-		const size_t vtx_idx = mesh.closestVertex(coord);
+		const auto& VERTEX = mesh.getVertex(vertex_index);
 
-		//determine if the container provided compressid (active only) coefficents or all coefficients
-		bool all_dofs = container.size() == dofs.size();
-		if (!all_dofs) {assert(container.size() == dof_map.ndof());}
-
-		//find all elements that contain this vertex
-		std::vector<size_t> elem_list = mesh.vertexInElements(vtx_idx);
-
-		//find all active basis functions on these elements
-		std::vector<size_t> basis_fun_to_eval;
-		for (size_t e_idx : elem_list) {
-			//add basis_s
+		//assemble basis functions to evaluate
+		std::vector<size_t> dofs_to_eval;
+		for (size_t e_idx : VERTEX.elems) {
 			for (size_t d_idx : element_basis_s[e_idx]) {
-				if (dofs[d_idx].active) {
-					basis_fun_to_eval.push_back(d_idx);
-				}
+				if (dofs[d_idx].active) {dofs_to_eval.push_back(d_idx);}
 			}
 
-			//add basis_a
 			for (size_t d_idx : element_basis_a[e_idx]) {
-				if (dofs[d_idx].active) {
-					basis_fun_to_eval.push_back(d_idx);
-				}
+				if (dofs[d_idx].active) {dofs_to_eval.push_back(d_idx);}
 			}
 		}
+		
 
 		//evaluate the basis functions
-		std::sort(basis_fun_to_eval.begin(), basis_fun_to_eval.end());
-		auto last = std::unique(basis_fun_to_eval.begin(), basis_fun_to_eval.end());
-		basis_fun_to_eval.erase(last, basis_fun_to_eval.end());
+		std::sort(dofs_to_eval.begin(), dofs_to_eval.end());
+		auto last = std::unique(dofs_to_eval.begin(), dofs_to_eval.end());
+		dofs_to_eval.erase(last, dofs_to_eval.end());
 
 		Coef_t result{0};
-		for (size_t d_idx : basis_fun_to_eval) {
-			size_t coef_idx = all_dofs ? d_idx : dof_map.global2compressed[d_idx];
-			result += container[coef_idx] * dofs[d_idx].eval_at(coord, mesh);
+		for (size_t d_idx : dofs_to_eval) {
+			result += coefs[d_idx] * dofs[d_idx].eval_at(VERTEX.coord, mesh);
 		}
 
-		std::cout << "Coord: " << coord << " n_basis: " << basis_fun_to_eval.size() << " val: " << result << std::endl;
 		return result;
 	}
 
@@ -487,8 +472,8 @@ namespace gv::fem
 		       << "FIELD field 1 \n";
 
 		buffer << "values " << coef_dim << " " << nVertices << " float\n";
-		for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
-			buffer << this->interpolate(it->coord, this->coefs) << " ";
+		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
+			buffer << this->eval_at_vertex(v_idx) << " ";
 		}
 		buffer << "\n\n";
 		file   << buffer.rdbuf();

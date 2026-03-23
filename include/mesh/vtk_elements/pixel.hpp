@@ -42,199 +42,178 @@ namespace gv::mesh {
 	/// where A is a 3x2 matrix and b is the location of the center of the mesh element. Because the the map is affine, the Jacobian matrix (J=A) is constant.
 	/// In fact sqrt(J^t J) = 0.25*h1*h2 where h1 and h2 are the side-lengths of the mesh element.
 	/////////////////////////////////////////////////
-	template<Scalar VertexScalar_t, Scalar RefScalar_t>
-	class VTK_PIXEL : public VTK_ELEMENT<3,2,VertexScalar_t,RefScalar_t> {
-	public:
+	template<BasicMeshType Mesh_t>
+	struct VTK_PIXEL : public VTK_ELEMENT<Mesh_t, VTK_PIXEL<Mesh_t>, PIXEL_VTK_ID> {
 		//define types
-		using BASE = VTK_ELEMENT<3,2,VertexScalar_t,RefScalar_t>;
-		using typename BASE::Point_t;
+		using BASE = VTK_ELEMENT<Mesh_t, VTK_PIXEL<Mesh_t>, PIXEL_VTK_ID>;
+		using typename BASE::GeoPoint_t;
+		using typename BASE::Scalar_t;
 		using typename BASE::RefPoint_t;
 		using typename BASE::Jac_t;
 
 		//constructor
-		VTK_PIXEL(const BasicElement& elem) : BASE(elem) {assert(elem.vtkID==VTK_ID); assert(elem.vertices.size()==vtk_n_vertices(elem.vtkID));}
-		
-		//vtk element type
-		static constexpr int VTK_ID  = PIXEL_VTK_ID;
-		static constexpr int N_VERTICES = vtk_n_vertices(VTK_ID);
+		using BASE::BASE;
 
-		//coordinates for the reference element. store in row-major to pull out rows easier.
-		static constexpr gutil::Matrix<4,2,RefScalar_t,false> REF_COORDS {
-			{-1, -1},
-			{ 1, -1},
-			{-1,  1},
-			{ 1,  1}
-		};
+		void set_child_vertices_impl()
+		{
+			//copy over the parent vertices
+			for (int i=0; i<BASE::N_VERTICES; ++i) {
+				this->child_vertex_coords[i] = this->vertex_coords[i];
+			}
 
-		void split(std::vector<Point_t>& vertex_coords) const override {
-			assert(vertex_coords.size()==vtk_n_vertices(VTK_ID));
-			vertex_coords.reserve(vtk_n_vertices_when_split(VTK_ID));
-			using T = VertexScalar_t;
+			assert(BASE::N_VERTICES==4);
+			using T = Scalar_t;
 
 			//edge midpoints
-			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[1]})); //4 - bottom
-			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[1],vertex_coords[3]})); //5 - right
-			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[2],vertex_coords[3]})); //6 - top
-			vertex_coords.emplace_back(T{0.5}*gutil::sorted_sum<3,T,T,T>({vertex_coords[0],vertex_coords[2]})); //7 - left
+			this->child_vertex_coords[4] = T{0.5}*gutil::sorted_sum<3,T,T,T>({this->vertex_coords[0],this->vertex_coords[1]}); //4 - bottom
+			this->child_vertex_coords[5] = T{0.5}*gutil::sorted_sum<3,T,T,T>({this->vertex_coords[1],this->vertex_coords[3]}); //5 - right
+			this->child_vertex_coords[6] = T{0.5}*gutil::sorted_sum<3,T,T,T>({this->vertex_coords[2],this->vertex_coords[3]}); //6 - top
+			this->child_vertex_coords[7] = T{0.5}*gutil::sorted_sum<3,T,T,T>({this->vertex_coords[0],this->vertex_coords[2]}); //7 - left
 
 			//center
-			vertex_coords.emplace_back(T{0.5}*(vertex_coords[0]+vertex_coords[3])); //8
+			this->child_vertex_coords[8] = T{0.5}*gutil::sorted_sum<3,T,T,T>({this->vertex_coords[0],this->vertex_coords[3]}); //8 - center
 		}
 
-		void getChildVertices(std::vector<size_t> &child_vertices, const int child_number, const std::vector<size_t> &split_vertex_numbers) const override {
-			assert(split_vertex_numbers.size()==vtk_n_vertices_when_split(VTK_ID));
-			child_vertices.resize(vtk_n_vertices(VTK_ID));
-
+		std::array<size_t,4> get_child_local_vertices_impl(const int child_number) const
+		{
+			std::array<size_t,4> child_vertices;
 			switch (child_number) {
 				case (0):
-					child_vertices[0] = split_vertex_numbers[0]; //0
-					child_vertices[1] = split_vertex_numbers[4]; //0-1
-					child_vertices[2] = split_vertex_numbers[7]; //0-2
-					child_vertices[3] = split_vertex_numbers[8]; //0-3
+					child_vertices[0] = 0; //0
+					child_vertices[1] = 4; //0-1
+					child_vertices[2] = 7; //0-2
+					child_vertices[3] = 8; //0-3
 					break;
 				case (1):
-					child_vertices[0] = split_vertex_numbers[4]; //0-1
-					child_vertices[1] = split_vertex_numbers[1]; //1
-					child_vertices[2] = split_vertex_numbers[8]; //0-3
-					child_vertices[3] = split_vertex_numbers[5]; //1-3
+					child_vertices[0] = 4; //0-1
+					child_vertices[1] = 1; //1
+					child_vertices[2] = 8; //0-3
+					child_vertices[3] = 5; //1-3
 					break;
 				case (2):
-					child_vertices[0] = split_vertex_numbers[7]; //0-2
-					child_vertices[1] = split_vertex_numbers[8]; //0-3
-					child_vertices[2] = split_vertex_numbers[2]; //2
-					child_vertices[3] = split_vertex_numbers[6]; //2-3
+					child_vertices[0] = 7; //0-2
+					child_vertices[1] = 8; //0-3
+					child_vertices[2] = 2; //2
+					child_vertices[3] = 6; //2-3
 					break;
 				case (3):
-					child_vertices[0] = split_vertex_numbers[8]; //0-3
-					child_vertices[1] = split_vertex_numbers[5]; //1-3
-					child_vertices[2] = split_vertex_numbers[6]; //2-3
-					child_vertices[3] = split_vertex_numbers[3]; //3
+					child_vertices[0] = 8; //0-3
+					child_vertices[1] = 5; //1-3
+					child_vertices[2] = 6; //2-3
+					child_vertices[3] = 3; //3
 					break;
 				default:
 					throw std::out_of_range("child number out of bounds");
 					break;
 			}
+
+			return child_vertices;
 		}
 
-		void getFaceVertices(std::vector<size_t> &face_vertices, const int face_number) const override {
-			face_vertices.resize(2);
+		std::array<size_t,2> get_face_vertices_impl(const int face_number) const
+		{
+			std::array<size_t,2> face_vertices;
 			switch (face_number) {
 			case (0):
-				face_vertices[0] = this->ELEM.vertices[0];
-				face_vertices[1] = this->ELEM.vertices[1];
+				face_vertices[0] = this->vertices[0];
+				face_vertices[1] = this->vertices[1];
 				break;
 			case (1):
-				face_vertices[0] = this->ELEM.vertices[1];
-				face_vertices[1] = this->ELEM.vertices[3];
+				face_vertices[0] = this->vertices[1];
+				face_vertices[1] = this->vertices[3];
 				break;
 			case (2):
-				face_vertices[0] = this->ELEM.vertices[3];
-				face_vertices[1] = this->ELEM.vertices[2];
+				face_vertices[0] = this->vertices[3];
+				face_vertices[1] = this->vertices[2];
 				break;
 			case (3):
-				face_vertices[0] = this->ELEM.vertices[2];
-				face_vertices[1] = this->ELEM.vertices[0];
+				face_vertices[0] = this->vertices[2];
+				face_vertices[1] = this->vertices[0];
 				break;
 			default:
 				throw std::out_of_range("face number out of bounds");
 				break;
 			}
+
+			return face_vertices;
 		}
 
-		void getSplitFaceVertices(std::vector<size_t> &split_face_vertices, const int face_number, const std::vector<size_t> &split_vertex_numbers) const override {
-			split_face_vertices.resize(vtk_n_vertices_when_split(vtk_face_id(VTK_ID)));
-			assert(split_vertex_numbers.size()==vtk_n_vertices_when_split(VTK_ID));
-
+		std::array<size_t,3> get_face_child_local_vertices_impl(const int face_number) const
+		{
+			std::array<size_t,3> split_face_vertices;
 			switch (face_number) {
 				case (0): // Bottom [0, 1]
-				split_face_vertices[0] = split_vertex_numbers[ 0]; //0
-				split_face_vertices[1] = split_vertex_numbers[ 1]; //1
-				split_face_vertices[2] = split_vertex_numbers[ 4]; //0-1
+				split_face_vertices[0] = 0; //0
+				split_face_vertices[1] = 1; //1
+				split_face_vertices[2] = 4; //0-1
 				break;
 
 			case (1): // Right [1, 3]
-				split_face_vertices[0] = split_vertex_numbers[ 1]; //1
-				split_face_vertices[1] = split_vertex_numbers[ 3]; //3
-				split_face_vertices[2] = split_vertex_numbers[ 5]; //1-3
+				split_face_vertices[0] = 1; //1
+				split_face_vertices[1] = 3; //3
+				split_face_vertices[2] = 5; //1-3
 				break;
 
 			case (2): // Top [3, 2]
-				split_face_vertices[0] = split_vertex_numbers[ 3]; //3
-				split_face_vertices[1] = split_vertex_numbers[ 2]; //2
-				split_face_vertices[2] = split_vertex_numbers[ 6]; //2-3
+				split_face_vertices[0] = 3; //3
+				split_face_vertices[1] = 2; //2
+				split_face_vertices[2] = 6; //2-3
 				break;
 
 			case (3): // Left [2, 0]
-				split_face_vertices[0] = split_vertex_numbers[ 2]; //2
-				split_face_vertices[1] = split_vertex_numbers[ 0]; //0
-				split_face_vertices[2] = split_vertex_numbers[ 7]; //0-2
+				split_face_vertices[0] = 2; //2
+				split_face_vertices[1] = 0; //0
+				split_face_vertices[2] = 7; //0-2
 				break;
 
 			default:
 				throw std::out_of_range("face number out of bounds");
 				break;
 			}
-		}
 
-		
-		//evaluate the bi-linear shape function associated with vertex i on the reference element
-		inline constexpr RefScalar_t eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const noexcept override {
-			assert(0<= i and i<N_VERTICES);
-			return RefScalar_t(0.25)*(RefScalar_t(1)+REF_COORDS(i,0)*ref_coord[0])*(RefScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]);
-		}
-
-		inline constexpr RefPoint_t  eval_local_geo_shape_grad(const int i, const RefPoint_t& ref_coord) const noexcept override {
-			assert(0<= i and i<N_VERTICES);
-			
-			RefPoint_t result{};
-			result[0] = RefScalar_t(0.25) * REF_COORDS(i,0)                               * (RefScalar_t(1)+REF_COORDS(i,1)*ref_coord[1]);
-			result[1] = RefScalar_t(0.25) * (RefScalar_t(1)+REF_COORDS(i,0)*ref_coord[0]) * REF_COORDS(i,1);
-			return result;
+			return split_face_vertices;
 		}
 
 		
 		//evaluate the geometric mapping from the reference element to the actual element
-		constexpr Point_t reference_to_geometric(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept override {
-			assert(vertex_coords.size()==vtk_n_vertices(VTK_ID));
-
-			Point_t result{}; //zero
-			for (int i=0; i<N_VERTICES; i++) {
-				result += eval_local_geo_shape_fun(i,ref_coord) * vertex_coords[i];
-			}
-			return result;
+		GeoPoint_t ref2geo_impl(const RefPoint_t& point) const
+		{
+			//GeoPoint may only work at a very large or very small scale.
+			//do the arithmetic in the reference (double) type
+			const auto center = static_cast<RefPoint_t>(Scalar_t{0.5} * (this->vertex_coords[3] + this->vertex_coords[0]));
+			const auto H      = static_cast<RefPoint_t>(Scalar_t{0.5} * (this->vertex_coords[3] - this->vertex_coords[0]));
+			return static_cast<GeoPoint_t>(center + H*point);
 		}
 
 		//evaluate the geometric inverse mapping from the actual/geometric element to the reference element
-		constexpr RefPoint_t geometric_to_reference(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept override {
-			assert(vertex_coords.size() == static_cast<size_t>(vtk_n_vertices(VTK_ID)));
-			assert(this->contains(vertex_coords, coord));
-			Point_t center = VertexScalar_t{0.5}*(vertex_coords[3]+vertex_coords[0]);
-			Point_t delta  = VertexScalar_t{0.5}*(vertex_coords[3]-vertex_coords[0]);
-
-			//division should be in the reference scalar type (e.g. floating point) because the mesh may be fixed precision on a very large or very small scale
-			//that can't represent numbers of the order of 1.
-			return static_cast<RefPoint_t>(coord - center) / static_cast<RefPoint_t>(delta);
+		RefPoint_t geo2ref_impl(const GeoPoint_t& point) const
+		{
+			assert(contains_impl(point));
+			//GeoPoint may only work at a very large or very small scale.
+			//do the arithmetic in the reference (double) type
+			const auto center = Scalar_t{0.5} * (this->vertex_coords[3] + this->vertex_coords[0]);
+			const auto H      = static_cast<RefPoint_t>(Scalar_t{0.5} * (this->vertex_coords[3] - this->vertex_coords[0]));
+			
+			return static_cast<RefPoint_t>(point - center) / static_cast<RefPoint_t>(H);
 		}
 
 		//evaluate the jacobian matrix of the mapping from the reference element to the actual element
-		constexpr Jac_t   eval_geo_shape_jac(const std::vector<Point_t>& vertex_coords, const RefPoint_t& ref_coord) const noexcept override {
+		Jac_t jacobian_impl(const RefPoint_t& point) const
+		{
+			//TODO: this may be wrong if the orientation doesn't have the z-coordinate at 0
 			Jac_t jacobian{};
-			for (int vtx=0; vtx<4; vtx++) {
-				RefPoint_t grad = eval_local_geo_shape_grad(vtx, ref_coord);
-				for (int i=0; i<3; i++) {
-					for (int j=0; j<2; j++) {
-						jacobian(i,j) += vertex_coords[vtx][i]*grad[j];
-					}
-				}
+			GeoPoint_t H = this->vertex_coords[3]-this->vertex_coords[0];
+			for (int i=0; i<2; i++) {
+				jacobian(i,i) = 0.5*static_cast<double>(H[i]);
 			}
 
 			return jacobian;
 		}
 
 		//determine if a point in space is interior to the element
-		constexpr bool contains(const std::vector<Point_t>& vertex_coords, const Point_t& coord) const noexcept override {
-			assert(vertex_coords.size() == static_cast<size_t>(vtk_n_vertices(VTK_ID)));
-			return (vertex_coords[0] <= coord) and (coord <= vertex_coords[3]);
+		bool contains_impl(const GeoPoint_t& point) const
+		{
+			return (this->vertex_coords[0] <= point) and (point <= this->vertex_coords[3]);
 		}
 	};
 }

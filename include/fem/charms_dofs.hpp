@@ -212,6 +212,7 @@ namespace gv::fem
 
 			default:
 				assert(false);
+				return 0.0;
 			}
 		}
 	};

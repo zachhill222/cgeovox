@@ -22,14 +22,6 @@ namespace gv::mesh
 	template<BasicMeshType Mesh_t, typename DERIVED, int VTK_ID_>
 	struct VTK_ELEMENT
 	{
-		using GeoPoint_t = typename Mesh_t::Point_t;      //type of point in space (e.g., mesh vertex coordinates)
-		using Scalar_t   = typename GeoPoint_t::scalar_type; //likely a fixed precision type
-		using RefPoint_t = typename Mesh_t::RefPoint_t;   //type of point in the reference domain
-		using Jac_t      = gutil::Matrix<GeoPoint_t::dim, RefPoint_t::dim, double, false>; //type of jacobian matrix
-
-		static_assert(std::is_same_v<typename RefPoint_t::scalar_type, double>);
-		static_assert(vtk_ref_dim(VTK_ID_) == RefPoint_t::dim);
-
 		static constexpr int VTK_ID            = VTK_ID_;
 		static constexpr std::string_view NAME = vtk_id_to_string(VTK_ID);
 		static constexpr int N_VERTICES        = vtk_n_vertices(VTK_ID);
@@ -37,6 +29,19 @@ namespace gv::mesh
 		static constexpr int FACE_VTK_ID       = vtk_face_id(VTK_ID);
 		static constexpr int N_CHILDREN        = vtk_n_children(VTK_ID);
 		static constexpr int N_VERT_ON_SPLIT   = vtk_n_vertices_when_split(VTK_ID);
+		static constexpr int REF_DIM           = vtk_ref_dim(VTK_ID);
+
+		using GeoPoint_t = typename Mesh_t::Point_t;      //type of point in space (e.g., mesh vertex coordinates)
+		using Scalar_t   = typename GeoPoint_t::scalar_type; //likely a fixed precision type
+		// using RefPoint_t = typename Mesh_t::RefPoint_t;   //type of point in the reference domain
+		using RefPoint_t = gutil::Point<3,double>; //always use 3 so the polymorphic wrapper has a consistent return type with std::variant
+		using Jac_t      = gutil::Matrix<GeoPoint_t::dim, RefPoint_t::dim, double, false>; //type of jacobian matrix
+
+		static_assert(std::is_same_v<typename RefPoint_t::scalar_type, double>);
+		// static_assert(vtk_ref_dim(VTK_ID_) == RefPoint_t::dim);
+
+		
+		
 
 		size_t last_element = (size_t) -1; //the last element that was set
 		std::array<size_t, N_VERTICES> vertices;

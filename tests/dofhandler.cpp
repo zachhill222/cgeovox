@@ -11,12 +11,15 @@
 #include "mesh/mesh_view.hpp"
 
 //define types
-using T = gutil::FixedPoint<int64_t,0>;
-using Mesh_t    = gv::mesh::HierarchicalMesh<3,3,T>;
+// using T = gutil::FixedPoint<int64_t,0>;
+using T = double;
+using Point_t   = gutil::Point<3,T>;
+using Vertex_t  = gv::mesh::HierarchicalVertex<Point_t>;
+using Element_t = gv::mesh::HierarchicalColoredElement;
+using Mesh_t    = gv::mesh::HierarchicalMesh<3,Element_t,Vertex_t>;
 
 //import types from the mesh
 using Box_t   = typename Mesh_t::DomainBox_t;
-using Point_t = typename Mesh_t::Point_t;
 using Index_t = typename Mesh_t::Index_t;
 
 int main(int argc, char* argv[])
@@ -52,7 +55,7 @@ int main(int argc, char* argv[])
 	std::cout << dofhandler << std::endl;
 	std::cout << mesh << std::endl;
 	// gv::mesh::memorySummary(mesh);
-	dofhandler.save_as("./outfiles/topological_mesh.vtk", 1, true);
+	dofhandler.save_as("./outfiles/charms_mesh.vtk", 1, true);
 
 	return 0;
 }

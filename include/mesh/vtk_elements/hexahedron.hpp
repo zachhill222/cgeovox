@@ -347,13 +347,13 @@ namespace gv::mesh {
 		
 		//evaluate the tri-linear shape function associated with vertex i on the reference element
 		//this is used for iso-parametric mapping
-		inline constexpr double eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const
+		inline constexpr double eval_local_geo_shape_fun(const int i, const RefPoint_t& ref_coord) const noexcept
 		{
 			assert(0<= i and i<BASE::N_VERTICES);
 			return 0.125*(1.0+REF_COORDS[i][0]*ref_coord[0])*(1.0+REF_COORDS[i][1]*ref_coord[1])*(1.0+REF_COORDS[i][2]*ref_coord[2]);
 		}
 
-		inline constexpr RefPoint_t eval_local_geo_shape_grad(const int i, const RefPoint_t& ref_coord) const
+		inline constexpr RefPoint_t eval_local_geo_shape_grad(const int i, const RefPoint_t& ref_coord) const noexcept
 		{
 			assert(0<=i and i<BASE::N_VERTICES);
 			RefPoint_t result{};

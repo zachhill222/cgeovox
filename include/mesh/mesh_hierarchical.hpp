@@ -71,9 +71,9 @@ namespace gv::mesh {
 		HierarchicalMesh() : BASE() {}
 		HierarchicalMesh(const DomainBox_t &domain) :  BASE(domain) {}
 
-		HierarchicalMesh(const RefBox_t &domain) requires(ref_dim<BASE::SPACE_DIM) : BASE(domain) {}
+		HierarchicalMesh(const DomainBox_t &domain) requires(ref_dim<BASE::SPACE_DIM) : BASE(domain) {}
 		
-		HierarchicalMesh(const RefBox_t &domain, const Index_t &N, const bool useIsopar=false) : BASE(domain, N, useIsopar) {}
+		HierarchicalMesh(const DomainBox_t &domain, const Index_t &N, const bool useIsopar=false) : BASE(domain, N, useIsopar) {}
 
 
 		/////////////////////////////////////////////////
@@ -529,11 +529,8 @@ namespace gv::mesh {
 			FACE.is_active = false;
 			const FaceTracker &TRACKER = this->_boundary_track[f_idx];
 
-			// auto* vtk_face = _VTK_ELEMENT_FACTORY<space_dim,ref_dim-1,Scalar_t>(FACE);
 			auto vtk_face = VTK_ELEMENT_POLY<Mesh_t>(FACE.vtkID);
 
-			// std::vector<size_t> face_split_vertices;
-			// vtk_elem->getSplitFaceVertices(face_split_vertices, TRACKER.elem_face, split_node_numbers);
 			std::vector<size_t> local_face_child_nodes = vtk_elem.get_face_child_local_vertices(TRACKER.elem_face);
 
 			// split the face
@@ -557,12 +554,14 @@ namespace gv::mesh {
 				FaceTracker newTracker {(size_t)-1,-1};
 				for (size_t c_idx : ELEM.children) {
 					const Element_t &CHILD = this->_elements[c_idx];
-					// auto* vtk_child = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(CHILD);
 					auto vtk_child = VTK_ELEMENT_POLY<Mesh_t>(CHILD.vtkID);
 					vtk_child.set_element(*this, c_idx);
 
+
 					for (int cf_idx=0; cf_idx<vtk_child.n_faces(); cf_idx++) {
+
 						if (newFace.vertices == vtk_child.get_face_vertices(cf_idx)) {
+							// std::cout << "Found face\n";
 							newTracker.elem_idx = CHILD.index;
 							newTracker.elem_face = cf_idx;
 							break;

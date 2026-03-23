@@ -68,19 +68,21 @@ namespace gv::fem
 				
 				//collect vertex coordinates and construct element
 				//TODO: remove this need
-				auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t, double>(ELEM);
-				elem_vertices = vtk_elem->collect_vertices(mesh);
+				// auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t, double>(ELEM);
+				auto vtk_elem = gv::mesh::VTK_ELEMENT_POLY<Mesh_t>(ELEM.vtkID);
+				vtk_elem.set_element(mesh, ELEM.index);
+
+				// elem_vertices = vtk_elem->collect_vertices(mesh);
 
 				//check containment
-				if (vtk_elem->contains(elem_vertices, point)) {
+				if (vtk_elem.contains(point)) {
 					//it is contained, 
-					const RefPoint_t ref_coord = vtk_elem->geometric_to_reference(elem_vertices, point);
+					const RefPoint_t ref_coord = vtk_elem.geo2ref(point);
 
-					delete vtk_elem;
 					return eval(ref_coord, spt);
 				}
 
-				delete vtk_elem;
+				// delete vtk_elem;
 			}
 
 			return 0.0;
@@ -89,7 +91,7 @@ namespace gv::fem
 		//evaluate the DOF at the specified point in the mesh
 		//this will be slower than eval() because of several lookups and the transformation to the reference coordinates
 		template<gv::mesh::BasicMeshType Mesh_t>
-		double eval_grad_at(const typename Mesh_t::Point_t& point, const Mesh_t& mesh) const
+		RefPoint_t eval_grad_at(const typename Mesh_t::Point_t& point, const Mesh_t& mesh) const
 		{
 			//determine if the point is inside the support
 			//the ordering of the support elements is not assumed to be known
@@ -101,22 +103,24 @@ namespace gv::fem
 				
 				//collect vertex coordinates and construct element
 				//TODO: remove this need
-				auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t, double>(ELEM);
-				elem_vertices = vtk_elem->collect_vertices(mesh);
+				// auto* vtk_elem = gv::mesh::_VTK_ELEMENT_FACTORY<Mesh_t::SPACE_DIM, Mesh_t::REF_DIM, typename Mesh_t::Vertex_t::Scalar_t, double>(ELEM);
+				auto vtk_elem = gv::mesh::VTK_ELEMENT_POLY<Mesh_t>(ELEM.vtkID);
+				vtk_elem.set_element(mesh, ELEM.index);
+
+				// elem_vertices = vtk_elem->collect_vertices(mesh);
 
 				//check containment
-				if (vtk_elem->contains(elem_vertices, point)) {
+				if (vtk_elem.contains(point)) {
 					//it is contained, 
-					const RefPoint_t ref_coord = vtk_elem->geometric_to_reference(elem_vertices, point);
+					const RefPoint_t ref_coord = vtk_elem.geo2ref(point);
 
-					delete vtk_elem;
 					return eval_grad(ref_coord, spt);
 				}
 
-				delete vtk_elem;
+				// delete vtk_elem;
 			}
 
-			return 0.0;
+			return RefPoint_t(0.0);
 		}
 
 

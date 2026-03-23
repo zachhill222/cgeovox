@@ -70,7 +70,7 @@ namespace gv::mesh
 		//aliases
 		using Index_t            = gutil::Point<ref_dim,size_t>;
 		using DomainBox_t        = gutil::Box<SPACE_DIM, Scalar_t>;
-		using RefBox_t           = gutil::Box<ref_dim, Scalar_t>;
+		using RefBox_t           = gutil::Box<ref_dim, double>;
 		using RefPoint_t         = gutil::Point<ref_dim, double>;
 		using Point_t            = gutil::Point<SPACE_DIM, Scalar_t>;
 		using VertexList_t       = VertexOctree<Vertex_t, 64, Scalar_t>;
@@ -193,7 +193,7 @@ namespace gv::mesh
 		/// @param domain The domain to be meshed
 		/// @param N The number of elements along each coordinate axis
 		/////////////////////////////////////////////////
-		void setVoxelMesh_Locked(const RefBox_t &domain, const Index_t& N, const bool useIsopar=false) requires (ref_dim==3);
+		void setVoxelMesh_Locked(const DomainBox_t &domain, const Index_t& N, const bool useIsopar=false) requires (ref_dim==3);
 
 
 		/////////////////////////////////////////////////
@@ -202,7 +202,7 @@ namespace gv::mesh
 		/// @param domain The domain to be meshed
 		/// @param N The number of elements along each coordinate axis
 		/////////////////////////////////////////////////
-		void setPixelMesh_Locked(const RefBox_t &domain, const Index_t& N, const bool useIsopar=false) requires (ref_dim==2);
+		void setPixelMesh_Locked(const DomainBox_t &domain, const Index_t& N, const bool useIsopar=false) requires (ref_dim==2);
 
 
 		/////////////////////////////////////////////////
@@ -418,7 +418,7 @@ namespace gv::mesh
 
 	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
 	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::setVoxelMesh_Locked (
-			const RefBox_t &domain,
+			const DomainBox_t &domain,
 			const Index_t &N,
 			const bool useIsopar)
 		requires (ref_dim==3)
@@ -437,11 +437,11 @@ namespace gv::mesh
 
 
 		//initialize the vertices
-		const RefPoint_t H = domain.sidelength() / RefPoint_t(N);
+		const Point_t H = domain.sidelength() / Point_t(N);
 		for (size_t i=0; i<=N[0]; i++) {
 			for (size_t j=0; j<=N[1]; j++) {
 				for (size_t k=0; k<=N[2]; k++) {
-					RefPoint_t vertex  = domain.low() + RefPoint_t{i,j,k} * H;
+					Point_t vertex  = domain.low() + Point_t{i,j,k} * H;
 					Vertex_t VERTEX(vertex);
 					// size_t idx = _vertices.push_back(std::move(VERTEX), std::move(vertex));
 					size_t idx = _vertices.push_back(std::move(VERTEX));
@@ -461,9 +461,9 @@ namespace gv::mesh
 						for (size_t j=jj; j<N[1]; j+=2) {
 							for (size_t k=kk; k<N[2]; k+=2) {
 								//define element extents
-								RefPoint_t low  = domain.low() + RefPoint_t{i,j,k} * H;
-								RefPoint_t high = domain.low() + RefPoint_t{i+1,j+1,k+1} * H;
-								RefBox_t elem  {low, high};
+								Point_t low  = domain.low() + Point_t{i,j,k} * H;
+								Point_t high = domain.low() + Point_t{i+1,j+1,k+1} * H;
+								DomainBox_t elem  {low, high};
 							
 								//assemble the list of vertices
 								std::vector<Point_t> element_vertices(vtk_n_vertices(ID));
@@ -488,7 +488,7 @@ namespace gv::mesh
 
 	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
 	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::setPixelMesh_Locked(
-			const RefBox_t &domain,
+			const DomainBox_t &domain,
 			const Index_t &N,
 			const bool useIsopar) 
 		requires (ref_dim==2)
@@ -507,13 +507,13 @@ namespace gv::mesh
 		_elements.reserve(N[0]*N[1]);
 		
 		//construct the mesh
-		const RefPoint_t H(domain.sidelength() / RefPoint_t(N));
+		const Point_t H(domain.sidelength() / Point_t(N));
 		for (size_t i=0; i<N[0]; i++) {
 			for (size_t j=0; j<N[1]; j++) {
 				//define element extents
-				RefPoint_t low  = domain.low() + RefPoint_t{i,j} * H;
-				RefPoint_t high = domain.low() + RefPoint_t{i+1,j+1} * H;
-				RefBox_t   elem  {low, high};
+				Point_t low  = domain.low() + Point_t{i,j} * H;
+				Point_t high = domain.low() + Point_t{i+1,j+1} * H;
+				DomainBox_t   elem  {low, high};
 			
 				//assemble the list of vertices
 				std::vector<Point_t> element_vertices(vtk_n_vertices(ID));
@@ -738,17 +738,22 @@ namespace gv::mesh
 			const Element_t &ELEM = _elements[e_idx];
 			// auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
 			auto vtk_elem = VTK_ELEMENT_POLY<Mesh_t>(ELEM.vtkID);
-
+			vtk_elem.set_element(*this, e_idx);
+			
 			std::vector<size_t> neighbors;
 			getElementNeighbors_Unlocked(e_idx, neighbors);
 
 			for (int i=0; i<vtk_n_faces(ELEM.vtkID); i++) {
-				face_indices.clear();
 				face_indices = vtk_elem.get_face_vertices(i);
+				
+				// std::cout << std::endl;
+				// for (auto f : face_indices) {std::cout << f << " ";}
+
 				Face_t FACE(vtk_elem.face_vtk_id());
-				for (int i=0; i<vtk_n_vertices(FACE.vtkID); ++i) {
-					FACE.vertices[i] = ELEM.vertices[face_indices[i]];
-				}
+				FACE.vertices = face_indices;
+				// for (int i=0; i<vtk_n_vertices(FACE.vtkID); ++i) {
+				// 	FACE.vertices[i] = ELEM.vertices[face_indices[i]];
+				// }
 
 				//add each face or increment the existing count
 				all_faces[FACE].count +=1;

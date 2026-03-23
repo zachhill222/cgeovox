@@ -7,6 +7,8 @@
 #include "mesh/vtk_elements/base.hpp"
 #include "mesh/vtk_elements/voxel.hpp"
 #include "mesh/vtk_elements/hexahedron.hpp"
+#include "mesh/vtk_elements/pixel.hpp"
+#include "mesh/vtk_elements/quad.hpp"
 
 #include "concepts.hpp"
 
@@ -33,7 +35,9 @@ namespace gv::mesh
 		//all supported element types must be listed here.
 		using Variant_t  = std::variant<
 			VTK_VOXEL<Mesh_t>,
-			VTK_HEXAHEDRON<Mesh_t>
+			VTK_HEXAHEDRON<Mesh_t>,
+			VTK_PIXEL<Mesh_t>,
+			VTK_QUAD<Mesh_t>
 		>; 
 		Variant_t elem;
 
@@ -42,6 +46,8 @@ namespace gv::mesh
 			switch (vtkID) {
 				case VOXEL_VTK_ID: elem = VTK_VOXEL<Mesh_t>{}; break;
 				case HEXAHEDRON_VTK_ID: elem = VTK_HEXAHEDRON<Mesh_t>{}; break;
+				case PIXEL_VTK_ID: elem = VTK_PIXEL<Mesh_t>{}; break;
+				case QUAD_VTK_ID: elem = VTK_QUAD<Mesh_t>{}; break;
 				default: throw std::runtime_error("Unknown vtkID: " + std::to_string(vtkID));
 			}
 		}
