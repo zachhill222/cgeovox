@@ -254,13 +254,13 @@ namespace gv::mesh {
 			// vtk_elem->split(child_vertex_coords);
 
 			//add any new vertices
-			// std::vector<size_t> local_node;
 			for (;j<vtk_elem.n_vert_on_split(); j++) {
 				//create new vertex and attempt to add it to the list (or get the index of the existing vertex)
-				Vertex_t VERTEX(vtk_elem.child_vertex_coords(j));
-				// size_t n_idx = this->_vertices.push_back_async(std::move(VERTEX), std::move(child_vertex_coords[j]));
-				size_t n_idx = this->_vertices.push_back_async(std::move(VERTEX));
-				this->_vertices[n_idx].index = n_idx;
+				Vertex_t new_vertex(vtk_elem.child_vertex_coords(j));
+				size_t n_idx = this->_vertices.push_back_async(std::move(new_vertex));
+				
+				Vertex_t& VERTEX = this->_vertices[n_idx];
+				VERTEX.index = n_idx;
 				split_node_numbers[j] = n_idx;
 			}
 
@@ -395,6 +395,7 @@ namespace gv::mesh {
 	}
 
 
+
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
@@ -488,7 +489,7 @@ namespace gv::mesh {
 
 		//new vertices and elements must be generated
 		std::vector<size_t> split_node_numbers = generateNodesForSplit(ELEM);
-		// auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
+		
 		auto vtk_elem = VTK_ELEMENT_POLY<Mesh_t>(ELEM.vtkID);
 		vtk_elem.set_element(*this, elem_idx);
 
@@ -497,8 +498,6 @@ namespace gv::mesh {
 
 		for (int k=0; k<vtk_elem.n_children(); k++) {
 			//get the indices of the vertices that define child k in the correct order
-			// std::vector<size_t> childNodes;
-			// vtk_elem->getChildVertices(childNodes, k, split_node_numbers);
 			std::vector<size_t> local_child_nodes = vtk_elem.get_child_local_vertices(k);
 
 			//create the child
@@ -723,8 +722,7 @@ namespace gv::mesh {
 	// 	auto last = std::unique(relatives.begin(), relatives.end());
 	// 	relatives.erase(last, relatives.end());
 
-	// 	//look up the neighbors of each element
-	// 	//if the vertex is contained, then add that element index to the result
+	// 	//look up the neighbors of each relative
 	// 	std::vector<size_t> neighbors;
 	// 	for (size_t e_idx : relatives) {
 	// 		this->getElementNeighbors_Unlocked(e_idx, neighbors);
@@ -739,14 +737,12 @@ namespace gv::mesh {
 	// 	std::vector<Point_t> elem_vertex_coords;
 	// 	for (size_t e_idx : neighbors) {
 	// 		const auto& ELEM = this->getElement(e_idx);
-	// 		auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
-	// 		elem_vertex_coords = vtk_elem->collect_vertices(*this);
+	// 		auto vtk_elem = VTK_ELEMENT_POLY<Mesh_t>(ELEM.vtkID);
+	// 		elem_vertex_coords = vtk_elem.set_element(*this, ELEM.index);
 
-	// 		if (vtk_elem->contains(elem_vertex_coords, VERTEX.coord)) {
+	// 		if (vtk_elem.contains(VERTEX.coord)) {
 	// 			result.push_back(e_idx);
 	// 		}
-
-	// 		delete vtk_elem;
 	// 	}
 
 	// 	std::sort(result.begin(), result.end());

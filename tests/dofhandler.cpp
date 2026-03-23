@@ -41,13 +41,14 @@ int main(int argc, char* argv[])
 
 	//refine elements in the [0,1/2^k]^3 region
 	double high=0.5;
-	for (int k=0; k<2; k++) {
+	for (int k=0; k<3; k++) {
+		std::cout << "Refine: " << k << std::endl;
 		Box_t box(Point_t{0,0,0}, Point_t{high,high,high});
 		high*=0.5;
 		dofhandler.mark_refine(box);
 		mesh.processSplit();
 		// mesh.save_as(std::string("./outfiles/start_refine_")+std::to_string(k)+std::string(".vtk"), true);
-		dofhandler.process_refine<false>();
+		dofhandler.process_refine<true>();
 	}
 
 	dofhandler.make_dof_map();

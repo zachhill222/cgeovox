@@ -47,8 +47,7 @@ namespace gv::fem
 
 	protected:
 		std::vector<DOF_t>  dofs;
-		std::vector<std::array<size_t,MAX_CHILDREN>> dof_children;
-		std::vector<std::array<size_t,MAX_CHILDREN>> dof_parents;
+
 		std::vector<std::unordered_set<size_t>> element_basis_s; //track basis functions per-element on the same level of refinement
 		std::vector<std::unordered_set<size_t>> element_basis_a; //track basis functions per-element on coarser levels of refinement
 
@@ -71,23 +70,17 @@ namespace gv::fem
 		void reserve(const size_t length) {
 			dofs.reserve(length);
 			coefs.reserve(length);
-			dof_children.reserve(length);
-			dof_parents.reserve(length);
 		}
 
 		void resize(const size_t length) {
 			dofs.resize(length);
 			coefs.resize(length);
-			dof_children.resize(length);
-			dof_parents.resize(length);
 		}
 
 		void clear() {
 			dofs.clear(); 
 			coefs.clear(); 
 			boundary_dofs.clear();
-			dof_children.clear();
-			dof_parents.clear();
 			refine_dof_list.clear();
 		}
 
@@ -113,23 +106,24 @@ namespace gv::fem
 			dofs[idx].active = true;
 
 			//loop through support elements
+			#ifndef NDEBUG
 			for (int i=0; i<DOF_t::max_support; ++i) {
 				const size_t el_idx = dofs[idx].support_idx[i];
 				if (el_idx != (size_t) -1) {
 					//element activation is handled outside the dofhandler
 					//populate basis_s and basis_a either way (in case the element is later activated)
 
-					//ensure the support elements have this basis function
-					element_basis_s[el_idx].insert(idx);
+					//ensure the correct elements have this in their basis_s and basis_a
+					assert(element_basis_s[el_idx].contains(idx));
 
-					//add this basis function as an ancestor basis function to any descendent elements
 					std::vector<size_t> descendents;
 					mesh.getElementDescendents_Unlocked(el_idx, descendents, false);
 					for (size_t descendent : descendents) {
-						element_basis_a[descendent].insert(idx);
+						assert(element_basis_a[descendent].contains(idx));
 					}
 				}
 			}
+			#endif
 		}
 
 		void deactivate(const size_t idx) {
@@ -150,10 +144,6 @@ namespace gv::fem
 			assert(idx<this->ndof());
 			
 			if (!dofs[idx].active) {return false;}
-
-			for (size_t c_idx : dof_children[idx]) {
-				if (c_idx != (size_t) -1) {return false;}
-			}
 
 			return true;
 		}
@@ -215,15 +205,14 @@ namespace gv::fem
 		//mesh.processSplit() must be called between mark_refine() and process_refine()
 		template<bool HIERARCHICAL=true>
 		void process_refine() {
-			this->reserve(dofs.size()+MAX_CHILDREN*refine_dof_list.size());
-
 			//ensure basis_s and basis_a have the same length as the total number of elements
 			element_basis_s.resize(mesh.nElements(false));
 			element_basis_a.resize(mesh.nElements(false));
 
-			//add all new DOFs
+			//create any new DOFs
+			this->reserve(dofs.size()+MAX_CHILDREN*refine_dof_list.size());
 			for (size_t parent_idx : refine_dof_list) {
-				DOF_t& PARENT = dofs[parent_idx];
+				const DOF_t& PARENT = dofs[parent_idx];
 
 				//update basis_a for the newly created elements
 				for (size_t e_idx : PARENT.support_idx) {
@@ -231,9 +220,9 @@ namespace gv::fem
 					const auto& ELEM = mesh.getElement(e_idx);
 					assert(ELEM.children.size() > 0);
 
-					for (size_t c_idx : ELEM.children) {
-						element_basis_a[c_idx].insert(element_basis_s[parent_idx].begin(), element_basis_s[parent_idx].end());
-						element_basis_a[c_idx].insert(element_basis_a[parent_idx].begin(), element_basis_a[parent_idx].end());
+					for (size_t c_elem_idx : ELEM.children) {
+						element_basis_a[c_elem_idx].insert(element_basis_s[parent_idx].begin(), element_basis_s[parent_idx].end());
+						element_basis_a[c_elem_idx].insert(element_basis_a[parent_idx].begin(), element_basis_a[parent_idx].end());
 					}
 				}
 
@@ -247,7 +236,7 @@ namespace gv::fem
 
 				//add any new dofs to the list and record the index of all child dofs
 				for (size_t c_idx=0; c_idx<MAX_CHILDREN; ++c_idx) {
-					//if this child is not a new dof, then the first support element will have this
+					//if this child is not a new dof, then each support element will have this
 					//child as a dof in basis_s
 					const DOF_t& CHILD = children[c_idx];
 
@@ -269,28 +258,21 @@ namespace gv::fem
 						const size_t new_dof_idx = dofs.size();
 						child_dof_idx[c_idx] = new_dof_idx;
 						dofs.push_back(children[c_idx]);
-						
-						dof_parents.emplace_back();
-						dof_parents[new_dof_idx].fill((size_t) -1);
-						
-						dof_children.emplace_back();
-						dof_children[new_dof_idx].fill((size_t) -1);
+						const DOF_t& CHILD = dofs[new_dof_idx];
+
+						for (size_t c_elem_idx : CHILD.support_idx) {
+							if (c_elem_idx == (size_t) -1) {continue;}
+							element_basis_s[c_elem_idx].insert(new_dof_idx);
+						}
 
 						coefs.emplace_back(0);
 					} else {
 						child_dof_idx[c_idx] = existing_dof_idx;
+						for (size_t c_elem_idx : CHILD.support_idx) {
+							if (c_elem_idx == (size_t) -1) {continue;}
+							element_basis_s[c_elem_idx].insert(existing_dof_idx);
+						}
 					}
-				}
-
-				//populate relations
-				for (size_t c_idx=0; c_idx<MAX_CHILDREN; ++c_idx) {
-					const size_t child_idx = child_dof_idx[c_idx];
-					if (child_idx == (size_t) -1) {continue;}
-
-					dof_children[parent_idx][c_idx] = child_idx;
-					dof_parents[child_idx][c_idx] = parent_idx;
-
-					//basis_s and basis_a are handled when the basis function is activated
 				}
 
 				//activate functions and update coefficients
@@ -300,8 +282,7 @@ namespace gv::fem
 						if (child_idx == (size_t) -1) {continue;}
 
 						const DOF_t& CHILD = dofs[child_idx];
-						activate(child_idx); //always activate to get basis_s populated correctly
-						if (CHILD.global_idx == PARENT.global_idx) {deactivate(child_idx);}
+						if (CHILD.global_idx != PARENT.global_idx) {activate(child_idx);}
 						
 						coefs[child_idx] = Coef_t{0};
 					}
@@ -311,12 +292,11 @@ namespace gv::fem
 					for (size_t c_idx=0; c_idx<children.size(); ++c_idx) {
 						const size_t child_idx = child_dof_idx[c_idx];
 						if (child_idx == (size_t) -1) {continue;}
-						
-						const DOF_t& CHILD = dofs[child_idx];
+
 						activate(child_idx);
 
 						//represent the parent function as a linear combination of the children functions
-						coefs[child_idx] = coefs[parent_idx]*PARENT.get_child_coef(c_idx);
+						coefs[child_idx] += coefs[parent_idx]*PARENT.get_child_coef(c_idx);
 					}
 				}
 			}
@@ -406,10 +386,6 @@ namespace gv::fem
 			dofs[n].active = true;
 			dofs[n].depth = 0;
 
-			//populate parent/child relationships with null values
-			dof_parents[n].fill((size_t) -1);
-			dof_children[n].fill((size_t) -1);
-
 			//mark DOF as part of the boundary
 			if (VERTEX.boundary_faces.size()>0) {
 				boundary_dofs.push_back(n);
@@ -425,24 +401,39 @@ namespace gv::fem
 		//get closest vertex in the mesh
 		const auto& VERTEX = mesh.getVertex(vertex_index);
 
-		//assemble basis functions to evaluate
-		std::vector<size_t> dofs_to_eval;
+		//assemble element ancestors
+		std::vector<size_t> elements = VERTEX.elems;
 		for (size_t e_idx : VERTEX.elems) {
+			mesh.getElementAncestors_Unlocked(e_idx, elements, false);
+		}
+		std::sort(elements.begin(), elements.end());
+		auto last = std::unique(elements.begin(), elements.end());
+		elements.erase(last, elements.end());
+
+		//assemble active basis functions
+		std::vector<size_t> dofs_to_eval;
+		for (size_t e_idx : elements) {
+			const auto& ELEM = mesh.getElement(e_idx);
+
 			for (size_t d_idx : element_basis_s[e_idx]) {
-				if (dofs[d_idx].active) {dofs_to_eval.push_back(d_idx);}
+				if (dofs[d_idx].active) {
+					dofs_to_eval.push_back(d_idx);
+				}
 			}
 
 			for (size_t d_idx : element_basis_a[e_idx]) {
-				if (dofs[d_idx].active) {dofs_to_eval.push_back(d_idx);}
+				if (dofs[d_idx].active) {
+					dofs_to_eval.push_back(d_idx);
+				}
 			}
 		}
 		
-
-		//evaluate the basis functions
 		std::sort(dofs_to_eval.begin(), dofs_to_eval.end());
-		auto last = std::unique(dofs_to_eval.begin(), dofs_to_eval.end());
+		last = std::unique(dofs_to_eval.begin(), dofs_to_eval.end());
 		dofs_to_eval.erase(last, dofs_to_eval.end());
 
+
+		//evaluate the basis functions
 		Coef_t result{0};
 		for (size_t d_idx : dofs_to_eval) {
 			result += coefs[d_idx] * dofs[d_idx].eval_at(VERTEX.coord, mesh);
@@ -465,11 +456,25 @@ namespace gv::fem
 			return;
 		}
 
+		//map active dofs to vertices (helpful for debugging)
+		const size_t nVertices = mesh.nVertices();
+		const size_t nElements = mesh.nElements();
+
+		std::vector<size_t> vtx2dof(nVertices, (size_t) -1);
+		#pragma omp parallel for
+		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
+			for (size_t d_idx=0; d_idx < dofs.size(); ++d_idx) {
+				const auto& DOF = dofs[d_idx];
+				if (DOF.active and DOF.global_idx == v_idx) {
+					vtx2dof[v_idx] = d_idx;
+				}
+			}
+		}
+
 		//write the value of the field at the mesh vertices
 		std::stringstream buffer;
-		const size_t nVertices = mesh.nVertices();
 		buffer << "POINT_DATA " << nVertices << "\n"
-		       << "FIELD field 1 \n";
+		       << "FIELD vertex_debug 4\n";
 
 		buffer << "values " << coef_dim << " " << nVertices << " float\n";
 		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
@@ -478,6 +483,77 @@ namespace gv::fem
 		buffer << "\n\n";
 		file   << buffer.rdbuf();
 		buffer.str("");
+
+		//write the index of the active basis function
+		buffer << "active_basis_index 1 " << nVertices << " integer\n";
+		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
+			const size_t d_idx = vtx2dof[v_idx];
+			const int c = d_idx == (size_t) -1 ? -1 : (int) d_idx;
+			buffer << c << " ";
+		}
+		buffer << "\n\n";
+		file   << buffer.rdbuf();
+		buffer.str("");
+
+		//write depth of the active basis function
+		buffer << "depth 1 " << nVertices << " integer\n";
+		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
+			const size_t d_idx = vtx2dof[v_idx];
+			const int depth = d_idx == (size_t) -1 ? -1 : dofs[d_idx].depth;
+			buffer << depth << " ";
+		}
+		buffer << "\n\n";
+		file   << buffer.rdbuf();
+		buffer.str("");
+
+		//write the coefficeint of the active basis function
+		buffer << "coef 1 " << nVertices << " float\n";
+		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
+			const size_t d_idx = vtx2dof[v_idx];
+			const double c = d_idx == (size_t) -1 ? 0 : coefs[d_idx];
+			buffer << c << " ";
+		}
+		buffer << "\n\n";
+		file   << buffer.rdbuf();
+		buffer.str("");
+
+
+
+		//write element debug information
+		buffer << "CELL_DATA " << nElements << "\n"
+			   << "FIELD element_debug 2\n";
+
+		buffer << "basis_s 8 " << nElements << " integer\n";
+		for (const auto& ELEM : mesh) {
+			int i=0;
+			for (size_t d_idx : element_basis_s[ELEM.index]) {
+				buffer << d_idx << " ";
+				i++;
+			}
+			for (;i<8; ++i) {
+				buffer << "-1 ";
+			}
+		}
+		buffer << "\n\n";
+		file   << buffer.rdbuf();
+		buffer.str("");
+
+		buffer << "basis_a 8 " << nElements << " integer\n";
+		for (const auto& ELEM : mesh) {
+			int i=0;
+			for (size_t d_idx : element_basis_a[ELEM.index]) {
+				buffer << d_idx << " ";
+				i++;
+				if (i==8) {break;}
+			}
+			for (;i<8; ++i) {
+				buffer << "-1 ";
+			}
+		}
+		buffer << "\n\n";
+		file   << buffer.rdbuf();
+		buffer.str("");
+
 	}
 
 
