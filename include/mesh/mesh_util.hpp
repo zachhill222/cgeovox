@@ -252,12 +252,6 @@ namespace gv::mesh
 		{ vertex.boundary_faces  } -> std::convertible_to<std::vector<size_t>>;
 	};
 
-	template<typename T>
-	// concept HierarchicalMeshVertex = BasicMeshVertex<T> and requires(T vertex) {
-	// 	{ vertex.all_elements } -> std::convertible_to<std::vector<size_t>>;
-	// };
-	concept HierarchicalMeshVertex = BasicMeshVertex<T>;
-
 
 	/////////////////////////////////////////////////
 	/// A container for tracking the node information.
@@ -283,16 +277,6 @@ namespace gv::mesh
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<2,double>>>, "BasicVertex<Point<2,double>> is not a BasicMeshVertex");
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<3,float>>>,  "BasicVertex<Point<3,float>> is not a BasicMeshVertex");
 	static_assert(BasicMeshVertex<BasicVertex<gutil::Point<2,float>>>,  "BasicVertex<Point<2,float>> is not a BasicMeshVertex");
-
-	template <gutil::pointlike Point_type= gutil::Point<3,gutil::FixedPoint<int64_t,0>>>
-	struct HierarchicalVertex : public BasicVertex<Point_type> {
-		using BasicVertex<Point_type>::BasicVertex; //use parent constructors
-		// std::vector<size_t> all_elements; //track which elements this vertex is contained in
-	};
-	static_assert(HierarchicalMeshVertex<HierarchicalVertex<gutil::Point<3,double>>>, "HierarchicalVertex<Point<3,double>> is not a HierarchicalMeshVertex");
-	static_assert(HierarchicalMeshVertex<HierarchicalVertex<gutil::Point<2,double>>>, "HierarchicalVertex<Point<2,double>> is not a HierarchicalMeshVertex");
-	static_assert(HierarchicalMeshVertex<HierarchicalVertex<gutil::Point<3,float>>>,  "HierarchicalVertex<Point<3,float>> is not a HierarchicalMeshVertex");
-	static_assert(HierarchicalMeshVertex<HierarchicalVertex<gutil::Point<2,float>>>,  "HierarchicalVertex<Point<2,float>> is not a HierarchicalMeshVertex");
 
 
 	template<BasicMeshVertex Vertex_t>

@@ -34,7 +34,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement ElementStruct_t = HierarchicalColoredElement,
-			HierarchicalMeshVertex           VertexStruct_t  = HierarchicalVertex<>,
+			BasicMeshVertex                  VertexStruct_t  = BasicVertex<>,
 			ColorMethod                      COLOR_METHOD    = ColorMethod::GREEDY,
 			size_t                           MAX_COLORS      = 64
 			>
@@ -188,7 +188,7 @@ namespace gv::mesh {
 		template<
 			int ref_dim_u,
 			HierarchicalColorableMeshElement Element_u,
-			HierarchicalMeshVertex           Vertex_u,
+			BasicMeshVertex                  Vertex_u,
 			ColorMethod                      color_method,
 			size_t                           max_colors>
 		friend std::ostream& operator<<(std::ostream& os, const HierarchicalMesh<ref_dim_u,Element_u,Vertex_u,color_method,max_colors> &mesh);
@@ -276,7 +276,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
@@ -299,7 +299,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
@@ -320,7 +320,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
@@ -343,7 +343,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
@@ -399,7 +399,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
@@ -426,7 +426,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
@@ -472,7 +472,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
@@ -593,7 +593,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
@@ -696,7 +696,7 @@ namespace gv::mesh {
 	// template<
 	// 		int                              ref_dim,
 	// 		HierarchicalColorableMeshElement Element_t,
-	// 		HierarchicalMeshVertex           Vertex_t,
+	// 		BasicMeshVertex                  Vertex_t,
 	// 		ColorMethod                      COLOR_METHOD,
 	// 		size_t                           MAX_COLORS
 	// 		>
@@ -756,7 +756,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
@@ -784,7 +784,7 @@ namespace gv::mesh {
 	template<
 			int                              ref_dim,
 			HierarchicalColorableMeshElement Element_t,
-			HierarchicalMeshVertex           Vertex_t,
+			BasicMeshVertex                  Vertex_t,
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>

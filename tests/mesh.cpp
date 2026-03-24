@@ -16,7 +16,7 @@ void test() {
 	using Point_t    = gutil::Point<3,T>;
 	using Box_t      = gutil::Box<dim,T>;
 	using Element_t  = gv::mesh::HierarchicalColoredElement;
-	using Vertex_t   = gv::mesh::HierarchicalVertex<Point_t>;
+	using Vertex_t   = gv::mesh::BasicVertex<Point_t>;
 
 	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
 	using Mesh_t  = gv::mesh::HierarchicalMesh<3,Element_t,Vertex_t,method>;

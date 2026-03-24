@@ -745,23 +745,15 @@ namespace gv::mesh
 
 			for (int i=0; i<vtk_n_faces(ELEM.vtkID); i++) {
 				face_indices = vtk_elem.get_face_vertices(i);
-				
-				// std::cout << std::endl;
-				// for (auto f : face_indices) {std::cout << f << " ";}
 
 				Face_t FACE(vtk_elem.face_vtk_id());
 				FACE.vertices = face_indices;
-				// for (int i=0; i<vtk_n_vertices(FACE.vtkID); ++i) {
-				// 	FACE.vertices[i] = ELEM.vertices[face_indices[i]];
-				// }
 
 				//add each face or increment the existing count
 				all_faces[FACE].count +=1;
 				all_faces[FACE].elem = e_idx;
 				all_faces[FACE].elem_face = i;
 			}
-
-			// delete vtk_elem;
 		}
 
 		//process boundary faces
