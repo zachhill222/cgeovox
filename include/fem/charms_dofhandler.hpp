@@ -51,6 +51,10 @@ namespace gv::fem
 		std::vector<std::unordered_set<size_t>> element_basis_s; //track basis functions per-element on the same level of refinement
 		std::vector<std::unordered_set<size_t>> element_basis_a; //track basis functions per-element on coarser levels of refinement
 
+		//map the index of the mesh feature to basis functions.
+		//note that in CHARMS, more than one dof can live at a mesh feature (esp. nodal basis functions)
+		std::vector<std::unordered_set<size_t>> mesh2dof; 
+
 		std::vector<Coef_t> coefs; //best tracked in a problem class and only write here for fileio
 		std::vector<size_t> boundary_dofs;
 
@@ -96,6 +100,48 @@ namespace gv::fem
 		//save the mesh and nodal evaluations to a file
 		void save_as(const std::string filename, const int coef_dim=1, const bool use_ascii=false) const;
 
+		//get the children of a basis function
+		std::vector<size_t> get_children(const size_t p_idx) const {
+			assert(p_idx < dofs.size());
+			std::vector<size_t> result;
+
+			//a basis function C will be a child of the specified function P only if
+			//the support of C is entirely contained in the support of P
+
+			//aggregate the child elements that must be used for the support elements of child dofs
+			std::unordered_set<size_t> child_elems;
+			for (const size_t e_idx : dofs[p_idx].support_idx) {
+				const auto& ELEM = mesh.getElement(e_idx);
+				child_elems.insert(ELEM.children.begin(), ELEM.children.end());
+			}
+
+			//check the basis_s functions on the child elements
+			for (const size_t c_elem_idx : child_elems) {
+				for (const size_t c_idx : element_basis_s[c_elem_idx]) {
+					bool is_child = true;
+					const DOF_t& CHILD = dofs[c_idx];
+					assert(CHILD.depth == dofs[p_idx].depth+1);
+					for (const size_t e_idx : CHILD.support_idx) {
+						if (!child_elems.contains(e_idx)) {
+							is_child = false;
+							break;
+						}
+					}
+
+					if (is_child) {
+						result.push_back(c_idx);
+					}
+				}
+			}
+
+			//ensure the list is of unique values
+			std::sort(result.begin(), result.end());
+			auto last = std::unique(result.begin(), result.end());
+			result.erase(last, result.end());
+			return result;
+		}
+
+
 		//active/deactivate basis functions
 		void activate(const size_t idx) {
 			assert(idx<this->ndof());
@@ -103,9 +149,16 @@ namespace gv::fem
 			assert(element_basis_s.size() == mesh.nElements(false));
 
 			if (dofs[idx].active) {return;}
-			dofs[idx].active = true;
 
-			//loop through support elements
+			//a dof must have at least one active support element
+			for (const size_t e_idx : dofs[idx].support_idx) {
+				if (mesh.getElement(e_idx).is_active) {
+					dofs[idx].active = true;
+					break;
+				}
+			}
+
+			//verify that the dof is included in the appropriate basis_a and basis_s sets
 			#ifndef NDEBUG
 			for (int i=0; i<DOF_t::max_support; ++i) {
 				const size_t el_idx = dofs[idx].support_idx[i];
@@ -145,6 +198,7 @@ namespace gv::fem
 			
 			if (!dofs[idx].active) {return false;}
 
+			//TODO: check if its parents are refined
 			return true;
 		}
 
@@ -159,8 +213,7 @@ namespace gv::fem
 			for (size_t el_idx : dofs[idx].support_idx) {
 				if (el_idx != (size_t) -1) {
 					#ifndef NDEBUG
-				        const auto& ELEM = mesh.getElement(el_idx);
-				        assert(ELEM.is_active);
+						const auto& ELEM = mesh.getElement(el_idx);
 				        assert(ELEM.depth == dofs[idx].depth);
 			        #endif
 
@@ -209,6 +262,22 @@ namespace gv::fem
 			element_basis_s.resize(mesh.nElements(false));
 			element_basis_a.resize(mesh.nElements(false));
 
+			if constexpr (DOF_t::feature_dim == 0) {
+				mesh2dof.resize(mesh.nVertices());
+			}
+			else if constexpr (DOF_t::feature_dim == 1) {
+				throw std::runtime_error("CharmsDOFhandler: edge dofs not implemented");
+			}
+			else if constexpr (DOF_t::feature_dim == 2 and Mesh_t::SPACE_DIM!=2) {
+				throw std::runtime_error("CharmsDOFhandler: face dofs not implemented");
+			}
+			else if constexpr (DOF_t::feature_dim == Mesh_t::SPACE_DIM) {
+				mesh2dof.resize(mesh.nElements(false));
+			}
+			else {
+				throw std::runtime_error("CharmsDOFhandler: unkown DOF type");
+			}
+
 			//create any new DOFs
 			this->reserve(dofs.size()+MAX_CHILDREN*refine_dof_list.size());
 			for (size_t parent_idx : refine_dof_list) {
@@ -245,7 +314,7 @@ namespace gv::fem
 					
 					//check if the child previously existed as a DOF
 					size_t existing_dof_idx = (size_t) -1;
-					for (size_t sib_idx : element_basis_s[CHILD.support_idx[0]]) {
+					for (size_t sib_idx : mesh2dof[CHILD.global_idx]) {
 						if (CHILD == dofs[sib_idx]) {
 							existing_dof_idx = sib_idx;
 							break;
@@ -255,14 +324,28 @@ namespace gv::fem
 					//get the index of the child DOF and add to list if needed
 					//note the contents of children[] is invalid
 					if (existing_dof_idx == (size_t) -1) {
+						//add new dof
 						const size_t new_dof_idx = dofs.size();
 						child_dof_idx[c_idx] = new_dof_idx;
 						dofs.push_back(children[c_idx]);
+						
+						//update dof references
 						const DOF_t& CHILD = dofs[new_dof_idx];
+						mesh2dof[CHILD.global_idx].insert(new_dof_idx);
 
 						for (size_t c_elem_idx : CHILD.support_idx) {
 							if (c_elem_idx == (size_t) -1) {continue;}
 							element_basis_s[c_elem_idx].insert(new_dof_idx);
+
+							//if the support elements have been previously refined
+							//then this new dof needs to be an ancestor basis function on
+							//the child elements.
+							const auto& ELEM = mesh.getElement(c_elem_idx);
+							std::vector<size_t> desendent_elements;
+							mesh.getElementDescendents_Unlocked(c_elem_idx, desendent_elements, false);
+							for (size_t e : desendent_elements) {
+								element_basis_a[e].insert(new_dof_idx);
+							}
 						}
 
 						coefs.emplace_back(0);
@@ -282,7 +365,9 @@ namespace gv::fem
 						if (child_idx == (size_t) -1) {continue;}
 
 						const DOF_t& CHILD = dofs[child_idx];
-						if (CHILD.global_idx != PARENT.global_idx) {activate(child_idx);}
+						if (CHILD.global_idx != PARENT.global_idx) {
+							activate(child_idx);
+						}
 						
 						coefs[child_idx] = Coef_t{0};
 					}
@@ -351,6 +436,7 @@ namespace gv::fem
 		this->resize(nvert);
 		element_basis_s.resize(mesh.nElements(false));
 		element_basis_a.resize(mesh.nElements(false));
+		mesh2dof.resize(mesh.nVertices());
 
 		for (size_t n=0; n<mesh.nVertices(); ++n) {
 			const auto& VERTEX = mesh.getVertex(n);
@@ -385,6 +471,7 @@ namespace gv::fem
 			dofs[n] = DOF_t(n, support, local_idx);
 			dofs[n].active = true;
 			dofs[n].depth = 0;
+			mesh2dof[n].insert(n);
 
 			//mark DOF as part of the boundary
 			if (VERTEX.boundary_faces.size()>0) {
@@ -460,25 +547,20 @@ namespace gv::fem
 		const size_t nVertices = mesh.nVertices();
 		const size_t nElements = mesh.nElements();
 
-		std::vector<size_t> vtx2dof(nVertices, (size_t) -1);
-		#pragma omp parallel for
-		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
-			for (size_t d_idx=0; d_idx < dofs.size(); ++d_idx) {
-				const auto& DOF = dofs[d_idx];
-				if (DOF.active and DOF.global_idx == v_idx) {
-					vtx2dof[v_idx] = d_idx;
-				}
-			}
-		}
-
 		//write the value of the field at the mesh vertices
 		std::stringstream buffer;
 		buffer << "POINT_DATA " << nVertices << "\n"
 		       << "FIELD vertex_debug 4\n";
 
+		//vertex values
 		buffer << "values " << coef_dim << " " << nVertices << " float\n";
-		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
-			buffer << this->eval_at_vertex(v_idx) << " ";
+		std::vector<Coef_t> vertex_values(nVertices,0);
+		#pragma omp parallel for
+		for (size_t i=0; i<nVertices; ++i) {
+			vertex_values[i] = this->eval_at_vertex(i);
+		}
+		for (size_t i=0; i<nVertices; ++i) {
+			buffer << vertex_values[i] << " ";
 		}
 		buffer << "\n\n";
 		file   << buffer.rdbuf();
@@ -487,8 +569,15 @@ namespace gv::fem
 		//write the index of the active basis function
 		buffer << "active_basis_index 1 " << nVertices << " integer\n";
 		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
-			const size_t d_idx = vtx2dof[v_idx];
-			const int c = d_idx == (size_t) -1 ? -1 : (int) d_idx;
+			//TODO: update when we have non-nodal DOFs
+			size_t dof_idx = (size_t) -1;
+			for (size_t d_idx : mesh2dof[v_idx]) {
+				if (dofs[d_idx].active) {
+					dof_idx = d_idx;
+					break;
+				}
+			}
+			const int c = dof_idx == (size_t) -1 ? -1 : (int) dof_idx;
 			buffer << c << " ";
 		}
 		buffer << "\n\n";
@@ -498,8 +587,14 @@ namespace gv::fem
 		//write depth of the active basis function
 		buffer << "depth 1 " << nVertices << " integer\n";
 		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
-			const size_t d_idx = vtx2dof[v_idx];
-			const int depth = d_idx == (size_t) -1 ? -1 : dofs[d_idx].depth;
+			size_t dof_idx = (size_t) -1;
+			for (size_t d_idx : mesh2dof[v_idx]) {
+				if (dofs[d_idx].active) {
+					dof_idx = d_idx;
+					break;
+				}
+			}
+			const int depth = dof_idx == (size_t) -1 ? -1 : dofs[dof_idx].depth;
 			buffer << depth << " ";
 		}
 		buffer << "\n\n";
@@ -509,8 +604,14 @@ namespace gv::fem
 		//write the coefficeint of the active basis function
 		buffer << "coef 1 " << nVertices << " float\n";
 		for (size_t v_idx=0; v_idx<mesh.nVertices(); ++v_idx) {
-			const size_t d_idx = vtx2dof[v_idx];
-			const double c = d_idx == (size_t) -1 ? 0 : coefs[d_idx];
+			size_t dof_idx = (size_t) -1;
+			for (size_t d_idx : mesh2dof[v_idx]) {
+				if (dofs[d_idx].active) {
+					dof_idx = d_idx;
+					break;
+				}
+			}
+			const double c = dof_idx == (size_t) -1 ? 0 : coefs[dof_idx];
 			buffer << c << " ";
 		}
 		buffer << "\n\n";
@@ -523,14 +624,21 @@ namespace gv::fem
 		buffer << "CELL_DATA " << nElements << "\n"
 			   << "FIELD element_debug 2\n";
 
-		buffer << "basis_s 8 " << nElements << " integer\n";
+		size_t max_basis_s=0;
+		size_t max_basis_a=0;
+		for (size_t e_idx=0; e_idx<nElements; ++e_idx) {
+			max_basis_s = std::max(max_basis_s, element_basis_s[e_idx].size());
+			max_basis_a = std::max(max_basis_a, element_basis_a[e_idx].size());
+		}
+
+		buffer << "basis_s " << max_basis_s << " " << nElements << " integer\n";
 		for (const auto& ELEM : mesh) {
 			int i=0;
 			for (size_t d_idx : element_basis_s[ELEM.index]) {
 				buffer << d_idx << " ";
 				i++;
 			}
-			for (;i<8; ++i) {
+			for (;i<max_basis_s; ++i) {
 				buffer << "-1 ";
 			}
 		}
@@ -538,15 +646,14 @@ namespace gv::fem
 		file   << buffer.rdbuf();
 		buffer.str("");
 
-		buffer << "basis_a 8 " << nElements << " integer\n";
+		buffer << "basis_a " << max_basis_a << " " << nElements << " integer\n";
 		for (const auto& ELEM : mesh) {
 			int i=0;
 			for (size_t d_idx : element_basis_a[ELEM.index]) {
 				buffer << d_idx << " ";
 				i++;
-				if (i==8) {break;}
 			}
-			for (;i<8; ++i) {
+			for (;i<max_basis_a; ++i) {
 				buffer << "-1 ";
 			}
 		}

@@ -91,10 +91,8 @@ namespace gv::fem
 
 			//get second coordinate to compute the box dimension (clearly voxel specific)
 			assert(ELEM0.depth == this->depth);
-			const auto& OTHER_V = mesh.getVertex(ELEM0.vertices[idx==0 ? 1 : 0]);
-			const auto h = 0.5*gutil::norminfty(center - OTHER_V.coord);
-			const typename Mesh_t::Point_t H(1.25*h);
-			typename Mesh_t::DomainBox_t box(center-H, center+H);
+			const auto H = 0.5*(mesh.getVertex(ELEM0.vertices[0]).coord + mesh.getVertex(ELEM0.vertices[7]).coord);
+			typename Mesh_t::DomainBox_t box(center-1.25*H, center+1.25*H);
 
 			//get the index of each vertex in the box
 			std::unordered_set<size_t> vertex_idx_set;
@@ -106,7 +104,6 @@ namespace gv::fem
 
 				for (size_t c_idx : ELEM.children) {
 					const auto& CHILD_ELEM = mesh.getElement(c_idx);
-					if (!CHILD_ELEM.is_active) {continue;}
 					for (size_t v_idx : CHILD_ELEM.vertices) {
 						const auto& VERTEX = mesh.getVertex(v_idx);
 						if (box.contains(VERTEX.coord)) {
@@ -134,7 +131,7 @@ namespace gv::fem
 					for (int ii=-1; ii<2; ++ii) {
 						const int standard_idx = (ii+1) + 3*(jj+1) + 9*(kk+1);
 						const typename Mesh_t::Point_t step{ii,jj,kk};
-						const typename Mesh_t::Point_t childCoord = center + h*step;
+						const typename Mesh_t::Point_t childCoord = center + H*step;
 						for (size_t v_idx=0; v_idx<vertex_idx.size(); ++v_idx) {
 							if (mesh.getVertex(vertex_idx[v_idx]).coord == childCoord) {
 								standard2vertex_idx[standard_idx] = v_idx;

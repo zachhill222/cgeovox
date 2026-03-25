@@ -35,7 +35,7 @@ namespace gv::mesh {
 			int                              ref_dim,
 			HierarchicalColorableMeshElement ElementStruct_t = HierarchicalColoredElement,
 			BasicMeshVertex                  VertexStruct_t  = BasicVertex<>,
-			ColorMethod                      COLOR_METHOD    = ColorMethod::GREEDY,
+			ColorMethod                      COLOR_METHOD    = ColorMethod::BALANCED,
 			size_t                           MAX_COLORS      = 64
 			>
 	class HierarchicalMesh : public ColoredMesh<ref_dim,ElementStruct_t,VertexStruct_t,COLOR_METHOD,MAX_COLORS> {

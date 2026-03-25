@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 {
 	//build test mesh
 	Box_t domain(Point_t{0,0,0}, Point_t{1,1,1});
-	Index_t N {8,8,8};
+	Index_t N {8,8,64};
 	Mesh_t mesh(domain, N, false);
 
 	gv::fem::CharmsDOFhandler<Mesh_t, gv::fem::CharmsVoxelQ1, double> dofhandler(mesh);
@@ -47,8 +47,8 @@ int main(int argc, char* argv[])
 		high*=0.5;
 		dofhandler.mark_refine(box);
 		mesh.processSplit();
-		dofhandler.process_refine<true>();
-		dofhandler.save_as(std::string("./outfiles/start_refine_")+std::to_string(k)+std::string(".vtk"), 1, true);
+		dofhandler.process_refine<false>();
+		// dofhandler.save_as(std::string("./outfiles/start_refine_")+std::to_string(k)+std::string(".vtk"), 1, true);
 	}
 
 	dofhandler.make_dof_map();
