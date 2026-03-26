@@ -146,25 +146,26 @@ namespace gv::fem
 		for (size_t c=0; c<ncolors; ++c) {
 			auto& coo_idx = color_coo_idx[c];
 			coo_idx.reserve(64*mesh.colorCount(c)); //approximate. in CHARMS, it is difficult to know which basis functions interact
+			
+			//helper function to insert the interactions between the row and column basis sets
+			auto insert_block = [&](
+				const std::unordered_set<size_t>& row_set,
+				const std::unordered_set<size_t>& col_set)
+			{
+				for (size_t global_r_dof : row_set) {
+					if (!dofs_row[global_r_dof].active) {continue;}
+					size_t compressed_r_dof = dof_map_row.global2compressed[global_r_dof];
+					for (size_t global_c_dof : col_set) {
+						if (!dofs_col[global_c_dof].active) {continue;}
+						size_t compressed_c_dof = dof_map_col.global2compressed[global_c_dof];
+						coo_idx.push_back(Triplet(compressed_r_dof, compressed_c_dof, T{0}));
+					}
+				}
+			};
+
 			for (size_t e_idx=0; e_idx<mesh.nElements(false); ++e_idx) {
 				const auto& ELEM = mesh.getElement(e_idx);
 				if (ELEM.color != c) {continue;}
-
-				//helper function to insert the interactions between the row and column basis sets
-				auto insert_block = [&](
-					const std::unordered_set<size_t>& row_set,
-					const std::unordered_set<size_t>& col_set)
-				{
-					for (size_t global_r_dof : row_set) {
-						if (!dofs_row[global_r_dof].active) {continue;}
-						size_t compressed_r_dof = dof_map_row.global2compressed[global_r_dof];
-						for (size_t global_c_dof : col_set) {
-							if (!dofs_col[global_c_dof].active) {continue;}
-							size_t compressed_c_dof = dof_map_col.global2compressed[global_c_dof];
-							coo_idx.push_back(Triplet(compressed_r_dof, compressed_c_dof, T{0}));
-						}
-					}
-				};
 
 				//All four interactions between row_a,row_s and col_a,col_s
 				insert_block(basis_s_row[ELEM.index], basis_s_col[ELEM.index]);
