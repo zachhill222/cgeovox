@@ -16,7 +16,6 @@
 #include <string>
 #include <cassert>
 
-#include <Eigen/SparseCore>
 #include <omp.h>
 
 namespace gv::fem
@@ -69,7 +68,12 @@ namespace gv::fem
 		inline const DOF_t& dof(const size_t idx) const {assert(idx<dofs.size()); return dofs[idx];}
 		inline const Coef_t& coef(const size_t idx) const {assert(idx<coefs.size()); return coefs[idx];}
 		inline Coef_t& coef(const size_t idx) {assert(idx<coefs.size()); return coefs[idx];}
+		
 		inline const DOFMap& get_dof_map() const {return dof_map;}
+		inline const auto& get_dofs() const {return dofs;}
+		inline const auto& get_element_basis_s() const {return element_basis_s;}
+		inline const auto& get_element_basis_a() const {return element_basis_a;}
+
 
 		void reserve(const size_t length) {
 			dofs.reserve(length);
@@ -290,8 +294,8 @@ namespace gv::fem
 					assert(ELEM.children.size() > 0);
 
 					for (size_t c_elem_idx : ELEM.children) {
-						element_basis_a[c_elem_idx].insert(element_basis_s[parent_idx].begin(), element_basis_s[parent_idx].end());
-						element_basis_a[c_elem_idx].insert(element_basis_a[parent_idx].begin(), element_basis_a[parent_idx].end());
+						element_basis_a[c_elem_idx].insert(element_basis_s[e_idx].begin(), element_basis_s[e_idx].end());
+						element_basis_a[c_elem_idx].insert(element_basis_a[e_idx].begin(), element_basis_a[e_idx].end());
 					}
 				}
 
@@ -408,12 +412,6 @@ namespace gv::fem
 				}
 			}
 		}
-
-		//create CSR/CSC matrix with the correct sparsity structure
-		//the DOF Map must be current (i.e, no refines/coarsening since the last time the map was computed)
-		//RowMajor format is better for settng boundary conditions, but ColMajor might be better for Eigen routines
-		template<int Format=Eigen::RowMajor, typename T=double>
-		Eigen::SparseMatrix<T,Format> init_matrix() const;
 	};
 
 
@@ -665,90 +663,7 @@ namespace gv::fem
 
 
 
-	//create CSR/CSC matrix with the correct sparsity structure
-	//the DOF Map must be current (i.e, no refines/coarsening since the last time the map was computed)
-	template<gv::mesh::HierarchicalColorableMeshType Mesh_t, IsCharmsDOF DOF_t, typename Coef_t>
-	template<int Format, typename T>
-	Eigen::SparseMatrix<T,Format> CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>::init_matrix() const {
-		using Triplet = Eigen::Triplet<T>;
-		std::vector<std::vector<Triplet>> color_coo_idx;
-
-		size_t ncolors = mesh.nColors();
-		color_coo_idx.resize(ncolors);
-
-		#pragma omp parallel for
-		for (size_t c=0; c<ncolors; ++c) {
-			auto& coo_idx = color_coo_idx[c];
-			coo_idx.reserve(64*mesh.colorCount(c)); //approximate. in CHARMS, it is difficult to know which basis functions interact
-			for (size_t e_idx=0; e_idx<mesh.nElements(true); ++e_idx) {
-				const auto& ELEM = mesh.getElement(e_idx);
-				if (ELEM.color != c) {continue;}
-
-				//basis_s-basis_s and basis_s-basis_a interactions
-				for (size_t global_dof_1 : element_basis_s[ELEM.index]) {
-					if (!dofs[global_dof_1].active) {continue;}
-
-					size_t compressed_dof_1 = dof_map.global2compressed[global_dof_1];
-					coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_1, T{0}));
-
-					//basis_s-basis_s
-					for (size_t global_dof_2 : element_basis_s[ELEM.index]) {
-						if (global_dof_2 <= global_dof_1) {continue;}
-						if (!dofs[global_dof_2].active) {continue;}
-
-						size_t compressed_dof_2 = dof_map.global2compressed[global_dof_2];
-						coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_2, T{0}));
-						coo_idx.push_back(Triplet(compressed_dof_2, compressed_dof_1, T{0}));
-					}
-
-					//basis_s-basis_a
-					for (size_t global_dof_2 : element_basis_a[ELEM.index]) {
-						if (!dofs[global_dof_2].active) {continue;}
-
-						size_t compressed_dof_2 = dof_map.global2compressed[global_dof_2];
-						coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_2, T{0}));
-						coo_idx.push_back(Triplet(compressed_dof_2, compressed_dof_1, T{0}));
-					}
-				}
-
-				//basis_a-basis_a interactions
-				for (size_t global_dof_1 : element_basis_a[ELEM.index]) {
-					if (!dofs[global_dof_1].active) {continue;}
-
-					size_t compressed_dof_1 = dof_map.global2compressed[global_dof_1];
-					coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_1, T{0}));
-
-					for (size_t global_dof_2 : element_basis_a[ELEM.index]) {
-						if (global_dof_2 <= global_dof_1) {continue;}
-						if (!dofs[global_dof_2].active) {continue;}
-
-						size_t compressed_dof_2 = dof_map.global2compressed[global_dof_2];
-						coo_idx.push_back(Triplet(compressed_dof_1, compressed_dof_2, T{0}));
-						coo_idx.push_back(Triplet(compressed_dof_2, compressed_dof_1, T{0}));
-					}
-				}
-			}
-		}
-
-		//join coo_idx from each color
-		size_t n_coo_idx = 0;
-		for (size_t c=0; c<mesh.nColors(); ++c) {n_coo_idx += color_coo_idx[c].size();}
-		std::vector<Triplet> all_coo_idx;
-		all_coo_idx.reserve(n_coo_idx);
-		for (size_t c=0; c<mesh.nColors(); ++c) {
-			all_coo_idx.insert(
-				all_coo_idx.end(), 
-				std::make_move_iterator(color_coo_idx[c].begin()), 
-				std::make_move_iterator(color_coo_idx[c].end())
-			);
-		}
-
-		//create matrix
-		Eigen::SparseMatrix<T,Format> mat;
-		mat.resize(dof_map.ndof(), dof_map.ndof());
-		mat.setFromTriplets(all_coo_idx.begin(), all_coo_idx.end());
-		return mat;
-	}
+	
 
 
 

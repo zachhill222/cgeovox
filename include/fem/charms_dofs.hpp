@@ -28,7 +28,7 @@ namespace gv::fem
 		}
 	};
 
-	
+
 
 	//Concept to check if a DOF is a CHARMS type.
 	template<typename T>
