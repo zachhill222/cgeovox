@@ -11,4 +11,6 @@
 # Auxilery files
 *.out
 *.er
+*.bmp
+
 massif.*
