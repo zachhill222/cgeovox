@@ -70,9 +70,8 @@ namespace gv::mesh
 	/////////////////////////////////////////////////
 	/// Struct for tracking basic element information
 	/////////////////////////////////////////////////
-	template<int N_VERTICES>
 	struct BasicElement {
-		std::array<size_t, N_VERTICES> vertices;
+		std::vector<size_t> vertices;
 		int vtkID;
 		size_t index = (size_t) -1;
 		BasicElement() : vertices(), vtkID(0) {}
