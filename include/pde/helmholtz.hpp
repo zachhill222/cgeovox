@@ -29,59 +29,152 @@ namespace gv::pde
 
 		HelmholtzSolver(Mesh_t& mesh_, DOFHandler_t& dofhandler_) : mesh(mesh_), dofhandler(dofhandler_) {}
 
-		double mass_kernel(const size_t e_idx, const size_t i, const size_t j) const
+		void mass_kernel(const size_t e_idx, const std::vector<size_t>& dofs, std::vector<double>& local_mass_vals) const
 		{
-			const auto& DOF_i = dofhandler.dof(i);
-			const auto& DOF_j = dofhandler.dof(j);
+			
+			//construct quadrature points in reference coordinates on the specified element
+			using RefPoint_t = typename gv::mesh::VTK_VOXEL<Mesh_t>::RefPoint_t;
+			
+			constexpr std::array<RefPoint_t,64> ref_quad_points = [](){
+				constexpr double gauss_x[4] {-0.861136, -0.339981, 0.339981, 0.861136};
+				std::array<RefPoint_t,64> result;
+				for (int k=0; k<4; ++k) {
+					for (int j=0; j<4; ++j) {
+						for (int i=0; i<4; i++) {
+							result[i+4*j+16*k] = RefPoint_t{gauss_x[i],gauss_x[j],gauss_x[k]};
+						}
+					}
+				}
+				return result;
+			}();
+
+			constexpr std::array<double,64> quad_weights = [](){
+				constexpr double gauss_w[4] { 0.347855,  0.652145, 0.652145, 0.347855};
+				std::array<double,64> result;
+				for (int k=0; k<4; ++k) {
+					for (int j=0; j<4; ++j) {
+						for (int i=0; i<4; i++) {
+							result[i+4*j+16*k] = gauss_w[i]*gauss_w[j]*gauss_w[k];
+						}
+					}
+				}
+				return result;
+			}();
+
+			//convert quadrature points to global coordinates
+			using GeoPoint_t = typename gv::mesh::VTK_VOXEL<Mesh_t>::GeoPoint_t;
 			assert(mesh.getElement(e_idx).vtkID == 11); //voxels
 			gv::mesh::VTK_VOXEL<Mesh_t> VOXEL;
-			using RefPoint_t = typename gv::mesh::VTK_VOXEL<Mesh_t>::RefPoint_t;
 			VOXEL.set_element(mesh, e_idx);
+			std::array<GeoPoint_t,64> mesh_quad_points;
+			for (int p=0; p<64; ++p) {
+				mesh_quad_points[p] = VOXEL.ref2geo(ref_quad_points[p]);
+			}
 
-			constexpr double gauss_x[4] {-0.861136, -0.339981, 0.339981, 0.861136};
-			constexpr double gauss_w[4] { 0.347855,  0.652145, 0.652145, 0.347855};
-			double val=0;
-			for (int ii=0; ii<4; ++ii) {
-				for (int jj=0; jj<4; ++jj) {
-					for (int kk=0; kk<4; ++kk) {
-						const auto coordinate = VOXEL.ref2geo(RefPoint_t{gauss_x[ii], gauss_x[jj], gauss_x[kk]});
-						val += DOF_i.eval_at(coordinate, mesh)*DOF_j.eval_at(coordinate, mesh)*gauss_w[ii]*gauss_w[jj]*gauss_w[kk];
-					}
+			//tabulate basis function values at quadrature points
+			int n = static_cast<int>(dofs.size());
+			std::vector<double> dof_vals(64*n, 0.0);
+			for (int i=0; i<n; ++i) {
+				const auto& DOF = dofhandler.dof(dofs[i]);
+				for (int p=0; p<64; ++p) {
+					//TODO: eval_at is slow, can I remove this in CHARMS?
+					dof_vals[p+64*i] = DOF.eval_at(mesh_quad_points[p], mesh);
 				}
 			}
 
-			const auto& jac = VOXEL.jacobian(RefPoint_t{0,0,0}); //constant
+
+			//populate local mass matrix
+			//TODO: vectorize?
+			const auto& jac = VOXEL.jacobian(RefPoint_t{0,0,0});
 			const double jacdet = jac(0,0)*jac(1,1)*jac(2,2);
-			return val*jacdet;
+			for (int i=0; i<n; ++i) {
+				for (int j=i; j<n; ++j) {
+					double acc = 0.0;
+					for (int p=0; p<64; ++p) {
+						acc += dof_vals[p+64*i]*dof_vals[p+64*j] * quad_weights[p];
+					}
+					acc *= jacdet;
+					local_mass_vals[i+n*j] = acc;
+					if (i!=j) {
+						local_mass_vals[j+n*i] = acc;
+					}
+				}
+			}
 		}
 
-		double stiff_kernel(const size_t e_idx, const size_t i, const size_t j) const
+		void stiff_kernel(const size_t e_idx, const std::vector<size_t>& dofs, std::vector<double>& local_stiff_vals) const
 		{
-			const auto& DOF_i = dofhandler.dof(i);
-			const auto& DOF_j = dofhandler.dof(j);
+			
+			//construct quadrature points in reference coordinates on the specified element
+			using RefPoint_t = typename gv::mesh::VTK_VOXEL<Mesh_t>::RefPoint_t;
+			
+			constexpr std::array<RefPoint_t,64> ref_quad_points = [](){
+				constexpr double gauss_x[4] {-0.861136, -0.339981, 0.339981, 0.861136};
+				std::array<RefPoint_t,64> result;
+				for (int k=0; k<4; ++k) {
+					for (int j=0; j<4; ++j) {
+						for (int i=0; i<4; i++) {
+							result[i+4*j+16*k] = RefPoint_t{gauss_x[i],gauss_x[j],gauss_x[k]};
+						}
+					}
+				}
+				return result;
+			}();
+
+			constexpr std::array<double,64> quad_weights = [](){
+				constexpr double gauss_w[4] { 0.347855,  0.652145, 0.652145, 0.347855};
+				std::array<double,64> result;
+				for (int k=0; k<4; ++k) {
+					for (int j=0; j<4; ++j) {
+						for (int i=0; i<4; i++) {
+							result[i+4*j+16*k] = gauss_w[i]*gauss_w[j]*gauss_w[k];
+						}
+					}
+				}
+				return result;
+			}();
+
+			//convert quadrature points to global coordinates
+			using GeoPoint_t = typename gv::mesh::VTK_VOXEL<Mesh_t>::GeoPoint_t;
 			assert(mesh.getElement(e_idx).vtkID == 11); //voxels
 			gv::mesh::VTK_VOXEL<Mesh_t> VOXEL;
-			using RefPoint_t = typename gv::mesh::VTK_VOXEL<Mesh_t>::RefPoint_t;
 			VOXEL.set_element(mesh, e_idx);
+			std::array<GeoPoint_t,64> mesh_quad_points;
+			for (int p=0; p<64; ++p) {
+				mesh_quad_points[p] = VOXEL.ref2geo(ref_quad_points[p]);
+			}
 
-			constexpr double gauss_x[4] {-0.861136, -0.339981, 0.339981, 0.861136};
-			constexpr double gauss_w[4] { 0.347855,  0.652145, 0.652145, 0.347855};
-			
-			
-			double val=0;
-			for (int ii=0; ii<4; ++ii) {
-				for (int jj=0; jj<4; ++jj) {
-					for (int kk=0; kk<4; ++kk) {
-						const auto coordinate = VOXEL.ref2geo(RefPoint_t{gauss_x[ii], gauss_x[jj], gauss_x[kk]});
-						const double dot = gutil::dot(DOF_i.eval_grad_at(coordinate, mesh), DOF_j.eval_grad_at(coordinate, mesh));
-						val += dot*gauss_w[ii]*gauss_w[jj]*gauss_w[kk];
-					}
+			//tabulate basis function gradients at quadrature points
+			int n = static_cast<int>(dofs.size());
+			std::vector<GeoPoint_t> dof_grads(64*n);
+			for (int i=0; i<n; ++i) {
+				const auto& DOF = dofhandler.dof(dofs[i]);
+				for (int p=0; p<64; ++p) {
+					//TODO: eval_grad_at is slow, can I remove this in CHARMS?
+					dof_grads[p+64*i] = DOF.eval_grad_at(mesh_quad_points[p], mesh);
 				}
 			}
 
-			const auto& jac = VOXEL.jacobian(RefPoint_t{0,0,0}); //constant
+
+			//populate local stiffness matrix
+			//TODO: vectorize?
+			const auto& jac = VOXEL.jacobian(RefPoint_t{0,0,0});
 			const double jacdet = jac(0,0)*jac(1,1)*jac(2,2);
-			return val*jacdet;
+			for (int i=0; i<n; ++i) {
+				for (int j=i; j<n; ++j) {
+					double acc = 0.0;
+					for (int p=0; p<64; ++p) {
+						const auto& gi = dof_grads[p+64*i];
+						const auto& gj = dof_grads[p+64*j];
+						acc += (gi[0]*gj[0] + gi[1]*gj[1] + gi[2]*gj[2]) * quad_weights[p];
+					}
+					acc *= jacdet;
+					local_stiff_vals[i+n*j] = acc;
+					if (i!=j) {
+						local_stiff_vals[j+n*i] = acc;
+					}
+				}
+			}
 		}
 
 		void assemble_mats()
@@ -94,8 +187,8 @@ namespace gv::pde
 			gv::fem::SparseMatImage(A).save_as_bw("helmholtz_sparsity.bmp");
 
 			//construct the matrices
-			gv::fem::integrate_kernel(dofhandler, A, [this](size_t e, size_t i, size_t j) {return stiff_kernel(e,i,j);});
-			gv::fem::integrate_kernel(dofhandler, M, [this](size_t e, size_t i, size_t j) {return mass_kernel(e,i,j);});
+			gv::fem::integrate_kernel(dofhandler, A, [this](size_t e, const std::vector<size_t>& dofs, std::vector<double>& local) {return stiff_kernel(e,dofs,local);});
+			gv::fem::integrate_kernel(dofhandler, M, [this](size_t e, const std::vector<size_t>& dofs, std::vector<double>& local) {return mass_kernel(e,dofs,local);});
 		}
 
 		void compute_eigenvals(int n=1)
@@ -120,18 +213,18 @@ namespace gv::pde
 			eigenvectors = solver.eigenvectors();
 		}
 
-		void save_to_vtk()
+		void save_to_vtk(const std::string& prefix = "")
 		{
 			const auto& map = dofhandler.get_dof_map();
 
-			for (size_t i=0; i<eigenvalues.size(); ++i) {
+			for (auto i=0; i<eigenvalues.size(); ++i) {
 				//populate relevent coefficients in the dofhandler
 				for (size_t c_idx=0; c_idx < map.ndof(); ++c_idx) {
 					dofhandler.coef(map.compressed2global[c_idx]) = eigenvectors(c_idx, i);
 				}
 
 				//save as a vtk
-				dofhandler.save_as("helmholtz_" + std::to_string(i) + ".vtk", 1, true);
+				dofhandler.save_as(prefix + "helmholtz_" + std::to_string(i) + ".vtk", 1, true);
 			}
 		}
 	};

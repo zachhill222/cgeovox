@@ -239,7 +239,6 @@ namespace gv::fem
 				//loop through support elements
 				for (size_t el_idx : DOF.support_idx) {
 					if (el_idx == (size_t) -1) {continue;}
-					bool added = false;
 
 					const auto& ELEM = mesh.getElement(el_idx);
 					for (size_t v_idx : ELEM.vertices) {
@@ -249,7 +248,6 @@ namespace gv::fem
 							{
 								mark_refine(d_idx);
 							}
-							added=true;
 							break;
 						}
 					}
@@ -628,7 +626,7 @@ namespace gv::fem
 
 		buffer << "basis_s " << max_basis_s << " " << nElements << " integer\n";
 		for (const auto& ELEM : mesh) {
-			int i=0;
+			size_t i=0;
 			for (size_t d_idx : element_basis_s[ELEM.index]) {
 				buffer << d_idx << " ";
 				i++;
@@ -643,7 +641,7 @@ namespace gv::fem
 
 		buffer << "basis_a " << max_basis_a << " " << nElements << " integer\n";
 		for (const auto& ELEM : mesh) {
-			int i=0;
+			size_t i=0;
 			for (size_t d_idx : element_basis_a[ELEM.index]) {
 				buffer << d_idx << " ";
 				i++;

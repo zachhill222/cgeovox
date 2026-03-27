@@ -203,8 +203,9 @@ namespace gv::fem
 	
 	//integrate a symmetric matrix kernel.
 	//the kernel function must handle any integration (exact or otherwise) and must be of the form
-	// kernel(element_index, i, j) -> double where (i,j) are (uncompressed) dof indices.
-	// mat(i,j) = sum( kernel(e, i,j)) where the sum is over all elements e
+	// kernel(element_index, dof_list, vector<double>& local_mat_vals) where dof_list are the global dof indices and local_mat_vals
+	// is a (correctly sized) vector to store the local matrix values.
+	// local_mat_vals[i+n*j] should record the interaction between dof_list[i] and dof_list[j] over the specified element where dof_list.size()==n
 	//the sparsity matrix of mat must have already been set.
 	template<typename Mesh_t, typename DOF_t, typename Coef_t, typename SpMat_t, typename Kernel_t>
 	void integrate_kernel(const CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>& dofhandler, SpMat_t& mat, Kernel_t&& kernel)
@@ -223,7 +224,7 @@ namespace gv::fem
 			{
 				std::vector<size_t> global_dofs;
 				std::vector<size_t> compressed_dofs;
-				Eigen::MatrixXd K_local(1,1);
+				std::vector<double> K_local_vals;
 
 				#pragma omp for
 				for (size_t e_idx=0; e_idx<mesh.nElements(false); ++e_idx) {
@@ -247,23 +248,26 @@ namespace gv::fem
 					//compute local matrix
 					const int n = global_dofs.size();
 					if (n==0) {continue;}
+					K_local_vals.resize(n*n);
+					std::fill(K_local_vals.begin(), K_local_vals.end(), 0.0);
+					kernel(e_idx, global_dofs, K_local_vals);
 
-					K_local.resize(n,n);
-					for (int i=0; i<n; ++i) {
-						K_local(i,i) = kernel(e_idx, global_dofs[i], global_dofs[i]);
-						for (int j=i+1; j<n; ++j) {
-							const double val =  kernel(e_idx, global_dofs[i], global_dofs[j]);
-							K_local(i,j) = val;
-							K_local(j,i) = val;
-						}
-					}
+					// K_local.resize(n,n);
+					// for (int i=0; i<n; ++i) {
+					// 	K_local(i,i) = kernel(e_idx, global_dofs[i], global_dofs[i]);
+					// 	for (int j=i+1; j<n; ++j) {
+					// 		const double val =  kernel(e_idx, global_dofs[i], global_dofs[j]);
+					// 		K_local(i,j) = val;
+					// 		K_local(j,i) = val;
+					// 	}
+					// }
 
 					//scatter local matrix
-					for (int i=0; i<n; ++i) {
-						for (int j=0; j<n; ++j) {
+					for (int j=0; j<n; ++j) {
+						const size_t c_j = compressed_dofs[j];
+						for (int i=0; i<n; ++i) {
 							const size_t c_i = compressed_dofs[i];
-							const size_t c_j = compressed_dofs[j];
-							mat.coeffRef(c_i, c_j) += K_local(i,j);
+							mat.coeffRef(c_i, c_j) += K_local_vals[i+n*j];
 						}
 					}
 				}
@@ -304,8 +308,6 @@ namespace gv::fem
 		const auto& dof_map_col = dofhandler_col.get_dof_map();
 
 		
-		
-
 
 		//serial in color, paralel within a color
 		//the mesh is colored so that no two elements of the same color share a vertex
@@ -378,5 +380,7 @@ namespace gv::fem
 
 		mat.makeCompressed();
 	}
+
+
 }
 
