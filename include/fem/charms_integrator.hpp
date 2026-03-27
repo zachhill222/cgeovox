@@ -252,16 +252,6 @@ namespace gv::fem
 					std::fill(K_local_vals.begin(), K_local_vals.end(), 0.0);
 					kernel(e_idx, global_dofs, K_local_vals);
 
-					// K_local.resize(n,n);
-					// for (int i=0; i<n; ++i) {
-					// 	K_local(i,i) = kernel(e_idx, global_dofs[i], global_dofs[i]);
-					// 	for (int j=i+1; j<n; ++j) {
-					// 		const double val =  kernel(e_idx, global_dofs[i], global_dofs[j]);
-					// 		K_local(i,j) = val;
-					// 		K_local(j,i) = val;
-					// 	}
-					// }
-
 					//scatter local matrix
 					for (int j=0; j<n; ++j) {
 						const size_t c_j = compressed_dofs[j];
