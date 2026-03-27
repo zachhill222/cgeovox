@@ -47,10 +47,12 @@ int main(int argc, char* argv[])
 		std::cout << "Refine: " << k << std::endl;
 		Box_t box(Point_t{0,0,0}, Point_t{high,high,high});
 		high*=0.5;
-		dofhandler.mark_refine(box);
+		// dofhandler.mark_refine(box);
+		dofhandler.mark_refine(2*domain);
 		mesh.processSplit();
+		mesh.save_as("./outfiles/mesh_refine_"+std::to_string(k)+".vtk", true, false);
 		dofhandler.process_refine<true>();
-		// dofhandler.save_as(std::string("./outfiles/start_refine_")+std::to_string(k)+std::string(".vtk"), 1, true);
+		dofhandler.save_as("./outfiles/dof_refine_"+std::to_string(k)+".vtk", 1, true);
 	}
 
 	dofhandler.make_dof_map();

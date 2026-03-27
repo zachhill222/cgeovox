@@ -1,4 +1,4 @@
-INC_DIR    = -I../include -I/usr/include/eigen3 -I../libs/GeometryUtility/include
+INC_DIR    = -I../include -I/usr/include/eigen3 -I../libs/GeometryUtility/include -I/usr/include/Spectra
 
 #get all .cpp files for make all
 SRC        = $(wildcard *.cpp)
@@ -23,7 +23,7 @@ all: $(TARGETS)
 
 # rules to make tests individually. listing individually helps autocomplete.
 # using .PHONY forces re-build when header files have changed but not source files.
-.PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh fixedpoint dofhandler
+.PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh fixedpoint dofhandler helmholtz
 
 assembly:
 	$(CC) $(INC_DIR) assembly.cpp assembly
@@ -51,6 +51,9 @@ fixedpoint:
 
 dofhandler:
 	$(CC) $(INC_DIR) dofhandler.cpp -o dofhandler
+
+helmholtz:
+	$(CC) $(INC_DIR) helmholtz.cpp -o helmholtz
 
 .PHONY: clean
 clean:

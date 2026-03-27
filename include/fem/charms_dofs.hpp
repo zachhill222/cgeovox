@@ -91,7 +91,7 @@ namespace gv::fem
 
 			//get second coordinate to compute the box dimension (clearly voxel specific)
 			assert(ELEM0.depth == this->depth);
-			const auto H = 0.5*(mesh.getVertex(ELEM0.vertices[0]).coord + mesh.getVertex(ELEM0.vertices[7]).coord);
+			const auto H = 0.5*(mesh.getVertex(ELEM0.vertices[7]).coord - mesh.getVertex(ELEM0.vertices[0]).coord);
 			typename Mesh_t::DomainBox_t box(center-1.25*H, center+1.25*H);
 
 			//get the index of each vertex in the box

@@ -20,7 +20,7 @@ namespace gv::fem
 		std::vector<std::vector<Triplet>> color_coo_idx;
 
 		//convenient references
-		const auto& mesh = dofhandler.mesh;
+		const auto& mesh            = dofhandler.mesh;
 		const auto& element_basis_a = dofhandler.get_element_basis_a();
 		const auto& element_basis_s = dofhandler.get_element_basis_s();
 		const auto& dofs            = dofhandler.get_dofs();
@@ -33,6 +33,7 @@ namespace gv::fem
 		for (size_t c=0; c<ncolors; ++c) {
 			auto& coo_idx = color_coo_idx[c];
 			coo_idx.reserve(64*mesh.colorCount(c)); //approximate. in CHARMS, it is difficult to know which basis functions interact
+
 			for (size_t e_idx=0; e_idx<mesh.nElements(false); ++e_idx) {
 				const auto& ELEM = mesh.getElement(e_idx);
 				if (ELEM.color != c) {continue;}
@@ -168,10 +169,10 @@ namespace gv::fem
 				if (ELEM.color != c) {continue;}
 
 				//All four interactions between row_a,row_s and col_a,col_s
-				insert_block(basis_s_row[ELEM.index], basis_s_col[ELEM.index]);
-				insert_block(basis_s_row[ELEM.index], basis_a_col[ELEM.index]);
-				insert_block(basis_a_row[ELEM.index], basis_s_col[ELEM.index]);
-				insert_block(basis_a_row[ELEM.index], basis_a_col[ELEM.index]);
+				insert_block(basis_s_row[e_idx], basis_s_col[e_idx]);
+				insert_block(basis_s_row[e_idx], basis_a_col[e_idx]);
+				insert_block(basis_a_row[e_idx], basis_s_col[e_idx]);
+				insert_block(basis_a_row[e_idx], basis_a_col[e_idx]);
 			}
 		}
 
@@ -196,6 +197,186 @@ namespace gv::fem
 	}
 
 
+	////////////////////////////////////
+	/// Integration routines. Pass the Kernel as a lambda function
+	////////////////////////////////////
+	
+	//integrate a symmetric matrix kernel.
+	//the kernel function must handle any integration (exact or otherwise) and must be of the form
+	// kernel(element_index, i, j) -> double where (i,j) are (uncompressed) dof indices.
+	// mat(i,j) = sum( kernel(e, i,j)) where the sum is over all elements e
+	//the sparsity matrix of mat must have already been set.
+	template<typename Mesh_t, typename DOF_t, typename Coef_t, typename SpMat_t, typename Kernel_t>
+	void integrate_kernel(const CharmsDOFhandler<Mesh_t,DOF_t,Coef_t>& dofhandler, SpMat_t& mat, Kernel_t&& kernel)
+	{
+		static_assert(gv::mesh::ColorableMeshType<Mesh_t>);
 
+		//convenient references
+		const auto& mesh            = dofhandler.mesh;
+		const auto& element_basis_a = dofhandler.get_element_basis_a();
+		const auto& element_basis_s = dofhandler.get_element_basis_s();
+		const auto& dofs            = dofhandler.get_dofs();
+		const auto& dof_map         = dofhandler.get_dof_map();		
+
+		for (size_t c=0; c<mesh.nColors(); ++c) {
+			#pragma omp parallel
+			{
+				std::vector<size_t> global_dofs;
+				std::vector<size_t> compressed_dofs;
+				Eigen::MatrixXd K_local(1,1);
+
+				#pragma omp for
+				for (size_t e_idx=0; e_idx<mesh.nElements(false); ++e_idx) {
+					const auto& ELEM = mesh.getElement(e_idx);
+					if (ELEM.color != c) {continue;}
+
+					//collect all active dofs
+					global_dofs.clear();
+					compressed_dofs.clear();
+					for (size_t g : element_basis_s[e_idx]) {
+						if (!dofs[g].active) {continue;}
+						global_dofs.push_back(g);
+						compressed_dofs.push_back(dof_map.global2compressed[g]);
+					}
+					for (size_t g : element_basis_a[e_idx]) {
+						if (!dofs[g].active) {continue;}
+						global_dofs.push_back(g);
+						compressed_dofs.push_back(dof_map.global2compressed[g]);
+					}
+
+					//compute local matrix
+					const int n = global_dofs.size();
+					if (n==0) {continue;}
+
+					K_local.resize(n,n);
+					for (int i=0; i<n; ++i) {
+						K_local(i,i) = kernel(e_idx, global_dofs[i], global_dofs[i]);
+						for (int j=i+1; j<n; ++j) {
+							const double val =  kernel(e_idx, global_dofs[i], global_dofs[j]);
+							K_local(i,j) = val;
+							K_local(j,i) = val;
+						}
+					}
+
+					//scatter local matrix
+					for (int i=0; i<n; ++i) {
+						for (int j=0; j<n; ++j) {
+							const size_t c_i = compressed_dofs[i];
+							const size_t c_j = compressed_dofs[j];
+							mat.coeffRef(c_i, c_j) += K_local(i,j);
+						}
+					}
+				}
+			}
+		}
+
+		mat.makeCompressed();
+	}
+
+
+
+	//Integrate a generic bilinear form
+	template<typename Mesh_t,
+			typename DOF_ROW_t, typename Coef_row_t,
+			typename DOF_COL_t, typename Coef_col_t,
+			typename SpMat_t, typename Kernel_t>
+	void integrate_kernel(const CharmsDOFhandler<Mesh_t,DOF_ROW_t,Coef_row_t>& dofhandler_row,
+		const CharmsDOFhandler<Mesh_t,DOF_COL_t,Coef_col_t>& dofhandler_col, SpMat_t& mat, Kernel_t&& kernel)
+	{
+		static_assert(gv::mesh::ColorableMeshType<Mesh_t>);
+
+		//make sure that both dofhandlers are defined on the same mesh
+		if (&dofhandler_row.mesh != &dofhandler_col.mesh) {
+			throw std::runtime_error("init_matrix: both dofhandlers must be defined on the same mesh.");
+		}
+
+		//convenient references
+		const auto& mesh        = dofhandler_row.mesh;
+
+		const auto& basis_a_row = dofhandler_row.get_element_basis_a();
+		const auto& basis_s_row = dofhandler_row.get_element_basis_s();
+		const auto& dofs_row    = dofhandler_row.get_dofs();
+		const auto& dof_map_row = dofhandler_row.get_dof_map();		
+
+		const auto& basis_a_col = dofhandler_col.get_element_basis_a();
+		const auto& basis_s_col = dofhandler_col.get_element_basis_s();
+		const auto& dofs_col    = dofhandler_col.get_dofs();
+		const auto& dof_map_col = dofhandler_col.get_dof_map();
+
+		
+		
+
+
+		//serial in color, paralel within a color
+		//the mesh is colored so that no two elements of the same color share a vertex
+		for (size_t c=0; c<mesh.nColors(); ++c) {
+			#pragma omp parallel
+			{
+				std::vector<size_t> global_row_dofs;
+				std::vector<size_t> compressed_row_dofs;
+
+				std::vector<size_t> global_col_dofs;
+				std::vector<size_t> compressed_col_dofs;
+				
+				Eigen::MatrixXd K_local(1,1);
+				#pragma omp for
+				for (size_t e_idx=0; e_idx<mesh.nElements(false); ++e_idx) {
+					const auto& ELEM = mesh.getElement(e_idx);
+					if (ELEM.color != c) {continue;}
+
+					//collect all active row dofs
+					global_row_dofs.clear();
+					compressed_row_dofs.clear();
+					for (size_t g : basis_s_row[e_idx]) {
+						if (!dofs_row[g].active) {continue;}
+						global_row_dofs.push_back(g);
+						compressed_row_dofs.push_back(dof_map_row.global2compressed[g]);
+					}
+					for (size_t g : basis_a_row[e_idx]) {
+						if (!dofs_row[g].active) {continue;}
+						global_row_dofs.push_back(g);
+						compressed_row_dofs.push_back(dof_map_row.global2compressed[g]);
+					}
+
+					//collect all active col dofs
+					global_col_dofs.clear();
+					compressed_col_dofs.clear();
+					for (size_t g : basis_s_col[e_idx]) {
+						if (!dofs_col[g].active) {continue;}
+						global_col_dofs.push_back(g);
+						compressed_col_dofs.push_back(dof_map_col.global2compressed[g]);
+					}
+					for (size_t g : basis_a_col[e_idx]) {
+						if (!dofs_col[g].active) {continue;}
+						global_col_dofs.push_back(g);
+						compressed_col_dofs.push_back(dof_map_col.global2compressed[g]);
+					}
+
+					//compute local matrix
+					const int n = global_row_dofs.size();
+					const int m = global_col_dofs.size();
+					if (n==0 or m==0) {continue;}
+
+					K_local.resize(n,m);
+					for (int i=0; i<n; ++i) {
+						for (int j=0; j<m; ++j) {
+							K_local(i,j) = kernel(e_idx, global_row_dofs[i], global_col_dofs[j]);
+						}
+					}
+
+					//scatter local matrix
+					for (int i=0; i<n; ++i) {
+						for (int j=0; j<m; ++j) {
+							const size_t c_i = compressed_row_dofs[i];
+							const size_t c_j = compressed_col_dofs[j];
+							mat.coeffRef(c_i, c_j) += K_local(i,j);
+						}
+					}
+				}
+			}
+		}
+
+		mat.makeCompressed();
+	}
 }
 

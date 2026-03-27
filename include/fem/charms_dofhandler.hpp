@@ -344,7 +344,6 @@ namespace gv::fem
 							//if the support elements have been previously refined
 							//then this new dof needs to be an ancestor basis function on
 							//the child elements.
-							const auto& ELEM = mesh.getElement(c_elem_idx);
 							std::vector<size_t> desendent_elements;
 							mesh.getElementDescendents_Unlocked(c_elem_idx, desendent_elements, false);
 							for (size_t e : desendent_elements) {
@@ -498,8 +497,6 @@ namespace gv::fem
 		//assemble active basis functions
 		std::vector<size_t> dofs_to_eval;
 		for (size_t e_idx : elements) {
-			const auto& ELEM = mesh.getElement(e_idx);
-
 			for (size_t d_idx : element_basis_s[e_idx]) {
 				if (dofs[d_idx].active) {
 					dofs_to_eval.push_back(d_idx);
