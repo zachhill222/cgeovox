@@ -40,43 +40,46 @@ namespace gv::mesh
 	/// All element types (in the C++ sense) contain an "int vtkID" and "std::vector<size_t> vertices" fields to track their type (in the FEM sense).
 	///
 	/// @tparam space_dim        The dimension of the space that the mesh is embedded in. Usually 3. (Untested for 2).
-	/// @tparam ref_dim          The dimension of the space that the reference elements are embedded in. Usually 3. (2 for surface meshes).
+	/// @tparam REF_DIM          The dimension of the space that the reference elements are embedded in. Usually 3. (2 for surface meshes).
 	/// @tparam Scalar_t         The scalar type to emulate the real line. This should be robust under comparisions and arithmetic ordering. (e.g., FixedPrecision instead of float)
-	/// @tparam ElementStruct_t  The type of element to use. This is usually set by the class that inherits from this class.
+	/// @tparam Element_type     The type of element to use. This is usually set by the class that inherits from this class.
 	/////////////////////////////////////////////////
 	template<
-			int              ref_dim,
-			BasicMeshElement ElementStruct_t = BasicElement,
-			BasicMeshVertex  VertexStruct_t  = BasicVertex<>
+			BasicMeshElement Element_type = BasicElement<VOXEL_VTK_ID>,
+			Scalar           Scalar_type  = gutil::FixedPoint64<>
 			>
 	class BasicMesh	{
-		/// Make the ElementIterator class a friend
-		template<typename M, ContainerType C>
-		friend class ElementIterator;
-
 		/// Make the MeshView class a friend
-		// template<int space_dim_u, int ref_dim_u, Scalar Scalar_u, BasicMeshElement Element_u>
+		// template<int space_dim_u, int REF_DIM_u, Scalar Scalar_u, BasicMeshElement Element_u>
 		// friend class MeshView;
 	public:
-		static constexpr int SPACE_DIM = VertexStruct_t::dim;
-		static constexpr int REF_DIM   = ref_dim;
+		static constexpr int SPACE_DIM          = 3;
+		static constexpr int REF_DIM            = vtk_ref_dim(Element_type::VTK_ID);
+		static constexpr int ELEM_VTK_ID        = Element_type::VTK_ID;
+		static constexpr int FACE_VTK_ID        = vtk_face_id(Element_type::VTK_ID);
+		static constexpr int N_VERT_PER_ELEMENT = Element_type::N_VERTS;
+		static constexpr int N_FACE_PER_ELEMENT = vtk_n_faces(Element_type::VTK_ID);		
 
-		//elements and faces have the same storage struct type, but it's nice to see the distinction in the code
-		using Element_t = ElementStruct_t;
-		using Vertex_t  = VertexStruct_t;
-		using Face_t    = ElementStruct_t;
-		using Scalar_t  = typename VertexStruct_t::Scalar_t;
 
-		//aliases
-		using Index_t            = gutil::Point<ref_dim,size_t>;
-		using DomainBox_t        = gutil::Box<SPACE_DIM, Scalar_t>;
-		using RefBox_t           = gutil::Box<ref_dim, double>;
-		using RefPoint_t         = gutil::Point<ref_dim, double>;
-		using Point_t            = gutil::Point<SPACE_DIM, Scalar_t>;
-		using VertexList_t       = VertexOctree<Vertex_t, 64, Scalar_t>;
-		using ElementIterator_t  = ElementIterator<BasicMesh<ref_dim,Element_t,Vertex_t>, ContainerType::ELEMENTS>;
-		using BoundaryIterator_t = ElementIterator<BasicMesh<ref_dim,Element_t,Vertex_t>, ContainerType::BOUNDARY>;
-		using Mesh_t             = BasicMesh<ref_dim,ElementStruct_t,VertexStruct_t>; //type of this mesh
+		//set up element/face/vertex data types
+		using Element_t  = Element_type;
+		using HalfEdge_t = HalfEdge<N_FACE_PER_ELEMENT>;
+		using Vertex_t   = BasicVertex<gutil::Point<SPACE_DIM,Scalar_type>>;
+		
+		//set up coordinate types
+		using Scalar_t   = Scalar_type;
+		using GeoPoint_t = gutil::Point<SPACE_DIM,Scalar_type>; //data type for computing spatial coordinates
+		using RefPoint_t = gutil::Point<REF_DIM,double>; //data type for evaluating basis functions, computing jacobians, etc.
+
+		//utility types
+		using Mesh_t             = BasicMesh<Element_type,Scalar_type>; //type of this mesh
+		using Index_t            = gutil::Point<REF_DIM,size_t>; //index for creating structured mesh in the constructor
+		using GeoBox_t           = gutil::Box<SPACE_DIM, Scalar_type>; //boxes in the domain space
+		using RefBox_t           = gutil::Box<REF_DIM, double>; //boxes in the reference space
+
+		using VertexList_t       = VertexOctree<Vertex_t, 64, Scalar_type>;
+		using ElementLogic_t     = VtkElementType_t<Mesh_t, Element_type::VTK_ID>; //type to handle logic of creating children, getting faces, etc.
+		
 		
 	protected:
 		/////////////////////////////////////////////////
@@ -85,18 +88,19 @@ namespace gv::mesh
 		std::vector<Element_t> _elements;
 		
 		/////////////////////////////////////////////////
-		/// Container for the boundary faces. Usually this is determined by the class that inherits from this.
+		/// Container for all faces
 		/////////////////////////////////////////////////
-		std::vector<Face_t> _boundary;
+		std::vector<HalfEdge_t> _halfedges;
 
 		/////////////////////////////////////////////////
-		/// For each boundary face, track which element it belonged to and which face of that element it is.
+		/// Container to denote boundary vertices so that boundary elements/faces can be easily recovered.
 		/////////////////////////////////////////////////
-		std::vector<FaceTracker> _boundary_track;
+		std::vector<size_t> _boundary_vertices;
 
 		/////////////////////////////////////////////////
 		/// Container for the mesh vertices. This has an octree structure for quickly finding vertices from their location in space.
 		/// This method has parallel read (_vertices.find) and serial write (_vertices.push_back) built in.
+		/// If data can be guarenteed to not be duplicated, this also supports parallel write via _vertices.push_back_async.
 		/////////////////////////////////////////////////
 		VertexList_t _vertices;
 
@@ -104,12 +108,15 @@ namespace gv::mesh
 		mutable std::shared_mutex _rw_mtx;
 
 	public:
-		BasicMesh() : _elements(), _vertices() {}
-		BasicMesh(const DomainBox_t &domain) : _elements(), _vertices(1.125*domain) {}
-		BasicMesh(const RefBox_t &domain) requires(ref_dim<SPACE_DIM) : _elements(), _vertices() {
+		BasicMesh() : _elements{}, _halfedges{}, _boundary_vertices{}, _vertices{} {}
+		
+		BasicMesh(const GeoBox_t &domain) : _elements{}, _halfedges{}, _boundary_vertices{}, _vertices(1.125*domain) {}
+
+		BasicMesh(const RefBox_t &domain) requires(REF_DIM==2) : _elements{}, _halfedges{}, _boundary_vertices{}
+		{
 			Point_t low, high;
 			int i;
-			for (i=0; i<ref_dim; i++) {
+			for (i=0; i<REF_DIM; i++) {
 				low[i]  = domain.low()[i];
 				high[i] = domain.high()[i];
 			}
@@ -119,72 +126,70 @@ namespace gv::mesh
 				high[i] =  1.0;
 			}
 
-			_vertices.set_bbox(1.125*DomainBox_t{low,high});
+			_vertices.set_bbox(1.125*GeoBox_t{low,high});
 		}
 
-		BasicMesh(const RefBox_t &domain, const Index_t &N, const bool useIsopar=false) : BasicMesh(domain) {
-			if constexpr (ref_dim==3) {setVoxelMesh_Locked(domain, N, useIsopar);}
-			else if constexpr (ref_dim==2) {setPixelMesh_Locked(domain, N, useIsopar);}
+		BasicMesh(const RefBox_t &domain, const Index_t &N)
+			requires (VTK_ID==VOXEL_VTK_ID or VTK_ID==HEXAHEDRON_VTK_ID or VTK_ID==PIXEL_VTK_ID or VTK_ID==QUAD_VTK_ID)
+		 	: BasicMesh(domain)
+		{
+			if constexpr (REF_DIM==3) {build_voxel_mesh(domain, N, useIsopar);}
+			else if constexpr (REF_DIM==2) {build_pixel_mesh(domain, N, useIsopar);}
 			else {throw std::runtime_error("BasicMesh: can't mesh domain");}
 		}
 		
 		virtual ~BasicMesh() {}
 
 		/////////////////////////////////////////////////
-		/// Get the total number of elements in the mesh. Marked as virtual as hierarchical meshes need to check for active elements.
-		/////////////////////////////////////////////////
-		virtual size_t nElements(bool active=true) const {
-			return _elements.size();
-		}
-
-
-		/////////////////////////////////////////////////
-		/// Get the total number of vertices in the mesh.
-		/////////////////////////////////////////////////
-		virtual size_t nVertices() const {
-			return _vertices.size();
-		}
-
-
-		/////////////////////////////////////////////////
-		/// Get the total number of boundary faces in the mesh.
-		/////////////////////////////////////////////////
-		virtual size_t nBoundaryFaces() const {
-			return _boundary.size();
-		}
-
-
-		/////////////////////////////////////////////////
 		/// Read elements and vertices externally
 		/////////////////////////////////////////////////
-		const Vertex_t&     getVertex(const size_t idx)         const {return _vertices[idx];}
-		const Element_t&    getElement(const size_t idx)        const {return _elements[idx];}
-		const Face_t&       getBoundaryFace(const size_t idx)   const {return _boundary[idx];}
-		const DomainBox_t   bbox()                              const {return _vertices.bbox();}
-		const VertexList_t& getNodeOctree()                     const {return _vertices;}
-		const size_t        closestVertex(const Point_t& point) const {return _vertices.find_closest(point);}
-		const 
+		const Vertex_t&     get_vertex(const size_t idx)          const {assert(idx<_vertices.size()); return _vertices[idx];}
+		const Element_t&    get_element(const size_t idx)         const {assert(idx<_elements.size()); return _elements[idx];}
+		const HalfEdge_t&   get_halfedge(const size_t idx)        const {assert(idx<_halfedges.size()); return _halfedges[idx];}
+		const Vertex_t&     get_boundary_vertex(const size_t idx) const {assert(idx<_boundary_vertices.size()); return _vertices[_boundary_vertices[idx]];}
 
+		//////////////////////////////////////////////////
+		/// Access containers externally
+		//////////////////////////////////////////////////
+		const VertexList_t&            get_vertices()          const {return _vertices;}
+		const std::vector<Element_t>&  get_elements()          const {return _elements;}
+		const std::vector<HalfEdge_t>& get_halfedges()         const {return _halfedges;}
+		const std::vector<size_t>&     get_boundary_vertices() const {return _boundary_vertices;}
+
+		//////////////////////////////////////////////////
+		/// Utility methods
+		//////////////////////////////////////////////////
+		const size_t   closest_vertex(const GeoPoint_t& point) const {return _vertices.find_closest(point);}
+		const GeoBox_t bbox()                                  const {return _vertices.bbox_tight();}
+
+		size_t nElements() const {return _elements.size();}
+		size_t nVertices() const {return _vertices.size();}
+		
 		/////////////////////////////////////////////////
 		/// Allocate space
 		/////////////////////////////////////////////////
-		inline void reserveElements(const size_t length) {_elements.reserve(length);}
-		inline void reserveNodes(const size_t length)    {_vertices.reserve(length);}
-		inline void reserveBoundary(const size_t length) {_boundary.reserve(length); _boundary_track.reserve(length);}
+		void element_reserve(const size_t n_elements) {
+			_elements.reserve(n_elements);
+			_halfedges.reserve(N_FACE_PER_ELEMENT*n_elements);
+		}
+		
+		void element_resize(const size_t n_elements) {
+			_elements.resize(n_elements);
+			_halfedges.resize(N_FACE_PER_ELEMENT*n_elements);
+		}
 
-		/////////////////////////////////////////////////
-		/// Get the boundary as a separate mesh
-		/////////////////////////////////////////////////
-		template<BasicMeshType Mesh_t>
-		void getBoundaryMesh(Mesh_t &mesh) const {
-			static_assert(Mesh_t::REF_DIM   == REF_DIM-1, "BasicMesh: The boundary mesh must have reference dimension one less than the base mesh.");
-			static_assert(Mesh_t::SPACE_DIM == SPACE_DIM, "BasicMesh: The boundary mesh must live in the same space dimension as the base mesh.");
-			
-			for (auto it=boundaryBegin(); it!=boundaryEnd(); ++it) {
-				std::vector<Point_t> vertices;
-				for (size_t n : it->vertices) {vertices.push_back(_vertices[n].coord);}
-				mesh.constructElement_Locked(vertices, it->vtkID);
-			}
+		void vertex_reserve(const size_t n_vertices) {
+			_vertices.reserve(n_vertices);
+		}
+
+		void vertex_resize(const size_t n_vertices) {
+			_vertices.resize(n_vertices);
+		}
+
+		void clear() {
+			_elements.clear();
+			_halfedges.clear();
+			_vertices.clear();
 		}
 
 		/////////////////////////////////////////////////
@@ -193,7 +198,8 @@ namespace gv::mesh
 		/// @param domain The domain to be meshed
 		/// @param N The number of elements along each coordinate axis
 		/////////////////////////////////////////////////
-		void setVoxelMesh_Locked(const DomainBox_t &domain, const Index_t& N, const bool useIsopar=false) requires (ref_dim==3);
+		void build_voxel_mesh(const GeoBox_t &domain, const Index_t& N, const bool useIsopar=false)
+			requires (REF_DIM==3 and (VTK_ID==VOXEL_VTK_ID or VTK_ID==HEXAHEDRON_VTK_ID));
 
 
 		/////////////////////////////////////////////////
@@ -202,7 +208,8 @@ namespace gv::mesh
 		/// @param domain The domain to be meshed
 		/// @param N The number of elements along each coordinate axis
 		/////////////////////////////////////////////////
-		void setPixelMesh_Locked(const DomainBox_t &domain, const Index_t& N, const bool useIsopar=false) requires (ref_dim==2);
+		void build_pixel_mesh(const GeoBox_t &domain, const Index_t& N, const bool useIsopar=false)
+			requires (REF_DIM==2 and (VTK_ID==PIXEL_VTK_ID or VTK_ID==QUAD_VTK_ID));
 
 
 		/////////////////////////////////////////////////
@@ -213,105 +220,61 @@ namespace gv::mesh
 		/// @param elem_idx The index of the requested element (i.e., _elements[elem_idx]).
 		/// @param neighbors A reference to an existing vector where the result will be stored (via neighbors.push_back()).
 		/////////////////////////////////////////////////
-		virtual void getElementNeighbors_Unlocked(const size_t elem_idx, std::vector<size_t> &neighbors) const;
+		void get_element_neighbors(const size_t elem_idx, std::vector<size_t>& neighbors) const;
 
-
-		/////////////////////////////////////////////////
-		/// A method to get the active elements that share a node with the specified element. This allows for the mesh to be refined and coarsened without changing the data structures.
-		///
-		/// This is a virtual method as it must be changed for a hierarchical mesh.
-		///
-		/// @param elem_idx The index of the requested element (i.e., _elements[elem_idx]).
-		/// @param neighbors A reference to an existing vector where the result will be stored (via neighbors.push_back()).
-		/////////////////////////////////////////////////
-		virtual void getElementNeighbors_Locked(const size_t elem_idx, std::vector<size_t> &neighbors) const {
-			std::shared_lock<std::shared_mutex> lock(_rw_mtx);
-			getElementNeighbors_Unlocked(elem_idx, neighbors);
-		}
-
-
-		/////////////////////////////////////////////////
-		/// A method to get the active boundary faces that are also faces of the specified element.
-		///
-		/// @param elem_idx The index of the requested face (i.e., _boundary[elem_idx]).
-		/// @param faces A reference to an existing vector where the result will be stored (via faces.push_back()).
-		/////////////////////////////////////////////////
-		virtual void getBoundaryFaces_Unlocked(const size_t elem_idx, std::vector<size_t> &faces) const;
-
-
-		/////////////////////////////////////////////////
-		/// A method to get the active boundary faces that are also faces of the specified element.
-		///
-		/// @param elem_idx The index of the requested face (i.e., _boundary[elem_idx]).
-		/// @param faces A reference to an existing vector where the result will be stored (via faces.push_back()).
-		/////////////////////////////////////////////////
-		virtual void getBoundaryFaces_Locked(const size_t elem_idx, std::vector<size_t> &faces) const {
-			std::shared_lock<std::shared_mutex> lock(_rw_mtx);
-			getBoundaryFaces_Unlocked(elem_idx, faces);
-		}
-
-
-		/////////////////////////////////////////////////
-		/// A method to prepare and create the vertices for a new element to be created. If a node at the specified vertex already exists, that index is used.
-		///
-		/// @param vertex_coords A reference to an existing vector of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
-		/// @param vtkID The vtk identifier to track the type of element. Look up the vtk documentation to see which node order is required.
-		/// @param vertices The vector that will store the indices to the appropriate vertices
-		/////////////////////////////////////////////////
-		void prepareNodes_Safe(const std::vector<Point_t> &vertex_coords, const int vtkID, std::vector<size_t> &vertices);
 		
-
 		/////////////////////////////////////////////////
-		/// A method to insert a new element into the mesh. The element must be constructed from specified existing vertices.
-		/// The existing vertices will be updated but no new vertices will be created.
+		/// Get vertices at the specified coordinates. If there is no vertex already there, one is created.
 		///
-		/// Marked as virtual so classes that inherit can populate special fields (e.g., color).
+		/// @tparam N The number of vertices
+		/// @tparam ASYNC When ASYNC is false, the vertices are found/inserted in the presented order and duplicates are ok.
+		///               When ASYNC is true, the coordinates MUST be unique in all instances where _vertices is being altered.
+		///               The caller should probably call _vertices.flush() to ensure that the structure is finished building as well.
+		/// @param coords The coordinates of the vertices. Note that these resources will be moved and cannot be used after being sent to this method.
+		///               If they are needed, use _vertices[result[i]].coord to get the coordinate that was at coords[i].
+		/////////////////////////////////////////////////
+		template<int N, bool ASYNC=false>
+		std::array<size_t,N> prepare_vertices(std::array<GeoPoint_t,N>&& coords);
+
+
+		/////////////////////////////////////////////////
+		/// A method to construct a new element by its vertex coordinates. Vertex indices for the new element are
+		/// obtained via prepare_vertices<N_VERT_PER_ELEMENT,ASYNC>.
 		///
-		/// @param ELEM The element to be inserted. The vertices must already be populated. The element will be appended to _elements via _elements.push_back(std::move(ELEM)).
+		/// @tparam ASYNC A flag to pass to prepare_vertices that determines if new vertices are constructed asynchronously.
+		/// @param coords A reference to an existing vector of vertex coordinates.
 		/////////////////////////////////////////////////
-		virtual void insertElement_Locked(Element_t &ELEM);
-		void insertBoundaryFace_Locked(Face_t &FACE, FaceTracker &bt);
+		template<bool ASYNC=false>
+		Element_t construct_element(std::array<GeoPoint_t,N_VERT_PER_ELEMENT>&& coords);
+
 
 		/////////////////////////////////////////////////
-		/// A method to insert a new element into the mesh. The element must be constructed from specified existing vertices.
-		/// The existing vertices will be updated but no new vertices will be created.
+		/// A method to insert a new element into the mesh. The index where the element was moved to is returned.
+		/// This method will populate the connectivity of the mesh, but the vertex indices of the element must be correctly set.
 		///
-		/// The method that calls this must ensure that it is done in a thread-safe way.
-		/// If only one color of element is being inserted, then it will be safe.
+		/// This method is marked as virtual so classes that inherit can populate special fields (e.g., color).
+		/// 
+		/// @tparam ASYNC A flag that should be set to true if multiple threads are inserting new elements.
+		///               If ASYNC is true, then the index where the element is to be stored must be passed.
 		///
-		/// Marked as virtual so classes that inherit can populate special fields (e.g., color).
+		/// @param element The element to be inserted. The vertices must already be populated,
+		///                but the other connectivities will be constructed from this element.
 		///
-		/// @param ELEM The element to be inserted. The vertices must already be populated. The element will moved to _elements[elem_idx].
-		/// @param elem_idx The inded where the element is to be inserted.
+		/// @param index If known, the index where the element is to be inserted can be passed. This must be done
+		///              whenever ASYNC is true. If the size of index is larger than the size of _elements, then
+		///              the new element is appended to the end of _elements via push_back(std::move(element)).
 		/////////////////////////////////////////////////
-		virtual void insertElement_Unlocked(Element_t &ELEM, const size_t elem_idx);
-		void insertBoundaryFace_Unlocked(Face_t &FACE, const size_t face_idx, FaceTracker &bt);
+		template<bool ASYNC=false>
+		virtual size_t insert_element(Element_t&& element, size_t index = (size_t) -1);
 
+		
 		/////////////////////////////////////////////////
-		/// A method to create a new element by its vertices and insert it into the mesh. The element is constructed from specified vertices, which may or may not correspond to existing vertices.
-		/// If a vertex corresponds to an existing node, that node will be updated. Otherwise a new node will be created.
-		///
-		/// @param vertices A reference to an existing vector of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
-		/// @param vtkID The vtk identifier to track the type of element. Look up the vtk documentation to see which node order is required.
+		/// Compute the halfedges of the (specified) elements.
 		/////////////////////////////////////////////////
-		void constructElement_Locked(const std::vector<Point_t> &vertices, const int vtkID);
+		void pair_halfedges();
 
-
-		/////////////////////////////////////////////////
-		/// A method to create a new element by its vertices and insert it into the mesh. The element is constructed from specified vertices, which may or may not correspond to existing vertices.
-		/// If a vertex corresponds to an existing node, that node will be updated. Otherwise a new node will be created.
-		///
-		/// @param vertices A reference to an existing vector of vertices (usually of type gv::util::Point<3,double>) that define the new element. These must be in the proper order.
-		/// @param vtkID The vtk identifier to track the type of element. Look up the vtk documentation to see which node order is required.
-		/////////////////////////////////////////////////
-		void constructElement_Unlocked(const std::vector<Point_t> &vertices, const int vtkID, const size_t elem_idx);
-
-
-		/////////////////////////////////////////////////
-		/// Compute the boundary elements. The mesh must be in a conformal state (i.e., the coarsest mesh).
-		/////////////////////////////////////////////////
-		void computeConformalBoundary();
-
+		template<typename Container_type>
+		void pair_halfedges_for_elements(const Container_type& element_indices)
 
 		/////////////////////////////////////////////////
 		/// Method to move a vertex in the mesh. If any of the elements associated with this node
@@ -320,16 +283,15 @@ namespace gv::mesh
 		/// @param vertex_idx  The index of the node that will be moved
 		/// @param new_coord   The coordinate where the node will be moved to
 		/////////////////////////////////////////////////
-		void moveVertex(const size_t vertex_idx, Point_t new_coord) {
-			Vertex_t VERTEX = _vertices[vertex_idx]; //make a new copy
+		// void moveVertex(const size_t vertex_idx, GeoPoint_t new_coord) {
+		// 	Vertex_t VERTEX = _vertices[vertex_idx]; //make a new copy
 
-			for (size_t e_idx : VERTEX.elems) {makeIsoparametric(_elements[e_idx]);}
-			for (size_t f_idx : VERTEX.boundary_faces) {makeIsoparametric(_boundary[f_idx]);}
+		// 	for (size_t e_idx : VERTEX.elems) {makeIsoparametric(_elements[e_idx]);}
+		// 	for (size_t f_idx : VERTEX.boundary_faces) {makeIsoparametric(_boundary[f_idx]);}
 			
-			VERTEX.coord = new_coord;
-			// _vertices.replace(std::move(VERTEX), std::move(new_coord), vertex_idx);
-			_vertices.replace(std::move(VERTEX), vertex_idx);
-		}
+		// 	VERTEX.coord = new_coord;
+		// 	_vertices.replace(std::move(VERTEX), vertex_idx);
+		// }
 		
 
 		/////////////////////////////////////////////////
@@ -341,114 +303,66 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		void save_as(const std::string filename, const bool include_details=false, const bool use_ascii=false) const;
 
-
-		/////////////////////////////////////////////////
-		/// Friend functions to print the mesh information
-		/////////////////////////////////////////////////
-		template<BasicMeshType Mesh_t>
-		friend std::ostream& operator<<(std::ostream& os, const Mesh_t &mesh);
-
-		template<BasicMeshType Mesh_t>
-		friend void print_topology_ascii_vtk(std::ofstream &file, const Mesh_t &mesh, const std::string description);
-
-		template<BasicMeshType Mesh_t>
-		friend void print_mesh_details_ascii_vtk(std::ofstream &file, const Mesh_t &mesh);
-
-		template<BasicMeshType Mesh_t>
-		friend void print_topology_binary_vtk(std::ofstream &file, const Mesh_t &mesh, const std::string description);
-
-		template<BasicMeshType Mesh_t>
-		friend void print_mesh_details_binary_vtk(std::ofstream &file, const Mesh_t &mesh);
-
-		template<BasicMeshType Mesh_t>
-		friend void memorySummary(const Mesh_t &mesh);
-
-		/////////////////////////////////////////////////
-		/// Check if an element is valid. This is so that derived classes do not need to re-implement the entire iterator if
-		/// not all elements stored in _elements should be considered part of the mesh (e.g., hierarchical meshes)
-		///
-		/// @param ELEM The element to check.
-		/////////////////////////////////////////////////
-		virtual bool isElementValid(const Element_t &ELEM) const {return true;}
-		
-
-		/////////////////////////////////////////////////
-		/// Check if a boundary face is valid. This is so that derived classes do not need to re-implement the entire iterator if
-		/// not all elements stored in _elements should be considered part of the mesh (e.g., hierarchical meshes)
-		///
-		/// @param FACE The face to check.
-		/////////////////////////////////////////////////
-		virtual bool isFaceValid(const Face_t &FACE) const {return true;}
-
-
 		/////////////////////////////////////////////////
 		/// Iterators for _elements. These are the most common iterators and get the defualt begin() and end() methods.
-		/// Marked as virtual so they can be pointed at other arrays for views into the mesh. (i.e., the MeshView class).
 		/////////////////////////////////////////////////
-		virtual ElementIterator_t begin()       {return ElementIterator_t(this, 0);}
-		virtual ElementIterator_t end()         {return ElementIterator_t(this, _elements.size());}
-		virtual ElementIterator_t begin() const {return ElementIterator_t(const_cast<BasicMesh<ref_dim,Element_t,Vertex_t>*>(this), 0);}
-		virtual ElementIterator_t end()   const {return ElementIterator_t(const_cast<BasicMesh<ref_dim,Element_t,Vertex_t>*>(this), _elements.size());}
+		auto element_begin()        {return _elements.begin();}
+		auto element_end()          {return _elements.end();}
+		auto element_begin()  const {return _elements.cbegin();}
+		auto element_end()    const {return _elements.cend();}
+		auto element_cbegin() const {return _elements.cbegin();}
+		auto element_cend()   const {return _elements.cend();}
 
 	
 		/////////////////////////////////////////////////
-		/// Iterators for _boundary
+		/// Iterators for _faces
 		/////////////////////////////////////////////////
-		virtual BoundaryIterator_t boundaryBegin()       {return BoundaryIterator_t(this,0);}
-		virtual BoundaryIterator_t boundaryEnd()         {return BoundaryIterator_t(this, _boundary.size());}
-		virtual BoundaryIterator_t boundaryBegin() const {return BoundaryIterator_t(const_cast<BasicMesh<ref_dim,Element_t,Vertex_t>*>(this), 0);}
-		virtual BoundaryIterator_t boundaryEnd()   const {return BoundaryIterator_t(const_cast<BasicMesh<ref_dim,Element_t,Vertex_t>*>(this), _boundary.size());}
+		auto face_begin()        {return _faces.begin();}
+		auto face_end()          {return _faces.end();}
+		auto face_begin()  const {return _faces.cbegin();}
+		auto face_end()    const {return _faces.cend();}
+		auto face_cbegin() const {return _faces.cbegin();}
+		auto face_cend()   const {return _faces.cend();}
 
 
 		/////////////////////////////////////////////////
 		/// Iterators for _vertices
 		/////////////////////////////////////////////////
-		virtual std::vector<Vertex_t>::iterator vertexBegin()             {return _vertices.begin();}
-		virtual std::vector<Vertex_t>::iterator vertexEnd()               {return _vertices.end();}
-		virtual std::vector<Vertex_t>::const_iterator vertexBegin() const {return _vertices.cbegin();}
-		virtual std::vector<Vertex_t>::const_iterator vertexEnd()   const {return _vertices.cend();}
-
-
-		/////////////////////////////////////////////////
-		/// Get element that a point belongs to
-		/////////////////////////////////////////////////
-		size_t element(const Point_t& point) const;
+		auto vertex_begin()        {return _vertices.begin();}
+		auto vertex_end()          {return _vertices.end();}
+		auto vertex_begin()  const {return _vertices.cbegin();}
+		auto vertex_end()    const {return _vertices.cend();}
+		auto vertex_cbegin() const {return _vertices.cbegin();}
+		auto vertex_cend()   const {return _vertices.cend();}
 	};
 
 
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::setVoxelMesh_Locked (
-			const DomainBox_t &domain,
-			const Index_t &N,
-			const bool useIsopar)
-		requires (ref_dim==3)
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	void BasicMesh<Element_type, Scalar_type>::build_voxel_mesh (
+			const GeoBox_t &domain,
+			const Index_t &N)
+			requires (REF_DIM==3 and (VTK_ID==VOXEL_VTK_ID or VTK_ID==HEXAHEDRON_VTK_ID))
 		{
 
-		//switch to hex if needed
-		int ID = VOXEL_VTK_ID;
-		if (useIsopar) {ID=HEXAHEDRON_VTK_ID;}
-
 		//reserve space
-		_vertices.clear();
-		_elements.clear();
-
-		_vertices.reserve((N[0]+1) * (N[1]+1) * (N[2]+1));
-		_elements.resize(N[0]*N[1]*N[2]);
-
-
+		clear();
+		vertices_resize((N[0]+1) * (N[1]+1) * (N[2]+1));
+		element_resize(N[0]*N[1]*N[2]);
+		
 		//initialize the vertices
-		const Point_t H = domain.sidelength() / Point_t(N);
+		const GeoPoint_t H = domain.sidelength() / GeoPoint_t(N);
+		#pragma omp parallel for collapse(3)
 		for (size_t i=0; i<=N[0]; i++) {
 			for (size_t j=0; j<=N[1]; j++) {
 				for (size_t k=0; k<=N[2]; k++) {
-					Point_t vertex  = domain.low() + Point_t{i,j,k} * H;
-					Vertex_t VERTEX(vertex);
-					// size_t idx = _vertices.push_back(std::move(VERTEX), std::move(vertex));
-					size_t idx = _vertices.push_back(std::move(VERTEX));
+					GeoPoint_t vertex  = domain.low() + GeoPoint_t{i,j,k} * H;
+					Vertex_t VERTEX(std::move(vertex));
+					size_t idx = _vertices.push_back_async(std::move(VERTEX));
 					_vertices[idx].index = idx;
 				}
 			}
 		}
+		_vertices.flush();
 
 
 		//construct the mesh
@@ -461,20 +375,27 @@ namespace gv::mesh
 						for (size_t j=jj; j<N[1]; j+=2) {
 							for (size_t k=kk; k<N[2]; k+=2) {
 								//define element extents
-								Point_t low  = domain.low() + Point_t{i,j,k} * H;
-								Point_t high = domain.low() + Point_t{i+1,j+1,k+1} * H;
-								DomainBox_t elem  {low, high};
+								const GeoPoint_t low  = domain.low() + GeoPoint_t{i,j,k} * H;
+								const GeoPoint_t high = domain.low() + GeoPoint_t{i+1,j+1,k+1} * H;
+								const GeoBox_t elem_box{low, high};
 							
 								//assemble the list of vertices
-								std::vector<Point_t> element_vertices(vtk_n_vertices(ID));
-								for (int l=0; l<vtk_n_vertices(ID); l++) {
-									if (useIsopar) {element_vertices[l] = static_cast<Point_t>(elem.hexvertex(l));}
-									else {element_vertices[l] = static_cast<Point_t>(elem.voxelvertex(l));}
+								std::array<GeoPoint_t, N_VERT_PER_ELEMENT> element_vertices;
+								for (int l=0; l<N_VERT_PER_ELEMENT; l++) {
+									if constexpr (VTK_ID == VOXEL_VTK_ID) {
+										element_vertices[l] = elem.voxelvertex(l);
+									}
+									else if constexpr (VTK_ID == HEXAHEDRON_VTK_ID) {
+										element_vertices[l] = elem.hexvertex(l);
+									}
 								}
 
 								//put the element into the mesh
 								const size_t idx = i + N[0]*(j + k*N[1]);
-								constructElement_Unlocked(element_vertices, ID, idx);
+								Element_t ELEM(std::move(element_vertices));
+								[[maybe_unused]] const size_t index = insert_element<true>(std::move(ELEM), idx);
+								assert(index==idx);
+								assert(index==_elements[index].index);
 							}
 						}
 					}
@@ -482,57 +403,58 @@ namespace gv::mesh
 			}
 		}
 
-		computeConformalBoundary();
+		//populate the connectivity of the half-edges
+		pair_halfedges();
 	}
 
 
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::setPixelMesh_Locked(
-			const DomainBox_t &domain,
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	void BasicMesh<Element_type, Scalar_type>::setPixelMesh_Locked(
+			const GeoBox_t &domain,
 			const Index_t &N,
 			const bool useIsopar) 
-		requires (ref_dim==2)
+		requires (REF_DIM==2 and (VTK_ID==PIXEL_VTK_ID or VTK_ID==QUAD_VTK_ID))
 	{
-		
-		//switch to quad if needed
-		int ID = PIXEL_VTK_ID;
-		if (useIsopar) {ID=QUAD_VTK_ID;}
-
-
 		//reserve space
-		_vertices.clear();
-		_elements.clear();
+		clear();
 
-		_vertices.reserve((N[0]+1) * (N[1]+1));
-		_elements.reserve(N[0]*N[1]);
+		vertices_reserve((N[0]+1) * (N[1]+1));
+		elements_reserve(N[0]*N[1]);
 		
 		//construct the mesh
-		const Point_t H(domain.sidelength() / Point_t(N));
+		const GeoPoint_t H(domain.sidelength() / GeoPoint_t(N));
 		for (size_t i=0; i<N[0]; i++) {
 			for (size_t j=0; j<N[1]; j++) {
 				//define element extents
-				Point_t low  = domain.low() + Point_t{i,j} * H;
-				Point_t high = domain.low() + Point_t{i+1,j+1} * H;
-				DomainBox_t   elem  {low, high};
+				GeoPoint_t low  = domain.low() + GeoPoint_t{i,j} * H;
+				GeoPoint_t high = domain.low() + GeoPoint_t{i+1,j+1} * H;
+				GeoBox_t   elem_box {low, high};
 			
 				//assemble the list of vertices
-				std::vector<Point_t> element_vertices(vtk_n_vertices(ID));
-				for (size_t l=0; l<vtk_n_vertices(ID); l++) {
-					if (useIsopar) {element_vertices[l] = static_cast<Point_t>(elem.hexvertex(l));}
-					else {element_vertices[l] = static_cast<Point_t>(elem.voxelvertex(l));}
+				std::array<GeoPoint_t, N_VERT_PER_ELEMENT> element_vertices;
+				for (size_t l=0; l<N_VERT_PER_ELEMENT; l++) {
+					if constexpr (ELEM_VTK_ID == QUAD_VTK_ID) {
+						element_vertices[l] = static_cast<GeoPoint_t>(elem_box.hexvertex(l));
+					}
+					else if constexpr (ELEM_VTK_ID == PIXEL_VTK_ID) {
+						element_vertices[l] = static_cast<GeoPoint_t>(elem_box.voxelvertex(l));
+					}
 				}
 
 				//put the element into the mesh
-				constructElement_Locked(element_vertices, ID);
+				Element_t ELEM = construct_element(std::move(element_vertices));
+				insert_element(std::move(ELEM));
 			}
 		}
-		computeConformalBoundary();
+
+		//finalize the faces
+		pair_halfedges();
 	}
 
 
 	
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::getElementNeighbors_Unlocked(const size_t elem_idx, std::vector<size_t> &neighbors) const {
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	void BasicMesh<Element_type, Scalar_type>::get_element_neighbors(const size_t elem_idx, std::vector<size_t>& neighbors) const {
 		const Element_t &ELEM = _elements[elem_idx];
 
 		//use unordered set to ensure unique vertices
@@ -540,16 +462,11 @@ namespace gv::mesh
 
 		//loop through the vertices of the current element
 		for (size_t n_idx : ELEM.vertices) {
-			const Vertex_t &VERTEX = _vertices[n_idx];
+			const Vertex_t& VERTEX = _vertices[n_idx];
 
 			//loop through the elements of the current node
 			for (size_t e_idx : VERTEX.elems) {
-				bool isNeighbor = e_idx!=elem_idx;
-				if constexpr (HierarchicalMeshElement<Element_t>) {
-					isNeighbor = isNeighbor and _elements[e_idx].is_active;
-				}
-				
-				if (isNeighbor) {
+				if (e_idx!=elem_idx) {
 					neighbor_set.insert(e_idx);
 				}
 			}
@@ -559,219 +476,165 @@ namespace gv::mesh
 		neighbors.insert(neighbors.end(), neighbor_set.begin(), neighbor_set.end());
 	}
 
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	template<int N, bool ASYNC>
+	std::array<size_t,N> BasicMesh<Element_type, Scalar_type>::prepare_vertices(std::array<GeoPoint_t,N>&& coords)
+	{
+		std::array<size_t,N> indices;
 
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::getBoundaryFaces_Unlocked(const size_t elem_idx, std::vector<size_t> &faces) const {
+		//create new vertices as needed and aggregate their indices
+		for (int i=0; i<N; ++i) {
+			Vertex_t VERTEX(std::move(coords[i]));
+			if constexpr (ASYNC) {
+				indices[i] = _vertices.push_back_async(std::move(VERTEX));
+			}
+			else {
+				indices[i] = _vertices.push_back(std::move(VERTEX));
+			}
+		}
 
-		const Element_t &ELEM = _elements[elem_idx];
+		return indices;
+	}
 
-		//use unordered set to ensure unique vertices
-		std::unordered_set<size_t> face_set;
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	template<bool ASYNC>
+	Element_t BasicMesh<Element_type, Scalar_type>::construct_element(std::array<GeoPoint_t,N_VERT_PER_ELEMENT>&& coords)
+	{
+		//get indices of the vertices at the specified coordinates
+		//create new vertices if necessary
+		std::array<size_t, N_VERT_PER_ELEMENT> indices = prepare_vertices<ASYNC>(std::move(coords));
 
-		//loop through the vertices of the element
-		for (size_t n_idx=0; n_idx<ELEM.vertices.size(); n_idx++) {
-			const Vertex_t &VERTEX = _vertices[ELEM.vertices[n_idx]];
+		//return the new element
+		return Element_t{std::move(indices);}
+	}
+	
 
-			//loop through the boundary faces of the current node
-			for (size_t f_idx : VERTEX.boundary_faces) {
-				if (_boundary_track[f_idx].elem_idx == elem_idx) {
-					face_set.insert(f_idx);
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	template<bool ASYNC>
+	size_t BasicMesh<Element_type, Scalar_type>::insert_element(Element_t&& element, size_t index)
+	{
+		if constexpr (ASYNC) {
+			assert(index < _elements.size();)
+			_elements[index] = std::move(element);
+		}
+		else {
+			index = _elements.size();
+			_elements.push_back(std::move(element));
+		}
+
+
+		//populate vertex connectivity
+		for (size_t v_idx : _elements[index].vertices) {
+			_vertices[v_idx].elems.push_back(index);
+		}
+
+		return index;
+	}
+
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	template<typename Container_type>
+	void BasicMesh<Element_type, Scalar_type>::pair_halfedges_for_elements(const Container_type& element_indices)
+	{
+		ElementLogic_t THIS_ELEM_LOGIC, NEIGHBOR_ELEM_LOGIC;
+		for (size_t e_idx : element_indices) {
+			const Element_t& ELEM = _elements[e_idx];
+			THIS_ELEM_LOGIC.set_element(*this, e_idx);
+
+			//loop through the neighbors
+			neighbors.clear();
+			get_element_neighbors(e_idx, neighbors);
+
+			//loop through ELEM local faces
+			for (int f_idx=0; f_idx<N_FACE_PER_ELEMENT; ++f_idx) {
+				auto face_indices = THIS_ELEM_LOGIC.get_face_vertices(f_idx);
+				std::sort(face_indices.begin(), face_indices.end());
+
+				//loop through neighbors to find the opposite face
+				bool found = false;
+				for (size_t n_idx : neighbors) {
+					if constexpr (Element_t::HIERARCHICAL) {
+						if (_elements[n_idx].depth != ELEM.depth) {continue;}
+					}
+
+					NEIGHBOR_ELEM_LOGIC.set_element(*this, n_idx);
+
+					//loop through neighbor local faces
+					for (int nf_idx=0; nf_idx<N_FACE_PER_ELEMENT; ++nf_idx) {
+						auto neighbor_face_indices = NEIGHBOR_ELEM_LOGIC.get_face_vertices(nf_idx);
+						std::sort(neighbor_face_indices.begin(), neighbor_face_indices.end());
+
+						if (face_indices == neighbor_face_indices) {
+							found = true;
+							const size_t halfedge_idx = N_FACE_PER_ELEMENT*e_idx + static_cast<size_t>(f_idx);
+							const size_t opposite_idx = N_FACE_PER_ELEMENT*n_idx + static_cast<size_t>(nf_idx);
+							_halfedges[halfedge_idx].opposite = opposite_idx;
+							_halfedges[opposite_idx].opposite = halfedge_idx; //race condition if not called in parallel and not carefully
+							break;
+						}
+					}
+
+					if (found) {break;}
 				}
 			}
 		}
-
-		faces.insert(faces.end(), face_set.begin(), face_set.end());
 	}
 	
 
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::prepareNodes_Safe(
-			const std::vector<typename BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::Point_t> &vertex_coords,
-			const int vtkID,
-			std::vector<size_t> &vertices) {
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	void BasicMesh<Element_type, Scalar_type>::pair_halfedges()
+	{
+		assert(_elements.size()*N_FACE_PER_ELEMENT == _halfedges.size());
 
-		assert(vertex_coords.size() == (size_t) vtk_n_vertices(vtkID));
-		//prepare the vertices vector
-		vertices.resize(vtk_n_vertices(vtkID));
-
-		//create new vertices as needed and aggregate their indices
-		for (size_t n=0; n<vertex_coords.size(); n++) {
-			Vertex_t VERTEX(vertex_coords[n]);
-			// size_t n_idx = _vertices.push_back(std::move(VERTEX), std::move(vertex_coords[n]));
-			size_t n_idx = _vertices.push_back(std::move(VERTEX));
-			_vertices[n_idx].index = n_idx;
-			vertices[n]  = n_idx;
-		}
-	}
-	
-
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::insertElement_Locked(Element_t &ELEM) {
-		std::unique_lock<std::shared_mutex> lock(_rw_mtx);
-
-		//add the element to the mesh
-		if constexpr (HierarchicalMeshElement<Element_t>) {ELEM.is_active=true;}
-		size_t e_idx = _elements.size(); //index of the new element
-		ELEM.index   = _elements.size();
-		
-		//update existing vertices
-		for (size_t vertex_idx : ELEM.vertices) {
-			_vertices[vertex_idx].elems.push_back(e_idx);
-		}
-
-		//move ELEM to _elements
-		ELEM.index = _elements.size();
-		_elements.push_back(std::move(ELEM));
-	}
-
-
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::insertElement_Unlocked(Element_t &ELEM, const size_t elem_idx) {
-		//The method that calls this must ensure that this is thread-safe.
-		//If only one color of elements are being inserted, it will be safe
-		if constexpr (HierarchicalMeshElement<Element_t>) {ELEM.is_active=true;}
-
-		ELEM.index = elem_idx;
-
-		//update existing vertices
-		for (size_t vertex_idx : ELEM.vertices) {
-			_vertices[vertex_idx].elems.push_back(elem_idx);
-		}
-
-		//move ELEM to _elements
-		_elements[elem_idx] = std::move(ELEM);
-	}
-
-
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::insertBoundaryFace_Locked(Face_t &FACE, FaceTracker &bt) {
-		std::unique_lock<std::shared_mutex> lock(_rw_mtx);
-
-		//add the element to the mesh
-		if constexpr (HierarchicalMeshElement<Face_t>) {FACE.is_active=true;}
-		size_t e_idx = _boundary.size(); //index of the new element
-		FACE.index   = _boundary.size();
-		
-		//update existing vertices
-		for (size_t vertex_idx : FACE.vertices) {
-			_vertices[vertex_idx].boundary_faces.push_back(e_idx);
-		}
-
-		//move FACE to _boundary
-		_boundary.push_back(std::move(FACE));
-		_boundary_track.push_back(std::move(bt));
-	}
-
-
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::insertBoundaryFace_Unlocked(Face_t &FACE, const size_t face_idx, FaceTracker &bt) {
-		//The method that calls this must ensure that this is thread-safe.
-		//If only one color of elements are being inserted, it will be safe
-		if constexpr (HierarchicalMeshElement<Face_t>) {FACE.is_active=true;}
-
-		FACE.index = face_idx;
-
-		//update existing vertices
-		for (size_t vertex_idx : FACE.vertices) {
-			_vertices[vertex_idx].boundary_faces.push_back(face_idx);
-		}
-
-		//move FACE to _boundary
-		_boundary[face_idx] = std::move(FACE);
-		_boundary_track[face_idx] = std::move(bt);
-	}
-
-
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::constructElement_Locked(
-			const std::vector<typename BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::Point_t> &vertex_coords,
-			const int vtkID) {
-		assert(vertex_coords.size()==vtk_n_vertices(vtkID));
-
-		//initialize the new element
-		Element_t ELEM = Element_t(vtkID);
-
-		//create new vertices as needed and aggregate their indices
-		prepareNodes_Safe(vertex_coords, vtkID, ELEM.vertices);
-		//now that the vertices are initialized, insert the element.
-		//the vertices will be updated to link back to the new element.
-		insertElement_Locked(ELEM);
-	}
-
-
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::constructElement_Unlocked(
-			const std::vector<typename BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::Point_t> &vertex_coords,
-			const int vtkID,
-			const size_t elem_idx) {
-		assert(vertex_coords.size() == (size_t) vtk_n_vertices(vtkID));
-
-		//initialize the new element
-		Element_t ELEM = Element_t(vtkID);
-
-		//create new vertices as needed and aggregate their indices
-		prepareNodes_Safe(vertex_coords, vtkID, ELEM.vertices);
-
-		//now that the vertices are initialized, insert the element.
-		//the vertices will be updated to link back to the new element.
-		//this will finalize the logic of coloring and linking the vertices back to this element.
-		insertElement_Unlocked(ELEM, elem_idx);
-	}
-
-
-
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::computeConformalBoundary() {
-		//create unordered maps to track the count of each face
-		struct CountFace {
-			int count = 0;
-			size_t elem = (size_t) -1;
-			int elem_face = -1;
-		};
-
-		std::unordered_map<Face_t, CountFace, ElemHashBitPack> all_faces;
-		all_faces.reserve(8*_elements.size()); //guess at the number of unique faces (exact if all elements are voxels or hexes)
-
-		//loop through all elements and add the faces to the map
-		std::vector<size_t> face_indices;
-		for (size_t e_idx=0; e_idx<_elements.size(); e_idx++) {
-			const Element_t &ELEM = _elements[e_idx];
-			// auto* vtk_elem = _VTK_ELEMENT_FACTORY<space_dim,ref_dim,Scalar_t>(ELEM);
-			auto vtk_elem = VTK_ELEMENT_POLY<Mesh_t>(ELEM.vtkID);
-			vtk_elem.set_element(*this, e_idx);
-			
+		//for each element, attempt to pair each local face with another element
+		#pragma omp parallel
+		{
+			ElementLogic_t THIS_ELEM_LOGIC;
+			ElementLogic_t NEIGHBOR_ELEM_LOGIC;
 			std::vector<size_t> neighbors;
-			getElementNeighbors_Unlocked(e_idx, neighbors);
+			#pragma omp for
+			for (size_t e_idx=0; e_idx<_elements.size(); ++e_idx) {
+				const Element_t& ELEM = _elements[e_idx];
+				THIS_ELEM_LOGIC.set_element(*this, e_idx);
 
-			for (int i=0; i<vtk_n_faces(ELEM.vtkID); i++) {
-				face_indices = vtk_elem.get_face_vertices(i);
+				//loop through the neighbors
+				neighbors.clear();
+				get_element_neighbors(e_idx, neighbors);
 
-				Face_t FACE(vtk_elem.face_vtk_id());
-				FACE.vertices = face_indices;
+				//loop through ELEM local faces
+				for (int f_idx=0; f_idx<N_FACE_PER_ELEMENT; ++f_idx) {
+					auto face_indices = THIS_ELEM_LOGIC.get_face_vertices(f_idx);
+					std::sort(face_indices.begin(), face_indices.end());
 
-				//add each face or increment the existing count
-				all_faces[FACE].count +=1;
-				all_faces[FACE].elem = e_idx;
-				all_faces[FACE].elem_face = i;
-			}
+					//loop through neighbors to find the opposite face
+					bool found = false;
+					for (size_t n_idx : neighbors) {
+						NEIGHBOR_ELEM_LOGIC.set_element(*this, n_idx);
+
+						//loop through neighbor local faces
+						for (int nf_idx=0; nf_idx<N_FACE_PER_ELEMENT; ++nf_idx) {
+							auto neighbor_face_indices = NEIGHBOR_ELEM_LOGIC.get_face_vertices(nf_idx);
+							std::sort(neighbor_face_indices.begin(), neighbor_face_indices.end());
+
+							if (face_indices == neighbor_face_indices) {
+								found = true;
+								const size_t halfedge_idx = N_FACE_PER_ELEMENT*e_idx + static_cast<size_t>(f_idx);
+								const size_t opposite_idx = N_FACE_PER_ELEMENT*n_idx + static_cast<size_t>(nf_idx);
+								_halfedges[halfedge_idx].opposite = opposite_idx;
+								// _halfedges[opposite_idx].opposite = halfedge_idx; //race condition if we set this
+								break;
+							}
+						}
+
+						if (found) {break;}
+					}
+				}
+			}	
 		}
-
-		//process boundary faces
-		_boundary.clear();
-		_boundary.reserve(all_faces.size()/4);
-		for (const auto& [FACE, face_count] : all_faces) {
-			if (face_count.count==1) {
-				Face_t face(FACE);
-				FaceTracker bt {face_count.elem, face_count.elem_face};
-				insertBoundaryFace_Locked(face, bt);
-			}
-		}
-		_boundary.shrink_to_fit();
 	}
 
 
-	template<int ref_dim, BasicMeshElement ElementStruct_t, BasicMeshVertex  VertexStruct_t>
-	void BasicMesh<ref_dim, ElementStruct_t, VertexStruct_t>::save_as(const std::string filename, const bool include_details, const bool use_ascii) const {
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	void BasicMesh<Element_type, Scalar_type>::save_as(const std::string filename, const bool include_details, const bool use_ascii) const {
 		if (use_ascii) {
 			//open and check file
 			std::ofstream file(filename);
@@ -848,106 +711,31 @@ namespace gv::mesh
 
 	template<BasicMeshType Mesh_t>
 	void memorySummary(const Mesh_t &mesh) {
-		using Vertex_t  = typename Mesh_t::Vertex_t;
-		using Element_t = typename Mesh_t::Element_t;
-		using Face_t    = typename Mesh_t::Face_t;
+		using Element_t  = typename Mesh_t::Element_t;
+		using HalfEdge_t = typename Mesh_t::HalfEdge_t;
+		using Vertex_t   = typename Mesh_t::Vertex_t;
 
+		const auto vertices  = mesh.get_vertices();
+		const auto elements  = mesh.get_elements();
+		const auto halfedges = mesh.get_halfedges();
 
-		double verticesUsed     = (double) sizeof(Vertex_t) * (double) mesh._vertices.size();
-		double verticesCap      = (double) sizeof(Vertex_t) * (double) mesh._vertices.capacity();
-		double verticesElemUsed = 0;
-		double verticesElemCap  = 0;
-		size_t verticesElemCount = 0;
-		for (size_t n=0; n<mesh._vertices.size(); n++) {
-			const std::vector<size_t> &vec = mesh._vertices[n].elems;
-			verticesElemUsed += (double) sizeof(size_t) * (double) vec.size();
-			verticesElemCap  += (double) sizeof(size_t) * (double) vec.capacity();
-			verticesElemCount += vec.size();
-		}
-		double verticesBoundaryUsed = 0;
-		double verticesBoundaryCap  = 0;
-		size_t verticesBoundaryCount = 0;
-		for (size_t n=0; n<mesh._vertices.size(); n++) {
-			const std::vector<size_t> &vec = mesh._vertices[n].boundary_faces;
-			verticesBoundaryUsed += (double) sizeof(size_t) * (double) vec.size();
-			verticesBoundaryCap  += (double) sizeof(size_t) * (double) vec.capacity();
-			verticesBoundaryCount += vec.size();
-		}
+		constexpr double MiB = 1048576.0;
 
-		double total_vertices_used = verticesUsed + verticesElemUsed + verticesBoundaryUsed;
-		double total_vertices_cap  = verticesCap  + verticesElemCap  + verticesBoundaryCap;
+		//memory for vertices
+		auto treeStats = vertices.get_tree_stats();
+		double vertices_used = (double) sizeof(Vertex_t) * (double) vertices.size();
+		double vertices_reserved = (double) sizeof(Vertex_t) * (double) vertices.capacity();
 
+		double total_vertices_used = treeStats.memory_used_bytes + vertices_used;
+		double total_vertices_reserved = treeStats.memory_reserved_bytes + vertices_reserved;
 
-		//memory for octree structure of _vertices
-
-		// size_t nOctreeNodes{0}, nOctreeIdx{0}, nOctreeIdxCap{0}, nLeafs{0};
-		// int maxDepth{0};
-		// mesh._vertices.treeSummary(nOctreeNodes, nOctreeIdx, nOctreeIdxCap, nLeafs, maxDepth);
-		auto treeStats = mesh._vertices.get_tree_stats();
-
-
-
-		//memory for _elements
-		double elementsUsed     = (double) sizeof(Element_t) * (double) mesh._elements.size();
-		double elementsCap      = (double) sizeof(Element_t) * (double) mesh._elements.capacity();
-		double elementsNodesUsed = 0;
-		double elementsNodesCap  = 0;
-		size_t elementsNodesCount = 0;
-		for (size_t n=0; n<mesh._elements.size(); n++) {
-			const std::vector<size_t> &vec = mesh._elements[n].vertices;
-			elementsNodesUsed += (double) sizeof(size_t) * (double) vec.size();
-			elementsNodesCap  += (double) sizeof(size_t) * (double) vec.capacity();
-			elementsNodesCount += vec.size();
-			assert(vec.size()==vec.capacity());
-		}
-
-		[[maybe_unused]] double elementsChildrenUsed = 0;
-		[[maybe_unused]] double elementsChildrenCap  = 0;
-		[[maybe_unused]] size_t elementsChildrenCount = 0;
-		if constexpr (HierarchicalMeshElement<Element_t>) {
-			for (size_t n=0; n<mesh._elements.size(); n++) {
-				const std::vector<size_t> &vec = mesh._elements[n].children;
-				elementsChildrenUsed += (double) sizeof(size_t) * (double) vec.size();
-				elementsChildrenCap  += (double) sizeof(size_t) * (double) vec.capacity();
-				elementsChildrenCount += vec.size();
-			}
-		}
-
-		double total_elements_used = elementsUsed + elementsNodesUsed + elementsChildrenUsed;
-		double total_elements_cap  = elementsCap  + elementsNodesCap  + elementsChildrenCap;
-
-		//memory for _boundary
-		double boundaryUsed     = (double) sizeof(Face_t) * (double) mesh._boundary.size();
-		double boundaryCap      = (double) sizeof(Face_t) * (double) mesh._boundary.capacity();
-		double boundaryNodesUsed = 0;
-		double boundaryNodesCap  = 0;
-		size_t boundaryNodesCount = 0;
-		for (size_t n=0; n<mesh._boundary.size(); n++) {
-			const std::vector<size_t> &vec = mesh._boundary[n].vertices;
-			boundaryNodesUsed += (double) sizeof(size_t) * (double) vec.size();
-			boundaryNodesCap  += (double) sizeof(size_t) * (double) vec.capacity();
-			boundaryNodesCount += vec.size();
-			assert(vec.size()==vec.capacity());
-		}
-
-		[[maybe_unused]] double boundaryChildrenUsed = 0;
-		[[maybe_unused]] double boundaryChildrenCap  = 0;
-		[[maybe_unused]] size_t boundaryChildrenCount = 0;
-		if constexpr (HierarchicalMeshElement<Face_t>) {
-			for (size_t n=0; n<mesh._boundary.size(); n++) {
-				const std::vector<size_t> &vec = mesh._boundary[n].children;
-				boundaryChildrenUsed += (double) sizeof(size_t) * (double) vec.size();
-				boundaryChildrenCap  += (double) sizeof(size_t) * (double) vec.capacity();
-				boundaryChildrenCount += vec.size();
-			}
-		}
-
-		double total_boundary_used = boundaryUsed + boundaryNodesUsed + boundaryChildrenUsed;
-		double total_boundary_cap  = boundaryCap  + boundaryNodesCap  + boundaryChildrenCap;
-
-		//memory for _boundary_track
-		double boundaryTrackUsed = (double) sizeof(FaceTracker) * (double) mesh._boundary_track.size();
-		double boundaryTrackCap  = (double) sizeof(FaceTracker) * (double) mesh._boundary_track.capacity();
+		//memory for elements
+		double elements_used = (double) sizeof(Element_t) * (double) elements.size();
+		double elements_reserved = (double) sizeof(Element_t) * (double) elements.capacity();
+		
+		//memory for halfedges
+		double halfedge_used = (double) sizeof(HalfEdge_t) * (double) halfedges.size();
+		double halfedge_reserved = (double) sizeof(HalfEdge_t) * (double) halfedges.capacity();
 
 		////////////////////////////////
 		//////// assemble table ////////
@@ -968,30 +756,18 @@ namespace gv::mesh
 				  << std::string(90, '-') << "\n";
 
 		//_vertices (data)
-		std::cout << std::left << std::setw(30) << "_vertices"
+		std::cout << std::left << std::setw(30) << "vertices"
 				  << std::right
-				  << std::setw(20) << mesh._vertices.size()
-				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesCap  / 1048576.0
-				  << "\n"
-				  << std::left << std::setw(34) << "  \u251c\u2500 elems"
-				  << std::right
-				  << std::setw(20) << verticesElemCount
-				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesElemUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesElemCap  / 1048576.0
-				  << "\n"
-				  << std::left << std::setw(34) << "  \u251c\u2500 boundary_faces"
-				  << std::right
-				  << std::setw(20) << verticesBoundaryCount
-				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesBoundaryUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << verticesBoundaryCap  / 1048576.0
+				  << std::setw(20) << vertices.size()
+				  << std::setw(20) << std::fixed << std::setprecision(3) << vertices_used / MiB;
+				  << std::setw(20) << std::fixed << std::setprecision(3) << vertices_reserved / MiB;
 				  << "\n";
 
 		std::cout << std::left << std::setw(30) << "  \u2514\u2500 octree structure"
 				  << std::setw(24) << ""
 				  << std::right
-				  << std::setw(20) << std::fixed << std::setprecision(3) << treeStats.memory_used_bytes / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << treeStats.memory_reserved_bytes  / 1048576.0
+				  << std::setw(20) << std::fixed << std::setprecision(3) << treeStats.memory_used_bytes / MiB
+				  << std::setw(20) << std::fixed << std::setprecision(3) << treeStats.memory_reserved_bytes  / MiB
 				  << "\n"
 				  << std::left << std::setw(34) << "      \u251c\u2500 tree vertices (all)"
 				  << std::right
@@ -1018,74 +794,32 @@ namespace gv::mesh
 
 
 		//_elements
-		std::cout << std::left << std::setw(30) << "_elements"
+		std::cout << std::left << std::setw(30) << "elements"
 				  << std::right
-				  << std::setw(20) << mesh._elements.size()
-				  << std::setw(20) << std::fixed << std::setprecision(3) << elementsUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << elementsCap  / 1048576.0
+				  << std::setw(20) << elements.size()
+				  << std::setw(20) << std::fixed << std::setprecision(3) << elements_used / MiB
+				  << std::setw(20) << std::fixed << std::setprecision(3) << elements_reserved / MiB
 				  << "\n";
-		if constexpr (HierarchicalMeshElement<Element_t>) {
-			std::cout << std::left << std::setw(34) << "  \u251c\u2500 vertices";
-		} else {
-			std::cout << std::left << std::setw(34) << "  \u2514\u2500 vertices";
-		}
-		std::cout << std::right
-				  << std::setw(20) << elementsNodesCount
-				  << std::setw(20) << std::fixed << std::setprecision(3) << elementsNodesUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << elementsNodesCap  / 1048576.0
-				  << "\n";
-		if constexpr (HierarchicalMeshElement<Element_t>) {
-			std::cout << std::left << std::setw(34) << "  \u2514\u2500 children"
-					  << std::right
-					  << std::setw(20) << elementsChildrenCount
-					  << std::setw(20) << std::fixed << std::setprecision(3) << elementsChildrenUsed / 1048576.0
-					  << std::setw(20) << std::fixed << std::setprecision(3) << elementsChildrenCap  / 1048576.0
-					  << "\n";
-		}
-		std::cout << std::string(90, '-') << "\n";
 
-		//_boundary
-		std::cout << std::left << std::setw(30) << "_boundary"
+		//_halfedges
+		std::cout << std::left << std::setw(30) << "halfedges"
 				  << std::right
-				  << std::setw(20) << mesh._boundary.size()
-				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryCap  / 1048576.0
-				  << "\n";
-		std::cout << std::left << std::setw(34) << "  \u2514\u2500 vertices";
-		std::cout << std::right
-				  << std::setw(20) << boundaryNodesCount
-				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryNodesUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryNodesCap  / 1048576.0
-				  << "\n";
-		if constexpr (HierarchicalMeshElement<Face_t>) {
-			std::cout << std::left << std::setw(34) << "  \u2514\u2500 children"
-					  << std::right
-					  << std::setw(20) << boundaryChildrenCount
-					  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryChildrenUsed / 1048576.0
-					  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryChildrenCap  / 1048576.0
-					  << "\n";
-		}
-		std::cout << std::string(90, '-') << "\n";
-
-		//_boundary_track
-		std::cout << std::left << std::setw(30) << "_boundary_track"
-				  << std::right
-				  << std::setw(20) << mesh._boundary_track.size()
-				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryTrackUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << boundaryTrackCap  / 1048576.0
+				  << std::setw(20) << halfedges.size()
+				  << std::setw(20) << std::fixed << std::setprecision(3) << halfedge_used / MiB
+				  << std::setw(20) << std::fixed << std::setprecision(3) << halfedge_reserved / MiB
 				  << "\n";
 		std::cout << std::string(90, '-') << "\n";
 
 
 		//total
-		double totalUsed = total_vertices_used + treeStats.memory_used_bytes + total_elements_used + total_boundary_used + boundaryTrackUsed;
-		double totalCap = total_vertices_cap + treeStats.memory_reserved_bytes + total_elements_cap + total_boundary_cap + boundaryTrackCap;
+		double total_used = vertices_used + treeStats.memory_used_bytes + elements_used + halfedge_used;
+		double total_reserved = vertices_used + treeStats.memory_reserved_bytes + elements_reserved + halfedge_reserved;
 		std::cout << std::string(90, '-') << "\n";
 		std::cout << std::left << std::setw(30) << "Total"
 				  << std::right
 				  << std::setw(20) << ""
-				  << std::setw(20) << std::fixed << std::setprecision(3) << totalUsed / 1048576.0
-				  << std::setw(20) << std::fixed << std::setprecision(3) << totalCap  / 1048576.0
+				  << std::setw(20) << std::fixed << std::setprecision(3) << total_used / MiB
+				  << std::setw(20) << std::fixed << std::setprecision(3) << total_reserved / MiB
 				  << "\n";
 
 

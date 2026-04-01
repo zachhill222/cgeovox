@@ -27,11 +27,10 @@ namespace gv::mesh
 		static constexpr int N_CHILDREN    = HIERARCHICAL_ ? vtk_n_children(VTK_ID_) : 0;
 		static constexpr bool COLORABLE    = COLORABLE_;
 		static constexpr bool HIERARCHICAL = HIERARCHICAL_;
-		static constexpr int VTK_ID        = VTK_ID_;
+		static constexpr int  VTK_ID       = VTK_ID_;
 
 		//features that are always present
 		std::array<size_t, N_VERTS> vertices;
-		size_t index = (size_t) -1;
 
 		//colorable features
 		[[no_unique_address]] std::conditional_t<COLORABLE,size_t,std::monostate> color;
@@ -42,8 +41,18 @@ namespace gv::mesh
 		[[no_unique_address]] std::conditional_t<HIERARCHICAL,bool,std::monostate> active;
 		[[no_unique_address]] std::conditional_t<HIERARCHICAL,std::array<size_t,N_CHILDREN>,std::monostate> children;
 
-		//constructor
-		MeshElement() : vertices{} {
+		//constructors
+		constexpr MeshElement() : vertices{} {
+			if constexpr (COLORABLE) {color = (size_t) -1;}
+			if constexpr (HIERARCHICAL) {
+				parent   = (size_t) -1;
+				depth    = 0;
+				active   = false;
+				children = {};
+			}
+		}
+
+		MeshElement(std::array<size_t,N_VERTS>&& vertices_) : vertices{std::move(vertices_)} {
 			if constexpr (COLORABLE) {color = (size_t) -1;}
 			if constexpr (HIERARCHICAL) {
 				parent   = (size_t) -1;
@@ -76,7 +85,6 @@ namespace gv::mesh
 		{ T::COLORABLE     } -> std::convertible_to<bool>;
 		{ T::HIERARCHICAL  } -> std::convertible_to<bool>;
 		{ elem.vertices[0] } -> std::convertible_to<size_t>;
-		{ elem.index       } -> std::convertible_to<size_t>;
 	};
 
 	template<typename T>
@@ -88,52 +96,18 @@ namespace gv::mesh
 	template<typename T>
 	concept HierarchicalColorableMeshElement = BasicMeshElement<T> and T::COLORABLE and T::HIERARCHICAL;
 
-
-	//struct for storing faces
-	template<int VTK_ID_>
-	struct Face
+	//struct for a Half-Edge data structure
+	//half-edges represent a face of an element with outward unit normal. Interior faces have an "opposite" half-edge.
+	//If the elements of the mesh have N faces each, then the half-edges for one element are stored in N contiguous addresses.
+	template<int N_FACES>
+	struct HalfEdge
 	{
-		static constexpr int VTK_ID = VTK_ID_;
+		size_t opposite = (size_t) -1; //index of the face opposite of this (i.e., opposite orientation)
 
-		std::array<size_t, vtk_n_vertices(VTK_ID_)> vertices;
-		size_t               index      = (size_t) -1;
-		std::array<size_t,2> elements   = {(size_t) -1, (size_t) -1};
-		std::array<int,2>    local_face = {-1, -1};
-
-		inline bool on_boundary() const {return elements[1] == (size_t) -1;}
-		void add_element(const size_t e_idx, const int f_idx)
-		{
-			if (elements[0] == (size_t) -1) {
-				elements[0] = e_idx;
-				local_face[0] = f_idx;
-				return;
-			}
-
-			if (elements[1] == (size_t) -1) {
-				elements[1] = e_idx;
-				local_face[1] = f_idx;
-				
-
-				if (elements[1] < elements[0]) {
-					std::swap(elements[0], elements[1]);
-					std::swap(local_face[0], local_face[1]);
-				}
-
-				return;
-			}
-
-
-			throw std::runtime_error("Face: cannot connect to more than two elements");
-		}
-	};
-
-	template<typename T>
-	concept BasicFace = requires(T face) {
-	    { T::VTK_ID        } -> std::convertible_to<int>;
-	    { T::N_VERTS       } -> std::convertible_to<int>;  // wait, Face doesn't have these
-	    { face.vertices[0] } -> std::convertible_to<size_t>;
-	    { face.index       } -> std::convertible_to<size_t>;
-	    { face.on_boundary() } -> std::convertible_to<bool>;
+		//index is the index of this half-edge in the vector/array
+		static constexpr size_t element(const size_t index)    {return index / N_FACES;}
+		static constexpr size_t local_face(const size_t index) {return index % N_FACES;}
+		bool on_boundary() const {return opposite == (size_t) -1;}
 	};
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -143,7 +117,7 @@ namespace gv::mesh
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/// Check if two elements or faces are the same (up to orientation)
-	template<typename Left_t, typename Right_t> requires (BasicMeshElement<Left_t> or BasicFace<Left_t>) and (BasicMeshElement<Right_t> or BasicFace<Right_t>)
+	template<BasicMeshElement Left_t, BasicMeshElement Right_t>
 	bool operator==(const Left_t &A, const Right_t &B) {
 		if constexpr (Left_t::VTK_ID != Right_t::VTK_ID) {return false;}
 		else {
@@ -252,9 +226,9 @@ namespace gv::mesh
 		Point_t coord; /// The location of this vertex in space.
 		std::vector<size_t> elems; /// The elements that use this node
 		std::vector<size_t> faces; /// The faces/elements that use this node
-		size_t index = (size_t) -1; /// The index of this node in _vertices. Sometimes helpful to have this recorded in the node.
 		
-		BasicVertex(const Point_t &coord) : coord(coord), elems{}, faces{} {}
+		BasicVertex(const Point_t& coord) : coord(coord), elems{}, faces{} {}
+		BasicVertex(Point_t&& coord)      : coord(std::move(coord)), elems{}, faces{} {}
 		BasicVertex() : coord(), elems{}, faces{} {}
 	};
 
@@ -268,7 +242,6 @@ namespace gv::mesh
 		requires gutil::pointlike<decltype(vertex.coord)>;
 		{ vertex.elems } -> std::convertible_to<std::vector<size_t>>;
 		{ vertex.faces } -> std::convertible_to<std::vector<size_t>>;
-		{ vertex.index } -> std::convertible_to<size_t>;
 	};
 
 

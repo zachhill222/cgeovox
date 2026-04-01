@@ -43,7 +43,7 @@ namespace gv::mesh
 	/// @tparam ColorMethod The method that will be used to color the elements
 	/// @tparam Element_t The type of element that will be used
 	/////////////////////////////////////////////////
-	template <ColorMethod COLOR_METHOD, ColorableMeshElement Element_t, size_t MAX_COLORS>
+	template <ColorMethod COLOR_METHOD, ColorableMeshElement Element_type, size_t MAX_COLORS>
 	class MeshColorManager {
 	public:
 		MeshColorManager() = delete;
@@ -53,7 +53,7 @@ namespace gv::mesh
 		
 	private:
 		mutable std::mutex                          _mutex;
-		std::vector<Element_t>                     &_elements;
+		std::vector<Element_t>&                     _elements;
 		std::array<std::atomic<size_t>, MAX_COLORS> _counts;
 
 		static constexpr ColorMethod color_method = COLOR_METHOD;
@@ -85,7 +85,7 @@ namespace gv::mesh
 		/// @param elem_idx The index in _elements of the element to be colored
 		/// @param neighbors The neighbors that cannot share a color with the element. It is assumed that the neighbors are already colored.
 		/////////////////////////////////////////////////
-		size_t getColor_Unlocked(const size_t elem_idx, const std::vector<size_t> &neighbors) const {
+		size_t determine_color(const size_t elem_idx, const std::vector<size_t>& neighbors) const {
 			//The method that calls this has the responsibility of ensuring that _elements[elem_idx] and _elements[neighbors[i]] are readable.
 			//The method that calls this has the responsibility of ensuring that _colors[] does not change (if that is necessary)
 			//Note that _counts[] is atomic so reading and incrementing will not fail, but there may be read race conditions.
@@ -138,10 +138,10 @@ namespace gv::mesh
 		/// @param elem_idx The index in _elements of the element to be colored
 		/// @param neighbors The neighbors that cannot share a color with the element. It is assumed that the neighbors are already colored.
 		/////////////////////////////////////////////////
-		void setColor_Locked(const size_t elem_idx, const std::vector<size_t> &neighbors) {
+		void set_color_locked(const size_t elem_idx, const std::vector<size_t> &neighbors) {
 			std::lock_guard<std::mutex> lock(_mutex);
 
-			size_t this_color = getColor_Unlocked(elem_idx, neighbors);
+			size_t this_color = determine_color(elem_idx, neighbors);
 			_elements[elem_idx].color = this_color;
 			_counts[this_color]++;
 		}
@@ -157,11 +157,11 @@ namespace gv::mesh
 		/// @param elem_idx The index in _elements of the element to be colored
 		/// @param neighbors The neighbors that cannot share a color with the element. It is assumed that the neighbors are already colored.
 		/////////////////////////////////////////////////
-		void setColor_Unlocked(const size_t elem_idx, const std::vector<size_t> &neighbors) {
+		void set_color_unlocked(const size_t elem_idx, const std::vector<size_t> &neighbors) {
 			const size_t old_color = _elements[elem_idx].color;
 			if (old_color<MAX_COLORS and _counts[old_color]>0) {_counts[old_color]--;}
 
-			size_t this_color = getColor_Unlocked(elem_idx, neighbors);
+			size_t this_color = determine_color(elem_idx, neighbors);
 			_elements[elem_idx].color = this_color;
 			_counts[this_color]++;
 
@@ -176,7 +176,7 @@ namespace gv::mesh
 
 			//re-run until the color is valid
 			if (!is_valid) {
-				setColor_Unlocked(elem_idx, neighbors);
+				set_color(elem_idx, neighbors);
 				std::cout << "Race condition when coloring element " << elem_idx << " (neighbor colors changed). Re-coloring.\n";
 			}
 		}

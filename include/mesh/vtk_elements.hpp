@@ -21,6 +21,19 @@
 namespace gv::mesh
 {	
 	/////////////////////////////////////////////////
+	// Compile-time "factory" to get the element type by the VTK_ID
+	/////////////////////////////////////////////////
+	template<BasicMeshType Mesh_t> struct VtkElementType<Mesh_t, VOXEL_VTK_ID>      { using type = VTK_VOXEL<Mesh_t>; };
+	template<BasicMeshType Mesh_t> struct VtkElementType<Mesh_t, HEXAHEDRON_VTK_ID> { using type = VTK_HEXAHEDRON<Mesh_t>; };
+	template<BasicMeshType Mesh_t> struct VtkElementType<Mesh_t, PIXEL_VTK_ID>      { using type = VTK_PIXEL<Mesh_t>; };
+	template<BasicMeshType Mesh_t> struct VtkElementType<Mesh_t, QUAD_VTK_ID>       { using type = VTK_QUAD<Mesh_t>; };
+
+	template<BasicMeshType Mesh_t, int VTK_ID>
+	using VtkElementType_t = typename VtkElementType<Mesh_t, VTK_ID>::type;
+	
+
+
+	/////////////////////////////////////////////////
 	/// Function to change an element into its isoparametric variant (e.g. pixel to quad or voxel to hexahedron).
 	/// Technically this is simply defining a non-affine geometric mapping. It is only isoparametric if the appropriate
 	/// FEM DOFs are used.

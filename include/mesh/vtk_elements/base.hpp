@@ -31,12 +31,10 @@ namespace gv::mesh
 		static constexpr int N_VERT_ON_SPLIT   = vtk_n_vertices_when_split(VTK_ID);
 		static constexpr int REF_DIM           = vtk_ref_dim(VTK_ID);
 
-		using GeoPoint_t = typename Mesh_t::Point_t;      //type of point in space (e.g., mesh vertex coordinates)
+		using GeoPoint_t = typename Mesh_t::GeoPoint_t;      //type of point in space (e.g., mesh vertex coordinates)
 		using Scalar_t   = typename GeoPoint_t::scalar_type; //likely a fixed precision type
 		using RefPoint_t = gutil::Point<3,double>; //always use 3 so the polymorphic wrapper has a consistent return type with std::variant
 		using Jac_t      = gutil::Matrix<GeoPoint_t::dim, RefPoint_t::dim, double, false>; //type of jacobian matrix
-
-		static_assert(std::is_same_v<typename RefPoint_t::scalar_type, double>);
 
 		size_t last_element = (size_t) -1; //the last element that was set
 		std::array<size_t, N_VERTICES> vertices;
@@ -47,13 +45,13 @@ namespace gv::mesh
 		{
 			last_element = element_index;
 
-			const auto& ELEM = mesh.getElement(element_index);
+			const auto& ELEM = mesh.get_element(element_index);
 			assert(DERIVED::VTK_ID == ELEM.vtkID);
 
 			for (int i=0; i<N_VERTICES; ++i) {
 				const size_t v_idx = ELEM.vertices[i];
 				vertices[i] = v_idx;
-				vertex_coords[i] = mesh.getVertex(v_idx).coord;
+				vertex_coords[i] = mesh.get_vertex(v_idx).coord;
 			}
 		}
 
