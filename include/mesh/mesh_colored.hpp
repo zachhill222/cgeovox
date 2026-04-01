@@ -28,7 +28,7 @@ namespace gv::mesh
 	/// @tparam MAX_COLORS       The maximum number of colors that the mesh can have. Colors are stored in an std::array<std::atomic<size_t>> structure that is not resized.
 	/////////////////////////////////////////////////
 	template<
-			ColorableMeshElement Element_type = ColorableElement<VOXEL_VTK_ID>,
+			ColorableMeshElement Element_type = ColoredElement<VOXEL_VTK_ID>,
 			Scalar               Scalar_type  = gutil::FixedPoint64<>,
 			ColorMethod          COLOR_METHOD = ColorMethod::BALANCED,
 			size_t               MAX_COLORS   = 64
@@ -46,13 +46,13 @@ namespace gv::mesh
 		using typename BASE::GeoPoint_t; //data type for computing spatial coordinates
 		using typename BASE::RefPoint_t; //data type for evaluating basis functions, computing jacobians, etc.
 		
-		using typename BASE::Mesh_t = ColoredMesh<Element_type,Scalar_type,COLOR_METHOD,MAX_COLORS>; //type of this mesh
+		using Mesh_t = ColoredMesh<Element_type,Scalar_type,COLOR_METHOD,MAX_COLORS>; //type of this mesh
 		using typename BASE::Index_t; //index for creating structured mesh in the constructor
 		using typename BASE::GeoBox_t; //boxes in the domain space
 		using typename BASE::RefBox_t; //boxes in the reference space
 
 		using typename BASE::VertexList_t;
-		using typename BASE::ElementLogic_t; //type to handle logic of creating children, getting faces, etc.
+		using ElementLogic_t = VtkElementType_t<Mesh_t, Element_type::VTK_ID>; //type to handle logic of creating children, getting faces, etc.
 
 	protected:	
 		MeshColorManager<COLOR_METHOD, Element_t, MAX_COLORS> _color_manager;   //used to manage the color of the elements
@@ -67,7 +67,10 @@ namespace gv::mesh
 			_color_manager(this->_elements) {}
 		
 		ColoredMesh(const GeoBox_t &domain, const Index_t &N) 
-			requires (VTK_ID==VOXEL_VTK_ID or VTK_ID==HEXAHEDRON_VTK_ID or VTK_ID==PIXEL_VTK_ID or VTK_ID==QUAD_VTK_ID)
+			requires (  BASE::ELEM_VTK_ID==VOXEL_VTK_ID or 
+						BASE::ELEM_VTK_ID==HEXAHEDRON_VTK_ID or 
+						BASE::ELEM_VTK_ID==PIXEL_VTK_ID or 
+						BASE::ELEM_VTK_ID==QUAD_VTK_ID)
 			: BASE(domain), _color_manager(this->_elements)
 		{
 			if constexpr (BASE::REF_DIM==3) {this->build_voxel_mesh(domain, N);}
@@ -81,11 +84,18 @@ namespace gv::mesh
 		/// A method to insert a new element into the mesh. The element must be constructed from specified existing nodes.
 		/// The existing nodes will be updated but no new nodes will be created.
 		/////////////////////////////////////////////////
-		template<bool ASYNC=false>
-		virtual size_t insert_element(Element_t&& element, size_t index = (size_t) -1) override
+		virtual size_t insert_element_async(Element_t&& element, const size_t index) override
 		{
-			index = BASE::insert_element<ASYNC>(std::move(element), index);
-			color_element<ASYNC>(index);
+			BASE::insert_element_async(std::move(element), index);
+			color_element_async(index);
+			return index;
+		}
+
+		virtual size_t insert_element_sync(Element_t&& element) override
+		{
+			size_t index = BASE::insert_element_sync(std::move(element));
+			color_element_sync(index);
+			return index;
 		}
 
 		/////////////////////////////////////////////////
@@ -93,26 +103,24 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		size_t nColors() const {return _color_manager.nColors();}
 		size_t colorCount(const size_t c) const {return _color_manager.colorCount(c);}
-
+		const auto& get_color_manager() const {return _color_manager;}
 
 		/////////////////////////////////////////////////
 		/// Color the specified element. Locked to a single thread.
 		///
 		/// @param e_idx The index of the element to color
 		/////////////////////////////////////////////////
-		template<bool ASYNC=false>
-		void color_element(const size_t e_idx)
+		virtual void color_element_async(const size_t e_idx)
 		{
-			std::vector<size_t> neighbors;
-			this->get_element_neighbors(e_idx, neighbors);
-			if constexpr (ASYNC) {
-				_color_manager.set_color_unlocked(e_idx, neighbors);
-			}
-			else {
-				_color_manager.set_color_locked(e_idx, neighbors);
-			}
+			std::vector<size_t> neighbors = this->get_element_neighbors(e_idx);
+			_color_manager.set_color_unlocked(e_idx, neighbors);
 		}
 
+		virtual void color_element_sync(const size_t e_idx)
+		{
+			std::vector<size_t> neighbors = this->get_element_neighbors(e_idx);
+			_color_manager.set_color_locked(e_idx, neighbors);
+		}
 
 		/////////////////////////////////////////////////
 		/// Check if the coloring is valid
@@ -136,17 +144,17 @@ namespace gv::mesh
 
 
 		/// Friend function to print the mesh information
-		template<ColorableMeshType Mesh_type>
-		friend std::ostream& operator<<(std::ostream& os, const Mesh_type& mesh);
+		// template<ColorableMeshType Mesh_type>
+		// friend std::ostream& operator<<(std::ostream& os, const Mesh_type& mesh);
 	};
 
 
-	template<ColorableMeshType Mesh_t>
-	std::ostream& operator<<(std::ostream& os, const Mesh_t& mesh) {
-		const BasicMesh<typename Mesh_t::Element_t, typename Mesh_t::Scalar_t>& base_mesh = mesh;
-		os << base_mesh;
-		os << mesh._color_manager;
-		return os;
-	}
+	// template<ColorableMeshType Mesh_t>
+	// std::ostream& operator<<(std::ostream& os, const Mesh_t& mesh) {
+	// 	const BasicMesh<typename Mesh_t::Element_t, typename Mesh_t::Scalar_t>& base_mesh = mesh;
+	// 	os << base_mesh;
+	// 	os << mesh._color_manager;
+	// 	return os;
+	// }
 }
 

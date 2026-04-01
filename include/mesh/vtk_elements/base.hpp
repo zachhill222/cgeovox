@@ -19,7 +19,7 @@ namespace gv::mesh
 	///
 	/// This uses CRTP for when the element type is known at compile time
 	/////////////////////////////////////////////////
-	template<BasicMeshType Mesh_t, typename DERIVED, int VTK_ID_>
+	template<typename Mesh_t, typename DERIVED, int VTK_ID_>
 	struct VTK_ELEMENT
 	{
 		static constexpr int VTK_ID            = VTK_ID_;
@@ -30,6 +30,17 @@ namespace gv::mesh
 		static constexpr int N_CHILDREN        = vtk_n_children(VTK_ID);
 		static constexpr int N_VERT_ON_SPLIT   = vtk_n_vertices_when_split(VTK_ID);
 		static constexpr int REF_DIM           = vtk_ref_dim(VTK_ID);
+
+		//access constants via function is convenient sometimes
+		static constexpr int vtkID()             {return VTK_ID;}
+		static constexpr std::string_view name() {return NAME;}
+		static constexpr int n_vertices()        {return N_VERTICES;}
+		static constexpr int n_faces()           {return N_FACES;}
+		static constexpr int face_vtk_id()       {return FACE_VTK_ID;}
+		static constexpr int n_children()        {return N_CHILDREN;}
+		static constexpr int n_vert_on_split()   {return N_VERT_ON_SPLIT;}
+		static constexpr int ref_dim()           {return REF_DIM;}
+
 
 		using GeoPoint_t = typename Mesh_t::GeoPoint_t;      //type of point in space (e.g., mesh vertex coordinates)
 		using Scalar_t   = typename GeoPoint_t::scalar_type; //likely a fixed precision type
@@ -46,7 +57,7 @@ namespace gv::mesh
 			last_element = element_index;
 
 			const auto& ELEM = mesh.get_element(element_index);
-			assert(DERIVED::VTK_ID == ELEM.vtkID);
+			assert(DERIVED::VTK_ID == ELEM.VTK_ID);
 
 			for (int i=0; i<N_VERTICES; ++i) {
 				const size_t v_idx = ELEM.vertices[i];

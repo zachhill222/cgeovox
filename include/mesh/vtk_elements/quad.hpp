@@ -41,7 +41,7 @@ namespace gv::mesh {
 	/// 0.25*(v0+v1+v2+v3), which cannot be simplified to the average of any two opposite vertices (v0 may be moved nearly arbitrarily, which changes the
 	/// face center but does not change the evaluation of 0.5*(v1+v3).)
 	/////////////////////////////////////////////////
-	template<BasicMeshType Mesh_t>
+	template<typename Mesh_t>
 	struct VTK_QUAD : public VTK_ELEMENT<Mesh_t, VTK_QUAD<Mesh_t>, QUAD_VTK_ID> {
 		//define types
 		using BASE = VTK_ELEMENT<Mesh_t, VTK_QUAD<Mesh_t>, QUAD_VTK_ID>;

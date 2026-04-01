@@ -1,7 +1,7 @@
 #pragma once
 
 #include "mesh/mesh_util.hpp"
-#include "mesh/mesh_iterator.hpp"
+// #include "mesh/mesh_iterator.hpp"
 #include "mesh/mesh_vtk_out.hpp"
 #include "mesh/vtk_elements.hpp"
 #include "mesh/vtk_defs.hpp"
@@ -114,7 +114,7 @@ namespace gv::mesh
 
 		BasicMesh(const RefBox_t &domain) requires(REF_DIM==2) : _elements{}, _halfedges{}, _boundary_vertices{}
 		{
-			Point_t low, high;
+			GeoPoint_t low, high;
 			int i;
 			for (i=0; i<REF_DIM; i++) {
 				low[i]  = domain.low()[i];
@@ -130,11 +130,11 @@ namespace gv::mesh
 		}
 
 		BasicMesh(const RefBox_t &domain, const Index_t &N)
-			requires (VTK_ID==VOXEL_VTK_ID or VTK_ID==HEXAHEDRON_VTK_ID or VTK_ID==PIXEL_VTK_ID or VTK_ID==QUAD_VTK_ID)
+			requires (ELEM_VTK_ID==VOXEL_VTK_ID or ELEM_VTK_ID==HEXAHEDRON_VTK_ID or ELEM_VTK_ID==PIXEL_VTK_ID or ELEM_VTK_ID==QUAD_VTK_ID)
 		 	: BasicMesh(domain)
 		{
-			if constexpr (REF_DIM==3) {build_voxel_mesh(domain, N, useIsopar);}
-			else if constexpr (REF_DIM==2) {build_pixel_mesh(domain, N, useIsopar);}
+			if constexpr (REF_DIM==3) {build_voxel_mesh(domain, N);}
+			else if constexpr (REF_DIM==2) {build_pixel_mesh(domain, N);}
 			else {throw std::runtime_error("BasicMesh: can't mesh domain");}
 		}
 		
@@ -163,26 +163,28 @@ namespace gv::mesh
 		const GeoBox_t bbox()                                  const {return _vertices.bbox_tight();}
 
 		size_t nElements() const {return _elements.size();}
+		virtual size_t nElements_active() const {return _elements.size();}
 		size_t nVertices() const {return _vertices.size();}
+		size_t nHalfEdges() const {return _halfedges.size();}
 		
 		/////////////////////////////////////////////////
 		/// Allocate space
 		/////////////////////////////////////////////////
-		void element_reserve(const size_t n_elements) {
+		void elements_reserve(const size_t n_elements) {
 			_elements.reserve(n_elements);
 			_halfedges.reserve(N_FACE_PER_ELEMENT*n_elements);
 		}
 		
-		void element_resize(const size_t n_elements) {
+		void elements_resize(const size_t n_elements) {
 			_elements.resize(n_elements);
 			_halfedges.resize(N_FACE_PER_ELEMENT*n_elements);
 		}
 
-		void vertex_reserve(const size_t n_vertices) {
+		void vertices_reserve(const size_t n_vertices) {
 			_vertices.reserve(n_vertices);
 		}
 
-		void vertex_resize(const size_t n_vertices) {
+		void vertices_resize(const size_t n_vertices) {
 			_vertices.resize(n_vertices);
 		}
 
@@ -198,8 +200,8 @@ namespace gv::mesh
 		/// @param domain The domain to be meshed
 		/// @param N The number of elements along each coordinate axis
 		/////////////////////////////////////////////////
-		void build_voxel_mesh(const GeoBox_t &domain, const Index_t& N, const bool useIsopar=false)
-			requires (REF_DIM==3 and (VTK_ID==VOXEL_VTK_ID or VTK_ID==HEXAHEDRON_VTK_ID));
+		void build_voxel_mesh(const GeoBox_t &domain, const Index_t& N)
+			requires (REF_DIM==3 and (ELEM_VTK_ID==VOXEL_VTK_ID or ELEM_VTK_ID==HEXAHEDRON_VTK_ID));
 
 
 		/////////////////////////////////////////////////
@@ -208,8 +210,8 @@ namespace gv::mesh
 		/// @param domain The domain to be meshed
 		/// @param N The number of elements along each coordinate axis
 		/////////////////////////////////////////////////
-		void build_pixel_mesh(const GeoBox_t &domain, const Index_t& N, const bool useIsopar=false)
-			requires (REF_DIM==2 and (VTK_ID==PIXEL_VTK_ID or VTK_ID==QUAD_VTK_ID));
+		void build_pixel_mesh(const GeoBox_t &domain, const Index_t& N)
+			requires (REF_DIM==2 and (ELEM_VTK_ID==PIXEL_VTK_ID or ELEM_VTK_ID==QUAD_VTK_ID));
 
 
 		/////////////////////////////////////////////////
@@ -219,9 +221,13 @@ namespace gv::mesh
 		///
 		/// @param elem_idx The index of the requested element (i.e., _elements[elem_idx]).
 		/// @param neighbors A reference to an existing vector where the result will be stored (via neighbors.push_back()).
+		/// @param pred      A callable predicate to determine if an element should be added. e.g. check if an element is active in a hierarchical mesh
 		/////////////////////////////////////////////////
-		void get_element_neighbors(const size_t elem_idx, std::vector<size_t>& neighbors) const;
-
+		template<typename Predicate = std::nullptr_t>
+		void get_element_neighbors(const size_t elem_idx, std::vector<size_t>& neighbors, Predicate&& pred=nullptr) const;
+		
+		template<typename Predicate = std::nullptr_t>
+		std::vector<size_t> get_element_neighbors(const size_t elem_idx, Predicate&& pred=nullptr) const;
 		
 		/////////////////////////////////////////////////
 		/// Get vertices at the specified coordinates. If there is no vertex already there, one is created.
@@ -264,8 +270,8 @@ namespace gv::mesh
 		///              whenever ASYNC is true. If the size of index is larger than the size of _elements, then
 		///              the new element is appended to the end of _elements via push_back(std::move(element)).
 		/////////////////////////////////////////////////
-		template<bool ASYNC=false>
-		virtual size_t insert_element(Element_t&& element, size_t index = (size_t) -1);
+		virtual size_t insert_element_async(Element_t&& element, const size_t index);
+		virtual size_t insert_element_sync(Element_t&& element);
 
 		
 		/////////////////////////////////////////////////
@@ -274,7 +280,7 @@ namespace gv::mesh
 		void pair_halfedges();
 
 		template<typename Container_type>
-		void pair_halfedges_for_elements(const Container_type& element_indices)
+		void pair_halfedges_for_elements(const Container_type& element_indices);
 
 		/////////////////////////////////////////////////
 		/// Method to move a vertex in the mesh. If any of the elements associated with this node
@@ -317,12 +323,12 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Iterators for _faces
 		/////////////////////////////////////////////////
-		auto face_begin()        {return _faces.begin();}
-		auto face_end()          {return _faces.end();}
-		auto face_begin()  const {return _faces.cbegin();}
-		auto face_end()    const {return _faces.cend();}
-		auto face_cbegin() const {return _faces.cbegin();}
-		auto face_cend()   const {return _faces.cend();}
+		auto halfedge_begin()        {return _halfedges.begin();}
+		auto halfedge_end()          {return _halfedges.end();}
+		auto halfedge_begin()  const {return _halfedges.cbegin();}
+		auto halfedge_end()    const {return _halfedges.cend();}
+		auto halfedge_cbegin() const {return _halfedges.cbegin();}
+		auto halfedge_cend()   const {return _halfedges.cend();}
 
 
 		/////////////////////////////////////////////////
@@ -341,13 +347,13 @@ namespace gv::mesh
 	void BasicMesh<Element_type, Scalar_type>::build_voxel_mesh (
 			const GeoBox_t &domain,
 			const Index_t &N)
-			requires (REF_DIM==3 and (VTK_ID==VOXEL_VTK_ID or VTK_ID==HEXAHEDRON_VTK_ID))
+			requires (REF_DIM==3 and (ELEM_VTK_ID==VOXEL_VTK_ID or ELEM_VTK_ID==HEXAHEDRON_VTK_ID))
 		{
 
 		//reserve space
 		clear();
 		vertices_resize((N[0]+1) * (N[1]+1) * (N[2]+1));
-		element_resize(N[0]*N[1]*N[2]);
+		elements_resize(N[0]*N[1]*N[2]);
 		
 		//initialize the vertices
 		const GeoPoint_t H = domain.sidelength() / GeoPoint_t(N);
@@ -357,8 +363,7 @@ namespace gv::mesh
 				for (size_t k=0; k<=N[2]; k++) {
 					GeoPoint_t vertex  = domain.low() + GeoPoint_t{i,j,k} * H;
 					Vertex_t VERTEX(std::move(vertex));
-					size_t idx = _vertices.push_back_async(std::move(VERTEX));
-					_vertices[idx].index = idx;
+					_vertices.push_back_async(std::move(VERTEX));
 				}
 			}
 		}
@@ -382,20 +387,19 @@ namespace gv::mesh
 								//assemble the list of vertices
 								std::array<GeoPoint_t, N_VERT_PER_ELEMENT> element_vertices;
 								for (int l=0; l<N_VERT_PER_ELEMENT; l++) {
-									if constexpr (VTK_ID == VOXEL_VTK_ID) {
-										element_vertices[l] = elem.voxelvertex(l);
+									if constexpr (ELEM_VTK_ID == VOXEL_VTK_ID) {
+										element_vertices[l] = elem_box.voxelvertex(l);
 									}
-									else if constexpr (VTK_ID == HEXAHEDRON_VTK_ID) {
-										element_vertices[l] = elem.hexvertex(l);
+									else if constexpr (ELEM_VTK_ID == HEXAHEDRON_VTK_ID) {
+										element_vertices[l] = elem_box.hexvertex(l);
 									}
 								}
 
 								//put the element into the mesh
 								const size_t idx = i + N[0]*(j + k*N[1]);
-								Element_t ELEM(std::move(element_vertices));
-								[[maybe_unused]] const size_t index = insert_element<true>(std::move(ELEM), idx);
-								assert(index==idx);
-								assert(index==_elements[index].index);
+								Element_t ELEM = construct_element(std::move(element_vertices));
+								if constexpr (Element_t::HIERARCHICAL) {ELEM.active = true;}
+								insert_element_async(std::move(ELEM), idx);
 							}
 						}
 					}
@@ -409,11 +413,10 @@ namespace gv::mesh
 
 
 	template<BasicMeshElement Element_type, Scalar Scalar_type>
-	void BasicMesh<Element_type, Scalar_type>::setPixelMesh_Locked(
+	void BasicMesh<Element_type, Scalar_type>::build_pixel_mesh(
 			const GeoBox_t &domain,
-			const Index_t &N,
-			const bool useIsopar) 
-		requires (REF_DIM==2 and (VTK_ID==PIXEL_VTK_ID or VTK_ID==QUAD_VTK_ID))
+			const Index_t &N) 
+		requires (REF_DIM==2 and (ELEM_VTK_ID==PIXEL_VTK_ID or ELEM_VTK_ID==QUAD_VTK_ID))
 	{
 		//reserve space
 		clear();
@@ -443,7 +446,8 @@ namespace gv::mesh
 
 				//put the element into the mesh
 				Element_t ELEM = construct_element(std::move(element_vertices));
-				insert_element(std::move(ELEM));
+				if constexpr (Element_t::HIERARCHICAL) {ELEM.active = true;}
+				insert_element_sync(std::move(ELEM));
 			}
 		}
 
@@ -454,11 +458,20 @@ namespace gv::mesh
 
 	
 	template<BasicMeshElement Element_type, Scalar Scalar_type>
-	void BasicMesh<Element_type, Scalar_type>::get_element_neighbors(const size_t elem_idx, std::vector<size_t>& neighbors) const {
+	template<typename Predicate>
+	void BasicMesh<Element_type, Scalar_type>::get_element_neighbors(const size_t elem_idx, std::vector<size_t>& neighbors, Predicate&& pred) const {
+		const std::vector<size_t> this_elem_neighbors = get_element_neighbors(elem_idx, std::forward<Predicate>(pred));
+		neighbors.insert(neighbors.end(), this_elem_neighbors.begin(), this_elem_neighbors.end());
+	}
+
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	template<typename Predicate>
+	std::vector<size_t> BasicMesh<Element_type, Scalar_type>::get_element_neighbors(const size_t elem_idx, Predicate&& pred) const {
 		const Element_t &ELEM = _elements[elem_idx];
 
 		//use unordered set to ensure unique vertices
-		std::unordered_set<size_t> neighbor_set;
+		std::vector<size_t> neighbor_set;
+		neighbor_set.reserve(N_VERT_PER_ELEMENT*N_VERT_PER_ELEMENT);
 
 		//loop through the vertices of the current element
 		for (size_t n_idx : ELEM.vertices) {
@@ -467,13 +480,19 @@ namespace gv::mesh
 			//loop through the elements of the current node
 			for (size_t e_idx : VERTEX.elems) {
 				if (e_idx!=elem_idx) {
-					neighbor_set.insert(e_idx);
+					if constexpr (!std::is_same_v<Predicate, std::nullptr_t>) {
+						if (!pred(_elements[e_idx])) {continue;}
+					}
+					neighbor_set.push_back(e_idx);
 				}
 			}
 		}
 
 		//convert the set to the vector
-		neighbors.insert(neighbors.end(), neighbor_set.begin(), neighbor_set.end());
+		std::sort(neighbor_set.begin(), neighbor_set.end());
+		auto last = std::unique(neighbor_set.begin(), neighbor_set.end());
+		neighbor_set.erase(last, neighbor_set.end());
+		return neighbor_set;
 	}
 
 	template<BasicMeshElement Element_type, Scalar Scalar_type>
@@ -498,30 +517,36 @@ namespace gv::mesh
 
 	template<BasicMeshElement Element_type, Scalar Scalar_type>
 	template<bool ASYNC>
-	Element_t BasicMesh<Element_type, Scalar_type>::construct_element(std::array<GeoPoint_t,N_VERT_PER_ELEMENT>&& coords)
+	Element_type BasicMesh<Element_type, Scalar_type>::construct_element(std::array<GeoPoint_t,N_VERT_PER_ELEMENT>&& coords)
 	{
 		//get indices of the vertices at the specified coordinates
 		//create new vertices if necessary
-		std::array<size_t, N_VERT_PER_ELEMENT> indices = prepare_vertices<ASYNC>(std::move(coords));
+		std::array<size_t, N_VERT_PER_ELEMENT> indices = prepare_vertices<N_VERT_PER_ELEMENT,ASYNC>(std::move(coords));
 
 		//return the new element
-		return Element_t{std::move(indices);}
+		return Element_t{std::move(indices)};
 	}
 	
 
 	template<BasicMeshElement Element_type, Scalar Scalar_type>
-	template<bool ASYNC>
-	size_t BasicMesh<Element_type, Scalar_type>::insert_element(Element_t&& element, size_t index)
+	size_t BasicMesh<Element_type, Scalar_type>::insert_element_sync(Element_t&& element)
 	{
-		if constexpr (ASYNC) {
-			assert(index < _elements.size();)
-			_elements[index] = std::move(element);
-		}
-		else {
-			index = _elements.size();
-			_elements.push_back(std::move(element));
+		const size_t index = _elements.size();
+		_elements.push_back(std::move(element));
+		
+		//populate vertex connectivity
+		for (size_t v_idx : _elements[index].vertices) {
+			_vertices[v_idx].elems.push_back(index);
 		}
 
+		return index;
+	}
+
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	size_t BasicMesh<Element_type, Scalar_type>::insert_element_async(Element_t&& element, const size_t index)
+	{
+		assert(index < _elements.size());
+		_elements[index] = std::move(element);
 
 		//populate vertex connectivity
 		for (size_t v_idx : _elements[index].vertices) {
@@ -536,6 +561,7 @@ namespace gv::mesh
 	void BasicMesh<Element_type, Scalar_type>::pair_halfedges_for_elements(const Container_type& element_indices)
 	{
 		ElementLogic_t THIS_ELEM_LOGIC, NEIGHBOR_ELEM_LOGIC;
+		std::vector<size_t> neighbors;
 		for (size_t e_idx : element_indices) {
 			const Element_t& ELEM = _elements[e_idx];
 			THIS_ELEM_LOGIC.set_element(*this, e_idx);
@@ -593,7 +619,6 @@ namespace gv::mesh
 			std::vector<size_t> neighbors;
 			#pragma omp for
 			for (size_t e_idx=0; e_idx<_elements.size(); ++e_idx) {
-				const Element_t& ELEM = _elements[e_idx];
 				THIS_ELEM_LOGIC.set_element(*this, e_idx);
 
 				//loop through the neighbors
@@ -662,7 +687,7 @@ namespace gv::mesh
 			print_topology_binary_vtk(file, *this);
 
 			//print details
-			if (include_details) {print_mesh_details_binary_vtk(file, *this);}
+			// if (include_details) {print_mesh_details_binary_vtk(file, *this);}
 
 			file.close();
 		}
@@ -675,6 +700,7 @@ namespace gv::mesh
 		using Vertex_t  = typename Mesh_t::Vertex_t;
 		using Element_t = typename Mesh_t::Element_t;
 
+		//base info
 		os << "\n" << std::string(50, '=') << "\n"
 		   << "Mesh Summary\n"
 		   << std::string(50, '-') << "\n";
@@ -682,28 +708,30 @@ namespace gv::mesh
 		os << std::left;
 		os << "C++ types\n" << std::string(50, '-') << "\n";
 		os << std::setw(20) << "ElementStruct_t " << std::setw(15) << elementTypeName<Element_t>() << "\n"
-		   << std::setw(20) << "Vertex_t    " << std::setw(15) << vertexTypeName<Vertex_t>()       << "\n"
+		   << std::setw(20) << "Vertex_t        " << std::setw(15) << vertexTypeName<Vertex_t>()   << "\n"
 		   << std::string(50, '-') << "\n";
 
 		os << std::left;
+		os << "FEM Element Type: " << vtk_id_to_string(Element_t::VTK_ID) << "\n";
+
+		os << std::left;
 		os << "Feature Counts\n" << std::string(50, '-') << "\n"; 
-		os << std::setw(15) << "Elements       " << std::setw(10) << std::right << mesh.nElements()         << "\n"
-		   << std::setw(15) << "Boundary_Faces " << std::setw(10) << std::right << mesh.nBoundaryFaces() << "\n"
-		   << std::setw(15) << "Nodes          " << std::setw(10) << std::right << mesh.nVertices()         << "\n"
+		os << std::setw(15) << "Elements       " << std::setw(10) << std::right << mesh.nElements()  << "\n"
+		   << std::setw(15) << "Vertices       " << std::setw(10) << std::right << mesh.nVertices()  << "\n"
+		   << std::setw(15) << "HalfEdges      " << std::setw(10) << std::right << mesh.nHalfEdges() << "\n"
 		   << std::string(50, '-') << "\n";
 
-
-		//get distribution of element types
-		std::unordered_map<int,size_t> elem_type_count;
-		for (const Element_t &ELEM : mesh) {
-			elem_type_count[ELEM.vtkID] += 1;
+		//color info
+		if constexpr (ColorableMeshType<Mesh_t>) {
+			os << mesh.get_color_manager() << "\n";
 		}
 
-		os << "FEM Element Types\n" << std::string(50, '-') << "\n";
-		for (const auto &pair : elem_type_count) {
-			os << std::left << std::setw(15) << vtk_id_to_string(pair.first) << std::right << std::setw(10) << pair.second << "\n";
+		//hierarchy info
+		if constexpr (HierarchicalMeshType<Mesh_t>) {
+			os << "Total Elements: " << mesh.nElements() << "\n";
+			os << "Active Elements: " << mesh.nElements_active() << "\n";
 		}
-		os << std::string(50, '-') << "\n";
+
 		return os;
 	}
 
@@ -715,9 +743,9 @@ namespace gv::mesh
 		using HalfEdge_t = typename Mesh_t::HalfEdge_t;
 		using Vertex_t   = typename Mesh_t::Vertex_t;
 
-		const auto vertices  = mesh.get_vertices();
-		const auto elements  = mesh.get_elements();
-		const auto halfedges = mesh.get_halfedges();
+		const auto& vertices  = mesh.get_vertices();
+		const auto& elements  = mesh.get_elements();
+		const auto& halfedges = mesh.get_halfedges();
 
 		constexpr double MiB = 1048576.0;
 
@@ -725,9 +753,6 @@ namespace gv::mesh
 		auto treeStats = vertices.get_tree_stats();
 		double vertices_used = (double) sizeof(Vertex_t) * (double) vertices.size();
 		double vertices_reserved = (double) sizeof(Vertex_t) * (double) vertices.capacity();
-
-		double total_vertices_used = treeStats.memory_used_bytes + vertices_used;
-		double total_vertices_reserved = treeStats.memory_reserved_bytes + vertices_reserved;
 
 		//memory for elements
 		double elements_used = (double) sizeof(Element_t) * (double) elements.size();
@@ -759,8 +784,8 @@ namespace gv::mesh
 		std::cout << std::left << std::setw(30) << "vertices"
 				  << std::right
 				  << std::setw(20) << vertices.size()
-				  << std::setw(20) << std::fixed << std::setprecision(3) << vertices_used / MiB;
-				  << std::setw(20) << std::fixed << std::setprecision(3) << vertices_reserved / MiB;
+				  << std::setw(20) << std::fixed << std::setprecision(3) << vertices_used / MiB
+				  << std::setw(20) << std::fixed << std::setprecision(3) << vertices_reserved / MiB
 				  << "\n";
 
 		std::cout << std::left << std::setw(30) << "  \u2514\u2500 octree structure"
@@ -780,7 +805,7 @@ namespace gv::mesh
 				  << std::left << std::setw(34) << "      \u251c\u2500 data index storage"
 				  << std::right;
 
-		if (treeStats.n_used_indices!=mesh._vertices.size()) {
+		if (treeStats.n_used_indices!=vertices.size()) {
 			std::cout << std::setw(20) << "(W) "+std::to_string(treeStats.n_used_indices);
 		} else {
 			std::cout << std::setw(20) << treeStats.n_used_indices;
@@ -788,8 +813,8 @@ namespace gv::mesh
 		std::cout << "\n"
 				  << std::left << "      \u251c\u2500 maximum depth= " << treeStats.max_depth << "\n"
 				  << std::left << "      \u2514\u2500 bounding box\n"
-				  << std::left << "          \u251c\u2500 high= " << mesh._vertices.bbox().high() << "\n"
-				  << std::left << "          \u2514\u2500 low= " << mesh._vertices.bbox().low()  << "\n"
+				  << std::left << "          \u251c\u2500 high= " << vertices.bbox().high() << "\n"
+				  << std::left << "          \u2514\u2500 low= " << vertices.bbox().low()  << "\n"
 				  << std::string(90, '-') << "\n";
 
 

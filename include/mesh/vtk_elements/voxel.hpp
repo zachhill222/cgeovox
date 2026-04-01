@@ -41,7 +41,7 @@ namespace gv::mesh {
 	/// 0.125*(v0+...+v7), which cannot be simplified to the average of any two opposite vertices.
 	/// Note by a similar line of reasoning, the center of each face must be found by averaging all four vertices.
 	/////////////////////////////////////////////////
-	template<BasicMeshType Mesh_t>
+	template<typename Mesh_t>
 	struct VTK_VOXEL : public VTK_ELEMENT<Mesh_t, VTK_VOXEL<Mesh_t>, VOXEL_VTK_ID>
 	{
 		//define types

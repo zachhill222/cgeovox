@@ -40,20 +40,20 @@ namespace gv::mesh
 	/// This class is to be used to color a TopologicalMesh. There may be paralel mesh operations and the read/writes
 	/// should be carefully managed.
 	///
-	/// @tparam ColorMethod The method that will be used to color the elements
-	/// @tparam Element_t The type of element that will be used
+	/// @tparam ColorMethod  The method that will be used to color the elements
+	/// @tparam Element_type The type of element that will be used
 	/////////////////////////////////////////////////
 	template <ColorMethod COLOR_METHOD, ColorableMeshElement Element_type, size_t MAX_COLORS>
 	class MeshColorManager {
 	public:
 		MeshColorManager() = delete;
-		MeshColorManager(std::vector<Element_t> &_elements) : _elements(_elements) {
+		MeshColorManager(std::vector<Element_type> &_elements) : _elements(_elements) {
 			for (size_t c=0; c<MAX_COLORS; c++) {_counts[c]=0;}
 		}
 		
 	private:
 		mutable std::mutex                          _mutex;
-		std::vector<Element_t>&                     _elements;
+		std::vector<Element_type>&                  _elements;
 		std::array<std::atomic<size_t>, MAX_COLORS> _counts;
 
 		static constexpr ColorMethod color_method = COLOR_METHOD;
@@ -176,7 +176,7 @@ namespace gv::mesh
 
 			//re-run until the color is valid
 			if (!is_valid) {
-				set_color(elem_idx, neighbors);
+				set_color_unlocked(elem_idx, neighbors);
 				std::cout << "Race condition when coloring element " << elem_idx << " (neighbor colors changed). Re-coloring.\n";
 			}
 		}

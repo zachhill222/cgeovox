@@ -23,7 +23,7 @@ namespace gv::mesh
 	/// This is a polymorphic wrapper for VTK_ELEMENT that can be used when
 	/// the element type is unknown at compile time.
 	/////////////////////////////////////////////////////////////////////
-	template<BasicMeshType Mesh_t>
+	template<typename Mesh_t>
 	struct VTK_ELEMENT_POLY
 	{
 		using GeoPoint_t = typename Mesh_t::Point_t;

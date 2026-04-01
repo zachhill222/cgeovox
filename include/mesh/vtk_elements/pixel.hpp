@@ -42,7 +42,7 @@ namespace gv::mesh {
 	/// where A is a 3x2 matrix and b is the location of the center of the mesh element. Because the the map is affine, the Jacobian matrix (J=A) is constant.
 	/// In fact sqrt(J^t J) = 0.25*h1*h2 where h1 and h2 are the side-lengths of the mesh element.
 	/////////////////////////////////////////////////
-	template<BasicMeshType Mesh_t>
+	template<typename Mesh_t>
 	struct VTK_PIXEL : public VTK_ELEMENT<Mesh_t, VTK_PIXEL<Mesh_t>, PIXEL_VTK_ID> {
 		//define types
 		using BASE = VTK_ELEMENT<Mesh_t, VTK_PIXEL<Mesh_t>, PIXEL_VTK_ID>;

@@ -3,7 +3,9 @@
 #include "gutil.hpp"
 #include "mesh/vtk_defs.hpp"
 
+#include <string>
 #include <concepts>
+#include <variant>
 #include <vector>
 #include <iostream>
 
@@ -48,7 +50,7 @@ namespace gv::mesh
 				parent   = (size_t) -1;
 				depth    = 0;
 				active   = false;
-				children = {};
+				children.fill((size_t) -1);
 			}
 		}
 
@@ -58,7 +60,7 @@ namespace gv::mesh
 				parent   = (size_t) -1;
 				depth    = 0;
 				active   = false;
-				children = {};
+				children.fill((size_t) -1);
 			}
 		}
 	};
@@ -199,7 +201,7 @@ namespace gv::mesh
 	/// Element name printing
 	template<BasicMeshElement Element_t>
 	std::string elementTypeName() {
-	    std::string name = vtk_id_to_string(Element_t::VTK_ID);
+	    std::string name = static_cast<std::string>(vtk_id_to_string(Element_t::VTK_ID));
 	    if constexpr (Element_t::HIERARCHICAL) name = "Hierarchical" + name;
 	    if constexpr (Element_t::COLORABLE)    name = "Colored"      + name;
 	    return name;
@@ -225,11 +227,10 @@ namespace gv::mesh
 
 		Point_t coord; /// The location of this vertex in space.
 		std::vector<size_t> elems; /// The elements that use this node
-		std::vector<size_t> faces; /// The faces/elements that use this node
 		
-		BasicVertex(const Point_t& coord) : coord(coord), elems{}, faces{} {}
-		BasicVertex(Point_t&& coord)      : coord(std::move(coord)), elems{}, faces{} {}
-		BasicVertex() : coord(), elems{}, faces{} {}
+		BasicVertex(const Point_t& coord) : coord(coord), elems{} {}
+		BasicVertex(Point_t&& coord)      : coord(std::move(coord)), elems{} {}
+		BasicVertex() : coord(), elems{} {}
 	};
 
 	/////////////////////////////////////////////////
@@ -241,7 +242,6 @@ namespace gv::mesh
 		typename T::Scalar_t;
 		requires gutil::pointlike<decltype(vertex.coord)>;
 		{ vertex.elems } -> std::convertible_to<std::vector<size_t>>;
-		{ vertex.faces } -> std::convertible_to<std::vector<size_t>>;
 	};
 
 
@@ -314,11 +314,10 @@ namespace gv::mesh
 	concept BasicMeshType = requires(T mesh) {
 		// Must have relevant type aliases
 		typename T::Element_t;
-		typename T::Face_t;
+		typename T::HalfEdge_t;
 		typename T::Vertex_t;
-		typename T::Point_t;
-		typename T::ElementIterator_t;
-		typename T::BoundaryIterator_t;
+		typename T::GeoPoint_t;
+		typename T::RefPoint_t;
 		typename T::VertexList_t;
 	};
 

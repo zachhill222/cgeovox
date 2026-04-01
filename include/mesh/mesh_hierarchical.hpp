@@ -64,7 +64,7 @@ namespace gv::mesh {
 		using typename BASE::RefBox_t; //boxes in the reference space
 
 		using typename BASE::VertexList_t;
-		using typename BASE::ElementLogic_t; //type to handle logic of creating children, getting faces, etc.
+		using ElementLogic_t = VtkElementType_t<Mesh_t, Element_type::VTK_ID>; //type to handle logic of creating children, getting faces, etc.
 
 
 		/////////////////////////////////////////////////
@@ -76,7 +76,7 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		/// Get the total number of active elements in the mesh.
 		/////////////////////////////////////////////////
-		size_t nElementsActive() const
+		size_t nElements_active() const override
 		{
 			size_t nElems = 0;
 			for (const Element_t &ELEM : this->_elements) {
@@ -101,7 +101,7 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		/// Refine all elements that have a vertex in the specified box
 		/////////////////////////////////////////////////
-		void refineRegion(const DomainBox_t& box);
+		void refineRegion(const GeoBox_t& box);
 
 		/////////////////////////////////////////////////
 		/// A method to get the descendent elements of the specified element.
@@ -149,8 +149,8 @@ namespace gv::mesh {
 		
 
 		/// Friend function to print the mesh information
-		template<HierarchicalColorableMeshType Mesh_type>
-		friend std::ostream& operator<<(std::ostream& os, const Mesh_type& mesh);
+		// template<HierarchicalColorableMeshType Mesh_type>
+		// friend std::ostream& operator<<(std::ostream& os, const Mesh_type& mesh);
 
 	private:
 		/////////////////////////////////////////////////
@@ -186,6 +186,19 @@ namespace gv::mesh {
 		/////////////////////////////////////////////////
 		void splitBoundaryFace_Unlocked(const size_t face_idx, const size_t child_idx_start);
 
+		//make sure coloring is only done by active elements
+		virtual void color_element_async(const size_t e_idx) override
+		{
+			std::vector<size_t> neighbors = this->get_element_neighbors(e_idx, [](const Element_t& e){return e.active;});
+			this->_color_manager.set_color_unlocked(e_idx, neighbors);
+		}
+
+		virtual void color_element_sync(const size_t e_idx) override
+		{
+			std::vector<size_t> neighbors = this->get_element_neighbors(e_idx, [](const Element_t& e){return e.active;});
+			this->_color_manager.set_color_locked(e_idx, neighbors);
+		}
+
 
 		/////////////////////////////////////////////////
 		/// Subroutine for processSplit()
@@ -198,7 +211,7 @@ namespace gv::mesh {
 			//initialize storage for the values that will be needed to create the children elements
 			vtk_elem.set_element(*this, e_idx);
 			vtk_elem.set_child_vertices();
-			std::vector<size_t> split_node_numbers(vtk_n_vertices_when_split(BASE::ELEM_VTK_ID));
+			std::array<size_t, vtk_n_vertices_when_split(BASE::ELEM_VTK_ID)> split_node_numbers;
 
 			//handle parent vertices/vertices that will be re-used
 			int j;
@@ -209,10 +222,9 @@ namespace gv::mesh {
 			//get the coordinates of the remaining vertices that the children will need
 			for (;j<vtk_elem.n_vert_on_split(); j++) {
 				//create new vertex and attempt to add it to the list (or get the index of the existing vertex)
-				Vertex_t new_vertex(vtk_elem.child_vertex_coords(j));
+				Vertex_t new_vertex(vtk_elem.child_vertex_coords[j]);
 				size_t n_idx = this->_vertices.push_back_async(std::move(new_vertex));
 				
-				Vertex_t& VERTEX = this->_vertices[n_idx];
 				split_node_numbers[j] = n_idx;
 			}
 
@@ -235,13 +247,14 @@ namespace gv::mesh {
 		const Element_t &ELEM = this->_elements[elem_idx];
 		//loop through the children
 		for (size_t c_idx : ELEM.children) {
+			if (c_idx == (size_t) -1) {break;}
 			const Element_t &CHILD = this->_elements[c_idx];
 
 			//add the relevent children
 			if (!activeOnly or CHILD.active) {descendents.push_back(c_idx);}
 
 			//recurse if needed
-			if (!CHILD.children.empty()) {getElementDescendents_Unlocked(c_idx, descendents, activeOnly);}
+			getElementDescendents_Unlocked(c_idx, descendents, activeOnly);
 		}
 	}
 
@@ -290,10 +303,10 @@ namespace gv::mesh {
 
 		//activate and color the element
 		ELEM.active = true;
-
-		std::vector<size_t> neighbors;
-		this->getElementNeighbors_Unlocked(elem_idx, neighbors);
-		this->_color_manager.setColor_Unlocked(elem_idx, neighbors);
+		color_element_async(elem_idx);
+		// std::vector<size_t> neighbors;
+		// this->get_element_neighbors(elem_idx, neighbors, [](const Element_t& ELEM){return ELEM.active;});
+		// this->_color_manager.set_color_unlocked(elem_idx, neighbors);
 	}
 
 
@@ -335,7 +348,7 @@ namespace gv::mesh {
 		Element_t& ELEM = this->_elements[elem_idx];
 
 		assert(ELEM.active);
-		assert(!ELEM.children.empty());
+		assert(ELEM.children[0]!=(size_t) -1);
 
 		ELEM.active = false;
 		this->_color_manager.decrementCount(ELEM.color); //when coloring using BALANCED, the parent element should no longer count.
@@ -346,9 +359,10 @@ namespace gv::mesh {
 			Element_t &CHILD = this->_elements[c_idx];
 			CHILD.active  = true;
 
-			neighbors.clear();
-			this->getElementNeighbors_Unlocked(c_idx, neighbors);
-			this->_color_manager.setColor_Unlocked(c_idx, neighbors);
+			color_element_async(c_idx);
+			// neighbors.clear();
+			// this->get_element_neighbors(c_idx, neighbors, [](const Element_t& ELEM){return ELEM.active;});
+			// this->_color_manager.set_color_unlocked(c_idx, neighbors);
 		}
 	}
 
@@ -365,7 +379,7 @@ namespace gv::mesh {
 		assert(ELEM.active);
 
 		//check if this element has been split previously
-		if (!ELEM.children.empty()) {
+		if (ELEM.children[0] != (size_t) -1) {
 			reSplitElement(elem_idx);
 			return;
 		}
@@ -382,7 +396,7 @@ namespace gv::mesh {
 
 		for (int k=0; k<vtk_elem.n_children(); k++) {
 			//get the indices of the vertices that define child k in the correct order
-			std::vector<size_t> local_child_nodes = vtk_elem.get_child_local_vertices(k);
+			auto local_child_nodes = vtk_elem.get_child_local_vertices(k);
 
 			//create the child
 			const size_t global_child_index = child_idx_start + k;
@@ -394,12 +408,12 @@ namespace gv::mesh {
 				newElem.vertices[i] = split_node_numbers[local_child_nodes[i]];
 			}
 
-			this->insert_element<true>(newElem, global_child_index);
+			this->insert_element_async(std::move(newElem), global_child_index);
 			Element_t &CHILD = this->_elements[global_child_index];
-			CHILD.parent     = ELEM.index;
+			CHILD.parent     = elem_idx;
 			CHILD.depth      = ELEM.depth+1;
 			CHILD.active     = true;
-			ELEM.children.push_back(global_child_index);
+			ELEM.children[k] = global_child_index;
 		}
 	}
 
@@ -422,24 +436,23 @@ namespace gv::mesh {
 		//The chosen color for the children elements is guarenteed to be valid and only new colors are generated when strictly necessary
 
 		if (_elements_to_split.empty()) {return;}
-		assert(this->colorsValid_Unlocked());
+		assert(this->are_colors_valid());
 
 		//partition the specified that are active by their color
 		//if any element has been split already and the children are already stored in the mesh, activate them
-		std::vector<std::vector<size_t>> colored_elements_to_split;
+		std::array<std::vector<size_t>, MAX_COLORS> colored_elements_to_split;
 		{
-			colored_elements_to_split.resize(this->_color_manager.nColors());
 			for (size_t e_idx: _elements_to_split) {
 				assert(e_idx<this->_elements.size());
 				Element_t &ELEM = this->_elements[e_idx];
 				
 				//elements should heve been filtered before being put into _elements_to_split
 				assert(ELEM.active);
-				assert(ELEM.children.empty());
+				assert(ELEM.children[0]==(size_t) -1);
 
 				//element is to be split and the children must be computed
-				assert(ELEM.color<colored_elements_to_split.size());
-				colored_elements_to_split[ELEM.color].push_back(ELEM.index);
+				assert(ELEM.color!=(size_t) -1);
+				colored_elements_to_split[ELEM.color].push_back(e_idx);
 			}
 		}
 
@@ -466,8 +479,8 @@ namespace gv::mesh {
 				assert(this->_elements[e_idx].active);
 
 				const Element_t &ELEM = this->_elements[e_idx];
-				nNewElements += vtk_n_children(ELEM.vtkID);
-				maxNewNodes  += vtk_n_vertices_when_split(ELEM.vtkID) - vtk_n_vertices(ELEM.vtkID);
+				nNewElements += vtk_n_children(ELEM.VTK_ID);
+				maxNewNodes  += vtk_n_vertices_when_split(ELEM.VTK_ID) - vtk_n_vertices(ELEM.VTK_ID);
 
 				child_element_index_start.push_back(nStartingElements + nNewElements);
 			}
@@ -500,7 +513,7 @@ namespace gv::mesh {
 			}
 		}
 
-
+		// this->pair_halfedges();
 		//clean up data structures
 		_elements_to_split.clear();
 		this->_vertices.shrink_to_fit();
@@ -515,7 +528,7 @@ namespace gv::mesh {
 			ColorMethod                      COLOR_METHOD,
 			size_t                           MAX_COLORS
 			>
-	void HierarchicalMesh<Element_type, Scalar_type, COLOR_METHOD, MAX_COLORS>::refineRegion(const DomainBox_t& box) {
+	void HierarchicalMesh<Element_type, Scalar_type, COLOR_METHOD, MAX_COLORS>::refineRegion(const GeoBox_t& box) {
 		#pragma omp parallel for
 		for (size_t e_idx=0; e_idx<this->_elements.size(); ++e_idx) {
 			const Element_t& ELEM = this->_elements[e_idx];
@@ -525,7 +538,7 @@ namespace gv::mesh {
 				if (box.contains(this->_vertices[v_idx].coord)) {
 					#pragma omp critical
 					{
-						splitElement(ELEM.index);
+						splitElement(e_idx);
 					}
 					break;
 				}
@@ -536,11 +549,11 @@ namespace gv::mesh {
 	}
 
 
-	template<HierarchicalColorableMeshType Mesh_type>
-	std::ostream& operator<<(std::ostream& os, const Mesh_type& mesh) {
-		const typename Mesh_type::BASE& base_mesh = mesh;
-		os << base_mesh;
-		return os;
-	}
+	// template<HierarchicalColorableMeshType Mesh_type>
+	// std::ostream& operator<<(std::ostream& os, const Mesh_type& mesh) {
+	// 	const typename Mesh_type::BASE& base_mesh = mesh;
+	// 	os << base_mesh;
+	// 	return os;
+	// }
 }
 
