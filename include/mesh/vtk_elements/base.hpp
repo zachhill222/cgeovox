@@ -80,6 +80,13 @@ namespace gv::mesh
 			return static_cast<const DERIVED*>(this)->get_child_local_vertices_impl(child_number);
 		}
 
+		//return the local face number of the opposite face
+		constexpr inline int opposite_face(const int face_number) const
+		{
+			assert(0 <= face_number and face_number < N_FACES);
+			return static_cast<const DERIVED*>(this)->opposite_face_impl(face_number);
+		}
+
 		//return indices (in the correct order of the face element type)
 		//that define the specified face. These indices are elements of this->vertices and point
 		//into mesh->vertices

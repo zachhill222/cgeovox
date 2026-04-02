@@ -436,7 +436,7 @@ namespace gv::mesh {
 		//The chosen color for the children elements is guarenteed to be valid and only new colors are generated when strictly necessary
 
 		if (_elements_to_split.empty()) {return;}
-		assert(this->are_colors_valid());
+		assert(this->are_colors_valid([](const Element_t& e){return e.active;}));
 
 		//partition the specified that are active by their color
 		//if any element has been split already and the children are already stored in the mesh, activate them
@@ -459,8 +459,6 @@ namespace gv::mesh {
 		
 		//split all the elements by color (parallel in each color)
 		for (size_t color=0; color<colored_elements_to_split.size(); color++) {
-			
-
 			const std::vector<size_t>& this_color_elems = colored_elements_to_split[color];
 			if (this_color_elems.empty()) {continue;} //no elements of this color to split
 			
@@ -495,7 +493,7 @@ namespace gv::mesh {
 
 			//split the elements of this color
 			#pragma omp parallel for
-			for (size_t i=0; i<this_color_elems.size(); i++) {
+			for (size_t i=0; i<this_color_elems.size(); ++i) {
 				assert(this->_elements[this_color_elems[i]].color == color);
 				splitElement_Unlocked(this_color_elems[i], child_element_index_start[i]);
 			}
@@ -506,11 +504,34 @@ namespace gv::mesh {
 		for (size_t color=0; color<colored_elements_to_split.size(); color++) {
 			const std::vector<size_t>& this_color_elems = colored_elements_to_split[color];
 			
-			#pragma omp parallel for
-			for (size_t e_idx : this_color_elems) {
-				const Element_t& ELEM = this->_elements[e_idx];
-				this->pair_halfedges_for_elements(ELEM.children);
+			#pragma omp parallel
+			{
+				std::vector<size_t> child_face_neighbors;
+				#pragma omp for
+				for (size_t i=0; i<this_color_elems.size(); ++i) {
+					const size_t e_idx = this_color_elems[i];
+					const Element_t& ELEM = this->_elements[e_idx];
+
+					//ASSEMBLE FACE NEIGHBORS OF CHILD ELEMENTS
+					child_face_neighbors.clear();
+					child_face_neighbors.insert(child_face_neighbors.end(), ELEM.children.begin(), ELEM.children.end());
+
+					const std::vector<size_t> parent_face_neighbors = this->get_element_face_neighbors(e_idx);
+					for (size_t p_idx : parent_face_neighbors) {
+						const Element_t& NEIGHBOR = this->_elements[p_idx];
+						for (size_t c_idx : NEIGHBOR.children) {
+							if (c_idx == (size_t) -1) {break;}
+							child_face_neighbors.push_back(c_idx);
+						}
+					}
+
+					std::sort(child_face_neighbors.begin(), child_face_neighbors.end());
+					auto last = std::unique(child_face_neighbors.begin(), child_face_neighbors.end());
+					child_face_neighbors.erase(last, child_face_neighbors.end());
+					this->pair_halfedges_for_elements(child_face_neighbors);
+				}
 			}
+			
 		}
 
 		// this->pair_halfedges();

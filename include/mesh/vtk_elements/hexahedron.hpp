@@ -213,6 +213,21 @@ namespace gv::mesh {
 			return child_vertices;
 		}
 
+		constexpr int opposite_face_impl(const int face_number) const
+		{
+			switch (face_number) {
+			case (0): return 1;
+			case (1): return 0;
+			case (2): return 3;
+			case (3): return 2;
+			case (4): return 5;
+			case (5): return 4;
+			default:
+				throw std::out_of_range("VTK_HEXAHEDRON::opposite_face_impl - face number out of bounds");
+				return -1;
+			}
+		}
+
 		std::array<size_t,4> get_face_vertices_impl(const int face_number) const
 		{
 			std::array<size_t,4> face_vertices;
@@ -254,7 +269,7 @@ namespace gv::mesh {
 				face_vertices[3] = this->vertices[7];
 				break;
 			default:
-				throw std::out_of_range("face number out of bounds");
+				throw std::out_of_range("VTK_HEXAHEDRON::get_face_vertices_impl - face number out of bounds");
 				break;
 			}
 

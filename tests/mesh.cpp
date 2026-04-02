@@ -15,26 +15,28 @@ void test() {
 	using Point_t    = gutil::Point<3,T>;
 	using Box_t      = gutil::Box<dim,T>;
 	using Element_t  = gv::mesh::HierarchicalColoredElement<11>;
+	// using Element_t = gv::mesh::ColoredElement<11>;
 	using Vertex_t   = gv::mesh::BasicVertex<Point_t>;
 
 	constexpr gv::mesh::ColorMethod method = gv::mesh::ColorMethod::BALANCED;
 	using Mesh_t  = gv::mesh::HierarchicalMesh<Element_t,T,method>;
-	
+	// using Mesh_t = gv::mesh::ColoredMesh<Element_t,T,method>;
 
 	Point_t corner {1.0,1.0,1.0};
 	Box_t   domain(-corner, corner);
 	Index_t N{4,4,4};
 	Mesh_t  mesh(domain,N);
+	mesh.elements_reserve(3000000);
+	mesh.vertices_reserve(3000000);
 
 	auto H = corner;
-	for (int n=0; n<8; n++){
+	for (int n=0; n<10; n++){
 		H*=0.75;
 		mesh.refineRegion(Box_t{corner-H,corner+H});
-		mesh.processSplit();
 	}
 
 	// unrefine
-	// mesh.joinDescendents(1);
+	// mesh.joinDescendents(10);
 
 
 	//print mesh summary
@@ -50,7 +52,7 @@ void test() {
 	// std::cout << std::endl << boundary << std::endl;
 	// gv::mesh::memorySummary(boundary);
 
-	mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
+	// mesh.save_as("./outfiles/topological_mesh.vtk", true, false);
 	// boundary.save_as("./outfiles/topological_mesh_boundary.vtk", true, true);
 	// gv::util::makeOctreeLeafMesh(mesh.getNodeOctree(), "./outfiles/topological_mesh_node_octree.vtk");
 }

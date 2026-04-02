@@ -30,7 +30,11 @@ namespace gv::mesh
 		static constexpr bool COLORABLE    = COLORABLE_;
 		static constexpr bool HIERARCHICAL = HIERARCHICAL_;
 		static constexpr int  VTK_ID       = VTK_ID_;
+		static constexpr int N_FACES       = vtk_n_faces(VTK_ID_);
 
+		//logical operations
+		static constexpr size_t half_edge_start(const size_t index) {return static_cast<size_t>(N_FACES)*index;}
+		
 		//features that are always present
 		std::array<size_t, N_VERTS> vertices;
 
@@ -44,7 +48,8 @@ namespace gv::mesh
 		[[no_unique_address]] std::conditional_t<HIERARCHICAL,std::array<size_t,N_CHILDREN>,std::monostate> children;
 
 		//constructors
-		constexpr MeshElement() : vertices{} {
+		constexpr MeshElement() : vertices{}
+		{
 			if constexpr (COLORABLE) {color = (size_t) -1;}
 			if constexpr (HIERARCHICAL) {
 				parent   = (size_t) -1;
@@ -54,7 +59,8 @@ namespace gv::mesh
 			}
 		}
 
-		MeshElement(std::array<size_t,N_VERTS>&& vertices_) : vertices{std::move(vertices_)} {
+		MeshElement(std::array<size_t,N_VERTS>&& vertices_) : vertices{std::move(vertices_)}
+		{
 			if constexpr (COLORABLE) {color = (size_t) -1;}
 			if constexpr (HIERARCHICAL) {
 				parent   = (size_t) -1;
@@ -178,7 +184,6 @@ namespace gv::mesh
 	template<BasicMeshElement Element_t>
 	std::ostream& operator<<(std::ostream& os, const Element_t &elem) {
 		os << "vtkID= " << elem.VTK_ID << " (" << vtk_id_to_string(elem.VTK_ID) << ")\n";
-		os << "index= " << elem.index << "\n";
 		os << "vertices (" << elem.N_VERTS << ") : [ ";
 		for (size_t n : elem.vertices) {os << n << " ";}
 		os << "]\n";
@@ -192,7 +197,10 @@ namespace gv::mesh
 			os << "depth=  " << elem.depth  << "\n";
 			os << "parent= " << elem.parent << "\n";
 			os << "children ("  << Element_t::N_CHILDREN << ") : [";
-			for (size_t n : elem.children) {os << n << " ";}
+			for (size_t n : elem.children) {
+				if (n == (size_t) -1) {os << "-1 ";}
+				else {os << n << " ";}
+			}
 			os << "]\n";
 		}
 		return os;

@@ -110,28 +110,41 @@ namespace gv::mesh {
 			return child_vertices;
 		}
 
+		constexpr int opposite_face_impl(const int face_number) const
+		{
+			switch (face_number) {
+			case (0): return 2;
+			case (1): return 3;
+			case (2): return 0;
+			case (3): return 1;
+			default:
+				throw std::out_of_range("VTK_PIXEL::opposite_face_impl - face number out of bounds");
+				return -1;
+			}
+		}
+
 		std::array<size_t,2> get_face_vertices_impl(const int face_number) const
 		{
 			std::array<size_t,2> face_vertices;
 			switch (face_number) {
-			case (0):
+			case (0): //bottom
 				face_vertices[0] = this->vertices[0];
 				face_vertices[1] = this->vertices[1];
 				break;
-			case (1):
+			case (1): //right
 				face_vertices[0] = this->vertices[1];
 				face_vertices[1] = this->vertices[3];
 				break;
-			case (2):
+			case (2): //top
 				face_vertices[0] = this->vertices[3];
 				face_vertices[1] = this->vertices[2];
 				break;
-			case (3):
+			case (3): //left
 				face_vertices[0] = this->vertices[2];
 				face_vertices[1] = this->vertices[0];
 				break;
 			default:
-				throw std::out_of_range("face number out of bounds");
+				throw std::out_of_range("VTK_PIXEL::get_face_vertices_impl - face number out of bounds");
 				break;
 			}
 

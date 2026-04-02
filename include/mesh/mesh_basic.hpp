@@ -229,6 +229,12 @@ namespace gv::mesh
 		template<typename Predicate = std::nullptr_t>
 		std::vector<size_t> get_element_neighbors(const size_t elem_idx, Predicate&& pred=nullptr) const;
 		
+		template<typename Predicate = std::nullptr_t>
+		void get_element_face_neighbors(const size_t elem_idx, std::vector<size_t>& neighbors, Predicate&& pred=nullptr) const;
+
+		template<typename Predicate = std::nullptr_t>
+		std::vector<size_t> get_element_face_neighbors(const size_t elem_idx, Predicate&& pred=nullptr) const;
+
 		/////////////////////////////////////////////////
 		/// Get vertices at the specified coordinates. If there is no vertex already there, one is created.
 		///
@@ -496,6 +502,39 @@ namespace gv::mesh
 	}
 
 	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	template<typename Predicate>
+	void BasicMesh<Element_type, Scalar_type>::get_element_face_neighbors(const size_t elem_idx, std::vector<size_t>& neighbors, Predicate&& pred) const
+	{
+		const std::vector<size_t> this_elem_neighbors = get_element_neighbors(elem_idx, std::forward<Predicate>(pred));
+		neighbors.insert(neighbors.end(), this_elem_neighbors.begin(), this_elem_neighbors.end());
+	}
+
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
+	template<typename Predicate>
+	std::vector<size_t> BasicMesh<Element_type, Scalar_type>::get_element_face_neighbors(const size_t elem_idx, Predicate&& pred) const
+	{
+		std::vector<size_t> neighbors;
+		neighbors.reserve(Element_t::N_FACES);
+		
+		//loop through this elements half-edges
+		const size_t f0 = Element_t::half_edge_start(elem_idx);
+		for (size_t f=0; f<static_cast<size_t>(Element_t::N_FACES); ++f) {
+			const size_t opp_face_idx = _halfedges[f0+f].opposite;
+			if (opp_face_idx != (size_t) -1) {
+				const size_t n_idx = HalfEdge_t::element(opp_face_idx);
+				assert(n_idx != (size_t) -1);
+				if constexpr (not std::is_same_v<Predicate, std::nullptr_t>) {
+					if (!pred(_elements[n_idx])) {continue;}
+				}
+				neighbors.push_back(n_idx);
+			}
+		}
+
+		return neighbors;
+	}
+
+
+	template<BasicMeshElement Element_type, Scalar Scalar_type>
 	template<int N, bool ASYNC>
 	std::array<size_t,N> BasicMesh<Element_type, Scalar_type>::prepare_vertices(std::array<GeoPoint_t,N>&& coords)
 	{
@@ -556,50 +595,41 @@ namespace gv::mesh
 		return index;
 	}
 
+	//pair all halfedges that belong to the specified elements
+	//the boundary faces of this subset will only get one side
 	template<BasicMeshElement Element_type, Scalar Scalar_type>
 	template<typename Container_type>
 	void BasicMesh<Element_type, Scalar_type>::pair_halfedges_for_elements(const Container_type& element_indices)
 	{
-		ElementLogic_t THIS_ELEM_LOGIC, NEIGHBOR_ELEM_LOGIC;
-		std::vector<size_t> neighbors;
+		//create a hash of all the faces of the elements
+		using FaceKey = std::array<size_t, vtk_n_vertices(FACE_VTK_ID)>; //sort first
+
+		auto face_key_hash = [](const FaceKey& key) {
+			size_t hash = 0;
+			for (size_t v : key) {
+				hash ^= v + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+			}
+			return hash;
+		};
+
+		std::unordered_map<FaceKey, size_t, decltype(face_key_hash)> face_map(0, face_key_hash);
+		face_map.reserve(N_FACE_PER_ELEMENT * element_indices.size());
+
+
+		ElementLogic_t ELEM_LOGIC;
 		for (size_t e_idx : element_indices) {
-			const Element_t& ELEM = _elements[e_idx];
-			THIS_ELEM_LOGIC.set_element(*this, e_idx);
+			ELEM_LOGIC.set_element(*this, e_idx);
 
-			//loop through the neighbors
-			neighbors.clear();
-			get_element_neighbors(e_idx, neighbors);
-
-			//loop through ELEM local faces
 			for (int f_idx=0; f_idx<N_FACE_PER_ELEMENT; ++f_idx) {
-				auto face_indices = THIS_ELEM_LOGIC.get_face_vertices(f_idx);
-				std::sort(face_indices.begin(), face_indices.end());
+				auto key = ELEM_LOGIC.get_face_vertices(f_idx);
+				std::sort(key.begin(), key.end());
 
-				//loop through neighbors to find the opposite face
-				bool found = false;
-				for (size_t n_idx : neighbors) {
-					if constexpr (Element_t::HIERARCHICAL) {
-						if (_elements[n_idx].depth != ELEM.depth) {continue;}
-					}
-
-					NEIGHBOR_ELEM_LOGIC.set_element(*this, n_idx);
-
-					//loop through neighbor local faces
-					for (int nf_idx=0; nf_idx<N_FACE_PER_ELEMENT; ++nf_idx) {
-						auto neighbor_face_indices = NEIGHBOR_ELEM_LOGIC.get_face_vertices(nf_idx);
-						std::sort(neighbor_face_indices.begin(), neighbor_face_indices.end());
-
-						if (face_indices == neighbor_face_indices) {
-							found = true;
-							const size_t halfedge_idx = N_FACE_PER_ELEMENT*e_idx + static_cast<size_t>(f_idx);
-							const size_t opposite_idx = N_FACE_PER_ELEMENT*n_idx + static_cast<size_t>(nf_idx);
-							_halfedges[halfedge_idx].opposite = opposite_idx;
-							_halfedges[opposite_idx].opposite = halfedge_idx; //race condition if not called in parallel and not carefully
-							break;
-						}
-					}
-
-					if (found) {break;}
+				const size_t h_idx = N_FACE_PER_ELEMENT * e_idx + f_idx;
+				auto [it, inserted] = face_map.emplace(key, h_idx);
+				if (!inserted) {
+					_halfedges[h_idx].opposite = it->second;
+					_halfedges[it->second].opposite = h_idx;
+					face_map.erase(it);
 				}
 			}
 		}
@@ -687,7 +717,7 @@ namespace gv::mesh
 			print_topology_binary_vtk(file, *this);
 
 			//print details
-			// if (include_details) {print_mesh_details_binary_vtk(file, *this);}
+			if (include_details) {print_mesh_details_binary_vtk(file, *this);}
 
 			file.close();
 		}
@@ -707,8 +737,8 @@ namespace gv::mesh
 
 		os << std::left;
 		os << "C++ types\n" << std::string(50, '-') << "\n";
-		os << std::setw(20) << "ElementStruct_t " << std::setw(15) << elementTypeName<Element_t>() << "\n"
-		   << std::setw(20) << "Vertex_t        " << std::setw(15) << vertexTypeName<Vertex_t>()   << "\n"
+		os << std::setw(20) << "Element_t " << std::setw(15) << elementTypeName<Element_t>() << "\n"
+		   << std::setw(20) << "Vertex_t  " << std::setw(15) << vertexTypeName<Vertex_t>()   << "\n"
 		   << std::string(50, '-') << "\n";
 
 		os << std::left;

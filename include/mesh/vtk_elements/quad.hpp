@@ -147,6 +147,19 @@ namespace gv::mesh {
 			return face_vertices;
 		}
 
+		constexpr int opposite_face_impl(const int face_number) const
+		{
+			switch (face_number) {
+			case (0): return 2;
+			case (1): return 3;
+			case (2): return 0;
+			case (3): return 1;
+			default:
+				throw std::out_of_range("VTK_QUAD::opposite_face_impl - face number out of bounds");
+				return -1;
+			}
+		}
+
 		std::array<size_t,3> get_face_child_local_vertices_impl(const int face_number) const
 		{
 			std::array<size_t,3> split_face_vertices;
@@ -177,7 +190,7 @@ namespace gv::mesh {
 				break;
 
 			default:
-				throw std::out_of_range("face number out of bounds");
+				throw std::out_of_range("VTK_QUAD::get_face_vertices_impl - face number out of bounds");
 				break;
 			}
 

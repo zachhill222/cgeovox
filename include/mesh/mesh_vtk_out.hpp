@@ -143,11 +143,11 @@ namespace gv::mesh {
 
 
 		//ELEMENT DETAILS
-		buffer << "CELL_DATA " << nElements << "\n";
 		int n_elem_fields = 1; //index
 		if constexpr (Element_t::COLORABLE)    {n_elem_fields+=1;} //color field
 		if constexpr (Element_t::HIERARCHICAL) {n_elem_fields+=3;} //parent, depth, children (only active elements are written)
 
+		buffer << "CELL_DATA " << nElements << "\n";
 		buffer << "FIELD elem_info " << n_elem_fields << "\n";
 
 		buffer << "index 1 " << nElements << " integer\n";
@@ -319,146 +319,139 @@ namespace gv::mesh {
 
 	
 		
-	// /////////////////////////////////////////////////
-	// /// Print the details of the vertices and elements to the output stream. This includes element colors and which elements each node belongs to.
-	// /// Due to the way that field data is stored in BINARY VTK format, it will be difficult to append any additional information to a file afterwards.
-	// ///
-	// /// @param file  A filstream into the file to write to.
-	// /// @param mesh  The mesh whos topology is to be written into the file.
-	// /////////////////////////////////////////////////
+	/////////////////////////////////////////////////
+	/// Print the details of the vertices and elements to the output stream. This includes element colors and which elements each node belongs to.
+	/// Due to the way that field data is stored in BINARY VTK format, it will be difficult to append any additional information to a file afterwards.
+	///
+	/// @param file  A filstream into the file to write to.
+	/// @param mesh  The mesh whos topology is to be written into the file.
+	/////////////////////////////////////////////////
 
-	// template<BasicMeshType Mesh_t>
-	// void print_mesh_details_binary_vtk(std::ofstream &file, const Mesh_t &mesh) {
-	// 	if (!file.is_open()) {
-	// 		throw std::runtime_error("File is not open");
-	// 	}
+	template<BasicMeshType Mesh_t>
+	void print_mesh_details_binary_vtk(std::ofstream &file, const Mesh_t &mesh) {
+		if (!file.is_open()) {
+			throw std::runtime_error("File is not open");
+		}
 
-
-	// 	using Vertex_t  = typename Mesh_t::Vertex_t;
-	// 	using Element_t = typename Mesh_t::Element_t;
-
-	// 	//get number of vertices and elements
-	// 	const size_t nVertices    = mesh.nVertices();
-	// 	const size_t nElements = mesh.nElements();
-
-	//     //only 32 and 64 bit data types are supported. can add more if necessary
-	//     static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
-	//     static_assert(sizeof(typename Vertex_t::Scalar_t)==4 or sizeof(typename Vertex_t::Scalar_t)==8, "Unsupported floating point size");
-
-	//     //in this file format, the node indices must be 4 bytes. ensure that there are not too many vertices.
-	//     //additionally, the integers are expected to be signed in the legacy format.
-	//     //uint32_t **might** be possible, but likely we need xml files for meshes that large.
-	//     constexpr size_t max_legacy_vtk_vertices = static_cast<size_t>(std::numeric_limits<int32_t>::max());
-	//     if (nVertices > max_legacy_vtk_vertices) {
-	//     	throw std::runtime_error("Node index " + std::to_string(nVertices) + " exceeds legacy VTK format limit.");
-	//     }
-
-	//      // Helper lambda to write numbers in big-endian format. gv::util::FloatingPointBits
-	//     // can be initialized with types convertible to integer or floating point types
-	//     // PC is in little-endian, vtk/Paraview wants big-endian
-	//     auto write_big_endian = [&file](auto value) {
-	//         gv::util::FloatingPointBits<8*sizeof(value)> converter(value);
-	//         auto be_value = converter.big_endian();
-	//         file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
-	//     };
+		using Vertex_t  = typename Mesh_t::Vertex_t;
+		using Element_t = typename Mesh_t::Element_t;
 		
-	// 	//NODE DETAILS
-	// 	int n_node_fields = 2; //elements and boundary are always tracked
-	// 	if constexpr (requires {Vertex_t::index;}) {n_node_fields++;}
-		
-	// 	file << "POINT_DATA " << nVertices << "\n";
-	// 	file << "FIELD node_info " << n_node_fields << "\n";
-		
-	// 	//boundary
-	// 	size_t max_boundary_faces=1;
-	// 	for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
-	// 		max_boundary_faces = std::max(max_boundary_faces, it->boundary_faces.size());
-	// 	}
-		
-	// 	file << "boundary " << max_boundary_faces << " " << nVertices << " int\n";
-	// 	for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
-	// 		const Vertex_t &NODE = *it;
-			
-	// 		size_t i;
-	// 		for (i = 0; i < NODE.boundary_faces.size(); i++) {write_big_endian(static_cast<int>(NODE.boundary_faces[i]));}
-	// 		for (; i < max_boundary_faces; i++) {write_big_endian(int(-1));}
-	// 	}
-	// 	file << "\n";
-		
-	// 	//elements
-	// 	size_t max_elem=0;
-	// 	for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
-	// 		max_elem = std::max(max_elem, it->elems.size());
-	// 	}
-		
-	// 	file << "elements " << max_elem << " " << nVertices << " int\n";
-	// 	for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
-	// 		const Vertex_t &NODE = *it;
-	// 		size_t i;
-	// 		for (i = 0; i < NODE.elems.size(); i++) {write_big_endian(static_cast<int>(NODE.elems[i]));}
-	// 		for (; i < max_elem; i++) {write_big_endian(int(-1));}
-	// 	}
-	// 	file << "\n";
+		//get number of vertices and elements
+		const size_t nVertices = mesh.nVertices();
+		const size_t nElements = mesh.nElements_active();
 
-	// 	if constexpr (requires {Vertex_t::index;}) {
-	// 	    file << "index 1 " << nVertices << " int\n";
-	// 	    for (auto it=mesh.vertexBegin(); it!=mesh.vertexEnd(); ++it) {
-	// 	        write_big_endian(static_cast<int>(it->index));
-	// 	    }
-	// 	    file << "\n";
-	// 	}
+		//get reference to elements/vertices
+		const auto& elements = mesh.get_elements();
+		const auto& vertices = mesh.get_vertices();
+
+	    //only 32 and 64 bit data types are supported. can add more if necessary
+	    static_assert(sizeof(size_t)==4 or sizeof(size_t)==8, "Unsupported size_t size");
+	    static_assert(sizeof(typename Vertex_t::Scalar_t)==4 or sizeof(typename Vertex_t::Scalar_t)==8, "Unsupported floating point size");
+
+	    //in this file format, the node indices must be 4 bytes. ensure that there are not too many vertices.
+	    //additionally, the integers are expected to be signed in the legacy format.
+	    //uint32_t **might** be possible, but likely we need xml files for meshes that large.
+	    constexpr size_t max_legacy_vtk_vertices = static_cast<size_t>(std::numeric_limits<int32_t>::max());
+	    if (nVertices > max_legacy_vtk_vertices) {
+	    	throw std::runtime_error("Node index " + std::to_string(nVertices) + " exceeds legacy VTK format limit.");
+	    }
+
+	     // Helper lambda to write numbers in big-endian format. gv::util::FloatingPointBits
+	    // can be initialized with types convertible to integer or floating point types
+	    // PC is in little-endian, vtk/Paraview wants big-endian
+	    auto write_big_endian = [&file](auto value) {
+	        gv::util::FloatingPointBits<8*sizeof(value)> converter(value);
+	        auto be_value = converter.big_endian();
+	        file.write(reinterpret_cast<const char*>(&be_value), sizeof(be_value));
+	    };
+		
+		//NODE DETAILS
+		file << "POINT_DATA " << nVertices << "\n";
+		file << "FIELD node_info " << 2 << "\n";
+		
+		//index
+		file << "index " << 1 << " " << nVertices << " integer\n";
+		for (size_t v_idx=0; v_idx<vertices.size(); ++v_idx) {
+			write_big_endian(static_cast<int>(v_idx));
+		}
+		file << "\n";
+		
+		//elements
+		size_t max_elem=0;
+		for (const auto& VERTEX : vertices) {
+			max_elem = std::max(max_elem, VERTEX.elems.size());
+		}
+		
+		file << "elements " << max_elem << " " << nVertices << " integer\n";
+		for (const auto& VERTEX : vertices) {
+			size_t i;
+			for (i = 0; i < VERTEX.elems.size(); i++) {write_big_endian(static_cast<int>(VERTEX.elems[i]));}
+			for (; i < max_elem; i++) {write_big_endian(int(-1));}
+		}
+		file << "\n";
 		
 
 
-	// 	//ELEMENT DETAILS
-	// 	int n_elem_fields = 0;
-	// 	if constexpr (requires {Element_t::color;})    {n_elem_fields++;}
-	// 	if constexpr (requires {Element_t::parent;})   {n_elem_fields++;}
-	// 	if constexpr (requires {Element_t::children;}) {n_elem_fields++;}
-	// 	if constexpr (requires {Element_t::index;})    {n_elem_fields++;}
+		//ELEMENT DETAILS
+		int n_elem_fields = 1; //index
+		if constexpr (Element_t::COLORABLE)    {n_elem_fields+=1;} //color field
+		if constexpr (Element_t::HIERARCHICAL) {n_elem_fields+=3;} //parent, depth, children (only active elements are written)
 
-
-	// 	file << "CELL_DATA " << nElements << "\n";
-	// 	file << "FIELD elem_info " << n_elem_fields << "\n";
+		file << "CELL_DATA " << nElements << "\n";
+		file << "FIELD elem_info " << n_elem_fields << "\n";
 		
-	// 	if constexpr (requires {Element_t::index;}) {
-	// 		file << "index 1 " << nElements << " integer\n";
-	// 		for (const Element_t &ELEM : mesh) {write_big_endian(static_cast<int>(ELEM.index));}
-	// 	}
+		file << "index 1 " << nElements << " integer\n";
+		for (size_t e_idx=0; e_idx < elements.size(); ++e_idx) {
+			if constexpr (Element_t::HIERARCHICAL) {
+				if (!elements[e_idx].active) {continue;}
+			} 
+			write_big_endian(static_cast<int>(e_idx));
+		}
 		
-	// 	if constexpr (requires {Element_t::color;}) {
-	// 		file << "color 1 " << nElements << " integer\n";
-	// 		for (const Element_t &ELEM : mesh) {
-	// 			if (ELEM.color < (size_t)-1) {write_big_endian(static_cast<int>(ELEM.color));} //valid color
-	// 			else {write_big_endian(int(-1));} //invalid color
-	// 		}
-	// 	}
-
-	// 	if constexpr (requires {Element_t::parent;}) {
-	// 		file << "parent 1 " << nElements << " integer\n";
-	// 		for (const Element_t &ELEM : mesh) {
-	// 			if (ELEM.parent < (size_t)-1) {write_big_endian(static_cast<int>(ELEM.parent));} //valid parent
-	// 			else {write_big_endian(int(-1));} //invalid parent
-	// 		}
-	// 	}
 		
-	// 	if constexpr (requires {Element_t::children;}) {
-	// 		size_t max_children = 0;
-	// 		for (const Element_t &ELEM : mesh) {
-	// 			max_children = std::max(max_children, ELEM.children.size());
-	// 		}
+		if constexpr (Element_t::COLORABLE) {
+			file << "color 1 " << nElements << " integer\n";
+			for (size_t e_idx=0; e_idx < elements.size(); ++e_idx) {
+				const auto& ELEM = elements[e_idx];
+				if constexpr (Element_t::HIERARCHICAL) {
+					if (!ELEM.active) {continue;}
+				} 
+				if (ELEM.color < (size_t)-1) {write_big_endian(static_cast<int>(ELEM.color));} //valid color
+				else {write_big_endian(int(-1));} //invalid color
+			}
+		}
 
-	// 		if (max_children>0) {
-	// 			file << "children " << max_children << " " << nElements << " integer\n";
-	// 			for (const Element_t &ELEM : mesh) {
-	// 				size_t i;
-	// 				for (i=0; i<ELEM.children.size(); i++) {write_big_endian(static_cast<int>(ELEM.children[i]));}
-	// 				for (; i<max_children; i++) {write_big_endian(int(-1));}
-	// 			}
-	// 		} else {
-	// 			file << "children " << 1 << " " << nElements << " integer\n";
-	// 			for (size_t i=0; i<nElements; i++) {write_big_endian(int(-1));}
-	// 		}
-	// 	}
-	// }
+		if constexpr (Element_t::HIERARCHICAL) {
+			file << "parent 1 " << nElements << " integer\n";
+			for (size_t e_idx=0; e_idx < elements.size(); ++e_idx) {
+				const auto& ELEM = elements[e_idx];
+				if constexpr (Element_t::HIERARCHICAL) {
+					if (!ELEM.active) {continue;}
+				}
+				if (ELEM.parent < (size_t)-1) {write_big_endian(static_cast<int>(ELEM.parent));} //valid parent
+				else {write_big_endian(int(-1));} //invalid parent
+			}
+		
+			file << "children " << Element_t::N_CHILDREN << " " << nElements << " integer\n";
+			for (size_t e_idx=0; e_idx < elements.size(); ++e_idx) {
+				const auto& ELEM = elements[e_idx];
+				if constexpr (Element_t::HIERARCHICAL) {
+					if (!ELEM.active) {continue;}
+				}
+				for (size_t c_idx : ELEM.children) {
+					if (c_idx != (size_t) -1) {write_big_endian(static_cast<int>(c_idx));}
+					else {write_big_endian(int(-1));}
+				}
+			}
+
+			file << "depth 1 " << nElements << " integer\n";
+			for (size_t e_idx=0; e_idx < elements.size(); ++e_idx) {
+				const auto& ELEM = elements[e_idx];
+				if constexpr (Element_t::HIERARCHICAL) {
+					if (!ELEM.active) {continue;}
+				}
+				write_big_endian(static_cast<int>(ELEM.depth));
+			}
+		}
+	}
 }

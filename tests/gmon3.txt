@@ -1,0 +1,460 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 36.37      0.16     0.16    25963     0.01     0.01  void gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges_for_elements<std::vector<unsigned long, std::allocator<unsigned long> > >(std::vector<unsigned long, std::allocator<unsigned long> > const&)
+ 31.82      0.30     0.14 31662305     0.00     0.00  frame_dummy
+  9.09      0.34     0.04   493422     0.00     0.00  unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<true>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const
+  9.09      0.38     0.04      144     0.28     2.98  gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod)
+  4.55      0.40     0.02   493934     0.00     0.00  gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_best_node(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const
+  2.27      0.41     0.01   493297     0.00     0.00  gutil::Point<3, double> gutil::sorted_sum<3, double, double, double>(std::vector<gutil::Point<3, double>, std::allocator<gutil::Point<3, double> > > const&)
+  2.27      0.42     0.01   207768     0.00     0.00  gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>::set_color_unlocked(unsigned long, std::vector<unsigned long, std::allocator<unsigned long> > const&)
+  2.27      0.43     0.01      144     0.07     0.07  std::vector<gv::mesh::MeshElement<11, true, true>, std::allocator<gv::mesh::MeshElement<11, true, true> > >::_M_default_append(unsigned long)
+  2.27      0.44     0.01                             _init
+  0.00      0.44     0.00  1479892     0.00     0.00  gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::dist2data(gutil::Point<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const
+  0.00      0.44     0.00   780845     0.00     0.00  void std::vector<unsigned long, std::allocator<unsigned long> >::_M_realloc_append<unsigned long const&>(unsigned long const&)
+  0.00      0.44     0.00   688752     0.00     0.00  gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::operator[](unsigned long) const
+  0.00      0.44     0.00   319889     0.00     0.00  std::vector<unsigned long, std::allocator<unsigned long> >::reserve(unsigned long)
+  0.00      0.44     0.00   230740     0.00     0.00  int gutil::appendDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*, unsigned long)
+  0.00      0.44     0.00   207768     0.00     0.00  gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::insert_element_async(gv::mesh::MeshElement<11, true, true>&&, unsigned long)
+  0.00      0.44     0.00   193560     0.00     0.00  int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long)
+  0.00      0.44     0.00    86094     0.00     0.00  std::vector<unsigned long, std::allocator<unsigned long> >::_M_erase(__gnu_cxx::__normal_iterator<unsigned long*, std::vector<unsigned long, std::allocator<unsigned long> > >, __gnu_cxx::__normal_iterator<unsigned long*, std::vector<unsigned long, std::allocator<unsigned long> > >)
+  0.00      0.44     0.00    25972     0.00     0.00  gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::isValid(gutil::Box<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const
+  0.00      0.44     0.00    25963     0.00     0.00  gv::mesh::VTK_VOXEL<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >::set_child_vertices_impl()
+  0.00      0.44     0.00    25963     0.00     0.00  gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::splitElement(unsigned long) const
+  0.00      0.44     0.00    25963     0.00     0.00  std::_Hashtable<unsigned long, unsigned long, std::allocator<unsigned long>, std::__detail::_Identity, std::equal_to<unsigned long>, std::hash<unsigned long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::_M_insert_unique_node(unsigned long, unsigned long, std::__detail::_Hash_node<unsigned long, false>*, unsigned long)
+  0.00      0.44     0.00     4579     0.00     0.00  gutil::Box<3, double>::Box(gutil::Point<3, double> const&, gutil::Point<3, double> const&)
+  0.00      0.44     0.00     4571     0.00     0.00  void gutil::resetDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*)
+  0.00      0.44     0.00      572     0.00     0.00  gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_divide(gutil::OctreeParallelNode<3, 64, double>*)
+  0.00      0.44     0.00      512     0.00     0.00  unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<false>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const
+  0.00      0.44     0.00      144     0.00     0.00  gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::resize(unsigned long)
+  0.00      0.44     0.00       64     0.00     2.98  gv::mesh::ColoredMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::color_element_async(unsigned long)
+  0.00      0.44     0.00       25     0.00     0.00  std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose()
+  0.00      0.44     0.00        9     0.00     0.00  gutil::OctreeParallelNode<3, 64, double>::~OctreeParallelNode()
+  0.00      0.44     0.00        8     0.00     0.00  std::_Hashtable<unsigned long, unsigned long, std::allocator<unsigned long>, std::__detail::_Identity, std::equal_to<unsigned long>, std::hash<unsigned long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::clear()
+  0.00      0.44     0.00        8     0.00     0.00  void std::_Destroy_aux<false>::__destroy<gv::mesh::BasicVertex<gutil::Point<3, double> >*>(gv::mesh::BasicVertex<gutil::Point<3, double> >*, gv::mesh::BasicVertex<gutil::Point<3, double> >*)
+  0.00      0.44     0.00        8     0.00     0.00  std::__shared_mutex_pthread::lock()
+  0.00      0.44     0.00        8     0.00     0.00  std::vector<gv::mesh::BasicVertex<gutil::Point<3, double> >, std::allocator<gv::mesh::BasicVertex<gutil::Point<3, double> > > >::resize(unsigned long)
+  0.00      0.44     0.00        2     0.00     0.00  std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve(unsigned long)
+  0.00      0.44     0.00        1     0.00   430.04  test()
+  0.00      0.44     0.00        1     0.00     0.00  void gv::mesh::memorySummary<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&)
+  0.00      0.44     0.00        1     0.00     0.00  void gv::mesh::print_topology_binary_vtk<gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> >(std::basic_ofstream<char, std::char_traits<char> >&, gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)
+  0.00      0.44     0.00        1     0.00   191.00  gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges()
+  0.00      0.44     0.00        1     0.00     0.00  gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::~BasicMesh()
+  0.00      0.44     0.00        1     0.00     0.00  std::ostream& gv::mesh::operator<< <(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>(std::ostream&, gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul> const&)
+  0.00      0.44     0.00        1     0.00     0.00  std::ostream& gv::mesh::operator<< <gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(std::ostream&, gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&)
+  0.00      0.44     0.00        1     0.00     0.00  gutil::Point<3, double> gutil::operator-<3, double>(gutil::Point<3, double> const&, gutil::Point<3, double> const&)
+  0.00      0.44     0.00        1     0.00     0.00  gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::nElements_active() const
+  0.00      0.44     0.00        1     0.00     0.00  gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool, bool) const
+  0.00      0.44     0.00        1     0.00     0.00  gutil::Box<3, double> gutil::Box<3, double>::operator*<double>(double const&) const
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2025 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 2.27% of 0.44 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     97.7    0.00    0.43                 main [1]
+                0.00    0.43       1/1           test() [2]
+                0.00    0.00       1/31662305     frame_dummy [8]
+-----------------------------------------------
+                0.00    0.43       1/1           main [1]
+[2]     97.7    0.00    0.43       1         test() [2]
+                0.00    0.19      64/64          gv::mesh::ColoredMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::color_element_async(unsigned long) [4]
+                0.00    0.19       1/1           gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges() [5]
+                0.00    0.04      16/144         gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+                0.00    0.00     637/493934      gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_best_node(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [7]
+                0.00    0.00       1/144         std::vector<gv::mesh::MeshElement<11, true, true>, std::allocator<gv::mesh::MeshElement<11, true, true> > >::_M_default_append(unsigned long) [13]
+                0.00    0.00     125/493422      unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<true>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [9]
+                0.00    0.00     512/512         unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<false>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [17]
+                0.00    0.00     125/193560      int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long) [15]
+                0.00    0.00       1/1           std::ostream& gv::mesh::operator<< <gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(std::ostream&, gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [18]
+                0.00    0.00       1/1           void gv::mesh::memorySummary<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [20]
+                0.00    0.00       1/1           gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool, bool) const [21]
+                0.00    0.00       2/31662305     frame_dummy [8]
+                0.00    0.00       1/1           gutil::Box<3, double> gutil::Box<3, double>::operator*<double>(double const&) const [23]
+                0.00    0.00   25963/25963       gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::splitElement(unsigned long) const [37]
+                0.00    0.00      64/207768      gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::insert_element_async(gv::mesh::MeshElement<11, true, true>&&, unsigned long) [34]
+                0.00    0.00       2/4579        gutil::Box<3, double>::Box(gutil::Point<3, double> const&, gutil::Point<3, double> const&) [39]
+                0.00    0.00       2/4571        void gutil::resetDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*) [40]
+                0.00    0.00       1/9           gutil::OctreeParallelNode<3, 64, double>::~OctreeParallelNode() [43]
+                0.00    0.00       1/144         gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::resize(unsigned long) [41]
+                0.00    0.00       1/1           gutil::Point<3, double> gutil::operator-<3, double>(gutil::Point<3, double> const&, gutil::Point<3, double> const&) [50]
+                0.00    0.00       1/25          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() [42]
+                0.00    0.00       1/1           gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::~BasicMesh() [49]
+-----------------------------------------------
+                0.00    0.04      16/144         test() [2]
+                0.02    0.17      64/144         gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges() [5]
+                0.02    0.17      64/144         gv::mesh::ColoredMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::color_element_async(unsigned long) [4]
+[3]     97.7    0.04    0.39     144         gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+                0.16    0.00   25963/25963       void gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges_for_elements<std::vector<unsigned long, std::allocator<unsigned long> > >(std::vector<unsigned long, std::allocator<unsigned long> > const&) [6]
+                0.02    0.13  493297/493934      gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_best_node(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [7]
+                0.04    0.00  493297/493422      unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<true>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [9]
+                0.00    0.01   25963/25963       gv::mesh::VTK_VOXEL<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >::set_child_vertices_impl() [10]
+                0.01    0.00  207704/207768      gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>::set_color_unlocked(unsigned long, std::vector<unsigned long, std::allocator<unsigned long> > const&) [12]
+                0.01    0.00     143/144         std::vector<gv::mesh::MeshElement<11, true, true>, std::allocator<gv::mesh::MeshElement<11, true, true> > >::_M_default_append(unsigned long) [13]
+                0.01    0.00 1140288/31662305     frame_dummy [8]
+                0.00    0.00  193435/193560      int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long) [15]
+                0.00    0.00  688752/688752      gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::operator[](unsigned long) const [31]
+                0.00    0.00  319889/319889      std::vector<unsigned long, std::allocator<unsigned long> >::reserve(unsigned long) [32]
+                0.00    0.00  207704/207768      gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::insert_element_async(gv::mesh::MeshElement<11, true, true>&&, unsigned long) [34]
+                0.00    0.00   86094/86094       std::vector<unsigned long, std::allocator<unsigned long> >::_M_erase(__gnu_cxx::__normal_iterator<unsigned long*, std::vector<unsigned long, std::allocator<unsigned long> > >, __gnu_cxx::__normal_iterator<unsigned long*, std::vector<unsigned long, std::allocator<unsigned long> > >) [35]
+                0.00    0.00    1074/780845      void std::vector<unsigned long, std::allocator<unsigned long> >::_M_realloc_append<unsigned long const&>(unsigned long const&) [30]
+                0.00    0.00     143/144         gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::resize(unsigned long) [41]
+                0.00    0.00       8/8           std::_Hashtable<unsigned long, unsigned long, std::allocator<unsigned long>, std::__detail::_Identity, std::equal_to<unsigned long>, std::hash<unsigned long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::clear() [44]
+                0.00    0.00       8/8           std::__shared_mutex_pthread::lock() [46]
+                0.00    0.00       8/8           std::vector<gv::mesh::BasicVertex<gutil::Point<3, double> >, std::allocator<gv::mesh::BasicVertex<gutil::Point<3, double> > > >::resize(unsigned long) [47]
+                0.00    0.00       8/8           void std::_Destroy_aux<false>::__destroy<gv::mesh::BasicVertex<gutil::Point<3, double> >*>(gv::mesh::BasicVertex<gutil::Point<3, double> >*, gv::mesh::BasicVertex<gutil::Point<3, double> >*) [45]
+-----------------------------------------------
+                0.00    0.19      64/64          test() [2]
+[4]     43.4    0.00    0.19      64         gv::mesh::ColoredMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::color_element_async(unsigned long) [4]
+                0.02    0.17      64/144         gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+                0.00    0.00      64/207768      gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>::set_color_unlocked(unsigned long, std::vector<unsigned long, std::allocator<unsigned long> > const&) [12]
+-----------------------------------------------
+                0.00    0.19       1/1           test() [2]
+[5]     43.4    0.00    0.19       1         gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges() [5]
+                0.02    0.17      64/144         gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+-----------------------------------------------
+                0.16    0.00   25963/25963       gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[6]     36.4    0.16    0.00   25963         void gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges_for_elements<std::vector<unsigned long, std::allocator<unsigned long> > >(std::vector<unsigned long, std::allocator<unsigned long> > const&) [6]
+                0.00    0.00   25963/25972       gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::isValid(gutil::Box<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [36]
+-----------------------------------------------
+                0.00    0.00     637/493934      test() [2]
+                0.02    0.13  493297/493934      gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[7]     34.0    0.02    0.13  493934         gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_best_node(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [7]
+                0.13    0.00 29359507/31662305     frame_dummy [8]
+-----------------------------------------------
+                             1136285             frame_dummy [8]
+                0.00    0.00       1/31662305     main [1]
+                0.00    0.00       1/31662305     gutil::Box<3, double> gutil::Box<3, double>::operator*<double>(double const&) const [23]
+                0.00    0.00       1/31662305     gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool, bool) const [21]
+                0.00    0.00       2/31662305     test() [2]
+                0.00    0.00       9/31662305     void gv::mesh::print_topology_binary_vtk<gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> >(std::basic_ofstream<char, std::char_traits<char> >&, gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [22]
+                0.00    0.00      10/31662305     void gv::mesh::memorySummary<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [20]
+                0.00    0.00      11/31662305     std::ostream& gv::mesh::operator<< <(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>(std::ostream&, gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul> const&) [19]
+                0.00    0.00      15/31662305     std::ostream& gv::mesh::operator<< <gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(std::ostream&, gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [18]
+                0.00    0.00     512/31662305     unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<false>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [17]
+                0.00    0.00    4576/31662305     gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_divide(gutil::OctreeParallelNode<3, 64, double>*) [16]
+                0.00    0.00  196616/31662305     int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long) [15]
+                0.00    0.00  467334/31662305     gv::mesh::VTK_VOXEL<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >::set_child_vertices_impl() [10]
+                0.00    0.00  493422/31662305     unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<true>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [9]
+                0.01    0.00 1140288/31662305     gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+                0.13    0.00 29359507/31662305     gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_best_node(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [7]
+[8]     31.8    0.14    0.00 31662305+1136285 frame_dummy [8]
+                             1136285             frame_dummy [8]
+-----------------------------------------------
+                0.00    0.00     125/493422      test() [2]
+                0.04    0.00  493297/493422      gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[9]      9.6    0.04    0.00  493422         unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<true>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [9]
+                0.00    0.00  493422/31662305     frame_dummy [8]
+-----------------------------------------------
+                0.00    0.01   25963/25963       gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[10]     2.7    0.00    0.01   25963         gv::mesh::VTK_VOXEL<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >::set_child_vertices_impl() [10]
+                0.01    0.00  493297/493297      gutil::Point<3, double> gutil::sorted_sum<3, double, double, double>(std::vector<gutil::Point<3, double>, std::allocator<gutil::Point<3, double> > > const&) [11]
+                0.00    0.00  467334/31662305     frame_dummy [8]
+-----------------------------------------------
+                              467334             gutil::Point<3, double> gutil::sorted_sum<3, double, double, double>(std::vector<gutil::Point<3, double>, std::allocator<gutil::Point<3, double> > > const&) [11]
+                0.01    0.00  493297/493297      gv::mesh::VTK_VOXEL<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >::set_child_vertices_impl() [10]
+[11]     2.3    0.01    0.00  493297+467334  gutil::Point<3, double> gutil::sorted_sum<3, double, double, double>(std::vector<gutil::Point<3, double>, std::allocator<gutil::Point<3, double> > > const&) [11]
+                0.00    0.00 1479891/1479892     gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::dist2data(gutil::Point<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [29]
+                              467334             gutil::Point<3, double> gutil::sorted_sum<3, double, double, double>(std::vector<gutil::Point<3, double>, std::allocator<gutil::Point<3, double> > > const&) [11]
+-----------------------------------------------
+                0.00    0.00      64/207768      gv::mesh::ColoredMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::color_element_async(unsigned long) [4]
+                0.01    0.00  207704/207768      gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[12]     2.3    0.01    0.00  207768         gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>::set_color_unlocked(unsigned long, std::vector<unsigned long, std::allocator<unsigned long> > const&) [12]
+-----------------------------------------------
+                0.00    0.00       1/144         test() [2]
+                0.01    0.00     143/144         gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[13]     2.3    0.01    0.00     144         std::vector<gv::mesh::MeshElement<11, true, true>, std::allocator<gv::mesh::MeshElement<11, true, true> > >::_M_default_append(unsigned long) [13]
+-----------------------------------------------
+                                                 <spontaneous>
+[14]     2.3    0.01    0.00                 _init [14]
+-----------------------------------------------
+                                 572             int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long) [15]
+                0.00    0.00     125/193560      test() [2]
+                0.00    0.00  193435/193560      gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[15]     0.2    0.00    0.00  193560+572     int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long) [15]
+                0.00    0.00  196616/31662305     frame_dummy [8]
+                0.00    0.00     572/572         gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_divide(gutil::OctreeParallelNode<3, 64, double>*) [16]
+                0.00    0.00  194132/230740      int gutil::appendDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*, unsigned long) [33]
+                                 572             int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long) [15]
+-----------------------------------------------
+                0.00    0.00     572/572         int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long) [15]
+[16]     0.0    0.00    0.00     572         gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_divide(gutil::OctreeParallelNode<3, 64, double>*) [16]
+                0.00    0.00    4576/31662305     frame_dummy [8]
+                0.00    0.00   36608/230740      int gutil::appendDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*, unsigned long) [33]
+                0.00    0.00    4576/4579        gutil::Box<3, double>::Box(gutil::Point<3, double> const&, gutil::Point<3, double> const&) [39]
+-----------------------------------------------
+                0.00    0.00     512/512         test() [2]
+[17]     0.0    0.00    0.00     512         unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<false>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [17]
+                0.00    0.00     512/31662305     frame_dummy [8]
+-----------------------------------------------
+                0.00    0.00       1/1           test() [2]
+[18]     0.0    0.00    0.00       1         std::ostream& gv::mesh::operator<< <gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(std::ostream&, gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [18]
+                0.00    0.00      15/31662305     frame_dummy [8]
+                0.00    0.00       1/1           std::ostream& gv::mesh::operator<< <(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>(std::ostream&, gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul> const&) [19]
+                0.00    0.00      10/25          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() [42]
+                0.00    0.00       2/2           std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve(unsigned long) [48]
+                0.00    0.00       2/25972       gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::isValid(gutil::Box<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [36]
+-----------------------------------------------
+                0.00    0.00       1/1           std::ostream& gv::mesh::operator<< <gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(std::ostream&, gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [18]
+[19]     0.0    0.00    0.00       1         std::ostream& gv::mesh::operator<< <(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>(std::ostream&, gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul> const&) [19]
+                0.00    0.00      11/31662305     frame_dummy [8]
+                0.00    0.00       4/25          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() [42]
+-----------------------------------------------
+                0.00    0.00       1/1           test() [2]
+[20]     0.0    0.00    0.00       1         void gv::mesh::memorySummary<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [20]
+                0.00    0.00      10/31662305     frame_dummy [8]
+                0.00    0.00       7/25972       gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::isValid(gutil::Box<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [36]
+                0.00    0.00       7/25          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() [42]
+                0.00    0.00       1/1479892     gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::dist2data(gutil::Point<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [29]
+-----------------------------------------------
+                0.00    0.00       1/1           test() [2]
+[21]     0.0    0.00    0.00       1         gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool, bool) const [21]
+                0.00    0.00       1/1           void gv::mesh::print_topology_binary_vtk<gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> >(std::basic_ofstream<char, std::char_traits<char> >&, gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [22]
+                0.00    0.00       1/31662305     frame_dummy [8]
+                0.00    0.00       1/25          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() [42]
+-----------------------------------------------
+                0.00    0.00       1/1           gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool, bool) const [21]
+[22]     0.0    0.00    0.00       1         void gv::mesh::print_topology_binary_vtk<gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> >(std::basic_ofstream<char, std::char_traits<char> >&, gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [22]
+                0.00    0.00       9/31662305     frame_dummy [8]
+                0.00    0.00       1/1           gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::nElements_active() const [51]
+-----------------------------------------------
+                0.00    0.00       1/1           test() [2]
+[23]     0.0    0.00    0.00       1         gutil::Box<3, double> gutil::Box<3, double>::operator*<double>(double const&) const [23]
+                0.00    0.00       1/31662305     frame_dummy [8]
+                0.00    0.00       1/4579        gutil::Box<3, double>::Box(gutil::Point<3, double> const&, gutil::Point<3, double> const&) [39]
+-----------------------------------------------
+                               36616             gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::dist2data(gutil::Point<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [29]
+                0.00    0.00       1/1479892     void gv::mesh::memorySummary<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [20]
+                0.00    0.00 1479891/1479892     gutil::Point<3, double> gutil::sorted_sum<3, double, double, double>(std::vector<gutil::Point<3, double>, std::allocator<gutil::Point<3, double> > > const&) [11]
+[29]     0.0    0.00    0.00 1479892+36616   gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::dist2data(gutil::Point<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [29]
+                               36616             gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::dist2data(gutil::Point<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [29]
+-----------------------------------------------
+                0.00    0.00    1074/780845      gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+                0.00    0.00  779771/780845      gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::insert_element_async(gv::mesh::MeshElement<11, true, true>&&, unsigned long) [34]
+[30]     0.0    0.00    0.00  780845         void std::vector<unsigned long, std::allocator<unsigned long> >::_M_realloc_append<unsigned long const&>(unsigned long const&) [30]
+-----------------------------------------------
+                0.00    0.00  688752/688752      gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[31]     0.0    0.00    0.00  688752         gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::operator[](unsigned long) const [31]
+-----------------------------------------------
+                0.00    0.00  319889/319889      gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[32]     0.0    0.00    0.00  319889         std::vector<unsigned long, std::allocator<unsigned long> >::reserve(unsigned long) [32]
+-----------------------------------------------
+                0.00    0.00   36608/230740      gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_divide(gutil::OctreeParallelNode<3, 64, double>*) [16]
+                0.00    0.00  194132/230740      int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long) [15]
+[33]     0.0    0.00    0.00  230740         int gutil::appendDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*, unsigned long) [33]
+                0.00    0.00    4569/4571        void gutil::resetDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*) [40]
+-----------------------------------------------
+                0.00    0.00      64/207768      test() [2]
+                0.00    0.00  207704/207768      gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[34]     0.0    0.00    0.00  207768         gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::insert_element_async(gv::mesh::MeshElement<11, true, true>&&, unsigned long) [34]
+                0.00    0.00  779771/780845      void std::vector<unsigned long, std::allocator<unsigned long> >::_M_realloc_append<unsigned long const&>(unsigned long const&) [30]
+-----------------------------------------------
+                0.00    0.00   86094/86094       gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[35]     0.0    0.00    0.00   86094         std::vector<unsigned long, std::allocator<unsigned long> >::_M_erase(__gnu_cxx::__normal_iterator<unsigned long*, std::vector<unsigned long, std::allocator<unsigned long> > >, __gnu_cxx::__normal_iterator<unsigned long*, std::vector<unsigned long, std::allocator<unsigned long> > >) [35]
+-----------------------------------------------
+                0.00    0.00       2/25972       std::ostream& gv::mesh::operator<< <gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(std::ostream&, gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [18]
+                0.00    0.00       7/25972       void gv::mesh::memorySummary<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [20]
+                0.00    0.00   25963/25972       void gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges_for_elements<std::vector<unsigned long, std::allocator<unsigned long> > >(std::vector<unsigned long, std::allocator<unsigned long> > const&) [6]
+[36]     0.0    0.00    0.00   25972         gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::isValid(gutil::Box<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [36]
+-----------------------------------------------
+                0.00    0.00   25963/25963       test() [2]
+[37]     0.0    0.00    0.00   25963         gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::splitElement(unsigned long) const [37]
+                0.00    0.00   25963/25963       std::_Hashtable<unsigned long, unsigned long, std::allocator<unsigned long>, std::__detail::_Identity, std::equal_to<unsigned long>, std::hash<unsigned long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::_M_insert_unique_node(unsigned long, unsigned long, std::__detail::_Hash_node<unsigned long, false>*, unsigned long) [38]
+-----------------------------------------------
+                0.00    0.00   25963/25963       gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::splitElement(unsigned long) const [37]
+[38]     0.0    0.00    0.00   25963         std::_Hashtable<unsigned long, unsigned long, std::allocator<unsigned long>, std::__detail::_Identity, std::equal_to<unsigned long>, std::hash<unsigned long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::_M_insert_unique_node(unsigned long, unsigned long, std::__detail::_Hash_node<unsigned long, false>*, unsigned long) [38]
+-----------------------------------------------
+                0.00    0.00       1/4579        gutil::Box<3, double> gutil::Box<3, double>::operator*<double>(double const&) const [23]
+                0.00    0.00       2/4579        test() [2]
+                0.00    0.00    4576/4579        gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_divide(gutil::OctreeParallelNode<3, 64, double>*) [16]
+[39]     0.0    0.00    0.00    4579         gutil::Box<3, double>::Box(gutil::Point<3, double> const&, gutil::Point<3, double> const&) [39]
+-----------------------------------------------
+                0.00    0.00       2/4571        test() [2]
+                0.00    0.00    4569/4571        int gutil::appendDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*, unsigned long) [33]
+[40]     0.0    0.00    0.00    4571         void gutil::resetDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*) [40]
+-----------------------------------------------
+                0.00    0.00       1/144         test() [2]
+                0.00    0.00     143/144         gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[41]     0.0    0.00    0.00     144         gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::resize(unsigned long) [41]
+-----------------------------------------------
+                0.00    0.00       1/25          test() [2]
+                0.00    0.00       1/25          gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool, bool) const [21]
+                0.00    0.00       2/25          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve(unsigned long) [48]
+                0.00    0.00       4/25          std::ostream& gv::mesh::operator<< <(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>(std::ostream&, gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul> const&) [19]
+                0.00    0.00       7/25          void gv::mesh::memorySummary<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [20]
+                0.00    0.00      10/25          std::ostream& gv::mesh::operator<< <gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(std::ostream&, gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [18]
+[42]     0.0    0.00    0.00      25         std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() [42]
+-----------------------------------------------
+                0.00    0.00       1/9           test() [2]
+                0.00    0.00       8/9           gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::~BasicMesh() [49]
+[43]     0.0    0.00    0.00       9         gutil::OctreeParallelNode<3, 64, double>::~OctreeParallelNode() [43]
+-----------------------------------------------
+                0.00    0.00       8/8           gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[44]     0.0    0.00    0.00       8         std::_Hashtable<unsigned long, unsigned long, std::allocator<unsigned long>, std::__detail::_Identity, std::equal_to<unsigned long>, std::hash<unsigned long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::clear() [44]
+-----------------------------------------------
+                0.00    0.00       8/8           gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[45]     0.0    0.00    0.00       8         void std::_Destroy_aux<false>::__destroy<gv::mesh::BasicVertex<gutil::Point<3, double> >*>(gv::mesh::BasicVertex<gutil::Point<3, double> >*, gv::mesh::BasicVertex<gutil::Point<3, double> >*) [45]
+-----------------------------------------------
+                0.00    0.00       8/8           gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[46]     0.0    0.00    0.00       8         std::__shared_mutex_pthread::lock() [46]
+-----------------------------------------------
+                0.00    0.00       8/8           gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [3]
+[47]     0.0    0.00    0.00       8         std::vector<gv::mesh::BasicVertex<gutil::Point<3, double> >, std::allocator<gv::mesh::BasicVertex<gutil::Point<3, double> > > >::resize(unsigned long) [47]
+-----------------------------------------------
+                0.00    0.00       2/2           std::ostream& gv::mesh::operator<< <gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(std::ostream&, gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [18]
+[48]     0.0    0.00    0.00       2         std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve(unsigned long) [48]
+                0.00    0.00       2/25          std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose() [42]
+-----------------------------------------------
+                0.00    0.00       1/1           test() [2]
+[49]     0.0    0.00    0.00       1         gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::~BasicMesh() [49]
+                0.00    0.00       8/9           gutil::OctreeParallelNode<3, 64, double>::~OctreeParallelNode() [43]
+-----------------------------------------------
+                0.00    0.00       1/1           test() [2]
+[50]     0.0    0.00    0.00       1         gutil::Point<3, double> gutil::operator-<3, double>(gutil::Point<3, double> const&, gutil::Point<3, double> const&) [50]
+-----------------------------------------------
+                0.00    0.00       1/1           void gv::mesh::print_topology_binary_vtk<gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> >(std::basic_ofstream<char, std::char_traits<char> >&, gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [22]
+[51]     0.0    0.00    0.00       1         gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::nElements_active() const [51]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2025 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+   [2] test()                 [33] int gutil::appendDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*, unsigned long) [31] gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::operator[](unsigned long) const
+   [4] gv::mesh::ColoredMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::color_element_async(unsigned long) [43] gutil::OctreeParallelNode<3, 64, double>::~OctreeParallelNode() [23] gutil::Box<3, double> gutil::Box<3, double>::operator*<double>(double const&) const
+  [20] void gv::mesh::memorySummary<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [15] int gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_insert_data<false>(gutil::OctreeParallelNode<3, 64, double>*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&, unsigned long) [38] std::_Hashtable<unsigned long, unsigned long, std::allocator<unsigned long>, std::__detail::_Identity, std::equal_to<unsigned long>, std::hash<unsigned long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::_M_insert_unique_node(unsigned long, unsigned long, std::__detail::_Hash_node<unsigned long, false>*, unsigned long)
+  [12] gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>::set_color_unlocked(unsigned long, std::vector<unsigned long, std::allocator<unsigned long> > const&) [41] gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::resize(unsigned long) [44] std::_Hashtable<unsigned long, unsigned long, std::allocator<unsigned long>, std::__detail::_Identity, std::equal_to<unsigned long>, std::hash<unsigned long>, std::__detail::_Mod_range_hashing, std::__detail::_Default_ranged_hash, std::__detail::_Prime_rehash_policy, std::__detail::_Hashtable_traits<false, true, true> >::clear()
+  [22] void gv::mesh::print_topology_binary_vtk<gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> >(std::basic_ofstream<char, std::char_traits<char> >&, gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double> const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) [16] gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_divide(gutil::OctreeParallelNode<3, 64, double>*) [45] void std::_Destroy_aux<false>::__destroy<gv::mesh::BasicVertex<gutil::Point<3, double> >*>(gv::mesh::BasicVertex<gutil::Point<3, double> >*, gv::mesh::BasicVertex<gutil::Point<3, double> >*)
+   [5] gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges() [39] gutil::Box<3, double>::Box(gutil::Point<3, double> const&, gutil::Point<3, double> const&) [46] std::__shared_mutex_pthread::lock()
+  [34] gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::insert_element_async(gv::mesh::MeshElement<11, true, true>&&, unsigned long) [50] gutil::Point<3, double> gutil::operator-<3, double>(gutil::Point<3, double> const&, gutil::Point<3, double> const&) [47] std::vector<gv::mesh::BasicVertex<gutil::Point<3, double> >, std::allocator<gv::mesh::BasicVertex<gutil::Point<3, double> > > >::resize(unsigned long)
+   [6] void gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::pair_halfedges_for_elements<std::vector<unsigned long, std::allocator<unsigned long> > >(std::vector<unsigned long, std::allocator<unsigned long> > const&) [36] gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::isValid(gutil::Box<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [13] std::vector<gv::mesh::MeshElement<11, true, true>, std::allocator<gv::mesh::MeshElement<11, true, true> > >::_M_default_append(unsigned long)
+  [49] gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::~BasicMesh() [29] gv::mesh::VertexOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, 64, double>::dist2data(gutil::Point<3, double> const&, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [30] void std::vector<unsigned long, std::allocator<unsigned long> >::_M_realloc_append<unsigned long const&>(unsigned long const&)
+  [10] gv::mesh::VTK_VOXEL<gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >::set_child_vertices_impl() [37] gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::splitElement(unsigned long) const [32] std::vector<unsigned long, std::allocator<unsigned long> >::reserve(unsigned long)
+   [3] gv::mesh::operator<<(std::ostream&, gv::mesh::ColorMethod) [51] gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul>::nElements_active() const [35] std::vector<unsigned long, std::allocator<unsigned long> >::_M_erase(__gnu_cxx::__normal_iterator<unsigned long*, std::vector<unsigned long, std::allocator<unsigned long> > >, __gnu_cxx::__normal_iterator<unsigned long*, std::vector<unsigned long, std::allocator<unsigned long> > >)
+  [19] std::ostream& gv::mesh::operator<< <(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul>(std::ostream&, gv::mesh::MeshColorManager<(gv::mesh::ColorMethod)1, gv::mesh::MeshElement<11, true, true>, 64ul> const&) [21] gv::mesh::BasicMesh<gv::mesh::MeshElement<11, true, true>, double>::save_as(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool, bool) const [42] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_dispose()
+  [18] std::ostream& gv::mesh::operator<< <gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> >(std::ostream&, gv::mesh::HierarchicalMesh<gv::mesh::MeshElement<11, true, true>, double, (gv::mesh::ColorMethod)1, 64ul> const&) [17] unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<false>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [48] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve(unsigned long)
+  [11] gutil::Point<3, double> gutil::sorted_sum<3, double, double, double>(std::vector<gutil::Point<3, double>, std::allocator<gutil::Point<3, double> > > const&) [9] unsigned long gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_index<true>(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [14] _init
+  [40] void gutil::resetDataIdx<3, 64, double>(gutil::OctreeParallelNode<3, 64, double>*) [7] gutil::BasicParallelOctree<gv::mesh::BasicVertex<gutil::Point<3, double> >, true, 3, 64, double>::_recursive_find_best_node(gutil::OctreeParallelNode<3, 64, double> const*, gv::mesh::BasicVertex<gutil::Point<3, double> > const&) const [8] frame_dummy

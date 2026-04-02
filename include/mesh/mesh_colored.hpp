@@ -125,16 +125,21 @@ namespace gv::mesh
 		/////////////////////////////////////////////////
 		/// Check if the coloring is valid
 		/////////////////////////////////////////////////
-		bool are_colors_valid() const
+		template<typename Predicate = std::nullptr_t>
+		bool are_colors_valid(Predicate&& pred = nullptr) const
 		{
 			for (size_t e_idx=0; e_idx<this->_elements.size(); ++e_idx) {
 				const Element_t& ELEM = this->_elements[e_idx];
-
-				std::vector<size_t> neighbors;
-				this->get_element_neighbors(e_idx, neighbors);
+				if constexpr (not std::is_same_v<Predicate, std::nullptr_t>) {
+					if (!pred(ELEM)) {continue;}
+				}
+				
+				std::vector<size_t> neighbors = this->get_element_neighbors(e_idx, std::forward<Predicate>(pred));
 				for (size_t n_idx: neighbors) {
 					if (ELEM.color == this->_elements[n_idx].color) {
-						std::cout << "elements " << e_idx << " and " << n_idx << " color (" << ELEM.color << ") colision" << std::endl;
+						std::cout << "elements " << e_idx << " and " << n_idx << " color (" << ELEM.color << ") collision" << std::endl;
+						std::cout << this->_elements[e_idx] << std::endl;
+						std::cout << this->_elements[n_idx] << std::endl;
 						return false;
 					}
 				}
