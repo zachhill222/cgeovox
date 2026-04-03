@@ -26,8 +26,6 @@ void test() {
 	Box_t   domain(-corner, corner);
 	Index_t N{4,4,4};
 	Mesh_t  mesh(domain,N);
-	mesh.elements_reserve(3000000);
-	mesh.vertices_reserve(3000000);
 
 	auto H = corner;
 	for (int n=0; n<10; n++){
