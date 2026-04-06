@@ -31,7 +31,6 @@ namespace gv::pde
 
 		void mass_kernel(const size_t e_idx, const std::vector<size_t>& dofs, std::vector<double>& local_mass_vals) const
 		{
-			
 			//construct quadrature points in reference coordinates on the specified element
 			using RefPoint_t = typename gv::mesh::VTK_VOXEL<Mesh_t>::RefPoint_t;
 			
@@ -104,7 +103,6 @@ namespace gv::pde
 
 		void stiff_kernel(const size_t e_idx, const std::vector<size_t>& dofs, std::vector<double>& local_stiff_vals) const
 		{
-			
 			//construct quadrature points in reference coordinates on the specified element
 			using RefPoint_t = typename gv::mesh::VTK_VOXEL<Mesh_t>::RefPoint_t;
 			

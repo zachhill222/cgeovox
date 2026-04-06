@@ -1,0 +1,574 @@
+#pragma once
+
+#include "guitil.hpp"
+
+#include <cstdint>
+#include <cassert>
+#include <cmath>
+
+#include <stdexcept>
+#include <string>
+
+namespace gv::mesh
+{
+	//These are helper data types for a hierarchical voxel mesh
+	//This structure allows us to very efficiently store elements, vertices, faces, etc.
+	//The base mesh is 1x1x1 so that every vertex is (in reference coordinates) a dyadic rational number
+	//Elements, vertices, and faces all have special index/key structs for their storage and logical relations.
+	//All information for every element, vertex, and face is compressed into a 64-bit unsigned integer
+	struct VoxelElementKey;
+	struct VoxelVertexKey;
+	struct VoxelFaceKey;
+
+	//shared constants
+	static constexpr uint64_t DOES_NOT_EXIST = uint64_t{-1};
+	
+	//shared bit offsets
+	static constexpr int DEPTH_START =    2;
+	static constexpr int I_START     =   16;
+	static constexpr int J_START     = 2*16;
+	static constexpr int K_START     = 3*16;
+
+	//shared masks
+	static constexpr uint64_t IJK_MASK    = (uint64_t{1} << 16) - 1;
+	static constexpr uint64_t DEPTH_MASK  = (uint64_t{1} << 14) - 1;
+	
+
+	//////////////////////////////////////////////////////////////////////////
+	/// Element Key
+	///
+	/// bit  00    : unused (always 0 if it is a valid element index)
+	/// bits 01    : active flag
+	/// bits 02-15 : depth
+	/// bits 16-31 : i
+	/// bits 32-47 : j
+	/// bits 48-63 : k
+	///
+	///
+	/// Relation to child elements:
+	/// If element E has tuple (d,i,j,k), then its children have tuples (d+1, ci, cj, ck)
+	/// where ci - 2*i = 0 or 1, cj - 2*j = 0 or 1, ck - 2*k = 0 or 1
+	//////////////////////////////////////////////////////////////////////////
+	struct VoxelElementKey
+	{
+		//active mask is unique to VoxelElementKey
+		static constexpr uint64_t ACTIVE_MASK =  uint64_t{1} << 1;
+
+
+		constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
+		constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}
+		constexpr uint64_t k()     const {return (data>>K_START)     & IJK_MASK;}
+		constexpr uint64_t depth() const {return (data>>DEPTH_START) & DEPTH_MASK;}
+
+		//key
+		uint64_t data = DOES_NOT_EXIST;
+
+		//constructors
+		constexpr VoxelElementKey() : data(DOES_NOT_EXIST) {};
+		explicit constexpr VoxelElementKey(uint64_t data) : data(data) {}
+		
+		constexpr VoxelElementKey(const uint64_t depth, const uint64_t i, const uint64_t j, const uint64_t k) :
+			data(
+				(DEPTH_MASK & depth) << DEPTH_START | 
+				(IJK_MASK   & i)     << I_START     |
+				(IJK_MASK   & j)     << J_START     |
+				(IJK_MASK   & k)     << K_START
+				)
+			{
+				//note that the first two bits are always 0 here, so elements are inavtive by default
+				//debug asserts to warn if truncating occured
+				assert(depth <= DEPTH_MASK);
+				assert(    i < IJK_MASK);
+				assert(    j < IJK_MASK);
+				assert(    k < IJK_MASK);
+			}
+
+		//get parent/child element keys
+		constexpr VoxelElementKey child(const bool ii, const bool jj, const bool kk) const
+		{
+			assert(exists());
+			return VoxelElementKey{
+				depth() + 1,
+				2*i()   + static_cast<uint64_t>(ii),
+				2*j()   + static_cast<uint64_t>(jj),
+				2*k()   + static_cast<uint64_t>(kk)
+			};
+		}
+
+		constexpr VoxelElementKey child(const int child_number) const
+		{
+			switch (child_number) {
+			case 0: return child(0,0,0);
+			case 1: return child(1,0,0);
+			case 2: return child(0,1,0);
+			case 3: return child(1,1,0);
+			case 4: return child(0,0,1);
+			case 5: return child(1,0,1);
+			case 6: return child(0,1,1);
+			case 7: return child(1,1,1);
+			default:
+				throw std::range_error("VoxelElementKey::child(int) - invalid child_number (" + std::to_string(child_number) + ")");
+				return VoxelElementKey{};
+			}
+		}
+
+		constexpr VoxelElementKey parent() const
+		{
+			assert(exists());
+			if (this->depth()==0) {return VoxelElementKey{DOES_NOT_EXIST};}
+			return VoxelElementKey{depth()-1, i()>>1, j()>>1, k()>>1}; //integer part of i,j,k/2
+		}
+
+		
+		//comparisons
+		constexpr bool exists() const
+		{
+			return data!=DOES_NOT_EXIST;
+		}
+		
+		constexpr bool is_valid() const
+		{
+			//depth is always valid
+			//indices can't be their maximum value, otherwise its faces and vertices
+			//won't have valid indices
+			const uint64_t max_elem_index = uint64_t{1} << depth(); //2^depth elements in each coordinate direction
+			if (i() >= max_elem_index) {return false;}
+			if (j() >= max_elem_index) {return false;}
+			if (k() >= max_elem_index) {return false;}
+			return true;
+		}
+
+		constexpr bool operator==(const VoxelElementKey other) const
+		{
+			//the comparison should not care if the element is active or not
+			return (data & ~ACTIVE_MASK) == (other.data & ~ACTIVE_MASK);
+		}
+
+		constexpr bool operator<(const VoxelElementKey other) const
+		{
+			//the comparison should not care if the element is active or not
+			return (data & ~ACTIVE_MASK) < (other.data & ~ACTIVE_MASK);
+		}
+
+		//hierarcy relations
+		constexpr bool is_active() const
+		{
+			return ACTIVE_MASK & data;
+		}
+
+		void set_active(const bool flag)
+		{
+			if (flag) {data |= ACTIVE_MASK;}
+			else {data &= ~ACTIVE_MASK;}
+		}
+
+		constexpr bool is_parent_of(const VoxelElementKey other) const
+		{
+			assert(exists());
+			assert(other.exists());
+			return other.parent() == *this;
+		}
+
+		constexpr bool is_child_of(const VoxelElementKey other) const
+		{
+			assert(exists());
+			assert(other.exists());
+			return parent() == other;
+		}
+
+		constexpr bool is_ancestor_of(const VoxelElementKey other) const
+		{
+			assert(exists());
+			assert(other.exists());
+
+			const uint64_t this_depth = this->depth();
+			const uint64_t other_depth = other.depth();
+			if (this_depth >= other_depth) {return false;}
+
+			const uint64_t dd    = other_depth - this_depth;
+			const uint64_t range = uint64_t{1} << dd;
+
+			if (other.i() - (this->i() << dd) >= range) {return false;}
+			if (other.j() - (this->j() << dd) >= range) {return false;}
+			if (other.k() - (this->k() << dd) >= range) {return false;}
+			return true;
+		}
+		constexpr bool is_descendant_of(const VoxelElementKey other) const
+		{
+			assert(exists());
+			assert(other.exists());
+			return other.is_ancestor_of(*this);
+		}
+
+
+		//get vertices and faces
+		constexpr VoxelVertexKey vertex(const bool ii, const bool jj, const bool kk) const
+		{
+			return VoxelVertexKey(
+				depth(),
+				i() + static_cast<uint64_t>(ii),
+				j() + static_cast<uint64_t>(jj),
+				k() + static_cast<uint64_t>(kk)
+			);
+		}
+
+		constexpr VoxelVertexKey vertex(const int vertex_number) const
+		{
+			switch (vertex_number) {
+			case 0: return vertex(0,0,0);
+			case 1: return vertex(1,0,0);
+			case 2: return vertex(0,1,0);
+			case 3: return vertex(1,1,0);
+			case 4: return vertex(0,0,1);
+			case 5: return vertex(1,0,1);
+			case 6: return vertex(0,1,1);
+			case 7: return vertex(1,1,1);
+			default:
+				throw std::range_error("VoxelElementKey::vertex(int) - invalid vertex_number (" + std::to_string(vertex_number) + ")");
+				return VoxelVertexKey{};
+			}
+		}
+
+		constexpr VoxelFaceKey face(const int face_number) const
+		{
+			switch (face_number) {
+			case 0: return VoxelFaceKey{0, depth(), i()  , j()  , k()  };
+			case 1: return VoxelFaceKey{1, depth(), i()  , j()  , k()  };
+			case 2: return VoxelFaceKey{2, depth(), i()  , j()  , k()  };
+			case 3: return VoxelFaceKey{0, depth(), i()+1, j()  , k()  };
+			case 4: return VoxelFaceKey{1, depth(), i()  , j()+1, k()  };
+			case 5: return VoxelFaceKey{2, depth(), i()  , j()  , k()+1};
+			default:
+				throw std::range_error("VoxelElementKey::face(int) - invalid face_number (" + std::to_string(face_number) + ")");
+				return VoxelFaceKey{};
+			}
+		}
+	};
+
+
+
+	//////////////////////////////////////////////////////////////////////////
+	/// Vertex Key
+	///
+	/// bits 00-01 : unused
+	/// bits 02-15 : depth
+	/// bits 16-31 : i
+	/// bits 32-47 : j
+	/// bits 48-63 : k
+	///
+	/// The normalized coordinate of a vertex is at:
+	/// 		x = 2^-depth * i
+	///			y = 2^-depth * j
+	/// 		z = 2^-depth * k
+	///
+	/// Note that different memory layouts have may correspond to the same point in space.
+	/// For example if i,j,k all have a factor of 2^d, then then the same point in space can be reached at a lower depth.
+	//////////////////////////////////////////////////////////////////////////
+	struct VoxelVertexKey
+	{
+		constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
+		constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}
+		constexpr uint64_t k()     const {return (data>>K_START)     & IJK_MASK;}
+		constexpr uint64_t depth() const {return (data>>DEPTH_START) & DEPTH_MASK;}
+
+		//key
+		uint64_t data = DOES_NOT_EXIST;
+
+		//constructors
+		constexpr VoxelVertexKey() : data{DOES_NOT_EXIST} {}
+		explicit constexpr VoxelVertexKey(const uint64_t data) : data(data) {}
+		
+		constexpr VoxelVertexKey(const uint64_t depth, const uint64_t i, const uint64_t j, const uint64_t k) :
+			data(
+				(DEPTH_MASK & depth) << DEPTH_START | 
+				(IJK_MASK   & i)     << I_START     |
+				(IJK_MASK   & j)     << J_START     |
+				(IJK_MASK   & k)     << K_START
+				)
+			{
+				//debug asserts to warn if truncating occured
+				assert(depth <= DEPTH_MASK);
+				assert(    i <= IJK_MASK);
+				assert(    j <= IJK_MASK);
+				assert(    k <= IJK_MASK);
+			}
+
+
+		//comparisons
+		constexpr bool exists() const
+		{
+			return data!=DOES_NOT_EXIST;
+		}
+
+		constexpr bool is_valid() const
+		{
+			//depth is always valid
+			//indices can't be their maximum value, otherwise its faces and vertices
+			//won't have valid indices
+			const uint64_t max_elem_index = (uint64_t{1} << depth()); //2^depth elements in each coordinate direction
+			if (i() >= max_elem_index+1) {return false;}
+			if (j() >= max_elem_index+1) {return false;}
+			if (k() >= max_elem_index+1) {return false;}
+			return true;
+		}
+
+		constexpr bool operator==(const VoxelVertexKey other) const
+		{
+			return data == other.data;
+		}
+
+		constexpr bool operator<(const VoxelVertexKey other) const
+		{
+			return data < other.data;
+		}
+
+		//convert to normalized coordinates
+		constexpr double x() const
+		{
+			return std::ldexp(static_cast<double>(i()), -static_cast<int>(depth()));
+		}
+
+		constexpr double y() const
+		{
+			return std::ldexp(static_cast<double>(j()), -static_cast<int>(depth()));
+		}
+
+		constexpr double z() const
+		{
+			return std::ldexp(static_cast<double>(k()), -static_cast<int>(depth()));
+		}
+
+		constexpr gutil::Point<3,double> normalized_coordinate() const
+		{
+			const int exponent = -static_cast<int>(depth());
+			return gutil::Point<3,double>{
+				std::ldexp(static_cast<double>(i()), exponent),
+				std::ldexp(static_cast<double>(j()), exponent),
+				std::ldexp(static_cast<double>(k()), exponent)
+			};
+		}
+
+
+		//hieararchy logic
+		constexpr VoxelVertexKey reduced_key() const
+		{
+			//return the vertex key to this normalized coordinate at the lowest possible depth
+			uint64_t dd = depth();
+			uint64_t ii = i();
+			uint64_t jj = j();
+			uint64_t kk = k();
+
+			while (dd>0 && !(ii&1) && !(jj&1) && !(kk&1)) {
+				//shift right until the least significant bit of i,j,k is used or the depth is 0
+				dd  -= 1;
+				ii >>= 1;
+				jj >>= 1;
+				kk >>= 1;
+			}
+
+			return VoxelVertexKey{dd, ii, jj, kk};
+		}
+
+		constexpr bool is_same_coord(const VoxelVertexKey other) const
+		{
+			return this->reduced_key() == other.reduced_key();
+		}
+
+		constexpr VoxelVertexKey refined() const
+		{
+			return VoxelVertexKey{depth()+1, 2*i(), 2*j(), 2*k()};
+		}
+
+		constexpr VoxelVertexKey coarsened() const
+		{
+			const uint64_t dd = depth();
+			const uint64_t ii = i();
+			const uint64_t jj = j();
+			const uint64_t kk = k();
+
+			if (dd>0 && !(ii&1) && !(jj&1) && !(kk&1)) {
+				return VoxelVertexKey{dd-1, ii>>1, jj>>1, kk>>1};
+			}
+			else {
+				return VoxelVertexKey{data};
+			}
+		}
+
+		constexpr VoxelElementKey element(const bool ii, const bool jj, const bool kk) const
+		{
+			return VoxelElementKey{
+				depth(),
+				this_i + static_cast<uint64_t>(ii),
+				this_j + static_cast<uint64_t>(jj),
+				this_k + static_cast<uint64_t>(kk)
+			};
+		}
+
+		constexpr VoxelElementKey element(const int element_number) const 
+		{
+			switch (element_number) {
+			case 0: return element(0,0,0);
+			case 1: return element(1,0,0);
+			case 2: return element(0,1,0);
+			case 3: return element(1,1,0);
+			case 4: return element(0,0,1);
+			case 5: return element(1,0,1);
+			case 6: return element(0,1,1);
+			case 7: return element(1,1,1);
+			default:
+				throw std::range_error("VoxelVertexKey::element(int) - invalid element_number (" + std::to_string(element_number) + ")");
+				return VoxelElementKey{};
+			}
+		}
+
+		constexpr VoxelFaceKey face(const int face_number) const
+		{
+			switch (face_number) {
+			case 0 : return VoxelFaceKey{0, depth(), i(),   j(),   k()  };
+			case 1 : return VoxelFaceKey{0, depth(), i(),   j()+1, k()  };
+			case 2 : return VoxelFaceKey{0, depth(), i(),   j(),   k()+1};
+			case 3 : return VoxelFaceKey{0, depth(), i(),   j()+1, k()+1};
+			case 4 : return VoxelFaceKey{1, depth(), i(),   j(),   k()  };
+			case 5 : return VoxelFaceKey{1, depth(), i()+1, j(),   k()  };
+			case 6 : return VoxelFaceKey{1, depth(), i(),   j(),   k()+1};
+			case 7 : return VoxelFaceKey{1, depth(), i()+1, j(),   k()+1};
+			case 8 : return VoxelFaceKey{2, depth(), i(),   j(),   k()  };
+			case 9 : return VoxelFaceKey{2, depth(), i()+1, j(),   k()  };
+			case 10: return VoxelFaceKey{2, depth(), i(),   j()+1, k()  };
+			case 11: return VoxelFaceKey{2, depth(), i()+1, j()+1, k()  };
+			default:
+				throw std::range_error("VoxelVertexKey::face(int) - invalid face_number (" + std::to_string(face_number) + ")");
+				return VoxelFaceKey{};
+			}
+		}
+	};
+
+
+	//////////////////////////////////////////////////////////////////////////
+	/// Face Key
+	///
+	/// bits 00-01 : axis
+	/// bits 02-15 : depth
+	/// bits 16-31 : i
+	/// bits 32-47 : j
+	/// bits 48-63 : k
+	//////////////////////////////////////////////////////////////////////////
+	struct VoxelFaceKey
+	{
+		//axis data is unique to VoxelFaceKey
+		static constexpr int AXIS_START     = 0;
+		static constexpr uint64_t AXIS_MASK = (uint64_t{1} << 2 ) - 1;
+
+
+		//key
+		uint64_t data = DOES_NOT_EXIST;
+
+		//constructors
+		constexpr VoxelFaceKey() : data{DOES_NOT_EXIST} {}
+		explicit constexpr VoxelFaceKey(const uint64_t data) : data(data) {}
+
+		constexpr VoxelFaceKey(const uint64_t axis, const uint64_t depth, const uint64_t i, const uint64_t j, const uint64_t k) :
+			data(
+				(AXIS_MASK  & axis)  << AXIS_START  |
+				(DEPTH_MASK & depth) << DEPTH_START | 
+				(IJK_MASK   & i)     << I_START     |
+				(IJK_MASK   & j)     << J_START     |
+				(IJK_MASK   & k)     << K_START
+				)
+			{
+				//debug asserts to warn if truncating occured
+				assert(axis  <= 2);
+				assert(depth <= DEPTH_MASK);
+				assert(    i <= IJK_MASK);
+				assert(    j <= IJK_MASK);
+				assert(    k <= IJK_MASK);
+			}
+
+		//accessors
+		constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
+		constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}
+		constexpr uint64_t k()     const {return (data>>K_START)     & IJK_MASK;}
+		constexpr uint64_t depth() const {return (data>>DEPTH_START) & DEPTH_MASK;}
+		constexpr uint64_t axis()  const {return (data>>AXIS_START)  & AXIS_MASK;}
+
+		//comparisons
+		constexpr bool exists() const
+		{
+			return data!=DOES_NOT_EXIST;
+		}
+
+		constexpr bool is_valid() const
+		{
+			const uint64_t max_elem_index = (uint64_t{1} << depth()); //2^depth elements in each coordinate direction
+			switch (axis()) {
+			case 0:
+				{
+					if (i() >= max_elem_index+1) {return false;}
+					if (j() >= max_elem_index)   {return false;}
+					if (k() >= max_elem_index)   {return false;}
+					return true;
+				}
+			case 1:
+				{
+					if (i() >= max_elem_index)   {return false;}
+					if (j() >= max_elem_index+1) {return false;}
+					if (k() >= max_elem_index)   {return false;}
+					return true;
+				}
+			case 2:
+				{
+					if (i() >= max_elem_index)   {return false;}
+					if (j() >= max_elem_index)   {return false;}
+					if (k() >= max_elem_index+1) {return false;}
+					return true;
+				}
+			default: return false;
+			}
+		}
+
+		constexpr bool operator==(const VoxelFaceKey other) const
+		{
+			return data == other.data;
+		}
+
+		constexpr bool operator<(const VoxelFaceKey other) const
+		{
+			return data < other.data;
+		}
+	
+		//adjacency
+		constexpr VoxelElementKey element(const bool forward_flag) const
+		{
+			switch (axis()) {
+			case 0: return VoxelElementKey{depth(), i()+static_cast<uint64_t>(forward_flag), j(), k()};
+			case 1: return VoxelElementKey{depth(), i(), j()+static_cast<uint64_t>(forward_flag), k()};
+			case 2: return VoxelElementKey{depth(), i(), j(), k()+static_cast<uint64_t>(forward_flag)};
+			}
+			return VoxelElementKey{DOES_NOT_EXIST};
+		}
+
+		constexpr VoxelVertexKey vertex(const bool ii, const bool jj) const
+		{
+			switch (axis()) {
+			case 0: return VoxelVertexKey{depth(), i(), j()+static_cast<uint64_t>(ii), k()+static_cast<uint64_t>(jj)};
+			case 1: return VoxelVertexKey{depth(), i()+static_cast<uint64_t>(ii), j(), k()+static_cast<uint64_t>(jj)};
+			case 2: return VoxelVertexKey{depth(), i()+static_cast<uint64_t>(ii), j()+static_cast<uint64_t>(jj), k()};
+			}
+			return VoxelVertexKey{DOES_NOT_EXIST};
+		}
+
+		constexpr VoxelVertexKey vertex(const int vertex_number) const
+		{
+			switch (vertex_number) {
+			case 0: return vertex(0,0);
+			case 1: return vertex(1,0);
+			case 2: return vertex(0,1);
+			case 3: return vertex(1,1);
+			default:
+				throw std::range_error("VoxelFaceKey::vertex(int) - invalid vertex_number (" + std::to_string(vertex_number) + ")");
+				return VoxelVertexKey{};
+			}
+		}
+	};
+
+}
