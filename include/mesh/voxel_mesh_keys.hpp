@@ -312,6 +312,13 @@ namespace gv::mesh
 			return true;
 		}
 
+		constexpr bool on_boundary() const
+		{
+			const uint64_t max = uint64_t{1} << depth();
+			const uint64_t vi=i(), vj=j(), vk=k();
+			return vi==0 || vi==max || vj==0 || vj==max || vk==0 || vk==max;
+		}
+
 		constexpr bool operator==(const VoxelVertexKey other) const
 		{
 			return data == other.data;
@@ -524,6 +531,18 @@ namespace gv::mesh
 				}
 			default: return false;
 			}
+		}
+
+		constexpr bool on_boundary() const
+		{
+			const uint64_t max = uint64_t{1} << depth();
+			switch (axis()) {
+			case 0:	{const uint64_t v=i(); return v==0 || v==max;}
+			case 1: {const uint64_t v=j(); return v==0 || v==max;}
+			case 2: {const uint64_t v=k(); return v==0 || v==max;}
+			}
+			assert(false);
+			return false;
 		}
 
 		constexpr bool operator==(const VoxelFaceKey other) const
