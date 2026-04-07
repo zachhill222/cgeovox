@@ -11,10 +11,10 @@ PAR        =
 DEBUG      = -pg -g3 -Wall
 
 #redefine for testing optimizations
-CXX        =  g++ -std=c++20
-OPT        = -O3
+# CXX        =  g++ -std=c++20
+# OPT        = -O3
 # PAR        = -fopenmp
-DEBUG      = -DNDEBUG
+# DEBUG      = -DNDEBUG
 
 #final compiler command
 CC = $(CXX) $(OPT) $(PAR) $(DEBUG)
@@ -24,7 +24,7 @@ all: $(TARGETS)
 
 # rules to make tests individually. listing individually helps autocomplete.
 # using .PHONY forces re-build when header files have changed but not source files.
-.PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh fixedpoint dofhandler helmholtz
+.PHONY: assembly charmsQ1 octree util charms_assembly matrix mesh fixedpoint dofhandler helmholtz hierarchical_voxel_mesh
 
 assembly:
 	$(CC) $(INC_DIR) assembly.cpp assembly
@@ -55,6 +55,9 @@ dofhandler:
 
 helmholtz:
 	$(CC) $(INC_DIR) helmholtz.cpp -o helmholtz
+
+hierarchical_voxel_mesh:
+	$(CC) $(INC_DIR) hierarchical_voxel_mesh.cpp -o hierarchical_voxel_mesh
 
 .PHONY: clean
 clean:

@@ -10,7 +10,6 @@
 #include "mesh/mesh_basic.hpp"
 #include "mesh/mesh_colored.hpp"
 #include "mesh/mesh_hierarchical.hpp"
-#include "mesh/mesh_view.hpp"
 
 //define types
 // using T = gutil::FixedPoint<int64_t,0>;

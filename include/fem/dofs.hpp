@@ -366,19 +366,19 @@ namespace gv::fem
 	};
 
 
-	template<typename DERIVED=void>
-	struct VoxelP0 : public DOF<3,3,0,std::conditional_t<std::is_void_v<DERIVED>, VoxelP0<void>, DERIVED>>
-	{
-		using ActualDerived = std::conditional_t<std::is_void_v<DERIVED>, VoxelP0<void>, DERIVED>;
-		using Base = DOF<3,3,0,ActualDerived>;
-		using RefPoint_t = typename Base::RefPoint_t;
-		using Base::Base;
+	// template<typename DERIVED=void>
+	// struct VoxelP0 : public DOF<3,3,0,std::conditional_t<std::is_void_v<DERIVED>, VoxelP0<void>, DERIVED>>
+	// {
+	// 	using ActualDerived = std::conditional_t<std::is_void_v<DERIVED>, VoxelP0<void>, DERIVED>;
+	// 	using Base = DOF<3,3,0,ActualDerived>;
+	// 	using RefPoint_t = typename Base::RefPoint_t;
+	// 	using Base::Base;
 
-		inline constexpr double eval_impl(const RefPoint_t& point, const int spt) const
-		{
-			return 1.0;
-		}
-	}
+	// 	inline constexpr double eval_impl(const RefPoint_t& point, const int spt) const
+	// 	{
+	// 		return 1.0;
+	// 	}
+	// }
 
 }
 
