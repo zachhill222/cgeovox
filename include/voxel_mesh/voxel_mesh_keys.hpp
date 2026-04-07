@@ -25,21 +25,21 @@ namespace gv::vmesh
 	static constexpr uint64_t MAX_DEPTH = 16;
 
 	//shared bit offsets
-	static constexpr int DEPTH_START =    2;
+	static constexpr int DEPTH_START =   12;
 	static constexpr int I_START     =   16;
 	static constexpr int J_START     = 2*16;
 	static constexpr int K_START     = 3*16;
 
 	//shared masks
 	static constexpr uint64_t IJK_MASK    = (uint64_t{1} << 16) - 1;
-	static constexpr uint64_t DEPTH_MASK  = (uint64_t{1} << 14) - 1;
+	static constexpr uint64_t DEPTH_MASK  = (uint64_t{1} << 4) - 1;
 
 	//////////////////////////////////////////////////////////////////////////
 	/// Element Key
 	///
-	/// bit  00    : unused (always 0 if it is a valid element index)
-	/// bits 01    : active flag
-	/// bits 02-15 : depth
+	/// bit  00-10 : unused (usually 0 if initialized successfully)
+	/// bits 11    : active flag
+	/// bits 12-15 : depth
 	/// bits 16-31 : i
 	/// bits 32-47 : j
 	/// bits 48-63 : k
@@ -55,7 +55,7 @@ namespace gv::vmesh
 		uint64_t data = DOES_NOT_EXIST;
 
 		//active mask is unique to VoxelElementKey
-		static constexpr uint64_t ACTIVE_MASK = uint64_t{1} << 1;
+		static constexpr uint64_t ACTIVE_MASK = uint64_t{1} << 11;
 
 		//accessors
 		constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
@@ -213,8 +213,8 @@ namespace gv::vmesh
 	//////////////////////////////////////////////////////////////////////////
 	/// Vertex Key
 	///
-	/// bits 00-01 : unused
-	/// bits 02-15 : depth
+	/// bit  00-11 : unused (usually 0 if initialized successfully)
+	/// bits 12-15 : depth
 	/// bits 16-31 : i
 	/// bits 32-47 : j
 	/// bits 48-63 : k
@@ -370,8 +370,9 @@ namespace gv::vmesh
 	//////////////////////////////////////////////////////////////////////////
 	/// Face Key
 	///
-	/// bits 00-01 : axis
-	/// bits 02-15 : depth
+	/// bit  00-08 : unused (usually 0 if initialized successfully)
+	/// bits 09-11 : axis
+	/// bits 12-15 : depth
 	/// bits 16-31 : i
 	/// bits 32-47 : j
 	/// bits 48-63 : k
@@ -382,7 +383,7 @@ namespace gv::vmesh
 		uint64_t data = DOES_NOT_EXIST;
 
 		//axis data is unique to VoxelFaceKey
-		static constexpr int      AXIS_START = 0;
+		static constexpr int      AXIS_START = 9;
 		static constexpr uint64_t AXIS_MASK  = (uint64_t{1} << 2 ) - 1;
 
 		//accessors
