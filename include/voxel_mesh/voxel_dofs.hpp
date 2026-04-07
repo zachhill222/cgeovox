@@ -20,9 +20,13 @@ namespace gv::vmesh
 
 		//store the logical key where this element lives
 		//note that this key does not need to correspond to an active feature of the mesh
-		const Key_t key;
+		const Key_t key{};
 
+		//constructors
+		//keep a default so that std::vector<DOFBase>::resize() can be called.
+		constexpr DOFBase() : key{} {}
 		constexpr DOFBase(Key_t k) : key(k) {}
+
 
 		//xi are normalized coordinates to quad_elem
 		//each component of xi is in [-1,1]
@@ -66,5 +70,43 @@ namespace gv::vmesh
 		//where the support element is a natural support element at the same depth as the key
 		//and quad_point is a reference coordinate in [-1,1]^3
 		//these values will be the result of calling quad_elem2support_elem.
+		//it is the caller's responsibility to guarantee that support is actually a support element of the DOF
+	};
+
+
+	//P0 dofs (constant on each element)
+	struct VoxelP0 : public DOFBase<VoxelElementKey>
+	{
+		//get types from the Base class
+		using Base = DOFBase<VoxelElementKey>;
+		using Base::RefPoint_t;
+		using Base::GeoPoint_t;
+
+		//use the base constructors
+		using Base::Base;
+
+		//evaluate always to 1
+		constexpr double eval(VoxelElementKey support_elem, const RefPoint_t& xi) {return 1.0;}
+
+		//gradient is always 0
+		constexpr RefPoint_t grad(VoxelElementKey support_elem, const RefPoint_t& xi) {return {0.0, 0.0, 0.0};}
+	}
+
+	//Q1 DOFs
+	struct VoxelQ1 : public DOFBase<VoxelVertexKey>
+	{
+		//get types from the Base class
+		using Base = DOFBase<VoxelVertexKey>;
+		using Base::RefPoint_t;
+		using Base::GeoPoint_t;
+
+		//use the base constructors
+		using Base::Base;
+
+		//get the local DOF number on the support element (i.e., the vertex number)
+		//for consistency, these match the local node numberings of a vtk voxel
+		// constexpr int local_node_number(VoxelElementKey support_elem) const {
+		// 	
+		// }
 	};
 }
