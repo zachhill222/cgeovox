@@ -90,7 +90,7 @@ namespace gv::vmesh
 
 		//gradient is always 0
 		constexpr RefPoint_t grad(VoxelElementKey support_elem, const RefPoint_t& xi) {return {0.0, 0.0, 0.0};}
-	}
+	};
 
 	//Q1 DOFs
 	struct VoxelQ1 : public DOFBase<VoxelVertexKey>
@@ -103,10 +103,104 @@ namespace gv::vmesh
 		//use the base constructors
 		using Base::Base;
 
-		//get the local DOF number on the support element (i.e., the vertex number)
-		//for consistency, these match the local node numberings of a vtk voxel
-		// constexpr int local_node_number(VoxelElementKey support_elem) const {
-		// 	
-		// }
+		//evaluate the basis function
+		constexpr double eval(VoxelElementKey support_elem, const RefPoint_t& xi) const {
+			//if the key vertex for the DOF is a vertex of the support_elem,
+			//then key.i()>=support_elem.i(). Specifically, key.i()-suppoert_elem.i() is 0 or 1.
+			//similar applies to j() and k(). The combination of those three give the local vertx.
+
+			//check that the index logic is correct
+			assert(support_elem.is_valid());
+			assert(key.i() - support_elem.i() <= 1);
+			assert(key.j() - support_elem.j() <= 1);
+			assert(key.k() - support_elem.k() <= 1);
+			
+			const bool bi = static_cast<bool>(key.i() - support_elem.i());
+			const bool bj = static_cast<bool>(key.j() - support_elem.j());
+			const bool bk = static_cast<bool>(key.k() - support_elem.k());
+
+			//high corner (evaluates to 2 at xi[0]=1 and 0 at xi[0]-1), low corner is opposite
+			//similar logic applies to axis 1 and 2
+			const double fi = bi ? (1.0+xi[0]) : (1.0-xi[0]);
+			const double fj = bj ? (1.0+xi[1]) : (1.0-xi[1]);
+			const double fk = bk ? (1.0+xi[2]) : (1.0-xi[2]);
+			return (0.125*fi)*(fj*fk);
+		}
+
+		//compute the gradient of the basis function on the reference coordinate
+		//the caller must scale the gradient to the mesh domain by
+		//multiplying by the inverse transpose jacobian (i.e., divide by half the diagonal of the geometric support element)
+		constexpr RefPoint_t grad(VoxelElementKey support_elem, const RefPoint_t& xi) const {
+			//if the key vertex for the DOF is a vertex of the support_elem,
+			//then key.i()>=support_elem.i(). Specifically, key.i()-suppoert_elem.i() is 0 or 1.
+			//similar applies to j() and k(). The combination of those three give the local vertx.
+
+			//check that the index logic is correct
+			assert(support_elem.is_valid());
+			assert(key.i() - support_elem.i() <= 1);
+			assert(key.j() - support_elem.j() <= 1);
+			assert(key.k() - support_elem.k() <= 1);
+			
+			const bool bi = static_cast<bool>(key.i() - support_elem.i());
+			const bool bj = static_cast<bool>(key.j() - support_elem.j());
+			const bool bk = static_cast<bool>(key.k() - support_elem.k());
+
+			//non-derivitive portions
+			const double fi = bi ? (1.0+xi[0]) : (1.0-xi[0]);
+			const double fj = bj ? (1.0+xi[1]) : (1.0-xi[1]);
+			const double fk = bk ? (1.0+xi[2]) : (1.0-xi[2]);
+
+			//derivative portions, include the (1/2)^3 factor
+			const double di = bi ? 0.125 : -0.125;
+			const double dj = bj ? 0.125 : -0.125;
+			const double dk = bk ? 0.125 : -0.125;
+
+			return RefPoint_t {
+				di * fj * fk,
+				fi * dj * fk,
+				fi * fj * dk
+			};
+		}
+	};
+
+
+	struct VoxelRT0 : public DOFBase<VoxelFaceKey>
+	{
+		//get types from the Base class
+		using Base = DOFBase<VoxelFaceKey>;
+		using Base::RefPoint_t;
+		using Base::GeoPoint_t;
+
+		//use the base constructors
+		using Base::Base;
+
+		//evaluate normal component. this is the same as the flux through the face.
+		constexpr double flux(VoxelElementKey support_elem, const RefPoint_t& xi) const {
+			//similar to Q1, but only evaluate the coordinate in the normal direction
+			//if the dof is normal to the x-axis and on the low side,
+			//then we should return 1 when xi[0]=-1 and 0 when xi[0]=1.
+			//similar reasoning applies to the other faces.
+			const uint64_t a = key.axis();
+			const bool low_face = 	(a==0) ? (key.i() == support_elem.i()) :
+									(a==1) ? (key.j() == support_elem.j()) :
+											 (key.k() == support_elem.k());
+			
+			return low_face ? 0.5*(1.0 - xi[a]) : 0.5*(1.0 + xi[a]);
+		}
+
+		constexpr RefPoint_t eval(VoxelElementKey support_elem, const RefPoint_t& xi) const {
+			const uint64_t a = key.axis();
+			RefPoint_t result{0.0, 0.0, 0.0};
+			result[a] = flux(support_elem, xi); //evaluate normal component
+			return result;
+		}
+
+		constexpr double div(VoxelElementKey support_elem, const RefPoint_t& xi) const {
+			const uint64_t a = key.axis();
+			const bool low_face = 	(a==0) ? (key.i() == support_elem.i()) :
+									(a==1) ? (key.j() == support_elem.j()) :
+											 (key.k() == support_elem.k());
+			return low_face ? -0.5 : 0.5;
+		}
 	};
 }
