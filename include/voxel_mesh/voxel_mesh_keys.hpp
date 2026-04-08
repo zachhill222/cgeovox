@@ -9,6 +9,8 @@
 #include <stdexcept>
 #include <string>
 
+
+
 namespace gv::vmesh
 {
 	//These are helper data types for a hierarchical voxel mesh
@@ -58,10 +60,18 @@ namespace gv::vmesh
 		static constexpr uint64_t ACTIVE_MASK = uint64_t{1} << 11;
 
 		//accessors
-		constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
-		constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}
-		constexpr uint64_t k()     const {return (data>>K_START)     & IJK_MASK;}
-		constexpr uint64_t depth() const {return (data>>DEPTH_START) & DEPTH_MASK;}
+		inline constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
+		inline constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}
+		inline constexpr uint64_t k()     const {return (data>>K_START)     & IJK_MASK;}
+		inline constexpr uint64_t depth() const {return (data>>DEPTH_START) & DEPTH_MASK;}
+		inline constexpr uint64_t index(const int axis) const {
+			switch (axis) {
+				case 0: return i();
+				case 1: return j();
+				case 2: return k();
+				default: assert(false); return 0;
+			}
+		}
 
 		//constructors
 		constexpr VoxelElementKey() : data(DOES_NOT_EXIST) {};
@@ -233,10 +243,18 @@ namespace gv::vmesh
 		uint64_t data = DOES_NOT_EXIST;
 
 		//accessors
-		constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
-		constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}
-		constexpr uint64_t k()     const {return (data>>K_START)     & IJK_MASK;}
-		constexpr uint64_t depth() const {return (data>>DEPTH_START) & DEPTH_MASK;}
+		inline constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
+		inline constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}
+		inline constexpr uint64_t k()     const {return (data>>K_START)     & IJK_MASK;}
+		inline constexpr uint64_t depth() const {return (data>>DEPTH_START) & DEPTH_MASK;}
+		inline constexpr uint64_t index(const int axis) const {
+			switch (axis) {
+				case 0: return i();
+				case 1: return j();
+				case 2: return k();
+				default: assert(false); return 0;
+			}
+		}
 
 		//constructors
 		constexpr VoxelVertexKey() : data{DOES_NOT_EXIST} {}
@@ -336,26 +354,21 @@ namespace gv::vmesh
 			return VoxelVertexKey{dd, ii, jj, kk};
 		}
 
-		constexpr bool is_same_coord(const VoxelVertexKey other) const {
-			return this->reduced_key() == other.reduced_key();
-		}
-
-		constexpr VoxelVertexKey refined() const {
+		constexpr VoxelVertexKey child() const {
 			return VoxelVertexKey{depth()+1, 2*i(), 2*j(), 2*k()};
 		}
 
-		constexpr VoxelVertexKey coarsened() const {
-			const uint64_t dd = depth();
+		constexpr VoxelVertexKey parent() const {
 			const uint64_t ii = i();
 			const uint64_t jj = j();
-			const uint64_t kk = k();
+			const uint64_t jj = k();
+			const uint64_t dd = depth();
+			if (ii&1 || jj&1 || kk&1 || dd==0) {return VoxelVertexKey{DOES_NOT_EXIST};}
+			return VoxelVertexKey{dd-1, ii>>1, jj>>1, kk>>1}; //decrease depth, divide index by 2
+		}
 
-			if (dd>0 && !(ii&1) && !(jj&1) && !(kk&1)) {
-				return VoxelVertexKey{dd-1, ii>>1, jj>>1, kk>>1};
-			}
-			else {
-				return VoxelVertexKey{data};
-			}
+		constexpr bool is_same_coord(const VoxelVertexKey other) const {
+			return this->reduced_key() == other.reduced_key();
 		}
 
 		//adjacency operations
@@ -387,11 +400,20 @@ namespace gv::vmesh
 		static constexpr uint64_t AXIS_MASK  = (uint64_t{1} << 2 ) - 1;
 
 		//accessors
-		constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
-		constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}
-		constexpr uint64_t k()     const {return (data>>K_START)     & IJK_MASK;}
-		constexpr uint64_t depth() const {return (data>>DEPTH_START) & DEPTH_MASK;}
-		constexpr uint64_t axis()  const {return (data>>AXIS_START)  & AXIS_MASK;}
+		inline constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
+		inline constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}
+		inline constexpr uint64_t k()     const {return (data>>K_START)     & IJK_MASK;}
+		inline constexpr uint64_t depth() const {return (data>>DEPTH_START) & DEPTH_MASK;}
+		inline constexpr uint64_t axis()  const {return (data>>AXIS_START)  & AXIS_MASK;}
+		inline constexpr uint64_t index(const int axis) const {
+			switch (axis) {
+				case 0: return i();
+				case 1: return j();
+				case 2: return k();
+				default: assert(false); return 0;
+			}
+		}
+		
 
 		//constructors
 		constexpr VoxelFaceKey() : data{DOES_NOT_EXIST} {}
@@ -446,11 +468,11 @@ namespace gv::vmesh
 			const uint64_t j_data = (data >> J_START) & (a==1 ? mask_axis : mask);
 			const uint64_t k_data = (data >> K_START) & (a==2 ? mask_axis : mask);
 			
-			uint64_t index = i_data;
-			index |= j_data << (a==0 ? d+1 : d); //move past i_data
-			index |= k_data << (a==2 ? 2*d : 2*d+1); //move past i_data and j_data
-			index |= a << (3*d+1);
-			return index;
+			uint64_t idx = i_data;
+			idx |= j_data << (a==0 ? d+1 : d); //move past i_data
+			idx |= k_data << (a==2 ? 2*d : 2*d+1); //move past i_data and j_data
+			idx |= a << (3*d+1);
+			return idx;
 		}
 
 
@@ -462,47 +484,63 @@ namespace gv::vmesh
 
 		constexpr bool is_valid() const	{
 			const uint64_t max_elem_index = (uint64_t{1} << depth()); //2^depth elements in each coordinate direction
-			switch (axis()) {
-			case 0:
-				{
-					if (i() >= max_elem_index+1) {return false;}
-					if (j() >= max_elem_index)   {return false;}
-					if (k() >= max_elem_index)   {return false;}
-					return true;
-				}
-			case 1:
-				{
-					if (i() >= max_elem_index)   {return false;}
-					if (j() >= max_elem_index+1) {return false;}
-					if (k() >= max_elem_index)   {return false;}
-					return true;
-				}
-			case 2:
-				{
-					if (i() >= max_elem_index)   {return false;}
-					if (j() >= max_elem_index)   {return false;}
-					if (k() >= max_elem_index+1) {return false;}
-					return true;
-				}
-			default: return false;
+			const uint64_t a = axis();
+			for (uint64_t b=0; b<3; ++b) {
+				bool invalid = index(b) >= max_elem_index + (a==b ? 1 : 0);
+				if (invalid) {return false;}
 			}
+			return true;
 		}
 
 		constexpr bool on_bbox_boundary() const {
 			const uint64_t max = uint64_t{1} << depth();
-			switch (axis()) {
-			case 0:	{const uint64_t v=i(); return v==0 || v==max;}
-			case 1: {const uint64_t v=j(); return v==0 || v==max;}
-			case 2: {const uint64_t v=k(); return v==0 || v==max;}
-			}
-			assert(false);
-			return false;
+			const uint64_t idx = index(axis());
+			return idx==0 || idx==max;
 		}
 
 		constexpr bool operator==(const VoxelFaceKey other) const {return data == other.data;}
-
 		constexpr bool operator<(const VoxelFaceKey other) const {return data < other.data;}
-	
+		
+		//hierarchy operations
+		constexpr VoxelFaceKey child(const bool ii, const bool jj) const {
+			const uint64_t a = axis();
+			const uint64_t ci=2*i(), cj=2*j(), ck=2*k();
+			
+			switch (a) {
+			case 0: return VoxelFaceKey{a,depth()+1, ci, cj+static_cast<uint64_t>(ii), ck+static_cast<uint64_t>(jj)};
+			case 1: return VoxelFaceKey{a,depth()+1, ci+static_cast<uint64_t>(ii), cj, ck+static_cast<uint64_t>(jj)};
+			case 2: return VoxelFaceKey{a,depth()+1, ci+static_cast<uint64_t>(ii), cj+static_cast<uint64_t>(jj), ck};
+			default: return VoxelFaceKey{};
+			}
+		}
+
+		constexpr VoxelFaceKey child(const int child_number) const {
+			switch (child_number) {
+			case 0: return child(0,0);
+			case 1: return child(1,0);
+			case 2: return child(0,1);
+			case 3: return child(1,1);
+			default: assert(false); return VoxelFaceKey{};
+			}
+		}
+
+		constexpr VoxelFaceKey parent() const {
+			//not all faces have parents
+			const uint64_t a = axis();
+			const uint64_t d = depth();
+			const uint64_t ii = i();
+			const uint64_t jj = j();
+			const uint64_t kk = k();
+
+			if (d==0) {return VoxelElementKey{DOES_NOT_EXIST};}
+			switch (a) {
+			case 0: return (jj&1 || kk&1) ? VoxelFaceKey{DOES_NOT_EXIST} : VoxelFaceKey{a,d-1, ii>>1, jj>>1, kk>>1};
+			case 1: return (kk&1 || ii&1) ? VoxelFaceKey{DOES_NOT_EXIST} : VoxelFaceKey{a,d-1, ii>>1, jj>>1, kk>>1};
+			case 2: return (ii&1 || jj&1) ? VoxelFaceKey{DOES_NOT_EXIST} : VoxelFaceKey{a,d-1, ii>>1, jj>>1, kk>>1};
+			default: return VoxelFaceKey{DOES_NOT_EXIST};
+			}
+		}
+
 		//adjacency operations
 		constexpr VoxelElementKey element(const bool forward_flag) const;
 		constexpr VoxelVertexKey vertex(const bool ii, const bool jj) const;
