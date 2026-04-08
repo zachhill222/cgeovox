@@ -10,10 +10,9 @@ int main(int argc, char* argv[])
 	//build test mesh
 	Point_t low{-1,-1,-1};
 	Point_t high{1,1,1};
-	Mesh_t mesh(2, low, high);
+	Mesh_t  mesh(6, low, high);
 
 	//refine a few elements
-	mesh.refine_depth(2);
 
 	//check if the parent_child relation is correct
 	bool correct = true;
@@ -43,7 +42,7 @@ int main(int argc, char* argv[])
 	}
 
 	auto pred = [](Elem_t el) {return el.is_active();};
-	mesh.build_unstructured_mesh(pred);
+	mesh.build_unstructured_mesh();
 	
 	// mesh.save_hierarchy("./outfiles/hierarchical_voxel_mesh_");
 	mesh.save_unstructured_mesh("./outfiles/hierarchical_voxel_mesh_unstructured.vtk");

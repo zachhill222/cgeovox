@@ -12,9 +12,9 @@ DEBUG      = -pg -g3 -Wall
 
 #redefine for testing optimizations
 # CXX        =  g++ -std=c++20
-# OPT        = -O3
+OPT        = -O3
 # PAR        = -fopenmp
-# DEBUG      = -DNDEBUG
+DEBUG      = -DNDEBUG
 
 #final compiler command
 CC = $(CXX) $(OPT) $(PAR) $(DEBUG)
