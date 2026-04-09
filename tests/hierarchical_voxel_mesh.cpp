@@ -3,7 +3,7 @@
 
 using Point_t = gutil::Point<3,double>;
 using Mesh_t = gv::vmesh::HierarchicalVoxelMesh;
-using Elem_t = gv::vmesh::VoxelElementKey;
+using Elem_t = Mesh_t::VoxelElement;
 
 int main(int argc, char* argv[])
 {
@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 	Mesh_t  mesh(6, low, high);
 
 	//refine a few elements
-
+	
 	//check if the parent_child relation is correct
 	bool correct = true;
 	auto action = [&correct](Elem_t el) {

@@ -1,0 +1,195 @@
+#pragma once
+
+#include <cstdint>
+#include <cassert>
+#include <string>
+#include <bit>
+
+namespace gv::vmesh
+{
+	//these classes store the logic of a (limited to 64-bit storage) an infinite hierarchical voxel mesh
+	//this includes parent/child/adjacency relationships and is of course limited to the topology,
+	//but converting normalized coordinates (we use [0,1] for more convenient index arithmetic) to
+	//some geometric coordinate is trivial.
+	//additionally, we leave the least significant several bits accessible to
+	//other classes that can be freely changed without interfering with the logic.
+	//the underlying data is stored in a uint64_t and can be accessed if needed (it probably isn't)
+	//the operators &, &=, |, |=, <<, <<=, >>, >>=, ^, ^= have been overloaded to work only on the free bits
+	//so that you can safely use them to compactly store extra data (e.g., a uint8_t index plus a flag)
+	//these operations are masked to guarantee that the essential data is not affected
+	//the operator[] has been overloaded to access any single free bit
+	//the operator()(i,j) has been overloaded to access the free bits [i,j) cast to a uint64_t.
+	
+	//RF_W: requested free width - used by outside classes, not touched by this or inherited classes
+	//      if the index width is small, this may be increased to fill space. If that is undesirable, set O_W
+	//      to absorb the rest. the final number of free bits F_W will always be at least as large as R_W.
+	//O_W : other width - used by inherited classes, not touched by this or outside classes
+	//D_W : depth width - used by this and inherited classes, not touched by outside classes
+	//I_W : index width - used by this and inherited classes, not touched by outside classes
+	template<int RF_W, int O_W, int I_W> requires (RF_W + O_W + 3*I_W < 64)
+	struct VoxelKey
+	{
+		//compute the required number of bits to represent the number of vertices with the
+		//given index width.
+		//maximum depth that can be represented. the maximum valid depth may be smaller.
+		static constexpr uint64_t MAX_INDEX = (uint64_t{1} << I_W) -1;
+		static constexpr uint64_t MAX_DEPTH = I_W-1; //maximum depth that is compatible with the index
+		static constexpr uint64_t D_W       = std::bit_width(MAX_DEPTH); //number of bits required to represent the max depth
+		
+		//absorb any extra bits into the free bits
+		static constexpr uint64_t F_W = 64 - (O_W + D_W + 3*I_W);
+		static_assert(RF_W <= F_W); //make sure we can provide the required number of free bits
+
+		//I, J, K all have the same width. define for convenience
+		static constexpr uint64_t J_W = I_W; //index j width
+		static constexpr uint64_t K_W = I_W; //index k width
+
+		//define offsets (data start)
+		static constexpr uint64_t F_S = 0;         	//free start
+		static constexpr uint64_t O_S = F_W;		//other start
+		static constexpr uint64_t D_S = O_S + O_W;	//depth start
+		static constexpr uint64_t I_S = D_S + D_W;	//index i start
+		static constexpr uint64_t J_S = I_S + I_W;	//index j start
+		static constexpr uint64_t K_S = J_S + J_W;	//index k start
+		static_assert(K_S+K_W == 64, "VoxelKey: incorrect field starts");
+
+		//define masks
+		static constexpr uint64_t F_M = ((uint64_t{1} << F_W) - 1) << F_S; //free mask
+		static constexpr uint64_t O_M = ((uint64_t{1} << O_W) - 1) << O_S; //other mask
+		static constexpr uint64_t D_M = ((uint64_t{1} << D_W) - 1) << D_S; //depth mask
+		static constexpr uint64_t I_M = ((uint64_t{1} << I_W) - 1) << I_S; //index i mask
+		static constexpr uint64_t J_M = ((uint64_t{1} << J_W) - 1) << J_S; //index j mask
+		static constexpr uint64_t K_M = ((uint64_t{1} << K_W) - 1) << K_S; //index k mask
+
+		//catch off-by-one shifting/width errors. each mask must be disjoint cover all 64 bits
+		static_assert( (F_M | O_M | D_M | I_M | J_M | K_M) == (uint64_t) -1, "VoxelKey: incorrect field masks");
+		static_assert( (F_M ^ O_M ^ D_M ^ I_M ^ J_M ^ K_M) == (uint64_t) -1, "VoxelKey: incorrect field masks");
+
+		//convenient key to return
+		static constexpr uint64_t DOES_NOT_EXIST = uint64_t(-1);
+
+		//store the bits
+		uint64_t _data_;
+
+		//define constructors
+		explicit constexpr VoxelKey() : _data_{DOES_NOT_EXIST} {}
+		explicit constexpr VoxelKey(const uint64_t data) : _data_{data} {}
+		constexpr VoxelKey(const uint64_t ff, const uint64_t oo, const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
+			_data_{
+				//shift each field into place and mask
+				((ff<<F_S) & F_M) |
+				((oo<<O_S) & O_M) |
+				((dd<<D_S) & D_M) |
+				((ii<<I_S) & I_M) |
+				((jj<<J_S) & J_M) |
+				((kk<<K_S) & K_M)
+			}
+		{}
+
+		//access each field
+		inline constexpr uint64_t free()  const {return (_data_&F_M)>>F_S;}
+		inline constexpr uint64_t other() const {return (_data_&O_M)>>O_S;}
+		inline constexpr uint64_t depth() const {return (_data_&D_M)>>D_S;}
+		inline constexpr uint64_t i() 	  const {return (_data_&I_M)>>I_S;}
+		inline constexpr uint64_t j() 	  const {return (_data_&J_M)>>J_S;}
+		inline constexpr uint64_t k() 	  const {return (_data_&K_M)>>K_S;}
+
+		//access the un-shifted essential/free bits (good for comparison below)
+		constexpr uint64_t essential_bits() const {return _data_&~F_M;}
+		constexpr uint64_t free_bits() const {return _data_&F_M;}
+
+		//access i,j,k as axis 0, 1, 2 with a mod fail safe (axis -1 is axis 2, but more work)
+		inline constexpr uint64_t index(const int a) const {return a==0 ? i() : a==1 ? j() : a==2 ? k() : index(a%3);}
+
+		//check if the key was set to DOES_NOT_EXIST
+		inline constexpr bool exists() const {return _data_!=DOES_NOT_EXIST;}
+
+		//in-place bit operations
+		VoxelKey& operator<<=(const uint64_t other) {
+			assert(other<F_W);
+			const uint64_t fb = (_data_&F_M) << other;
+			_data_ &= ~F_M;
+			_data_ |= fb&F_M;
+			return *this;
+		}
+
+		VoxelKey& operator>>=(const uint64_t other) {
+			assert(other<F_W);
+			const uint64_t fb = (_data_&F_M) >> other;
+			_data_ &= ~F_M;
+			_data_ |= (fb&F_M);
+			return *this;
+		}
+
+		VoxelKey& operator^=(const uint64_t other) {
+			_data_ ^= ((other<<F_S)&F_M); //include the shift in case the fields are re-arranged
+			return *this;
+		}
+
+		VoxelKey& operator&=(const uint64_t other) {
+			const uint64_t o = (other<<F_S)&F_M;
+			_data_ &=  (o|~F_M); //include the shift in case the fields are re-arranged
+			return *this;
+		}
+
+		VoxelKey& operator|=(const uint64_t other) {
+			_data_ |= ((other<<F_S)&F_M); //include the shift in case the fields are re-arranged
+			return *this;
+		}
+
+
+		//non-in-place bit operations (call the in-place version for consistency)
+		VoxelKey operator<<(const uint64_t other) const {
+			assert(other<F_W);
+			VoxelKey result{_data_};
+			result <<= other;
+			return result;
+		}
+
+		VoxelKey operator>>(const uint64_t other) const {
+			assert(other<F_W);
+			VoxelKey result{_data_};
+			result >>= other;
+			return result;
+		}
+
+		VoxelKey operator^(const uint64_t other) const {
+			VoxelKey result{_data_};
+			result ^= other;
+			return result;
+		}
+
+		VoxelKey operator&(const uint64_t other) const {
+			VoxelKey result{_data_};
+			result &= other;
+			return result;
+		}
+
+		VoxelKey operator|(const uint64_t other) const {
+			VoxelKey result{_data_};
+			result |= other;
+			return result;
+		}
+
+		//access bits
+		constexpr bool operator[](const uint64_t idx) const {
+			assert(idx<F_W);
+			const uint64_t mask = uint64_t{1} << (idx+F_S);
+			return static_cast<bool>(_data_ & mask & F_M);
+		}
+
+		constexpr uint64_t operator()(const uint64_t start, const uint64_t end) const {
+			assert(start<=end);
+			assert(end<=F_W);
+			const uint64_t mask = ((uint64_t{1} << (end-start)) -1) << (start + F_S);
+			return (_data_ & mask & F_M) >> (start + F_S);
+		}
+
+		//allow explicit conversion to uint64_t (although _data_ is directly accessible)
+		explicit constexpr operator uint64_t() const {return _data_;}
+
+		//comparison operators do not depend on the free bits
+		inline constexpr bool operator==(VoxelKey other) const {return essential_bits() == other.essential_bits();}
+		inline constexpr auto operator<=>(VoxelKey other) const {return essential_bits() <=> other.essential_bits();}
+	};
+}

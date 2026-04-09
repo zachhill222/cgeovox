@@ -59,6 +59,25 @@ namespace gv::vmesh
 		//active mask is unique to VoxelElementKey
 		static constexpr uint64_t ACTIVE_MASK = uint64_t{1} << 11;
 
+		//free mask to allow other classes to use the free bits
+		//also overload bit operations on the object to just affect the free part
+		static constexpr uint64_t FREE_MASK = (uint64_t{1} << 10) - 1;
+		constexpr VoxelVertexKey operator&(const uint64_t other) const {
+			return VoxelVertexKey{data & (other & FREE_MASK)};
+		}
+		constexpr VoxelVertexKey operator|(const uint64_t other) const {
+			return VoxelVertexKey{data | (other & FREE_MASK)};
+		}
+		constexpr VoxelVertexKey operator<<(const uint64_t i) const {
+			const uint64_t free_bits = (data&FREE_MASK) << i;
+			return VoxelVertexKey{(data&~FREE_MASK) | (free_bits&FREE_MASK);};
+		}
+		constexpr VoxelVertexKey operator>>(const uint64_t i) const {
+			const uint64_t free_bits = (data&FREE_MASK) >> i;
+			return VoxelVertexKey{(data&~FREE_MASK) | (free_bits&FREE_MASK);};
+		}
+
+
 		//accessors
 		inline constexpr uint64_t i()     const {return (data>>I_START)     & IJK_MASK;}
 		inline constexpr uint64_t j()     const {return (data>>J_START)     & IJK_MASK;}

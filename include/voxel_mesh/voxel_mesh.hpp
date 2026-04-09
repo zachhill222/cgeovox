@@ -1,7 +1,7 @@
 #pragma once
 
 #include "gutil.hpp"
-#include "voxel_mesh/voxel_mesh_keys.hpp"
+#include "voxel_mesh/voxel_key.hpp"
 
 #include <cstdint>
 #include <type_traits>
@@ -24,31 +24,35 @@ namespace gv::vmesh
 	//multiples of these meshes.
 	class HierarchicalVoxelMesh
 	{
+	public:
+		using VoxelElement = VoxelElementKey<>;
+		using VoxelVertex = VoxelVertexKey<>;
+
 	protected:
 		static constexpr uint64_t MAX_DEPTH = 16; //strict upper bound so that we can index via depth.
 		std::array<int, MAX_DEPTH> element_vector_sorted;
-		std::array<std::vector<VoxelElementKey>, MAX_DEPTH> elements;
+		std::array<std::vector<VoxelElement>, MAX_DEPTH> elements;
 
 		//storage for converting to an unstructured mesh
-		std::map<VoxelVertexKey, size_t> u_vertex_map;
-		std::vector<VoxelVertexKey> u_vert;
+		std::map<VoxelVertex, size_t> u_vertex_map;
+		std::vector<VoxelVertex> u_vert;
 		std::vector<std::array<size_t,8>> u_elem_conn;
-		std::vector<VoxelElementKey> u_elem;
-		size_t insert_vertex(VoxelVertexKey k) {
+		std::vector<VoxelElement> u_elem;
+		size_t insert_vertex(VoxelVertex k) {
 			k = k.reduced_key();
 			auto [it, inserted] = u_vertex_map.emplace(k, u_vert.size());
 			if (inserted) {u_vert.push_back(k);}
 			return it->second;
 		}
 
-		size_t get_vertex(VoxelVertexKey k) {
+		size_t get_vertex(VoxelVertex k) {
 			auto it = u_vertex_map.find(k.reduced_key());
 			if (it == u_vertex_map.end()) {return (size_t) -1;}
 			else {return it->second;}
 		}
 
 		//iterator accessors
-		std::vector<VoxelElementKey>::const_iterator get_iterator(const VoxelElementKey el) const {
+		std::vector<VoxelElement>::const_iterator get_iterator(const VoxelElement el) const {
 			assert(el.depth() < MAX_DEPTH);
 			assert(element_vector_sorted[el.depth()]);
 
@@ -56,7 +60,7 @@ namespace gv::vmesh
 			return std::lower_bound(lv.begin(), lv.end(), el);
 		}
 
-		std::vector<VoxelElementKey>::iterator get_iterator(const VoxelElementKey el) {
+		std::vector<VoxelElement>::iterator get_iterator(const VoxelElement el) {
 			assert(el.depth() < MAX_DEPTH);
 			assert(element_vector_sorted[el.depth()]);
 
@@ -87,7 +91,7 @@ namespace gv::vmesh
 			return result;
 		}
 
-		constexpr GeoPoint_t ref2geo(VoxelVertexKey v) const {
+		constexpr GeoPoint_t ref2geo(VoxelVertex v) const {
 			return low + v.normalized_coordinate()*diag;
 		}
 
@@ -109,14 +113,14 @@ namespace gv::vmesh
 			}
 		}
 
-		void insert_sorted(const VoxelElementKey el) {
+		void insert_sorted(const VoxelElement el) {
 			auto it = get_iterator(el); //iterator to where el is or should be
 			auto& lv = elements[el.depth()];
 			if (it!=lv.end() && *it == el) {return;}
 			lv.insert(it, el);
 		}
 
-		void insert_unsorted(const VoxelElementKey el) {
+		void insert_unsorted(const VoxelElement el) {
 			assert(el.depth() < MAX_DEPTH);
 			elements[el.depth()].push_back(el);
 			element_vector_sorted[el.depth()] = 0;
@@ -132,13 +136,13 @@ namespace gv::vmesh
 			}
 		}
 
-		bool contains(const VoxelElementKey el) const {
+		bool contains(const VoxelElement el) const {
 			auto it = get_iterator(el);
 			const auto& lv = elements[el.depth()]; //hierarchy level
 			return it!=lv.end() && *it==el;
 		}
 
-		void erase(const VoxelElementKey el) {
+		void erase(const VoxelElement el) {
 			auto it = get_iterator(el);
 			auto& lv = elements[el.depth()]; //hierarchy level
 			
@@ -149,11 +153,11 @@ namespace gv::vmesh
 
 		//traversal methods
 		//traverse over all descendants and do something
-		//the action should act on a VoxelElementKey&
-		//optionally, a predicate can be passed (const VoxelElementKey to bool or similar) to reduce unnecessary recursion
-		//for example [](VoxelElementKey el) {return el.active();}
+		//the action should act on a VoxelElement&
+		//optionally, a predicate can be passed (const VoxelElement to bool or similar) to reduce unnecessary recursion
+		//for example [](VoxelElement el) {return el.active();}
 		template<typename ElementAction = std::nullptr_t, bool top_first=true, typename ChildPredicate = std::nullptr_t>
-		void for_each_descendant(const VoxelElementKey el, ElementAction&& action = nullptr, ChildPredicate&& pred = nullptr) {
+		void for_each_descendant(const VoxelElement el, ElementAction&& action = nullptr, ChildPredicate&& pred = nullptr) {
 			if constexpr (std::is_same_v<std::decay_t<ElementAction>, std::nullptr_t>) {return;}
 
 			const auto it = get_iterator(el);
@@ -166,7 +170,7 @@ namespace gv::vmesh
 			if (el.depth()+1 < MAX_DEPTH) {
 				const auto& clv = elements[el.depth()+1];
 				for (int c=0; c<8; ++c) {
-					const VoxelElementKey child = el.child(c);
+					const VoxelElement child = el.child(c);
 					const auto cit = get_iterator(child);
 					if (cit!=clv.end() && *cit==child) {
 						if constexpr (!std::is_same_v<std::decay_t<ChildPredicate>, std::nullptr_t>) {
@@ -184,9 +188,9 @@ namespace gv::vmesh
 		}
 
 		//traverse over all descendants and do something
-		//the action should act on a const VoxelElementKey&
+		//the action should act on a const VoxelElement&
 		template<typename ElementAction = std::nullptr_t, bool top_first=true, typename ChildPredicate = std::nullptr_t>
-		void for_each_descendant(const VoxelElementKey el, ElementAction&& action = nullptr, ChildPredicate&& pred = nullptr) const {
+		void for_each_descendant(const VoxelElement el, ElementAction&& action = nullptr, ChildPredicate&& pred = nullptr) const {
 			if constexpr (std::is_same_v<std::decay_t<ElementAction>, std::nullptr_t>) {return;}
 
 			const auto  it = get_iterator(el);
@@ -199,7 +203,7 @@ namespace gv::vmesh
 			if (el.depth()+1 < MAX_DEPTH) {
 				const auto& clv = elements[el.depth()+1];
 				for (int c=0; c<8; ++c) {
-					const VoxelElementKey child = el.child(c);
+					const VoxelElement child = el.child(c);
 					
 					const auto cit = get_iterator(child);
 					if (cit!=clv.end() && *cit==child) {
@@ -223,13 +227,13 @@ namespace gv::vmesh
 			if constexpr (std::is_same_v<std::decay_t<ElementAction>, std::nullptr_t>) {return;}
 
 			if (depth<MAX_DEPTH) {
-				for (VoxelElementKey& el : elements[depth]) {
+				for (VoxelElement& el : elements[depth]) {
 					action(el);
 				}
 			}
 			else {
 				for (auto& lv : elements) {
-					for (VoxelElementKey& el : lv) {
+					for (VoxelElement& el : lv) {
 						action(el);
 					}
 				}
@@ -242,13 +246,13 @@ namespace gv::vmesh
 			if constexpr (std::is_same_v<std::decay_t<ElementAction>, std::nullptr_t>) {return;}
 
 			if (depth<MAX_DEPTH) {
-				for (VoxelElementKey el : elements[depth]) {
+				for (VoxelElement el : elements[depth]) {
 					action(el);
 				}
 			}
 			else {
 				for (const auto& lv : elements) {
-					for (VoxelElementKey el : lv) {
+					for (VoxelElement el : lv) {
 						action(el);
 					}
 				}
@@ -257,7 +261,7 @@ namespace gv::vmesh
 
 		//refine all elements at a certain depth
 		void refine_depth(const uint64_t depth) {
-			auto action = [this](VoxelElementKey& el){
+			auto action = [this](VoxelElement& el){
 				if (el.is_active()) {
 					this->refine(el);
 				}
@@ -271,7 +275,7 @@ namespace gv::vmesh
 		//by default activate all children
 		//this can be usefull when approximating geometry that is not a rectangle
 		template<typename ChildPredicate = std::nullptr_t>
-		void refine(VoxelElementKey& el, ChildPredicate&& pred = nullptr) {
+		void refine(VoxelElement& el, ChildPredicate&& pred = nullptr) {
 			assert(el.depth()+1 < MAX_DEPTH);
 			
 			el.set_active(false); //deactivate the parent
@@ -279,12 +283,12 @@ namespace gv::vmesh
 			//create children
 			elements[el.depth()+1].reserve(elements[el.depth()+1].size() + 8);
 			for (int c=0; c<8; c++) {
-				VoxelElementKey child{el.child(c)};
+				VoxelElement child{el.child(c)};
 				if constexpr (std::is_same_v<std::decay_t<ChildPredicate>, std::nullptr_t>) {
 					child.set_active(true);
 				}
 				else {
-					child.set_active(pred(child)); //always set in case the default changes in VoxelElementKey
+					child.set_active(pred(child)); //always set in case the default changes in VoxelElement
 				}
 
 				insert_sorted(child);
@@ -293,9 +297,9 @@ namespace gv::vmesh
 
 
 		//deactivate all descendents, activate the specified element if an active child was found
-		void collapse(VoxelElementKey& el) {
+		void collapse(VoxelElement& el) {
 			bool found_active_descendant = false;
-			auto action = [&found_active_descendant](VoxelElementKey& el) {
+			auto action = [&found_active_descendant](VoxelElement& el) {
 				found_active_descendant = found_active_descendant || el.is_active();
 				el.set_active(false);
 			};
@@ -315,7 +319,7 @@ namespace gv::vmesh
 
 			//construct the hierarchy
 			for (uint64_t d=0; d<MAX_DEPTH; ++d) {
-				for (VoxelElementKey el : elements[d]) {
+				for (VoxelElement el : elements[d]) {
 					if constexpr (!std::is_same_v<std::decay_t<ElementPredicate>, std::nullptr_t>) {
 						if (!pred(el)) {continue;}
 					}
@@ -364,10 +368,10 @@ namespace gv::vmesh
 			}
 
 			uint64_t gap_start{0};
-			for (VoxelElementKey el : elements[depth]) {
+			for (VoxelElement el : elements[depth]) {
 				//check if we skipped any indices
 				for (; gap_start<el.depth_linear_index(); ++gap_start) {
-					VoxelElementKey blank_element(depth, gap_start);
+					VoxelElement blank_element(depth, gap_start);
 					blank_element.set_active(false);
 					buffer << lookup(blank_element) << "\n"; //newline is probably safer for most return types
 				}
@@ -379,7 +383,7 @@ namespace gv::vmesh
 			//write any final skipped indices at the end
 			const uint64_t n_elements = uint64_t{1} << (3*depth);
 			for (; gap_start<n_elements; ++gap_start) {
-				VoxelElementKey blank_element(depth, gap_start);
+				VoxelElement blank_element(depth, gap_start);
 				blank_element.set_active(false);
 				buffer << lookup(blank_element) << "\n";
 			}
@@ -399,7 +403,7 @@ namespace gv::vmesh
 
 			//Vertex locations
 			buffer << "POINTS " << n_vertices << " float\n";
-			for (VoxelVertexKey vtx : u_vert) {
+			for (VoxelVertex vtx : u_vert) {
 				buffer << ref2geo(vtx) << "\n";
 			}
 			buffer << "\n";
@@ -434,7 +438,7 @@ namespace gv::vmesh
 			std::ostringstream buffer;
 			buffer << data_header << "\n";
 
-			for (VoxelElementKey el : u_elem) {
+			for (VoxelElement el : u_elem) {
 				buffer << lookup(el) << "\n";
 			}
 			buffer << "\n";
@@ -458,7 +462,7 @@ namespace gv::vmesh
 
 				const uint64_t n_elements = uint64_t{1} << (3*depth);
 				file << "CELL_DATA " << n_elements << "\n";
-				auto lookup = [](VoxelElementKey el){return el.is_active();};
+				auto lookup = [](VoxelElement el){return el.is_active();};
 				append_depth_structured_cell_data_vtk(file, depth, "SCALARS is_active int 1\nLOOKUP_TABLE default", lookup);
 			}
 		}
@@ -472,10 +476,10 @@ namespace gv::vmesh
 			write_unstructured_vtk(file);
 			file << "CELL_DATA " << u_elem.size() << "\n";
 
-			auto lookup_active = [](VoxelElementKey el) {return el.is_active();};
-			auto lookup_depth  = [](VoxelElementKey el) {return el.depth();};
-			auto lookup_ijk    = [](VoxelElementKey el) {return gutil::Point<3,uint64_t>{el.i(), el.j(), el.k()};};
-			auto lookup_linear = [](VoxelElementKey el) {return el.depth_linear_index();};
+			auto lookup_active = [](VoxelElement el) {return el.is_active();};
+			auto lookup_depth  = [](VoxelElement el) {return el.depth();};
+			auto lookup_ijk    = [](VoxelElement el) {return gutil::Point<3,uint64_t>{el.i(), el.j(), el.k()};};
+			auto lookup_linear = [](VoxelElement el) {return el.depth_linear_index();};
 
 			append_unstructured_cell_data_vtk(file, "SCALARS is_active int 1\nLOOKUP_TABLE default", lookup_active);
 			append_unstructured_cell_data_vtk(file, "SCALARS depth int 1\nLOOKUP_TABLE default", lookup_depth);
