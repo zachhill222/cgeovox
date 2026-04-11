@@ -1,7 +1,7 @@
 #pragma once
 
 #include "gutil.hpp"
-#include "voxel_mesh/voxel_key_base.hpp"
+#include "voxel_mesh/keys/voxel_key_base.hpp"
 #include <cstdint>
 #include <cassert>
 #include <cmath>
@@ -12,17 +12,17 @@ namespace gv::vmesh
 	//adjacency methods must be implemented in a separate file after
 	//all mesh feature keys are defined
 
-	template<int I_W>
+	template<int I_W, bool MORTON>
 	struct VoxelElementKey;
 
-	template<int I_W>
+	template<int I_W, bool MORTON>
 	struct VoxelFaceKey;
 
-	template<int I_W=16>
-	struct VoxelVertexKey : public VoxelKey<0,0,I_W>
+	template<int I_W=16, bool MORTON=false>
+	struct VoxelVertexKey : public VoxelKey<0,0,0,I_W>
 	{
 		//inherit constructors
-		using BASE = VoxelKey<0,0,I_W>;
+		using BASE = VoxelKey<0,0,0,I_W>;
 		using BASE::BASE;
 
 		//inherit the primary accessors
@@ -41,16 +41,17 @@ namespace gv::vmesh
 		constexpr VoxelVertexKey(const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
 			BASE(0,0,dd,ii,jj,kk) {assert(is_valid());}
 
-		constexpr VoxelVertexKey(const uint64_t dd, uint64_t li) {
+		constexpr VoxelVertexKey(const uint64_t dd, uint64_t li) requires (!MORTON) {
 			assert(dd<=MAX_DEPTH);
-			assert(li < (uint64_t{1} << (3*dd+3)));
+			const uint64_t nv   = (uint64_t{1} << dd) + 1; //2^d + 1 vertices per axis
+			const uint64_t ii   = li % nv; li /= nv;
+			const uint64_t jj   = li % nv; li /= nv;
+			const uint64_t kk   = li;
 
-			const uint64_t mask = (uint64_t{1} << (dd+1)) - 1;
-			const uint64_t ii   = li & mask; li >>= (dd+1);
-			const uint64_t jj   = li & mask; li >>= (dd+1);
-			const uint64_t kk   = li & mask;
+			//linear index is ii + nv*jj + nv^2*kk
 
 			_data_ = (dd << BASE::D_S) | (ii << BASE::I_S) | (jj << BASE::J_S) | (kk << BASE::K_S);
+			assert(is_valid());
 		}
 
 		//check if a voxel is valid
@@ -65,16 +66,39 @@ namespace gv::vmesh
 
 		//get the linear index of the element at the current depth
 		constexpr uint64_t depth_linear_index() const {
-			const uint64_t dd   = depth();
-			const uint64_t mask = ((uint64_t{1} << (dd+1)) - 1); //2^d is the largets valid vertex index
-			const uint64_t ii   = (_data_ >> BASE::I_S) & mask;
-			const uint64_t jj   = (_data_ >> BASE::J_S) & mask;
-			const uint64_t kk   = (_data_ >> BASE::K_S) & mask;
-			return ii | (jj << dd) | (kk << (2*dd));
+			const uint64_t nv   = depth()+1; //number of vertices per side
+			
+			// const uint64_t ii   = (_data_ >> BASE::I_S);
+			// const uint64_t jj   = (_data_ >> BASE::J_S);
+			// const uint64_t kk   = (_data_ >> BASE::K_S);
+			if constexpr (MORTON) {
+				//morton indexing (two features of the same color on the same depth are 8 indices from eachother)
+				//better for looping over a single color
+				// const uint64_t clr = (ii&1) | ((jj&1)<<1) | ((kk&1)<<2); //color in the least significant bits
+				// const uint64_t rem = ((ii>>1)) | ((jj>>1) << (wd-1)) | ((kk>>1) << (2*wd-1));
+				// return (rem<<3) | clr;
+				return i() + nv*(j() + nv*k());
+			}
+			else {
+				//standard ordering (contiguous i, loop k->j->i (outer to inner))
+				return i() + nv*(j() + nv*k());
+			}
+		}
+
+		static constexpr uint64_t depth_linear_start(const uint64_t dd) {
+			//(2^d + 1)^3 vertices per depth. expand and sum from 0 to dd-1
+			return ((uint64_t{1} << (3*dd)) - 1)/7 
+				 + (uint64_t{1}<<(2*dd)) 
+				 + 3*(uint64_t{1}<<dd)
+				 + dd - 4;
+		}
+
+		constexpr uint64_t linear_index() const {
+			return depth_linear_start(depth()) + depth_linear_index();
 		}
 
 		//geometry logic
-		const bool on_bbox_boundary() const {
+		constexpr bool on_bbox_boundary() const {
 			const uint64_t mvi = uint64_t{1} << depth();
 			const uint64_t ii=i(), jj=j(), kk=k();
 			return ii==0 || ii==mvi || jj==0 || jj==mvi || kk==0 || kk==mvi;
@@ -131,5 +155,16 @@ namespace gv::vmesh
 
 		//adjacency logic
 		//TODO: implement if needed
+
+		//get the color of the feature by index modding. There are 8 unique colors.
+		//coloring means different things for differnet mesh elements, but for example,
+		//two elements with the same color at the same depth share no vertices or faces
+		inline constexpr uint64_t color() const {
+			//even/even/even -> 0
+			//odd/even/even  -> 1
+			//even/odd/even  -> 2
+			//etc.
+			return (i()&1) | ((j()&1) << 1) | ((k()&1) << 2);
+		}
 	};
 }

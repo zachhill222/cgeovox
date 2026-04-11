@@ -1,6 +1,6 @@
 #pragma once
 
-#include "voxel_mesh/voxel_key_base.hpp"
+#include "voxel_mesh/keys/voxel_key_base.hpp"
 #include <cstdint>
 #include <cassert>
 
@@ -11,17 +11,17 @@ namespace gv::vmesh
 	//adjacency methods must be implemented in a separate file after
 	//all mesh feature keys are defined
 
-	template<int I_W>
+	template<int I_W, bool MORTON>
 	struct VoxelElementKey;
 
-	template<int I_W>
+	template<int I_W, bool MORTON>
 	struct VoxelVertexKey;
 
-	template<int I_W=16>
-	struct VoxelFaceKey : public VoxelKey<0,2,I_W>
+	template<int I_W=16, bool MORTON=false>
+	struct VoxelFaceKey : public VoxelKey<0,0,2,I_W>
 	{
 		//inherit constructors
-		using BASE = VoxelKey<0,2,I_W>;
+		using BASE = VoxelKey<0,0,2,I_W>;
 		using BASE::BASE;
 
 		//inherit the primary accessors
@@ -47,7 +47,7 @@ namespace gv::vmesh
 		VoxelFaceKey(const uint64_t aa, const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
 			BASE(0,aa,dd,ii,jj,kk) {assert(is_valid());}
 
-		constexpr VoxelFaceKey(const uint64_t dd, uint64_t li) {
+		constexpr VoxelFaceKey(const uint64_t dd, uint64_t li) requires (!MORTON) {
 			//define by linear index
 			assert(dd <= MAX_DEPTH);
 			assert(li < 3*(uint64_t{1} << (3*dd+1)));
@@ -79,24 +79,59 @@ namespace gv::vmesh
 			return true;
 		}
 
-		//conversion to the linear index each axis is contiguous
-		//loop order should be axis - k - j - i (outer to inner)
-		//for each axis, there are 2^(3d+1) faces, 2^(d+1) for the axis-index and 2^d for the other two
-		//thus for each depth, there are 3*2^(3*d+1) unique faces and the linear index range is [0, 3*2^(3*d+1) ) (half-open)
+		//partition the indices into: axis0 normal | axis1 normal | axis2 normal
+		//the numbering within and across each partion is continuous as there are 2^d * 2^d * 2^(d+1) = 2^(3d+1) faces with a given normal axis
+		//thus axis0 uses indices [0,N), axis1 uses [N,2N), and axis2 uses [2N,3N).
+		//the numbering within a partion is either standard or morton. use morton if looping by color and standard if looping by index
+		//for better memory strides
+
+		//the standard indexing within an axis group is
+		// a2 | a1 | a0 where a2 is the axis-index, a1 is the larger non-axis index and a0 is the smaller non-axis index
+		//this organizes faces in the same plane contiguously
+		//note a1 and a0 are (depth) bits wide while a2 is (depth+1) bits wide
+
+		//for morton indexing, the last two bits of a1 and a0 are moved to the LSB
+		// a2 | a1-remainder | a0-remainder | a1&1 | a0&1
+		//note that a1-rem and a0-rem are (depth-1) bits wide and a2 is still (depth+1) bits wide
+		//the color a1&1 | a0&1 is of course 2 bits wide.
+
 		constexpr uint64_t depth_linear_index() const {
 			const uint64_t dd = depth();
 			const uint64_t aa = axis();
-			const uint64_t mna    = (uint64_t{1} << dd) - 1;    //maximum element index at this depth, non-axis indices
-			const uint64_t ma     = (uint64_t{1} << (dd+1)) -1; //maximum vertex index at this depth, axis index
-			const uint64_t ii = (_data_ >> BASE::I_S) & (aa==0 ? ma : mna);
-			const uint64_t jj = (_data_ >> BASE::J_S) & (aa==1 ? ma : mna);
-			const uint64_t kk = (_data_ >> BASE::K_S) & (aa==2 ? ma : mna);
+
+			//we assume that the index a,i,j,k is valid and do not mask it
+			const uint64_t a0 = (aa == 0) ? j() : i(); //first index
+			const uint64_t a1 = (aa == 2) ? j() : k(); //second index
+			const uint64_t a2 = (aa == 0) ? i() : (aa==1) ? j() : k(); //axis index
+
+			const uint64_t ps = depth_axis_start(dd,aa); //start of this partision
 			
-			uint64_t idx = ii;
-			idx |= jj << (aa==0 ? dd+1 : dd); //move past ii
-			idx |= kk << (aa==2 ? 2*dd : 2*dd+1); //move past i_data and jj
-			idx |= aa << (3*dd+1);
-			return idx;
+			if constexpr (MORTON) {
+				const uint64_t clr = (a0&1) | ((a1&1)<<1); //color bits
+				const uint64_t r0  = a0>>1; //mask and compact the low-index bits
+				const uint64_t r1  = a1>>1; //mask and compact the high-index bits
+				const uint64_t pn  = clr | (r0<<2) | (r1<<(dd+1)) | (a2<<(2*dd));
+				return ps + pn;
+			}
+			else {
+				
+				const uint64_t pn = (a0) | (a1<<dd) | (a2<<(2*dd)); //index within this axis partition
+				return ps + pn;
+			}
+		}
+
+		static const uint64_t depth_axis_start(const uint64_t dd, const uint64_t aa) {
+			const uint64_t N = uint64_t{1} << (3*dd+1);
+			return aa*N;
+		}
+
+		static constexpr uint64_t depth_linear_start(const uint64_t dd) {
+			// 8^d + 4^d faces per axis at depth d, summed from 0 to dd-1
+			return 3 * (((uint64_t{1} << (3*dd)) - 1)/7) + ((uint64_t{1}<<(2*dd)) - 1);
+		}
+
+		constexpr uint64_t linear_index() const {
+			return depth_linear_start(depth()) + depth_linear_index();
 		}
 
 		//geometry logic
@@ -147,8 +182,16 @@ namespace gv::vmesh
 		}
 
 		//adjacency operations
-		constexpr VoxelElementKey<I_W> element(const bool forward_flag) const;
-		constexpr VoxelVertexKey<I_W>  vertex(const bool ii, const bool jj) const;
-		constexpr VoxelVertexKey<I_W>  vertex(const int vertex_number) const;
+		constexpr VoxelElementKey<I_W,MORTON> element(const bool forward_flag) const;
+		constexpr VoxelVertexKey<I_W,MORTON>  vertex(const bool ii, const bool jj) const;
+		constexpr VoxelVertexKey<I_W,MORTON>  vertex(const int vertex_number) const;
+
+		//color by the even/odd parity of the non-axis indices
+		inline constexpr uint64_t color() const {
+			const uint64_t aa = axis();
+			const uint64_t a0 = (aa == 0) ? j() : i(); //first index
+			const uint64_t a1 = (aa == 2) ? j() : k(); //second index
+			return (a0&1) | ((a1&1)<<1);
+		}
 	};
 }

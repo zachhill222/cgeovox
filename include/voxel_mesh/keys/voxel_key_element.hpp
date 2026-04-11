@@ -1,6 +1,6 @@
 #pragma once
 
-#include "voxel_mesh/voxel_key_base.hpp"
+#include "voxel_mesh/keys/voxel_key_base.hpp"
 #include <cstdint>
 #include <cassert>
 
@@ -11,17 +11,17 @@ namespace gv::vmesh
 	//adjacency methods must be implemented in a separate file after
 	//all mesh feature keys are defined
 
-	template<int I_W>
+	template<int I_W, bool MORTON>
 	struct VoxelVertexKey;
 
-	template<int I_W>
+	template<int I_W, bool MORTON>
 	struct VoxelFaceKey;
 
-	template<int I_W=16>
-	struct VoxelElementKey : public VoxelKey<0,1,I_W>
+	template<int I_W=16, bool MORTON=false>
+	struct VoxelElementKey : public VoxelKey<0,0,0,I_W>
 	{
 		//inherit constructors
-		using BASE = VoxelKey<0,1,I_W>;
+		using BASE = VoxelKey<0,0,0,I_W>;
 		using BASE::BASE;
 
 		//inherit the primary accessors
@@ -40,7 +40,7 @@ namespace gv::vmesh
 		constexpr VoxelElementKey(const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
 			BASE(0,0,dd,ii,jj,kk) {assert(is_valid());}
 
-		constexpr VoxelElementKey(const uint64_t dd, uint64_t li) {
+		constexpr VoxelElementKey(const uint64_t dd, uint64_t li) requires (!MORTON) {
 			assert(dd<=MAX_DEPTH);
 			assert(li < (uint64_t{1} << (3*dd)));
 
@@ -54,7 +54,7 @@ namespace gv::vmesh
 
 		//check if a voxel is valid
 		constexpr bool is_valid() const {
-			const uint64_t mei = (uint64_t{1} << depth()) - 2; //max element index
+			const uint64_t mei = (uint64_t{1} << depth()) - 1; //max element index
 			if (depth() > MAX_DEPTH) {return false;}
 			if (i() > mei) 			 {return false;}
 			if (j() > mei) 			 {return false;}
@@ -64,13 +64,37 @@ namespace gv::vmesh
 
 		//get the linear index of the element at the current depth
 		constexpr uint64_t depth_linear_index() const {
+			if (!is_valid()) {
+				std::cout << "INVALID ELEMENT\n" << *this << std::endl;
+			}
+
 			assert(is_valid());
 			const uint64_t dd   = depth();
 			const uint64_t mask = ((uint64_t{1} << dd) - 1); //maximum element index at this depth
 			const uint64_t ii   = (_data_ >> BASE::I_S) & mask;
 			const uint64_t jj   = (_data_ >> BASE::J_S) & mask;
 			const uint64_t kk   = (_data_ >> BASE::K_S) & mask;
-			return ii | (jj << dd) | (kk << (2*dd));
+			
+			if constexpr (MORTON) {
+				//morton indexing (two features of the same color on the same depth are 8 indices from eachother)
+				//better for looping over a single color
+				const uint64_t clr = (ii&1) | ((jj&1)<<1) | ((kk&1)<<2); //color in the least significant bits
+				const uint64_t rem = ((ii>>1)) | ((jj>>1) << (dd-1)) | ((kk>>1) << (2*dd-1));
+				return (rem<<3) | clr;
+			}
+			else {
+				//standard ordering (contiguous i, loop k->j->i (outer to inner))
+				return ii | (jj << dd) | (kk << (2*dd));
+			}
+		}
+
+		static constexpr uint64_t depth_linear_start(const uint64_t dd) {
+			//sum from d=0 to dd-1 of 8^d
+			return ((uint64_t{1} << (3*dd)) - 1)/7;
+		}
+
+		constexpr uint64_t linear_index() const {
+			return depth_linear_start(depth()) + depth_linear_index();
 		}
 
 		//hierarchy logic
@@ -98,16 +122,20 @@ namespace gv::vmesh
 			}
 		}
 
-		constexpr bool is_active() const {return static_cast<bool>(this->other()&1);}
-		constexpr void set_active(const bool a) {
-			if (a) {_data_|=BASE::O_S;}
-			else {_data_&= ~BASE::O_S;}
-		}
-
-
 		//adjacency logic
-		inline constexpr VoxelVertexKey<I_W> vertex(const bool bi, const bool bj, const bool bk) const;
-		constexpr VoxelVertexKey<I_W> vertex(const int vn) const;
-		constexpr VoxelFaceKey<I_W> face(const int fn) const;
+		inline constexpr VoxelVertexKey<I_W,MORTON> vertex(const bool bi, const bool bj, const bool bk) const;
+		constexpr VoxelVertexKey<I_W,MORTON> vertex(const int vn) const;
+		constexpr VoxelFaceKey<I_W,MORTON> face(const int fn) const;
+
+		//get the color of the feature by index modding. There are 8 unique colors.
+		//coloring means different things for differnet mesh elements, but for example,
+		//two elements with the same color at the same depth share no vertices or faces
+		inline constexpr uint64_t color() const {
+			//even/even/even -> 0
+			//odd/even/even  -> 1
+			//even/odd/even  -> 2
+			//etc.
+			return (i()&1) | ((j()&1) << 1) | ((k()&1) << 2);
+		}
 	};
 }

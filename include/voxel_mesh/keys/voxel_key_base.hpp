@@ -5,6 +5,10 @@
 #include <string>
 #include <bit>
 
+#include <bitset>
+#include <iostream>
+#include <iomanip>
+
 namespace gv::vmesh
 {
 	//these classes store the logic of a (limited to 64-bit storage) an infinite hierarchical voxel mesh
@@ -23,50 +27,63 @@ namespace gv::vmesh
 	//RF_W: requested free width - used by outside classes, not touched by this or inherited classes
 	//      if the index width is small, this may be increased to fill space. If that is undesirable, set O_W
 	//      to absorb the rest. the final number of free bits F_W will always be at least as large as R_W.
-	//O_W : other width - used by inherited classes, not touched by this or outside classes
+	//ON_W: other width - used by inherited classes, not touched by this or outside classes. NOT USED for comparison.
+	//OC_W: other width - used by inherited classes, not touched by this or outside classes. IS USED for comparisoin.
 	//D_W : depth width - used by this and inherited classes, not touched by outside classes
 	//I_W : index width - used by this and inherited classes, not touched by outside classes
-	template<int RF_W, int O_W, int I_W> requires (RF_W + O_W + 3*I_W < 64)
+	template<int RF_W, int ON_W, int OC_W, int I_W_> requires (RF_W + ON_W + OC_W + 3*I_W_ < 64)
 	struct VoxelKey
 	{
 		//compute the required number of bits to represent the number of vertices with the
 		//given index width.
 		//maximum depth that can be represented. the maximum valid depth may be smaller.
-		static constexpr uint64_t MAX_INDEX = (uint64_t{1} << I_W) -1;
-		static constexpr uint64_t MAX_DEPTH = I_W-1; //maximum depth that is compatible with the index
+		static constexpr uint64_t MAX_INDEX = (uint64_t{1} << I_W_) -1;
+		static constexpr uint64_t MAX_DEPTH = I_W_-1; //maximum depth that is compatible with the index
 		static constexpr uint64_t D_W       = std::bit_width(MAX_DEPTH); //number of bits required to represent the max depth
 		
 		//absorb any extra bits into the free bits
-		static constexpr uint64_t F_W = 64 - (O_W + D_W + 3*I_W);
+		static constexpr uint64_t F_W = 64 - (ON_W + OC_W + D_W + 3*I_W_);
 		static_assert(RF_W <= F_W); //make sure we can provide the required number of free bits
 
 		//I, J, K all have the same width. define for convenience
+		static constexpr uint64_t I_W = I_W_;
 		static constexpr uint64_t J_W = I_W; //index j width
 		static constexpr uint64_t K_W = I_W; //index k width
 
 		//define offsets (data start)
-		static constexpr uint64_t F_S = 0;         	//free start
-		static constexpr uint64_t O_S = F_W;		//other start
-		static constexpr uint64_t D_S = O_S + O_W;	//depth start
-		static constexpr uint64_t I_S = D_S + D_W;	//index i start
-		static constexpr uint64_t J_S = I_S + I_W;	//index j start
-		static constexpr uint64_t K_S = J_S + J_W;	//index k start
+		static constexpr uint64_t F_S  = 0;         	//free start
+		static constexpr uint64_t ON_S = F_W;			//other (no compare) start
+		static constexpr uint64_t OC_S = ON_S + ON_W;	//other (compare) start
+		static constexpr uint64_t D_S  = OC_S + OC_W;	//depth start
+		static constexpr uint64_t I_S  = D_S  + D_W;	//index i start
+		static constexpr uint64_t J_S  = I_S  + I_W;	//index j start
+		static constexpr uint64_t K_S  = J_S  + J_W;	//index k start
 		static_assert(K_S+K_W == 64, "VoxelKey: incorrect field starts");
 
 		//define masks
-		static constexpr uint64_t F_M = ((uint64_t{1} << F_W) - 1) << F_S; //free mask
-		static constexpr uint64_t O_M = ((uint64_t{1} << O_W) - 1) << O_S; //other mask
-		static constexpr uint64_t D_M = ((uint64_t{1} << D_W) - 1) << D_S; //depth mask
-		static constexpr uint64_t I_M = ((uint64_t{1} << I_W) - 1) << I_S; //index i mask
-		static constexpr uint64_t J_M = ((uint64_t{1} << J_W) - 1) << J_S; //index j mask
-		static constexpr uint64_t K_M = ((uint64_t{1} << K_W) - 1) << K_S; //index k mask
+		static constexpr uint64_t F_M  = ((uint64_t{1} << F_W)  - 1) << F_S;  //free mask
+		static constexpr uint64_t ON_M = ((uint64_t{1} << ON_W) - 1) << ON_S; //other (no-compare) mask
+		static constexpr uint64_t OC_M = ((uint64_t{1} << OC_W) - 1) << OC_S; //other (compare) mask
+		static constexpr uint64_t D_M  = ((uint64_t{1} << D_W)  - 1) << D_S;  //depth mask
+		static constexpr uint64_t I_M  = ((uint64_t{1} << I_W)  - 1) << I_S;  //index i mask
+		static constexpr uint64_t J_M  = ((uint64_t{1} << J_W)  - 1) << J_S;  //index j mask
+		static constexpr uint64_t K_M  = ((uint64_t{1} << K_W)  - 1) << K_S;  //index k mask
 
 		//catch off-by-one shifting/width errors. each mask must be disjoint cover all 64 bits
-		static_assert( (F_M | O_M | D_M | I_M | J_M | K_M) == (uint64_t) -1, "VoxelKey: incorrect field masks");
-		static_assert( (F_M ^ O_M ^ D_M ^ I_M ^ J_M ^ K_M) == (uint64_t) -1, "VoxelKey: incorrect field masks");
+		static_assert( (F_M | ON_M | OC_M | D_M | I_M | J_M | K_M) == (uint64_t) -1, "VoxelKey: incorrect field masks");
+		static_assert( (F_M ^ ON_M ^ OC_M ^ D_M ^ I_M ^ J_M ^ K_M) == (uint64_t) -1, "VoxelKey: incorrect field masks");
+
+		//even though both 'other' fields are independent, it is more convenient treat them together sometimes
+		static constexpr uint64_t O_W = ON_W + OC_W;
+		static constexpr uint64_t O_S = ON_S < OC_S ? ON_S : OC_S; //both other fields must be adjacent
+		static constexpr uint64_t O_M = OC_M | ON_M;
+		static_assert( O_M == ((uint64_t{1} << O_W) -1) << O_S, "VoxelKey: 'other' fields must be adjacent");
 
 		//convenient key to return
 		static constexpr uint64_t DOES_NOT_EXIST = uint64_t(-1);
+
+		//mask to use for comparisons
+		static constexpr uint64_t COMPARE_MASK = OC_M | D_M | I_M | J_M | K_M;
 
 		//store the bits
 		uint64_t _data_;
@@ -74,7 +91,12 @@ namespace gv::vmesh
 		//define constructors
 		explicit constexpr VoxelKey() : _data_{DOES_NOT_EXIST} {}
 		explicit constexpr VoxelKey(const uint64_t data) : _data_{data} {}
-		constexpr VoxelKey(const uint64_t ff, const uint64_t oo, const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
+		constexpr VoxelKey( const uint64_t ff, 
+							const uint64_t oo,
+							const uint64_t dd,
+							const uint64_t ii, 
+							const uint64_t jj, 
+							const uint64_t kk) :
 			_data_{
 				//shift each field into place and mask
 				((ff<<F_S) & F_M) |
@@ -88,7 +110,7 @@ namespace gv::vmesh
 
 		//access each field
 		inline constexpr uint64_t free()  const {return (_data_&F_M)>>F_S;}
-		inline constexpr uint64_t other() const {return (_data_&O_M)>>O_S;}
+		inline constexpr uint64_t other() const {return (_data_&O_M)>>O_S;} //both 'other' fields
 		inline constexpr uint64_t depth() const {return (_data_&D_M)>>D_S;}
 		inline constexpr uint64_t i() 	  const {return (_data_&I_M)>>I_S;}
 		inline constexpr uint64_t j() 	  const {return (_data_&J_M)>>J_S;}
@@ -189,7 +211,47 @@ namespace gv::vmesh
 		explicit constexpr operator uint64_t() const {return _data_;}
 
 		//comparison operators do not depend on the free bits
-		inline constexpr bool operator==(VoxelKey other) const {return essential_bits() == other.essential_bits();}
-		inline constexpr auto operator<=>(VoxelKey other) const {return essential_bits() <=> other.essential_bits();}
+		inline constexpr bool operator==(VoxelKey other) const {return (_data_&COMPARE_MASK) == (other._data_&COMPARE_MASK);}
+		inline constexpr auto operator<=>(VoxelKey other) const {return (_data_&COMPARE_MASK) <=> (other._data_&COMPARE_MASK);}
 	};
+
+
+	template<int RF_W, int ON_W, int OC_W, int I_W> requires (RF_W + ON_W + OC_W + 3*I_W < 64)
+	std::ostream& operator<<(std::ostream& os, const VoxelKey<RF_W, ON_W, OC_W, I_W> k) {
+		std::bitset<64> bits(k._data_);
+
+		//print partitioned bits
+		os << "F";
+		if (k.O_W>0){
+			os << std::setw(k.F_W+1) << "O";
+			os << std::setw(k.O_W+1) << "D";
+		}
+		else {
+			os << std::setw(k.F_W+1) << "D";
+		}
+		os << std::setw(k.D_W+1) << "I";
+		os << std::setw(k.I_W+1) << "J";
+		os << std::setw(k.J_W+1) << "K";
+		os << "\n";
+
+		for (int i=0; i<64; ++i) {
+			if (i!=0 and (i==k.F_S or i==k.OC_S or i==k.ON_S or i==k.D_S or i==k.I_S or i==k.J_S or i==k.K_S)) {
+				os << " ";
+			}
+			os << bits.test(i);
+			
+		}
+
+		//print fields
+		os <<"\n\nraw:   " << k._data_;
+		os <<"\nfree:  " << k.free();
+		os <<"\nother: " << k.other();
+		os <<"\ndepth: " << k.depth();
+		os <<"\ni:     " << k.i();
+		os <<"\nj:     " << k.j();
+		os <<"\nk:     " << k.k();
+		os <<"\n";
+		return os;
+	}
+
 }
