@@ -1,8 +1,9 @@
 #pragma once
 
 #include "gutil.hpp"
-#include "voxel_mesh/voxel_mesh_keys.hpp"
-#include "voxel_mesh/voxel_dof_base.hpp"
+#include "voxel_mesh/fem/dofs/voxel_dof_base.hpp"
+#include "voxel_mesh/mesh/keys/voxel_key.hpp"
+
 #include <array>
 #include <cstdint>
 #include <omp.h>
@@ -10,26 +11,38 @@
 namespace gv::vmesh
 {
 	//P0 dofs (constant on each element)
-	struct CharmsVoxelP0 : public VoxelDOFBase<VoxelElementKey, CharmsVoxelP0>
+	template<VoxelElementKeyType Key_type>
+	struct CharmsVoxelP0 : public VoxelDOFBase<Key_type, CharmsVoxelP0<Key_type>>
 	{
 		//get types from the Base class
-		using Base = VoxelDOFBase<VoxelElementKey, CharmsVoxelP0>;
-		using Base::RefPoint_t;
-		using Base::GeoPoint_t;
+		using Base = VoxelDOFBase<Key_type, CharmsVoxelP0<Key_type>>;
+		using RefPoint_t = typename Base::RefPoint_t;
+		using GeoPoint_t = typename Base::GeoPoint_t;
+		using Key_t      = typename Base::Key_t;
+		using QuadElem_t = typename Base::QuadElem_t;
+
+		//constants
+		static constexpr uint64_t N_CHILDREN     = 8;
+		static constexpr uint64_t N_DOF_PER_ELEM = 1;
+		static constexpr uint64_t N_SUPPORT_ELEM = 1;
+		static constexpr uint64_t N_PARENTS      = 1;
+
+		//access the data
+		using Base::key;
 
 		//use the base constructors
 		using Base::Base;
 
 		//evaluate always to 1
-		static constexpr double eval(VoxelElementKey support_elem, const RefPoint_t& xi) {return 1.0;}
+		static constexpr double eval(QuadElem_t support_elem, const RefPoint_t& xi) {return 1.0;}
 
 		//gradient is always 0
-		static constexpr RefPoint_t grad(VoxelElementKey support_elem, const RefPoint_t& xi) {return {0.0, 0.0, 0.0};}
+		static constexpr RefPoint_t grad(QuadElem_t support_elem, const RefPoint_t& xi) {return {0.0, 0.0, 0.0};}
 
 		//vectorized evaluation (for a consistent interface across dof types)
 		template<int N> requires (N>0)
 		void eval(	std::array<double,N>&       vl, //values 
-					VoxelElementKey             el, //support element
+					QuadElem_t             el, //support element
 					const std::array<double,N>& qx, //reference/quadrature points
 					const std::array<double,N>& qy, 
 					const std::array<double,N>& qz) const {
@@ -48,7 +61,7 @@ namespace gv::vmesh
 		void grad(	std::array<double,N>&		gx, //gradient result
 					std::array<double,N>& 		gy, 
 					std::array<double,N>& 		gz, 
-					VoxelElementKey  	 		el, //support element
+					QuadElem_t  	 	    	el, //support element
 					const std::array<double,N>& qx, //reference/quadratrue points
 					const std::array<double,N>& qy, 
 					const std::array<double,N>& qz) const {
@@ -65,9 +78,44 @@ namespace gv::vmesh
 			gz.fill(0.0);
 		}
 
-		//refinement operations
-		constexpr CharmsVoxelP0 child_impl(const int i) const {return CharmsVoxelP0{key.child(i)};}
-		constexpr double child_coef_impl(const int i) const {return 1.0;}
-		static constexpr int n_children_impl() {return 8;}
+		//get the support
+		template<bool PERIODIC=false>
+		constexpr std::array<QuadElem_t,1> support_impl() const {
+			return {key};
+		}
+
+		//refinement operations. periodic template is only for conforming to the standard dof interface
+		template<bool PERIODIC_X=false, bool PERIODIC_Y=false, bool PERIODIC_Z=false>
+		constexpr std::array<CharmsVoxelP0,8> children_impl() const {
+			const uint64_t ii=2*key.i(), jj=2*key.j(), kk=2*key.k(), dd=key.depth()+1;
+			assert(dd<Key_t::MAX_DEPTH);
+			return {
+				CharmsVoxelP0{Key_t{dd, ii,   jj,   kk  }},
+				CharmsVoxelP0{Key_t{dd, ii+1, jj,   kk  }},
+				CharmsVoxelP0{Key_t{dd, ii,   jj+1, kk  }},
+				CharmsVoxelP0{Key_t{dd, ii+1, jj+1, kk  }},
+				CharmsVoxelP0{Key_t{dd, ii,   jj,   kk+1}},
+				CharmsVoxelP0{Key_t{dd, ii+1, jj,   kk+1}},
+				CharmsVoxelP0{Key_t{dd, ii,   jj+1, kk+1}},
+				CharmsVoxelP0{Key_t{dd, ii+1, jj+1, kk+1}}
+			};
+		}
+
+		static constexpr std::array<double,8> child_coef_impl() {
+			return {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}
+		}
+
+		constexpr std::array<CharmsVoxelP0,1> parents_impl() const {
+			if (key.depth()==0) {return {CharmsVoxelP0{}};}
+			return {CharmsVoxelP0{key.parent()};}
+		}
+
+		static constexpr std::array<double,1> parent_coefs_impl() {
+			return {1.0};
+		}
+
+		static constexpr std::array<CharmsVoxelP0,1> dofs_on_elem_impl(const QuadElem_t el) {
+			return {CharmsVoxelP0{el}};
+		}
 	};
 }

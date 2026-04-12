@@ -1,6 +1,6 @@
 #pragma once
 
-#include "voxel_mesh/keys/voxel_key_base.hpp"
+#include "voxel_mesh/mesh/keys/voxel_key_base.hpp"
 #include <cstdint>
 #include <cassert>
 
@@ -11,13 +11,13 @@ namespace gv::vmesh
 	//adjacency methods must be implemented in a separate file after
 	//all mesh feature keys are defined
 
-	template<int I_W, bool MORTON>
+	template<uint64_t I_W, bool MORTON>
 	struct VoxelElementKey;
 
-	template<int I_W, bool MORTON>
+	template<uint64_t I_W, bool MORTON>
 	struct VoxelVertexKey;
 
-	template<int I_W=16, bool MORTON=false>
+	template<uint64_t I_W=16, bool MORTON_=false>
 	struct VoxelFaceKey : public VoxelKey<0,0,2,I_W>
 	{
 		//inherit constructors
@@ -36,6 +36,7 @@ namespace gv::vmesh
 		inline constexpr uint64_t axis() const {return this->other();}
 
 		//define useful constants
+		static constexpr bool MORTON = MORTON_;
 		static constexpr uint64_t MAX_FACE_INDEX_NAX = BASE::MAX_INDEX -1;
 		static constexpr uint64_t MAX_FACE_INDEX_AX  = BASE::MAX_INDEX;
 		static constexpr uint64_t A_S                = BASE::O_S;
@@ -45,7 +46,9 @@ namespace gv::vmesh
 
 		//define face specific constructors
 		VoxelFaceKey(const uint64_t aa, const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
-			BASE(0,aa,dd,ii,jj,kk) {assert(is_valid());}
+			BASE(0,aa,dd,ii,jj,kk) {
+				if (!is_valid()) {_data_=DOES_NOT_EXIST;}
+			}
 
 		constexpr VoxelFaceKey(const uint64_t dd, uint64_t li) requires (!MORTON) {
 			//define by linear index
@@ -166,8 +169,8 @@ namespace gv::vmesh
 
 		constexpr VoxelFaceKey parent() const {
 			//not all faces have parents
-			const uint64_t a = axis();
-			const uint64_t d = depth();
+			const uint64_t a  = axis();
+			const uint64_t d  = depth();
 			const uint64_t ii = i();
 			const uint64_t jj = j();
 			const uint64_t kk = k();
@@ -182,9 +185,9 @@ namespace gv::vmesh
 		}
 
 		//adjacency operations
-		constexpr VoxelElementKey<I_W,MORTON> element(const bool forward_flag) const;
-		constexpr VoxelVertexKey<I_W,MORTON>  vertex(const bool ii, const bool jj) const;
-		constexpr VoxelVertexKey<I_W,MORTON>  vertex(const int vertex_number) const;
+		constexpr VoxelElementKey<I_W,MORTON_> element(const bool forward_flag) const;
+		constexpr VoxelVertexKey<I_W,MORTON_>  vertex(const bool ii, const bool jj) const;
+		constexpr VoxelVertexKey<I_W,MORTON_>  vertex(const int vertex_number) const;
 
 		//color by the even/odd parity of the non-axis indices
 		inline constexpr uint64_t color() const {

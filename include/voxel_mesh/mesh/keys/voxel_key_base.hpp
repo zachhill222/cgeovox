@@ -82,8 +82,10 @@ namespace gv::vmesh
 		//convenient key to return
 		static constexpr uint64_t DOES_NOT_EXIST = uint64_t(-1);
 
-		//mask to use for comparisons
+		//other useful masks
 		static constexpr uint64_t COMPARE_MASK = OC_M | D_M | I_M | J_M | K_M;
+		static constexpr uint64_t INDEX_MASK = I_M | J_M | K_M;
+		static constexpr uint64_t DEPTH_INDEX_MASK = D_M | INDEX_MASK;
 
 		//store the bits
 		uint64_t _data_;
@@ -109,12 +111,14 @@ namespace gv::vmesh
 		{}
 
 		//access each field
-		inline constexpr uint64_t free()  const {return (_data_&F_M)>>F_S;}
-		inline constexpr uint64_t other() const {return (_data_&O_M)>>O_S;} //both 'other' fields
-		inline constexpr uint64_t depth() const {return (_data_&D_M)>>D_S;}
-		inline constexpr uint64_t i() 	  const {return (_data_&I_M)>>I_S;}
-		inline constexpr uint64_t j() 	  const {return (_data_&J_M)>>J_S;}
-		inline constexpr uint64_t k() 	  const {return (_data_&K_M)>>K_S;}
+		inline constexpr uint64_t free()    const {return (_data_&F_M)>>F_S;}
+		inline constexpr uint64_t other()   const {return (_data_&O_M)>>O_S;} //both 'other' fields
+		inline constexpr uint64_t other_n() const {return (_data_&ON_M)>>ON_S;}
+		inline constexpr uint64_t other_c() const {return (_data_&OC_M)>>OC_S;}
+		inline constexpr uint64_t depth()   const {return (_data_&D_M)>>D_S;}
+		inline constexpr uint64_t i() 	    const {return (_data_&I_M)>>I_S;}
+		inline constexpr uint64_t j() 	    const {return (_data_&J_M)>>J_S;}
+		inline constexpr uint64_t k() 	    const {return (_data_&K_M)>>K_S;}
 
 		//access the un-shifted essential/free bits (good for comparison below)
 		constexpr uint64_t essential_bits() const {return _data_&~F_M;}
@@ -246,11 +250,13 @@ namespace gv::vmesh
 		os <<"\n\nraw:   " << k._data_;
 		os <<"\nfree:  " << k.free();
 		os <<"\nother: " << k.other();
-		os <<"\ndepth: " << k.depth();
-		os <<"\ni:     " << k.i();
-		os <<"\nj:     " << k.j();
-		os <<"\nk:     " << k.k();
-		os <<"\n";
+		os <<"\n(oc,d,i,j,k): (" 
+		   << k.other_c() 
+		   <<", " << k.depth() 
+		   <<", " << k.i()
+		   <<", " << k.j()
+		   <<", " << k.k()
+		   <<")\n";
 		return os;
 	}
 

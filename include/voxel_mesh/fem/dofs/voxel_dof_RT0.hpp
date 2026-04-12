@@ -1,27 +1,40 @@
 #pragma once
 
 #include "gutil.hpp"
-#include "voxel_mesh/voxel_mesh_keys.hpp"
-#include "voxel_mesh/voxel_dof_base.hpp"
+#include "voxel_mesh/fem/dofs/voxel_dof_base.hpp"
+#include "voxel_mesh/mesh/keys/voxel_key.hpp"
+
 #include <array>
 #include <cstdint>
 #include <omp.h>
 
 namespace gv::vmesh
 {
-	struct CharmsVoxelRT0 : public VoxelDOFBase<VoxelFaceKey,CharmsVoxelRT0>
+	template<VoxelFaceKeyType Key_type>
+	struct CharmsVoxelRT0 : public VoxelDOFBase<Key_type,CharmsVoxelRT0<Key_type>>
 	{
 		//get types from the Base class
-		using Base = VoxelDOFBase<VoxelFaceKey,CharmsVoxelRT0>;
-		using Base::RefPoint_t;
-		using Base::GeoPoint_t;
+		using Base = VoxelDOFBase<Key_type,CharmsVoxelRT0<Key_type>>;
+		using RefPoint_t = typename Base::RefPoint_t;
+		using GeoPoint_t = typename Base::GeoPoint_t;
+		using Key_t      = typename Base::Key_t;
+		using QuadElem_t = typename Base::QuadElem_t;
+
+		//constants
+		static constexpr uint64_t N_CHILDREN     = 12;
+		static constexpr uint64_t N_DOF_PER_ELEM = 6;
+		static constexpr uint64_t N_SUPPORT_ELEM = 2;
+		static constexpr uint64_t N_PARENTS      = 2;
+
+		//access the data
+		using Base::key;
 
 		//use the base constructors
 		using Base::Base;
 
 		//evaluate normal component. this is the same as the flux through the face.
 		//use the vectorized version. this is only for debugging.
-		constexpr double flux(VoxelElementKey support_elem, const RefPoint_t& xi) const {
+		constexpr double flux(QuadElem_t support_elem, const RefPoint_t& xi) const {
 			//similar to Q1, but only evaluate the coordinate in the normal direction
 			//if the dof is normal to the x-axis and on the low side,
 			//then we should return 1 when xi[0]=-1 and 0 when xi[0]=1.
@@ -34,7 +47,7 @@ namespace gv::vmesh
 		}
 
 		//use the vectorized flux. this is only for debugging.
-		constexpr RefPoint_t eval(VoxelElementKey support_elem, const RefPoint_t& xi) const {
+		constexpr RefPoint_t eval(QuadElem_t support_elem, const RefPoint_t& xi) const {
 			const uint64_t a = key.axis();
 			RefPoint_t result{0.0, 0.0, 0.0};
 
@@ -43,7 +56,7 @@ namespace gv::vmesh
 		}
 
 		//use the vectorized version. this is only for debugging.
-		constexpr double div(VoxelElementKey support_elem, const RefPoint_t& xi) const {
+		constexpr double div(QuadElem_t support_elem, const RefPoint_t& xi) const {
 			const uint64_t a = key.axis();
 			const bool low_face = 	(a==0) ? (key.i() == support_elem.i()) :
 									(a==1) ? (key.j() == support_elem.j()) :
@@ -54,7 +67,7 @@ namespace gv::vmesh
 		//vectorized flux
 		template<int N> requires (N>0)
 		void flux(	std::array<double,N>&       vl, //values 
-					VoxelElementKey             el, //support element
+					QuadElem_t             el, //support element
 					const std::array<double,N>& nx //reference/quadrature points (normal component)
 					) const {
 			
@@ -72,7 +85,7 @@ namespace gv::vmesh
 		//vectorized div
 		template<int N> requires (N>0)
 		void div(	std::array<double,N>&       vl, //values 
-					VoxelElementKey             el, //support element
+					QuadElem_t  	            el, //support element
 					) const {
 			
 			const uint64_t a    = key.axis();
@@ -83,28 +96,114 @@ namespace gv::vmesh
 			if (low_face) {vl.fill(-0.5);}
 			else {vl.fill(0.5);}
 		}
-		
 
-		constexpr CharmsVoxelRT0 child_impl(const int i) const {
-			assert(i>=0 && i<12);
-			const uint64_t a = key.axis();
-			const VoxelFaceKey tk = key.child(i%4);
-			const uint64_t da = i<4 ? 2 : i>=8 ? 1 : 0; 
+		//TODO: implement the periodic case
+		template<bool PERIODIC_X=false, bool PERIODIC_Y=false, bool PERIODIC_Z=false>
+		constexpr std::array<CharmsVoxelRT0,12> children_impl() const {
+			const uint64_t aa=key.axis(), ii=2*key.i(), jj=2*key.j(), kk=2*key.k(), dd=key.depth()+1;
+			assert(dd<key.MAX_DEPTH);
 
-			const uint64_t ci = (a!=0) ? tk.i() : (da==2) ? tk.i()-1 : tk.i() + da;
-			const uint64_t cj = (a!=1) ? tk.j() : (da==2) ? tk.j()-1 : tk.j() + da;
-			const uint64_t ck = (a!=2) ? tk.k() : (da==2) ? tk.k()-1 : tk.k() + da;
 
-			const VoxelFaceKey childkey(a, tk.depth(), ci, cj, ck);
-			return childkey.is_valid() ? CharmsVoxelRT0{childkey} : CharmsVoxelRT0{};
+
+			switch (aa) {
+			case 0:
+				return {
+					CharmsVoxelRT0{Key_t{aa,dd, ii-1, jj,   kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii-1, jj+1, kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii-1, jj,   kk+1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii-1, jj+1, kk+1}},
+
+					CharmsVoxelRT0{Key_t{aa,dd, ii  , jj,   kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii  , jj+1, kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii  , jj,   kk+1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii  , jj+1, kk+1}},
+
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj,   kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj,   kk+1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk+1}}
+				};
+			
+			case 1:
+				return {
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj-1, kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj-1, kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj-1, kk+1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj-1, kk+1}},
+
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk+1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk+1}},
+
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk+1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk+1}}
+				};
+			
+			case 2:
+				return {
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk-1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk-1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk-1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk-1}},
+
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk  }},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk  }},
+
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk+1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk+1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk+1}},
+					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk+1}}
+				};
+			}
 		}
 
-		constexpr double child_coef_impl(const int i) const {
-			assert(i>=0 && i<12);
-			//re-ordering to call i<8 ? 0.5 : 1.0 is nice here, but make an awkward child dof ordering
-			return (i<4 || i>=8) ? 0.5 : 1.0;
+		static constexpr std::array<double,12> children_coef_impl() {
+			return {
+				0.5, 0.5, 0.5, 0.5,
+				1.0, 1.0, 1.0, 1.0,
+				0.5, 0.5, 0.5, 0.5
+			};
 		}
 
-		static constexpr int n_children_impl() {return 12;}
+
+		constexpr std::array<CharmsVoxelRT0,N_PARENTS> parents_impl() const {
+			const uint64_t dd = key.depth() -1; //underflow if 0
+			if (dd>Key_t::MAX_DEPTH) {return {};} //no parents when depth is 0
+
+			//get parent indices (lower left)
+			const uint64_t aa=key.axis(), ip=key.i()>>1, jp=key.j()>>1, kp=key.k()>>1;
+			
+			//check if the index in the axis direction is even/odd
+			//even indices have on parent, odd indices have 2
+			const uint64_t pr = key.index(aa)&1;
+			if (pr) {
+				switch (aa) {
+				case 0: return {CharmsVoxelRT0{Key_t{aa,dd,ip,jp,kp}}, CharmsVoxelRT0{Key_t{aa,dd,ip+1,jp,  kp  }}};
+				case 1: return {CharmsVoxelRT0{Key_t{aa,dd,ip,jp,kp}}, CharmsVoxelRT0{Key_t{aa,dd,ip,  jp+1,kp  }}};
+				case 2: return {CharmsVoxelRT0{Key_t{aa,dd,ip,jp,kp}}, CharmsVoxelRT0{Key_t{aa,dd,ip,  jp,  kp+1}}};
+				default: assert(false); return {};
+				}
+			}
+			else {
+				//one parent
+				return {CharmsVoxelRT0{Key_t{aa,dd,ip,jp,kp}}, CharmsVoxelRT0{}};
+			}
+		}
+
+		constexpr std::array<double,N_PARENTS> parent_coefs_impl() const {
+			if (key.index(key.axis())&1) {return {0.5, 0.5};} //faces with odd axis indices have two parents
+			return {1.0, 1.0};
+		}
+
+		static constexpr std::array<CharmsVoxelQ1,6> dofs_on_elem(const QuadElem_t el) {
+			std::array<CharmsVoxelQ1,6> dofs;
+			for (int f=0; f<6; ++f) {dofs[f] = CharmsVoxelRT0{el.face(f)};}
+			return dofs;
+		}
 	};
 }

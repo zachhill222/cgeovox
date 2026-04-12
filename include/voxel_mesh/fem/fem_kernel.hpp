@@ -1,8 +1,9 @@
 #pragma once
 
-#include "voxel_mesh/voxel_mesh_keys.hpp"
+#include "voxel_mesh/mesh/keys/voxel_key.hpp"
 #include "util/quadrature_rules.hpp"
 
+#include<type_traits>
 #include<span>
 #include<omp.h>
 
@@ -24,16 +25,22 @@ namespace gv::vmesh
 			 typename TestDOF_t,
 			 bool IS_SYMMETRIC,
 			 int  N_QUAD_POINTS_AXIS,
-			 bool NEEDS_JACOBIAN,
-			 typename DERRIVED>
+			 bool NEEDS_JACOBIAN>
 	struct BaseKernel
 	{
+		using typename TrialDOF_t::QuadElem_t;
+		static_assert(std::same_as<QuadElem_t, typename TestDOF_t::QuadElem_t>);
+
+		static constexpr uint64_t MAX_DEPTH = TrialDOF_t::Key_t::MAX_DEPTH;
+		static_assert(TestDOF_t::Key_t::MAX_DEPTH == MAX_DEPTH);
+
+		//constructor
 		explicit BaseKernel(double dx, double dy, double dz) : domain_diagonal{dx, dy, dz} {}
 
 		std::span<const TrialDOF_t> current_trial_dofs;
 		std::span<const TestDOF_t>  current_test_dofs; //unused when IS_SYMMETRIC=true
 		
-		VoxelElementKey q_elem; //current quadrature element
+		QuadElem_t q_elem; //current quadrature element
 
 		//many kernels need this information.
 		//updating this information can be disabled by setting NEEDS_JACOBIAN=false
@@ -55,7 +62,7 @@ namespace gv::vmesh
 		//the computation from the depth of the quadrature element up to depth 0 one time rather than for each element.
 		//note that the quadrature points are a cartesian grid on each support element, so we only need to compute the unique x,y,z values once
 		std::array<std::array<double, N_QUAD_POINTS_AXIS>, MAX_DEPTH> p_qx, p_qy, p_qz; //projected quadrature points
-		std::array<VoxelElementKey, MAX_DEPTH> s_el; //support element for each depth
+		std::array<QuadElem_t, MAX_DEPTH> s_el; //support element for each depth
 		void project_to_support();
 
 		//assemble the quadrature points at the specified depth to pass
@@ -83,7 +90,7 @@ namespace gv::vmesh
 
 		//the derived class should call Base::setup during its own setup method.
 		//the derived class setup method should ensure that the local matrix is ready to be computed
-		void setup(VoxelElementKey el, std::span<const TrialDOF_t> trial_dofs, std::span<const TestDOF_t> test_dofs) requires (!IS_SYMMETRIC) {
+		void setup(QuadElem_t el, std::span<const TrialDOF_t> trial_dofs, std::span<const TestDOF_t> test_dofs) requires (!IS_SYMMETRIC) {
 			q_elem  = el;
 			n_trial = trial_dofs.size();
 			m_test  = test_dofs.size();
@@ -106,7 +113,7 @@ namespace gv::vmesh
 			project_to_support();
 		}
 
-		void setup(VoxelElementKey el, std::span<const TrialDOF_t> trial_dofs) requires (IS_SYMMETRIC) {
+		void setup(QuadElem_t el, std::span<const TrialDOF_t> trial_dofs) requires (IS_SYMMETRIC) {
 			q_elem  = el;
 			n_trial = trial_dofs.size();
 			current_trial_dofs = trial_dofs;
@@ -132,9 +139,8 @@ namespace gv::vmesh
 			 typename TestDOF_t,
 			 bool IS_SYMMETRIC,
 			 int  N_QUAD_POINTS_AXIS,
-			 bool NEEDS_JACOBIAN,
-			 typename DERRIVED>
-	void BaseKernel::project_to_support()
+			 bool NEEDS_JACOBIAN>
+	void BaseKernel<TrialDOF_t,TestDOF_t,IS_SYMMETRIC,N_QUAD_POINTS_AXIS, NEEDS_JACOBIAN>::project_to_support()
 	{
 		const uint64_t md = q_elem.depth(); //max starting depth, work up
 		p_qx[md] = quad_x;
@@ -164,12 +170,12 @@ namespace gv::vmesh
 			 typename TestDOF_t,
 			 bool IS_SYMMETRIC,
 			 int  N_QUAD_POINTS_AXIS,
-			 bool NEEDS_JACOBIAN,
-			 typename DERRIVED>
-	void BaseKernel::collect_quad_points(const int d,
-									std::array<double, N_QUAD_POINTS>& pd_qx,
-									std::array<double, N_QUAD_POINTS>& pd_qy,
-									std::array<double, N_QUAD_POINTS>& pd_qz) const
+			 bool NEEDS_JACOBIAN>
+	void BaseKernel<TrialDOF_t,TestDOF_t,IS_SYMMETRIC,N_QUAD_POINTS_AXIS, NEEDS_JACOBIAN>::collect_quad_points(
+			const int d,
+			std::array<double, N_QUAD_POINTS>& pd_qx,
+			std::array<double, N_QUAD_POINTS>& pd_qy,
+			std::array<double, N_QUAD_POINTS>& pd_qz) const
 	{
 		for (int k=0; k<N_QUAD_POINTS_AXIS; ++k) {
 			for (int j=0; j<N_QUAD_POINTS_AXIS; ++j) {

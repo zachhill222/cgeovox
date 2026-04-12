@@ -1,9 +1,9 @@
 #pragma once
 
-#include "voxel_mesh/keys/voxel_key_base.hpp"
+#include "voxel_mesh/mesh/keys/voxel_key_base.hpp"
 #include <cstdint>
 #include <cassert>
-
+#include <array>
 
 namespace gv::vmesh
 {
@@ -11,13 +11,13 @@ namespace gv::vmesh
 	//adjacency methods must be implemented in a separate file after
 	//all mesh feature keys are defined
 
-	template<int I_W, bool MORTON>
+	template<uint64_t I_W, bool MORTON>
 	struct VoxelVertexKey;
 
-	template<int I_W, bool MORTON>
+	template<uint64_t I_W, bool MORTON>
 	struct VoxelFaceKey;
 
-	template<int I_W=16, bool MORTON=false>
+	template<uint64_t I_W=16, bool MORTON_=false>
 	struct VoxelElementKey : public VoxelKey<0,0,0,I_W>
 	{
 		//inherit constructors
@@ -33,12 +33,16 @@ namespace gv::vmesh
 
 		//define useful constants
 		static constexpr uint64_t MAX_ELEMENT_INDEX = BASE::MAX_INDEX-2;
+		static constexpr bool MORTON = MORTON_;
 		using BASE::MAX_DEPTH;
 		using BASE::DOES_NOT_EXIST;
 
+
 		//define element specific constructors
 		constexpr VoxelElementKey(const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
-			BASE(0,0,dd,ii,jj,kk) {assert(is_valid());}
+			BASE(0,0,dd,ii,jj,kk) {
+				if (!is_valid()) {_data_=DOES_NOT_EXIST;}
+			}
 
 		constexpr VoxelElementKey(const uint64_t dd, uint64_t li) requires (!MORTON) {
 			assert(dd<=MAX_DEPTH);
@@ -60,6 +64,24 @@ namespace gv::vmesh
 			if (j() > mei) 			 {return false;}
 			if (k() > mei) 			 {return false;}
 			return true;
+		}
+
+		VoxelElementKey& operator++() requires (!MORTON) {
+			uint64_t dd = depth();
+			const uint64_t mi = (uint64_t{1} << dd)-1; //2^dd elements per axis (max index)
+			uint64_t ii=i(), jj=j(), kk=k();
+			
+			//increment with carry, but we must respect the entire
+			//field width of I_W, J_W, and K_W
+			++ii;
+			if (ii>mi) {ii=0; ++jj;}
+			if (jj>mi) {jj=0; ++kk;}
+			if (kk>mi) {kk=0; ++dd;}
+
+			//reset d-i-j-k bits
+			_data_ &= ~BASE::DEPTH_INDEX_MASK;
+			_data_ |=  BASE::DEPTH_INDEX_MASK & ((ii<<BASE::I_S) | (jj<<BASE::J_S) | (kk<<BASE::K_S) | (dd<<BASE::D_S));
+			return *this;
 		}
 
 		//get the linear index of the element at the current depth
@@ -122,10 +144,25 @@ namespace gv::vmesh
 			}
 		}
 
+		constexpr std::array<VoxelElementKey,8> children() const {
+			const uint64_t ii=2*i(), jj=2*j(), kk=2*k(), dd=depth()+1;
+			if (dd>MAX_DEPTH) {return{};}
+			return {
+				VoxelElementKey{dd, ii  ,jj  ,kk  },
+				VoxelElementKey{dd, ii+1,jj  ,kk  },
+				VoxelElementKey{dd, ii  ,jj+1,kk  },
+				VoxelElementKey{dd, ii+1,jj+1,kk  },
+				VoxelElementKey{dd, ii  ,jj  ,kk+1},
+				VoxelElementKey{dd, ii+1,jj  ,kk+1},
+				VoxelElementKey{dd, ii  ,jj+1,kk+1},
+				VoxelElementKey{dd, ii+1,jj+1,kk+1}
+			};
+		}
+
 		//adjacency logic
-		inline constexpr VoxelVertexKey<I_W,MORTON> vertex(const bool bi, const bool bj, const bool bk) const;
-		constexpr VoxelVertexKey<I_W,MORTON> vertex(const int vn) const;
-		constexpr VoxelFaceKey<I_W,MORTON> face(const int fn) const;
+		inline constexpr VoxelVertexKey<I_W,MORTON_> vertex(const bool bi, const bool bj, const bool bk) const;
+		constexpr VoxelVertexKey<I_W,MORTON_> vertex(const int vn) const;
+		constexpr VoxelFaceKey<I_W,MORTON_> face(const int fn) const;
 
 		//get the color of the feature by index modding. There are 8 unique colors.
 		//coloring means different things for differnet mesh elements, but for example,

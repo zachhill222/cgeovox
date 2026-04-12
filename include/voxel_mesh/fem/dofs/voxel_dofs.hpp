@@ -1,22 +1,5 @@
 #pragma once
 
-#include "gutil.hpp"
-#include "voxel_mesh/voxel_mesh_keys.hpp"
-
-#include <array>
-#include <span>
-#include <cstdint>
-#include <omp.h>
-
-namespace gv::vmesh
-{
-	
-
-
-	
-
-	
-
-
-	
-}
+#include "voxel_mesh/fem/dofs/voxel_dof_P0.hpp"
+#include "voxel_mesh/fem/dofs/voxel_dof_Q1.hpp"
+#include "voxel_mesh/fem/dofs/voxel_dof_RT0.hpp"
