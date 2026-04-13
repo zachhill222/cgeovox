@@ -102,7 +102,7 @@ namespace gv::vmesh
 
 		//simple querries and operations
 		inline void reset() {active_elem->reset();}
-		inline size_t nElements() const {return active_elem->count();}
+		inline size_t n_elements() const {return active_elem->count();}
 
 		inline void activate(const VoxelElement el) {assert(el.is_valid()); active_elem->set(el.linear_index());}
 		inline void activate(const VoxelElement el) const {
@@ -124,9 +124,49 @@ namespace gv::vmesh
 			#endif
 		}
 
-		inline bool is_active(const VoxelElement el) const {return active_elem->test(el.linear_index());}
+		//test if a feature is active.
+		//active elements are recorded int the active_elem bitset
+		//vertices and faces are active if they belong to an active element
+		//note there may be many vertices at the same geometric location but existing at different levels
+		//you may need to look at parent/child vertices to get the expected result
+		inline bool is_active(const VoxelElement el) const {assert(el.is_valid()); return active_elem->test(el.linear_index());}
+		
+		template<typename Key_t> requires (MeshFaceType<Key_t,Mesh_t> || MeshVertexType<Key_t,Mesh_t>)
+		bool is_active(const Key_t key) const {
+			assert(key.is_valid());
+			for (const VoxelElement el : key.elements()) {
+				if (el.exists() and is_active(el)) {return true;}
+			}
+			return false;
+		}
 
-		inline void set(const VoxelElement el, const bool flag = true) {active_elem->set(el.linear_index(), flag);}
+		//find the vertex with the lowest index that is active and overlaps (geometrically)
+		//with the specified vertex
+		VoxelVertex first_active(VoxelVertex vtx) const {
+			assert(vtx.is_valid())
+			//get lowest vertex
+			vtx = vtx.reduced_key();
+			while (vtx.exists()) {
+				if (is_active(vtx)) {return vtx;}
+				vtx = vtx.child();
+			}
+			return vtx;
+		}
+
+		//test if a vertex is a hanging node
+		//an active vertex is hanging if there is another active vertex at
+		//the same geometric location
+		bool is_hanging(const VoxelVertex vtx) const {
+			assert(is_active(vtx));
+			//search the keys at this location from the lowest depth to greatest
+			VoxelVertex other = vtx.reduced_key();
+			while (other.exists()) {
+				if (other!=vtx && is_active(vtx)) {return true;}
+			}
+			return false;
+		}
+
+		inline void set(const VoxelElement el, const bool flag = true) {assert(el.is_valid()); active_elem->set(el.linear_index(), flag);}
 
 
 		//process requested activations
@@ -295,6 +335,7 @@ namespace gv::vmesh
 			return result;
 		}
 
+
 		//tree operations
 		template<typename Predicate = std::nullptr_t>
 		void refine_to_depth(const VoxelElement el, const uint64_t depth, Predicate&& pred = nullptr) {
@@ -351,7 +392,7 @@ namespace gv::vmesh
 			//of the vertices to write
 			//additionally, write the cell buffer
 			std::ostringstream cell_buffer;
-			const uint64_t n_elements = nElements();
+			const uint64_t n_elements = n_elements();
 			cell_buffer << "CELLS " << n_elements << " " << 9*n_elements << "\n";
 
 			uint64_t max_vtx_index=0;
@@ -443,7 +484,7 @@ namespace gv::vmesh
 			}
 
 			write_unstructured_vtk(file);
-			file << "CELL_DATA " << nElements() << "\n";
+			file << "CELL_DATA " << n_elements() << "\n";
 
 			auto lookup_dijk   = [](VoxelElement el) {return gutil::Point<4,uint64_t>{el.depth(), el.i(), el.j(), el.k()};};
 			auto lookup_linear = [](VoxelElement el) {return el.depth_linear_index();};

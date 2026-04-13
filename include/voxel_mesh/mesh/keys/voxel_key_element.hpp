@@ -156,7 +156,19 @@ namespace gv::vmesh
 
 		constexpr std::array<VoxelElementKey,8> children() const {
 			const uint64_t ii=2*i(), jj=2*j(), kk=2*k(), dd=depth()+1;
-			if (dd>MAX_DEPTH) {return{};}
+			if (dd>MAX_DEPTH) {
+				return {
+					VoxelElementKey{DOES_NOT_EXIST},
+					VoxelElementKey{DOES_NOT_EXIST},
+					VoxelElementKey{DOES_NOT_EXIST},
+					VoxelElementKey{DOES_NOT_EXIST},
+					VoxelElementKey{DOES_NOT_EXIST},
+					VoxelElementKey{DOES_NOT_EXIST},
+					VoxelElementKey{DOES_NOT_EXIST},
+					VoxelElementKey{DOES_NOT_EXIST}
+				};
+			}
+
 			return {
 				VoxelElementKey{dd, ii  ,jj  ,kk  },
 				VoxelElementKey{dd, ii+1,jj  ,kk  },

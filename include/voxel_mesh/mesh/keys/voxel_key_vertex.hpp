@@ -179,7 +179,7 @@ namespace gv::vmesh
 
 		inline constexpr VoxelVertexKey child() const {
 			assert(this->exists());
-			assert(depth()+1 <= MAX_DEPTH);
+			if (depth()>=MAX_DEPTH) {return VoxelVertexKey{DOES_NOT_EXIST};}
 			return VoxelVertexKey{depth()+1, 2*i(), 2*j(), 2*k()};
 		}
 

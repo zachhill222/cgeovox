@@ -53,16 +53,16 @@ int main(int argc, char* argv[])
 	std::cout << "Done refining" << std::endl;
 
 	//write the mesh structure to a file
-	// std::cout << "Writing to file" << std::endl;
-	// std::ofstream file("charmsQ1.vtk");
-	// const uint64_t n_verts = mesh.write_unstructured_vtk(file);
+	std::cout << "Writing to file" << std::endl;
+	std::ofstream file("charmsQ1.vtk");
+	const uint64_t n_verts = mesh.write_unstructured_vtk(file);
 
-	// file << "POINT_DATA " << n_verts << "\n";
-	// auto vert_vals = basis.interpolate_to_vertices(coefs, n_verts);
-	// mesh.append_unstructured_point_data_vtk(file,
-	// 				"SCALARS val float 1\nLOOKUP_TABLE default", 
-	// 				n_verts, 
-	// 				[&vert_vals](Vert_t vtx){return vert_vals[vtx.linear_index()];});
+	file << "POINT_DATA " << n_verts << "\n";
+	auto vert_vals = basis.interpolate_to_vertices(coefs, n_verts);
+	mesh.append_unstructured_point_data_vtk(file,
+					"SCALARS val float 1\nLOOKUP_TABLE default", 
+					n_verts, 
+					[&vert_vals](Vert_t vtx){return vert_vals[vtx.linear_index()];});
 
 
 

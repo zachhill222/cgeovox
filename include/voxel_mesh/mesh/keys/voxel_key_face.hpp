@@ -168,6 +168,7 @@ namespace gv::vmesh
 
 		//geometry logic
 		const bool on_bbox_boundary() const {
+			assert(this->exists());
 			const uint64_t mfiax = uint64_t{1} << depth();
 			const uint64_t idx   = this->index(axis());
 			return idx==0 || idx==mfiax;
@@ -177,7 +178,17 @@ namespace gv::vmesh
 		inline constexpr auto child(const int i) const {return children()[i];}
 
 		constexpr std::array<VoxelFaceKey,4> children() const {
+			assert(this->exists());
 			const uint64_t ci=2*i(), cj=2*j(), ck=2*k(), cd=depth()+1, aa=axis();
+			if (cd>MAX_DEPTH) {
+				return {
+					VoxelFaceKey{DOES_NOT_EXIST},
+					VoxelFaceKey{DOES_NOT_EXIST},
+					VoxelFaceKey{DOES_NOT_EXIST},
+					VoxelFaceKey{DOES_NOT_EXIST}
+				};
+			}
+
 			switch(aa) {
 			case 0:
 				return {
@@ -200,23 +211,30 @@ namespace gv::vmesh
 					VoxelFaceKey{aa,cd, ci,   cj+1, ck},
 					VoxelFaceKey{aa,cd, ci+1, cj+1, ck}
 				};
-			default: return{};
+			default:
+				return {
+					VoxelFaceKey{DOES_NOT_EXIST},
+					VoxelFaceKey{DOES_NOT_EXIST},
+					VoxelFaceKey{DOES_NOT_EXIST},
+					VoxelFaceKey{DOES_NOT_EXIST}
+				};
 			}
 		}
 
 		constexpr VoxelFaceKey parent() const {
+			assert(this->exists());
 			//not all faces have parents
-			const uint64_t a  = axis();
-			const uint64_t d  = depth();
+			const uint64_t aa = axis();
+			const uint64_t dd = depth();
 			const uint64_t ii = i();
 			const uint64_t jj = j();
 			const uint64_t kk = k();
 
-			if (d==0) {return VoxelFaceKey{DOES_NOT_EXIST};}
-			switch (a) {
-			case 0: return (jj&1 || kk&1) ? VoxelFaceKey{DOES_NOT_EXIST} : VoxelFaceKey{a,d-1, ii>>1, jj>>1, kk>>1};
-			case 1: return (kk&1 || ii&1) ? VoxelFaceKey{DOES_NOT_EXIST} : VoxelFaceKey{a,d-1, ii>>1, jj>>1, kk>>1};
-			case 2: return (ii&1 || jj&1) ? VoxelFaceKey{DOES_NOT_EXIST} : VoxelFaceKey{a,d-1, ii>>1, jj>>1, kk>>1};
+			if (dd==0) {return VoxelFaceKey{DOES_NOT_EXIST};}
+			switch (aa) {
+			case 0: return (jj&1 || kk&1) ? VoxelFaceKey{DOES_NOT_EXIST} : VoxelFaceKey{aa,dd-1, ii>>1, jj>>1, kk>>1};
+			case 1: return (kk&1 || ii&1) ? VoxelFaceKey{DOES_NOT_EXIST} : VoxelFaceKey{aa,dd-1, ii>>1, jj>>1, kk>>1};
+			case 2: return (ii&1 || jj&1) ? VoxelFaceKey{DOES_NOT_EXIST} : VoxelFaceKey{aa,dd-1, ii>>1, jj>>1, kk>>1};
 			default: return VoxelFaceKey{DOES_NOT_EXIST};
 			}
 		}
