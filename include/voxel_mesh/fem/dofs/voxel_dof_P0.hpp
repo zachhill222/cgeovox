@@ -12,10 +12,10 @@ namespace gv::vmesh
 {
 	//P0 dofs (constant on each element)
 	template<VoxelElementKeyType Key_type>
-	struct CharmsVoxelP0 : public VoxelDOFBase<Key_type, CharmsVoxelP0<Key_type>>
+	struct VoxelP0 : public VoxelDOFBase<Key_type, VoxelP0<Key_type>>
 	{
 		//get types from the Base class
-		using Base = VoxelDOFBase<Key_type, CharmsVoxelP0<Key_type>>;
+		using Base = VoxelDOFBase<Key_type, VoxelP0<Key_type>>;
 		using RefPoint_t = typename Base::RefPoint_t;
 		using GeoPoint_t = typename Base::GeoPoint_t;
 		using Key_t      = typename Base::Key_t;
@@ -79,25 +79,23 @@ namespace gv::vmesh
 		}
 
 		//get the support
-		template<bool PERIODIC=false>
 		constexpr std::array<QuadElem_t,1> support_impl() const {
 			return {key};
 		}
 
 		//refinement operations. periodic template is only for conforming to the standard dof interface
-		template<bool PERIODIC_X=false, bool PERIODIC_Y=false, bool PERIODIC_Z=false>
-		constexpr std::array<CharmsVoxelP0,8> children_impl() const {
+		constexpr std::array<VoxelP0,8> children_impl() const {
 			const uint64_t ii=2*key.i(), jj=2*key.j(), kk=2*key.k(), dd=key.depth()+1;
 			assert(dd<Key_t::MAX_DEPTH);
 			return {
-				CharmsVoxelP0{Key_t{dd, ii,   jj,   kk  }},
-				CharmsVoxelP0{Key_t{dd, ii+1, jj,   kk  }},
-				CharmsVoxelP0{Key_t{dd, ii,   jj+1, kk  }},
-				CharmsVoxelP0{Key_t{dd, ii+1, jj+1, kk  }},
-				CharmsVoxelP0{Key_t{dd, ii,   jj,   kk+1}},
-				CharmsVoxelP0{Key_t{dd, ii+1, jj,   kk+1}},
-				CharmsVoxelP0{Key_t{dd, ii,   jj+1, kk+1}},
-				CharmsVoxelP0{Key_t{dd, ii+1, jj+1, kk+1}}
+				VoxelP0{Key_t{dd, ii,   jj,   kk  }},
+				VoxelP0{Key_t{dd, ii+1, jj,   kk  }},
+				VoxelP0{Key_t{dd, ii,   jj+1, kk  }},
+				VoxelP0{Key_t{dd, ii+1, jj+1, kk  }},
+				VoxelP0{Key_t{dd, ii,   jj,   kk+1}},
+				VoxelP0{Key_t{dd, ii+1, jj,   kk+1}},
+				VoxelP0{Key_t{dd, ii,   jj+1, kk+1}},
+				VoxelP0{Key_t{dd, ii+1, jj+1, kk+1}}
 			};
 		}
 
@@ -105,17 +103,17 @@ namespace gv::vmesh
 			return {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}
 		}
 
-		constexpr std::array<CharmsVoxelP0,1> parents_impl() const {
-			if (key.depth()==0) {return {CharmsVoxelP0{}};}
-			return {CharmsVoxelP0{key.parent()};}
+		constexpr std::array<VoxelP0,1> parents_impl() const {
+			if (key.depth()==0) {return {VoxelP0{}};}
+			return {VoxelP0{key.parent()};}
 		}
 
 		static constexpr std::array<double,1> parent_coefs_impl() {
 			return {1.0};
 		}
 
-		static constexpr std::array<CharmsVoxelP0,1> dofs_on_elem_impl(const QuadElem_t el) {
-			return {CharmsVoxelP0{el}};
+		static constexpr std::array<VoxelP0,1> dofs_on_elem_impl(const QuadElem_t el) {
+			return {VoxelP0{el}};
 		}
 	};
 }

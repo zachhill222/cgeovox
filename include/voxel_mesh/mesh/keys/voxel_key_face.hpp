@@ -11,17 +11,17 @@ namespace gv::vmesh
 	//adjacency methods must be implemented in a separate file after
 	//all mesh feature keys are defined
 
-	template<uint64_t I_W, bool MORTON>
+	template<uint64_t I_W, uint64_t BC, bool MORTON>
 	struct VoxelElementKey;
 
-	template<uint64_t I_W, bool MORTON>
+	template<uint64_t I_W, uint64_t BC, bool MORTON>
 	struct VoxelVertexKey;
 
-	template<uint64_t I_W=16, bool MORTON_=false>
-	struct VoxelFaceKey : public VoxelKey<0,0,2,I_W>
+	template<uint64_t I_W=16, uint64_t BC=0, bool MORTON_=false>
+	struct VoxelFaceKey : public VoxelKey<0,3,2,I_W>
 	{
 		//inherit constructors
-		using BASE = VoxelKey<0,0,2,I_W>;
+		using BASE = VoxelKey<0,3,2,I_W>;
 		using BASE::BASE;
 
 		//inherit the primary accessors
@@ -29,6 +29,10 @@ namespace gv::vmesh
 		using BASE::i;
 		using BASE::j;
 		using BASE::k;
+		using BASE::set_depth;
+		using BASE::set_i;
+		using BASE::set_j;
+		using BASE::set_k;
 		using BASE::_data_;
 
 		//re-name other() to axis() for readability
@@ -44,10 +48,35 @@ namespace gv::vmesh
 		using BASE::MAX_DEPTH;
 		using BASE::DOES_NOT_EXIST;
 
+		//periodic conditions. the BC bits are stored on the other_nocompare field
+		static constexpr uint64_t BC_FLAG = BC;
+		static constexpr bool PX = BC&1; //periodic in i/x
+		static constexpr bool PY = BC&2; //periodic in j/y
+		static constexpr bool PZ = BC&4; //periodic in k/z
+
+		//explicit conversion to the non-periodic type and to a periodic type
+		using NonPeriodicType = VoxelFaceKey<I_W,0,MORTON_>;
+		explicit operator NonPeriodicType() const {return NonPeriodicType{_data_};}
+
+		template<uint64_t OTHER_BC>
+		using OtherPeriodicType = VoxelFaceKey<I_W,OTHER_BC,MORTON_>;
+		
+		template<uint64_t OTHER_BC> requires (OTHER_BC<8)
+		explicit operator OtherPeriodicType<OTHER_BC>() const {return OtherPeriodicType<OTHER_BC>{_data_};}
+
+
 		//define face specific constructors
 		VoxelFaceKey(const uint64_t aa, const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
-			BASE(0,aa,dd,ii,jj,kk) {
-				if (!is_valid()) {_data_=DOES_NOT_EXIST;}
+			BASE(0,BC,aa,dd,ii,jj,kk) {
+				if (dd>MAX_DEPTH) {_data_ = DOES_NOT_EXIST; return;}
+				if constexpr (PX||PY||PZ) {
+					const uint64_t mn = (uint64_t{1} << dd); //2^d elements per axis, number of faces in non-axis directions
+					const uint64_t ma = mn+1; //number of faces in the axis direction
+
+					if constexpr (PX) {if (ii>= (aa==0 ? ma : mn) ) {set_i(0);}}
+					if constexpr (PY) {if (jj>= (aa==1 ? ma : mn) ) {set_j(0);}}
+					if constexpr (PZ) {if (kk>= (aa==2 ? ma : mn) ) {set_k(0);}}
+				}
 			}
 
 		constexpr VoxelFaceKey(const uint64_t dd, uint64_t li) requires (!MORTON) {
@@ -67,7 +96,7 @@ namespace gv::vmesh
 			const uint64_t kk = li & (aa==2 ? ma : mna);
 
 			//construct key
-			_data_ = (dd << BASE::D_S) | (aa << A_S) | (ii << BASE::I_S) | (jj << BASE::J_S) | (kk << BASE::K_S);
+			_data_ = (dd << BASE::D_S) | (aa << A_S) | (ii << BASE::I_S) | (jj << BASE::J_S) | (kk << BASE::K_S) | (BC << BASE::ON_S);
 		}
 
 		//check if a face is valid
@@ -145,25 +174,33 @@ namespace gv::vmesh
 		}
 
 		//hierarchy logic
-		constexpr VoxelFaceKey child(const bool ii, const bool jj) const {
-			const uint64_t a = axis();
-			const uint64_t ci=2*i(), cj=2*j(), ck=2*k();
-			
-			switch (a) {
-			case 0: return VoxelFaceKey{a,depth()+1, ci, cj+static_cast<uint64_t>(ii), ck+static_cast<uint64_t>(jj)};
-			case 1: return VoxelFaceKey{a,depth()+1, ci+static_cast<uint64_t>(ii), cj, ck+static_cast<uint64_t>(jj)};
-			case 2: return VoxelFaceKey{a,depth()+1, ci+static_cast<uint64_t>(ii), cj+static_cast<uint64_t>(jj), ck};
-			default: return VoxelFaceKey{};
-			}
-		}
+		inline constexpr auto child(const int i) const {return children()[i];}
 
-		constexpr VoxelFaceKey child(const int child_number) const {
-			switch (child_number) {
-			case 0: return child(0,0);
-			case 1: return child(1,0);
-			case 2: return child(0,1);
-			case 3: return child(1,1);
-			default: assert(false); return VoxelFaceKey{};
+		constexpr std::array<VoxelFaceKey,4> children() const {
+			const uint64_t ci=2*i(), cj=2*j(), ck=2*k(), cd=depth()+1, aa=axis();
+			switch(aa) {
+			case 0:
+				return {
+					VoxelFaceKey{aa,cd, ci, cj,   ck  },
+					VoxelFaceKey{aa,cd, ci, cj+1, ck  },
+					VoxelFaceKey{aa,cd, ci, cj,   ck+1},
+					VoxelFaceKey{aa,cd, ci, cj+1, ck+1}
+				};
+			case 1:
+				return {
+					VoxelFaceKey{aa,cd, ci,   cj, ck  },
+					VoxelFaceKey{aa,cd, ci+1, cj, ck  },
+					VoxelFaceKey{aa,cd, ci,   cj, ck+1},
+					VoxelFaceKey{aa,cd, ci+1, cj, ck+1}
+				};
+			case 2:
+				return {
+					VoxelFaceKey{aa,cd, ci,   cj,   ck},
+					VoxelFaceKey{aa,cd, ci+1, cj,   ck},
+					VoxelFaceKey{aa,cd, ci,   cj+1, ck},
+					VoxelFaceKey{aa,cd, ci+1, cj+1, ck}
+				};
+			default: return{};
 			}
 		}
 
@@ -185,9 +222,11 @@ namespace gv::vmesh
 		}
 
 		//adjacency operations
-		constexpr VoxelElementKey<I_W,MORTON_> element(const bool forward_flag) const;
-		constexpr VoxelVertexKey<I_W,MORTON_>  vertex(const bool ii, const bool jj) const;
-		constexpr VoxelVertexKey<I_W,MORTON_>  vertex(const int vertex_number) const;
+		inline constexpr auto element(const int i) const {return elements()[i];}
+		constexpr std::array<VoxelElementKey<I_W,BC,MORTON_>,2> elements() const;
+
+		inline constexpr auto vertex(const int i) const {return vertices()[i];}
+		constexpr std::array<VoxelVertexKey<I_W,BC,MORTON_>,4> vertices() const;
 
 		//color by the even/odd parity of the non-axis indices
 		inline constexpr uint64_t color() const {

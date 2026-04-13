@@ -35,6 +35,10 @@ namespace gv::vmesh
 							MeshVertexType<typename M::VoxelVertex, M> && 
 							MeshFaceType<typename M::VoxelFace, M>;
 
+	//when forwarding functions, we use the type std::nullptr_t as a compile-time flag.
+	//this is a helpful check.
+	template<typename T>
+	concept NULLPTR_T = std::is_same_v<std::decay_t<T>, std::nullptr_t>;
 
 	//This class is for a hierarchical voxel mesh.
 	//This structure allows us to very efficiently store elements, vertices, faces, etc.
@@ -48,13 +52,20 @@ namespace gv::vmesh
 	class HierarchicalVoxelMesh
 	{
 	public:
-		using VoxelElement = VoxelElementKey<MAX_DEPTH_+1,MORTON_ORDER>;
-		using VoxelVertex  = VoxelVertexKey<MAX_DEPTH_+1,MORTON_ORDER>;
-		using VoxelFace    = VoxelFaceKey<MAX_DEPTH_+1,MORTON_ORDER>;
+		//mesh features are never periodic
+		using VoxelElement = VoxelElementKey<MAX_DEPTH_+1,0,MORTON_ORDER>;
+		using VoxelVertex  = VoxelVertexKey<MAX_DEPTH_+1,0,MORTON_ORDER>;
+		using VoxelFace    = VoxelFaceKey<MAX_DEPTH_+1,0,MORTON_ORDER>;
 		using Mesh_t       = HierarchicalVoxelMesh<MAX_DEPTH_,MORTON_ORDER>; //this mesh type
 
 		static constexpr uint64_t MAX_DEPTH = MAX_DEPTH_;
 		static constexpr uint64_t TOTAL_POSSIBLE_ELEMENTS = total_possible<VoxelElement>(MAX_DEPTH);
+
+		#ifdef _OPENMP
+			static constexpr bool OPENMP = true;
+		#else
+			static constexpr bool OPENMP = false;
+		#endif
 
 	protected:
 		std::bitset<TOTAL_POSSIBLE_ELEMENTS>* active_elem = new std::bitset<TOTAL_POSSIBLE_ELEMENTS>(0);
@@ -120,6 +131,7 @@ namespace gv::vmesh
 
 		//process requested activations
 		void process_request_active() {
+			#ifndef _OPENMP
 			for (auto& request : request_active) {
 				for (VoxelElement el : request) {
 					activate(el);
@@ -139,6 +151,30 @@ namespace gv::vmesh
 				}
 				request.clear();
 			}
+			#else
+			#pragma omp parallel
+			{
+				auto& request = request_active[omp_get_thread_num()];
+				for (VoxelElement el : request) {
+					activate(el);
+					//check if all the children exist and are active
+					//if so, deactivate the element
+					bool all_children_active = true;
+					for (VoxelElement c : el.children()) {
+						if (c.exists() and !is_active(c)) {
+							all_children_active = false;
+							break;
+						}
+					}
+
+					if (all_children_active) {
+						deactivate(el);
+					}
+				}
+				request.clear();
+			}
+			#endif
+			make_disjoint();
 		}
 
 		//process requested deactivations
@@ -146,11 +182,11 @@ namespace gv::vmesh
 			for (auto& request : request_deactive) {
 				for (VoxelElement el : request) {
 					if (el.exists()) {
-						std::cout << "deactivate el:\n" << el << std::endl;
 						deactivate(el);}
 				}
 				request.clear();
 			}
+			make_disjoint();
 		}
 
 		//layer operations
@@ -158,7 +194,7 @@ namespace gv::vmesh
 		void set_depth(const uint64_t depth, Predicate&& pred = nullptr) {
 			//set to true by default. use the predicate if it is passed
 			auto action = [&pred, this](VoxelElement el) {
-				if constexpr (!std::is_same_v<std::decay_t<Predicate>, std::nullptr_t>) {
+				if constexpr (!NULLPTR_T<Predicate>) {
 					active_elem->set(el.linear_index(), pred(el));
 				}
 				else {
@@ -173,99 +209,44 @@ namespace gv::vmesh
 		}
 
 		
-
+		//dispatch to the *_impl iteration methods for consistency
 		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t>)
-		void for_each_depth(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) {
-			const uint64_t start = Key_t::depth_linear_start(depth);
-			const uint64_t end   = Key_t::depth_linear_start(depth+1);
-			Key_t key(depth,0); //element/vertex/face object (acts as an iterator)
-
-			for (uint64_t idx=start; idx<end; ++idx, ++key) {
-				assert(key.linear_index() == idx);
-				if constexpr (!std::is_same_v<std::decay_t<Predicate>, std::nullptr_t>) {
-					if (!pred(key)) {
-						continue;
-					}
-				}
-				action(key);
-			}
+		inline void for_each_depth(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) {
+			for_each_depth_impl<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
 		}
 
 		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t>)
-		void for_each(Action&& action, Predicate&& pred = nullptr) {
-			for (uint64_t depth=0; depth<MAX_DEPTH+1; ++depth) {
-				for_each_depth<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
-			}
+		inline void for_each_depth(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) const {
+			for_each_depth_impl<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
 		}
 
 		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t>)
-		void for_each_depth(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) const {
-			const uint64_t start = Key_t::depth_linear_start(depth);
-			const uint64_t end   = Key_t::depth_linear_start(depth+1);
-			Key_t key(depth,0); //element/vertex/face object (acts as an iterator)
-
-			for (uint64_t idx=start; idx<end; ++idx, ++key) {
-				assert(key.linear_index() == idx);
-				if constexpr (!std::is_same_v<std::decay_t<Predicate>, std::nullptr_t>) {
-					if (!pred(key)) {
-						continue;
-					}
-				}
-				action(key);
-			}
+		inline void for_each(Action&& action, bool omp=false, Predicate&& pred = nullptr) {
+			for_each_impl<Key_t>(std::forward<Action>(action), omp, std::forward<Predicate>(pred));
 		}
 
 		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t>)
-		void for_each(Action&& action, Predicate&& pred = nullptr) const {
-			for (uint64_t depth=0; depth<MAX_DEPTH+1; ++depth) {
-				for_each_depth<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
-			}
+		inline void for_each(Action&& action, bool omp=false, Predicate&& pred = nullptr) const {
+			for_each_impl<Key_t>(std::forward<Action>(action), omp, std::forward<Predicate>(pred));
 		}
 
-		
+		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t>)
+		inline void for_each_depth_omp(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) {
+			for_each_depth_omp_impl<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
+		}
 
-
-
-		// template<typename Action, typename Predicate = std::nullptr_t> requires (MORTON_ORDER)
-		// void for_each_color(const uint64_t depth, const uint64_t clr, Action&& action, Predicate&& pred = nullptr) {
-		// 	assert(clr<8);
-		// 	const uint64_t start = depth_linear_start(depth) + clr;
-		// 	const uint64_t end   = depth_linear_start(depth+1);
-
-		// 	for (uint64_t idx=start; idx<end; idx+=8) {
-		// 		const VoxelElement el(depth,idx);
-		// 		if constexpr (!std::is_same_v<std::decay_t<Predicate>, std::nullptr_t>) {
-		// 			if (!pred(el)) {continue;}
-		// 		}
-		// 		action(el);
-		// 	}
-		// }
-
-		// template<typename Action, typename Predicate = std::nullptr_t> requires (!MORTON_ORDER)
-		// void for_each_color(const uint64_t depth, const uint64_t clr, Action&& action, Predicate&& pred = nullptr) {
-		// 	assert(clr<8);
-		// 	const uint64_t start = depth_linear_start(depth);
-		// 	const uint64_t end   = depth_linear_start(depth+1);
-
-		// 	for (uint64_t idx=start; idx<end; ++idx) {
-		// 		const VoxelElement el(depth,idx);
-		// 		if (el.color()!=clr) {continue;}
-
-		// 		if constexpr (!std::is_same_v<std::decay_t<Predicate>, std::nullptr_t>) {
-		// 			if (!pred(el)) {continue;}
-		// 		}
-		// 		action(el);
-		// 	}
-		// }
+		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t>)
+		inline void for_each_depth_omp(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) const {
+			for_each_depth_omp_impl<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
+		}
 
 		
 		//hierarchy
 		template<typename Predicate = std::nullptr_t>
 		void refine(const VoxelElement el, Predicate&& pred = nullptr) {
 			deactivate(el);
-			for (int c=0; c<8; ++c) {
-				const VoxelElement child = el.child(c);
-				if constexpr (!std::is_same_v<std::decay_t<Predicate>, std::nullptr_t>) {
+			for (const auto child : el.children()) {
+				if constexpr (!NULLPTR_T<Predicate>) {
 					set(child, pred(child));
 				}
 				else {
@@ -276,14 +257,42 @@ namespace gv::vmesh
 
 		template<typename Predicate = std::nullptr_t>
 		void coarsen(const VoxelElement el, Predicate&& pred = nullptr) {
-			if constexpr (!std::is_same_v<std::decay_t<Predicate>, std::nullptr_t>) {
+			if constexpr (!NULLPTR_T<Predicate>) {
 				set(el, pred(el));
 			}
 			else {
 				activate(el);
 			}
 
-			for (int c=0; c<8; ++c) {deactivate(el.child(c));}
+			for (const auto child : el.children()) {deactivate(child);}
+		}
+
+		bool has_active_child(const VoxelElement el) const {
+			assert(el.is_valid());
+			for (const VoxelElement child : el.children()) {
+				if (child.exists() and is_active(child)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		template<typename Predicate = std::nullptr_t>
+		bool has_active_descendent(const VoxelElement el, const uint64_t layers, Predicate&& pred = nullptr) const {
+			assert(el.is_valid());
+
+			bool result = false;
+			for (const auto child : el.children()) {
+				if (!child.exists()) {continue;}
+				if constexpr (!NULLPTR_T<Predicate>) {
+					if (!pred(child)) {continue;}
+				}
+
+				if (is_active(child)) {return true;}
+				if (layers==0) {continue;}
+				result = result || has_active_descendent(child, layers-1, std::forward<Predicate>(pred));
+			}
+			return result;
 		}
 
 		//tree operations
@@ -299,6 +308,31 @@ namespace gv::vmesh
 				//the predicate is testing if the voxel is in some specified region (e.g., a true geometry)
 				refine_to_depth(c, depth, std::forward<Predicate>(pred));
 			}
+		}
+
+		//if any element is active and has any active children,
+		//then deactivate that element. activate any in-active children
+		//if the predicate on the inactive child returns true.
+		//the default predicate always returns true
+		template<typename Predicate = std::nullptr_t>
+		void make_disjoint(Predicate&& pred = nullptr) {
+			auto action = [&](VoxelElement el) {
+				if (is_active(el)) {
+					if (has_active_child(el)) {
+						deactivate(el);
+						for (const VoxelElement child : el.children()) {
+							if (!child.exists()) {continue;}
+							if constexpr (!NULLPTR_T<Predicate>) {
+								if (pred(child)) {activate(child);}
+							}
+							else {activate(child);}
+						}
+					}
+				}
+			};
+
+			//TODO: this can be made more efficient by not cascading
+			for_each<VoxelElement>(action, OPENMP);
 		}
 
 		//geometry operations
@@ -324,9 +358,10 @@ namespace gv::vmesh
 			auto action_c = [&](VoxelElement el) {
 				if (is_active(el)) {
 					cell_buffer << "8 ";
+					const auto verts = el.vertices();
 					for (int v=0; v<8; ++v) {
 						// const VoxelVertex vtx = el.vertex(v).reduced_key();
-						const VoxelVertex vtx = el.vertex(v);
+						const VoxelVertex vtx = verts[v];
 						assert(vtx.is_valid());
 						const uint64_t idx = vtx.linear_index();
 						max_vtx_index = std::max(idx, max_vtx_index);
@@ -336,7 +371,7 @@ namespace gv::vmesh
 				}
 			};
 
-			for_each<VoxelElement>(action_c);
+			for_each<VoxelElement>(action_c, false);
 			cell_buffer << "\n";
 
 			const uint64_t n_vertices = max_vtx_index+1; //writing a few extra vertices is ok
@@ -376,7 +411,7 @@ namespace gv::vmesh
 
 			auto pred   = [this](const VoxelElement el) {return this->is_active(el);};
 			auto action = [&buffer, &lookup](const VoxelElement el) {buffer << lookup(el) << "\n";};
-			for_each<VoxelElement>(action, pred);
+			for_each<VoxelElement>(action, false, pred);
 			buffer << "\n";
 			os << buffer.str();
 		}
@@ -418,7 +453,82 @@ namespace gv::vmesh
 			append_unstructured_cell_data_vtk(file, "SCALARS dijk int 4\nLOOKUP_TABLE default",  lookup_dijk);
 			append_unstructured_cell_data_vtk(file, "SCALARS linear int 1\nLOOKUP_TABLE default",lookup_linear);
 		}
+
+	private:
+		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t> && !OPENMP)
+		void for_each_depth_omp_impl(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) const {
+			std::cerr << "HierarchicalVoxelMesh::for_each_depth_omp (const) called without OpenMP enabled\n";
+			for_each_depth<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
+		}
+
+		#ifdef _OPENMP
+		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t> && OPENMP)
+		void for_each_depth_omp_impl(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) const {
+			const uint64_t start = Key_t::depth_linear_start(depth);
+			const uint64_t end   = Key_t::depth_linear_start(depth+1);
+			const uint64_t n     = end - start;
+			const uint64_t chunk = 512;
+			const uint64_t n_chk = (n+chunk-1) / chunk;
+
+			//each thread gets one contiguous sequence of chunks.
+			//for example, thread 0 may get chunks [0,5), thread 1 chunks [5,10), and thread 2 chunks [10,12)
+			//with the size of each range of chunks split evenly with the remainder sent to the last thread.
+			//action(key,0) will always be called on the lowest index features and action(key,1) the next lowest block, and so on.
+			#pragma omp parallel for schedule(static)
+			for (uint64_t c=0; c<n_chk; ++c) {
+				const int tid = omp_get_thread_num();
+				const uint64_t c_start = start + c*chunk;
+				const uint64_t c_end   = std::min(c_start+chunk, end);
+				
+
+				Key_t key(depth, c_start - start);
+				for (uint64_t idx=c_start; idx<c_end; ++idx, ++key) {
+					assert(key.linear_index() == idx);
+					if constexpr (!NULLPTR_T<Predicate>) {
+						if (!pred(key)) {
+							continue;
+						}
+					}
+					if constexpr (std::is_invocable_v<Action, Key_t, int>) {
+						action(key, tid);
+					}
+					else {
+						action(key);
+					}
+				}
+			}
+		}
+		#endif
+
+		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t>)
+		void for_each_depth_impl(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) const {
+			const uint64_t start = Key_t::depth_linear_start(depth);
+			const uint64_t end   = Key_t::depth_linear_start(depth+1);
+			Key_t key(depth,0); //element/vertex/face object (acts as an iterator)
+
+			for (uint64_t idx=start; idx<end; ++idx, ++key) {
+				assert(key.linear_index() == idx);
+				if constexpr (!NULLPTR_T<Predicate>) {
+					if (!pred(key)) {
+						continue;
+					}
+				}
+				action(key);
+			}
+		}
+
+		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t>)
+		void for_each_impl(Action&& action, bool omp=false, Predicate&& pred = nullptr) const {
+			if (omp) {
+				for (uint64_t depth=0; depth<MAX_DEPTH+1; ++depth) {
+					for_each_depth_omp<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
+				}
+			}
+			else {
+				for (uint64_t depth=0; depth<MAX_DEPTH+1; ++depth) {
+					for_each_depth<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
+				}
+			}
+		}
 	};
-
-
 }

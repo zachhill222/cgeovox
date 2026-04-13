@@ -54,11 +54,11 @@ namespace gv::vmesh
 		static constexpr uint64_t F_S  = 0;         	//free start
 		static constexpr uint64_t ON_S = F_W;			//other (no compare) start
 		static constexpr uint64_t OC_S = ON_S + ON_W;	//other (compare) start
-		static constexpr uint64_t D_S  = OC_S + OC_W;	//depth start
-		static constexpr uint64_t I_S  = D_S  + D_W;	//index i start
+		static constexpr uint64_t I_S  = OC_S + OC_W;	//index i start
 		static constexpr uint64_t J_S  = I_S  + I_W;	//index j start
 		static constexpr uint64_t K_S  = J_S  + J_W;	//index k start
-		static_assert(K_S+K_W == 64, "VoxelKey: incorrect field starts");
+		static constexpr uint64_t D_S  = K_S  + K_W;	//depth start
+		static_assert(D_S+D_W == 64, "VoxelKey: incorrect field starts");
 
 		//define masks
 		static constexpr uint64_t F_M  = ((uint64_t{1} << F_W)  - 1) << F_S;  //free mask
@@ -93,20 +93,22 @@ namespace gv::vmesh
 		//define constructors
 		explicit constexpr VoxelKey() : _data_{DOES_NOT_EXIST} {}
 		explicit constexpr VoxelKey(const uint64_t data) : _data_{data} {}
-		constexpr VoxelKey( const uint64_t ff, 
-							const uint64_t oo,
+		constexpr VoxelKey( const uint64_t ff,
+							const uint64_t on,
+							const uint64_t oc,
 							const uint64_t dd,
 							const uint64_t ii, 
 							const uint64_t jj, 
 							const uint64_t kk) :
 			_data_{
 				//shift each field into place and mask
-				((ff<<F_S) & F_M) |
-				((oo<<O_S) & O_M) |
-				((dd<<D_S) & D_M) |
-				((ii<<I_S) & I_M) |
-				((jj<<J_S) & J_M) |
-				((kk<<K_S) & K_M)
+				((ff<<F_S)  & F_M)  |
+				((on<<ON_S) & ON_M) |
+				((oc<<OC_S) & OC_M) |
+				((dd<<D_S)  & D_M)  |
+				((ii<<I_S)  & I_M)  |
+				((jj<<J_S)  & J_M)  |
+				((kk<<K_S)  & K_M)
 			}
 		{}
 
@@ -126,6 +128,41 @@ namespace gv::vmesh
 
 		//access i,j,k as axis 0, 1, 2 with a mod fail safe (axis -1 is axis 2, but more work)
 		inline constexpr uint64_t index(const int a) const {return a==0 ? i() : a==1 ? j() : a==2 ? k() : index(a%3);}
+
+		//set bit fields
+		constexpr void set_free(const uint64_t bt) {
+			_data_ &= ~F_M;
+			_data_ |= ((bt<<F_S)&F_M);
+		}
+		constexpr void set_other(const uint64_t bt) {
+			_data_ &= ~O_M;
+			_data_ |= ((bt<<O_S)&O_M);
+		}
+		constexpr void set_on(const uint64_t bt) {
+			_data_ &= ~ON_M;
+			_data_ |= ((bt<<ON_S)&ON_M);
+		}
+		constexpr void set_oc(const uint64_t bt) {
+			_data_ &= ~OC_M;
+			_data_ |= ((bt<<OC_S)&OC_M);
+		}
+		constexpr void set_depth(const uint64_t bt) {
+			_data_ &= ~D_M;
+			_data_ |= ((bt<<D_S)&D_M);
+		}
+		constexpr void set_i(const uint64_t bt) {
+			_data_ &= ~I_M;
+			_data_ |= ((bt<<I_S)&I_M);
+		}
+		constexpr void set_j(const uint64_t bt) {
+			_data_ &= ~J_M;
+			_data_ |= ((bt<<J_S)&J_M);
+		}
+		constexpr void set_k(const uint64_t bt) {
+			_data_ &= ~K_M;
+			_data_ |= ((bt<<K_S)&K_M);
+		}
+
 
 		//check if the key was set to DOES_NOT_EXIST
 		inline constexpr bool exists() const {return _data_!=DOES_NOT_EXIST;}

@@ -11,10 +11,10 @@
 namespace gv::vmesh
 {
 	template<VoxelFaceKeyType Key_type>
-	struct CharmsVoxelRT0 : public VoxelDOFBase<Key_type,CharmsVoxelRT0<Key_type>>
+	struct VoxelRT0 : public VoxelDOFBase<Key_type,VoxelRT0<Key_type>>
 	{
 		//get types from the Base class
-		using Base = VoxelDOFBase<Key_type,CharmsVoxelRT0<Key_type>>;
+		using Base = VoxelDOFBase<Key_type,VoxelRT0<Key_type>>;
 		using RefPoint_t = typename Base::RefPoint_t;
 		using GeoPoint_t = typename Base::GeoPoint_t;
 		using Key_t      = typename Base::Key_t;
@@ -97,67 +97,63 @@ namespace gv::vmesh
 			else {vl.fill(0.5);}
 		}
 
-		//TODO: implement the periodic case
-		template<bool PERIODIC_X=false, bool PERIODIC_Y=false, bool PERIODIC_Z=false>
-		constexpr std::array<CharmsVoxelRT0,12> children_impl() const {
+		constexpr std::array<VoxelRT0,12> children_impl() const {
 			const uint64_t aa=key.axis(), ii=2*key.i(), jj=2*key.j(), kk=2*key.k(), dd=key.depth()+1;
 			assert(dd<key.MAX_DEPTH);
-
-
 
 			switch (aa) {
 			case 0:
 				return {
-					CharmsVoxelRT0{Key_t{aa,dd, ii-1, jj,   kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii-1, jj+1, kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii-1, jj,   kk+1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii-1, jj+1, kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii-1, jj,   kk  }},
+					VoxelRT0{Key_t{aa,dd, ii-1, jj+1, kk  }},
+					VoxelRT0{Key_t{aa,dd, ii-1, jj,   kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii-1, jj+1, kk+1}},
 
-					CharmsVoxelRT0{Key_t{aa,dd, ii  , jj,   kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii  , jj+1, kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii  , jj,   kk+1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii  , jj+1, kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii  , jj,   kk  }},
+					VoxelRT0{Key_t{aa,dd, ii  , jj+1, kk  }},
+					VoxelRT0{Key_t{aa,dd, ii  , jj,   kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii  , jj+1, kk+1}},
 
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj,   kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj,   kk+1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk+1}}
+					VoxelRT0{Key_t{aa,dd, ii+1, jj,   kk  }},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk  }},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj,   kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk+1}}
 				};
 			
 			case 1:
 				return {
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj-1, kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj-1, kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj-1, kk+1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj-1, kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii,   jj-1, kk  }},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj-1, kk  }},
+					VoxelRT0{Key_t{aa,dd, ii,   jj-1, kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj-1, kk+1}},
 
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk+1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii,   jj  , kk  }},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj  , kk  }},
+					VoxelRT0{Key_t{aa,dd, ii,   jj  , kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj  , kk+1}},
 
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk+1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk+1}}
+					VoxelRT0{Key_t{aa,dd, ii,   jj+1, kk  }},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk  }},
+					VoxelRT0{Key_t{aa,dd, ii,   jj+1, kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk+1}}
 				};
 			
 			case 2:
 				return {
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk-1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk-1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk-1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk-1}},
+					VoxelRT0{Key_t{aa,dd, ii,   jj  , kk-1}},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj  , kk-1}},
+					VoxelRT0{Key_t{aa,dd, ii,   jj+1, kk-1}},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk-1}},
 
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk  }},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk  }},
+					VoxelRT0{Key_t{aa,dd, ii,   jj  , kk  }},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj  , kk  }},
+					VoxelRT0{Key_t{aa,dd, ii,   jj+1, kk  }},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk  }},
 
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj  , kk+1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj  , kk+1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii,   jj+1, kk+1}},
-					CharmsVoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk+1}}
+					VoxelRT0{Key_t{aa,dd, ii,   jj  , kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj  , kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii,   jj+1, kk+1}},
+					VoxelRT0{Key_t{aa,dd, ii+1, jj+1, kk+1}}
 				};
 			}
 		}
@@ -171,7 +167,7 @@ namespace gv::vmesh
 		}
 
 
-		constexpr std::array<CharmsVoxelRT0,N_PARENTS> parents_impl() const {
+		constexpr std::array<VoxelRT0,N_PARENTS> parents_impl() const {
 			const uint64_t dd = key.depth() -1; //underflow if 0
 			if (dd>Key_t::MAX_DEPTH) {return {};} //no parents when depth is 0
 
@@ -183,15 +179,15 @@ namespace gv::vmesh
 			const uint64_t pr = key.index(aa)&1;
 			if (pr) {
 				switch (aa) {
-				case 0: return {CharmsVoxelRT0{Key_t{aa,dd,ip,jp,kp}}, CharmsVoxelRT0{Key_t{aa,dd,ip+1,jp,  kp  }}};
-				case 1: return {CharmsVoxelRT0{Key_t{aa,dd,ip,jp,kp}}, CharmsVoxelRT0{Key_t{aa,dd,ip,  jp+1,kp  }}};
-				case 2: return {CharmsVoxelRT0{Key_t{aa,dd,ip,jp,kp}}, CharmsVoxelRT0{Key_t{aa,dd,ip,  jp,  kp+1}}};
+				case 0: return {VoxelRT0{Key_t{aa,dd,ip,jp,kp}}, VoxelRT0{Key_t{aa,dd,ip+1,jp,  kp  }}};
+				case 1: return {VoxelRT0{Key_t{aa,dd,ip,jp,kp}}, VoxelRT0{Key_t{aa,dd,ip,  jp+1,kp  }}};
+				case 2: return {VoxelRT0{Key_t{aa,dd,ip,jp,kp}}, VoxelRT0{Key_t{aa,dd,ip,  jp,  kp+1}}};
 				default: assert(false); return {};
 				}
 			}
 			else {
 				//one parent
-				return {CharmsVoxelRT0{Key_t{aa,dd,ip,jp,kp}}, CharmsVoxelRT0{}};
+				return {VoxelRT0{Key_t{aa,dd,ip,jp,kp}}, VoxelRT0{}};
 			}
 		}
 
@@ -202,7 +198,7 @@ namespace gv::vmesh
 
 		static constexpr std::array<CharmsVoxelQ1,6> dofs_on_elem(const QuadElem_t el) {
 			std::array<CharmsVoxelQ1,6> dofs;
-			for (int f=0; f<6; ++f) {dofs[f] = CharmsVoxelRT0{el.face(f)};}
+			for (int f=0; f<6; ++f) {dofs[f] = VoxelRT0{el.face(f)};}
 			return dofs;
 		}
 	};

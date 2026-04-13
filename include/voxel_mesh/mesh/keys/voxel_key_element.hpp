@@ -11,17 +11,19 @@ namespace gv::vmesh
 	//adjacency methods must be implemented in a separate file after
 	//all mesh feature keys are defined
 
-	template<uint64_t I_W, bool MORTON>
+	template<uint64_t I_W, uint64_t BC, bool MORTON>
 	struct VoxelVertexKey;
 
-	template<uint64_t I_W, bool MORTON>
+	template<uint64_t I_W, uint64_t BC, bool MORTON>
 	struct VoxelFaceKey;
 
-	template<uint64_t I_W=16, bool MORTON_=false>
-	struct VoxelElementKey : public VoxelKey<0,0,0,I_W>
+	template<uint64_t I_W=16, uint64_t BC=0, bool MORTON_=false>
+	struct VoxelElementKey : public VoxelKey<0,3,0,I_W>
 	{
+		static_assert(BC<8, "VoxelElementKey: invalid boundary condition. BC must be from 0 to 7.");
+
 		//inherit constructors
-		using BASE = VoxelKey<0,0,0,I_W>;
+		using BASE = VoxelKey<0,3,0,I_W>;
 		using BASE::BASE;
 
 		//inherit the primary accessors
@@ -29,19 +31,43 @@ namespace gv::vmesh
 		using BASE::i;
 		using BASE::j;
 		using BASE::k;
+		using BASE::set_depth;
+		using BASE::set_i;
+		using BASE::set_j;
+		using BASE::set_k;
 		using BASE::_data_;
 
 		//define useful constants
-		static constexpr uint64_t MAX_ELEMENT_INDEX = BASE::MAX_INDEX-2;
 		static constexpr bool MORTON = MORTON_;
 		using BASE::MAX_DEPTH;
 		using BASE::DOES_NOT_EXIST;
 
+		//periodic conditions. the BC bits are stored on the other_nocompare field
+		static constexpr uint64_t BC_FLAG = BC;
+		static constexpr bool PX = BC&1; //periodic in i/x
+		static constexpr bool PY = BC&2; //periodic in j/y
+		static constexpr bool PZ = BC&4; //periodic in k/z
+
+		//explicit conversion to the non-periodic type
+		using NonPeriodicType = VoxelElementKey<I_W,0,MORTON_>;
+		explicit operator NonPeriodicType() const {return NonPeriodicType{_data_};}
+
+		template<uint64_t OTHER_BC>
+		using OtherPeriodicType = VoxelElementKey<I_W,OTHER_BC,MORTON_>;
+		
+		template<uint64_t OTHER_BC> requires (OTHER_BC<8)
+		explicit operator OtherPeriodicType<OTHER_BC>() const {return OtherPeriodicType<OTHER_BC>{_data_};}
 
 		//define element specific constructors
 		constexpr VoxelElementKey(const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
-			BASE(0,0,dd,ii,jj,kk) {
-				if (!is_valid()) {_data_=DOES_NOT_EXIST;}
+			BASE(0,BC,0,dd,ii,jj,kk) {
+				if (dd>MAX_DEPTH) {_data_ = DOES_NOT_EXIST; return;}
+				if constexpr (PX||PY||PZ) {
+					const uint64_t me = uint64_t{1} << dd; //2^d elements per axis
+					if constexpr (PX) {if (ii>=me) {set_i(0);}}
+					if constexpr (PY) {if (jj>=me) {set_j(0);}}
+					if constexpr (PZ) {if (kk>=me) {set_k(0);}}
+				}
 			}
 
 		constexpr VoxelElementKey(const uint64_t dd, uint64_t li) requires (!MORTON) {
@@ -53,7 +79,7 @@ namespace gv::vmesh
 			const uint64_t jj   = li & mask; li >>= dd;
 			const uint64_t kk   = li & mask;
 
-			_data_ = (dd << BASE::D_S) | (ii << BASE::I_S) | (jj << BASE::J_S) | (kk << BASE::K_S);
+			_data_ = (dd << BASE::D_S) | (ii << BASE::I_S) | (jj << BASE::J_S) | (kk << BASE::K_S) | (BC << BASE::ON_S);
 		}
 
 		//check if a voxel is valid
@@ -126,23 +152,7 @@ namespace gv::vmesh
 			return VoxelElementKey{depth()-1, i()/2, j()/2, k()/2}; //integer division is intended
 		}
 
-		inline constexpr VoxelElementKey child(const bool bi, const bool bj, const bool bk) const {
-			return VoxelElementKey{depth()+1, 2*i()+static_cast<uint64_t>(bi), 2*j()+static_cast<uint64_t>(bj), 2*k()+static_cast<uint64_t>(bk)};
-		}
-
-		constexpr VoxelElementKey child(const int cn) const {
-			switch (cn) {
-			case 0: return child(0,0,0);
-			case 1: return child(1,0,0);
-			case 2: return child(0,1,0);
-			case 3: return child(1,1,0);
-			case 4: return child(0,0,1);
-			case 5: return child(1,0,1);
-			case 6: return child(0,1,1);
-			case 7: return child(1,1,1);
-			default: return VoxelElementKey{DOES_NOT_EXIST};
-			}
-		}
+		inline constexpr auto child(const int i) const {return children()[i];}
 
 		constexpr std::array<VoxelElementKey,8> children() const {
 			const uint64_t ii=2*i(), jj=2*j(), kk=2*k(), dd=depth()+1;
@@ -160,9 +170,11 @@ namespace gv::vmesh
 		}
 
 		//adjacency logic
-		inline constexpr VoxelVertexKey<I_W,MORTON_> vertex(const bool bi, const bool bj, const bool bk) const;
-		constexpr VoxelVertexKey<I_W,MORTON_> vertex(const int vn) const;
-		constexpr VoxelFaceKey<I_W,MORTON_> face(const int fn) const;
+		inline constexpr auto vertex(int i) const {return vertices()[i];}
+		inline constexpr std::array<VoxelVertexKey<I_W,BC,MORTON_>,8> vertices() const;
+		
+		inline constexpr auto face(int i) const {return faces()[i];}
+		inline constexpr std::array<VoxelFaceKey<I_W,BC,MORTON_>,6> faces() const;
 
 		//get the color of the feature by index modding. There are 8 unique colors.
 		//coloring means different things for differnet mesh elements, but for example,

@@ -12,17 +12,17 @@ namespace gv::vmesh
 	//adjacency methods must be implemented in a separate file after
 	//all mesh feature keys are defined
 
-	template<uint64_t I_W, bool MORTON>
+	template<uint64_t I_W, uint64_t BC, bool MORTON>
 	struct VoxelElementKey;
 
-	template<uint64_t I_W, bool MORTON>
+	template<uint64_t I_W, uint64_t BC, bool MORTON>
 	struct VoxelFaceKey;
 
-	template<uint64_t I_W=16, bool MORTON_=false>
-	struct VoxelVertexKey : public VoxelKey<0,0,0,I_W>
+	template<uint64_t I_W=16, uint64_t BC=0, bool MORTON_=false>
+	struct VoxelVertexKey : public VoxelKey<0,3,0,I_W>
 	{
 		//inherit constructors
-		using BASE = VoxelKey<0,0,0,I_W>;
+		using BASE = VoxelKey<0,3,0,I_W>;
 		using BASE::BASE;
 
 		//inherit the primary accessors
@@ -30,6 +30,10 @@ namespace gv::vmesh
 		using BASE::i;
 		using BASE::j;
 		using BASE::k;
+		using BASE::set_depth;
+		using BASE::set_i;
+		using BASE::set_j;
+		using BASE::set_k;
 		using BASE::_data_;
 
 		//define useful constants
@@ -38,10 +42,33 @@ namespace gv::vmesh
 		using BASE::MAX_DEPTH;
 		using BASE::DOES_NOT_EXIST;
 
+		//periodic conditions. the BC bits are stored on the other_nocompare field
+		static constexpr uint64_t BC_FLAG = BC;
+		static constexpr bool PX = BC&1; //periodic in i/x
+		static constexpr bool PY = BC&2; //periodic in j/y
+		static constexpr bool PZ = BC&4; //periodic in k/z
+
+		//explicit conversion to the non-periodic type
+		using NonPeriodicType = VoxelVertexKey<I_W,0,MORTON_>;
+		explicit operator NonPeriodicType() const {return NonPeriodicType{_data_};}
+
+		template<uint64_t OTHER_BC>
+		using OtherPeriodicType = VoxelVertexKey<I_W,OTHER_BC,MORTON_>;
+		
+		template<uint64_t OTHER_BC> requires (OTHER_BC<8)
+		explicit operator OtherPeriodicType<OTHER_BC>() const {return OtherPeriodicType<OTHER_BC>{_data_};}
+
+
 		//define vertex specific constructors
 		constexpr VoxelVertexKey(const uint64_t dd, const uint64_t ii, const uint64_t jj, const uint64_t kk) :
-			BASE(0,0,dd,ii,jj,kk) {
-				if (!is_valid()) {_data_=DOES_NOT_EXIST;}
+			BASE(0,BC,0,dd,ii,jj,kk) {
+				if (dd>MAX_DEPTH) {_data_ = DOES_NOT_EXIST; return;}
+				if constexpr (PX||PY||PZ) {
+					const uint64_t mv = (uint64_t{1} << dd)+1; //2^d elements per axis, one extra vertex
+					if constexpr (PX) {if (ii>=mv) {set_i(0);}}
+					if constexpr (PY) {if (jj>=mv) {set_j(0);}}
+					if constexpr (PZ) {if (kk>=mv) {set_k(0);}}
+				}
 			}
 
 		constexpr VoxelVertexKey(const uint64_t dd, uint64_t li) requires (!MORTON) {
@@ -53,7 +80,7 @@ namespace gv::vmesh
 
 			//linear index is ii + nv*jj + nv^2*kk
 
-			_data_ = (dd << BASE::D_S) | (ii << BASE::I_S) | (jj << BASE::J_S) | (kk << BASE::K_S);
+			_data_ = (dd << BASE::D_S) | (ii << BASE::I_S) | (jj << BASE::J_S) | (kk << BASE::K_S) | (BC << BASE::ON_S);
 			assert(is_valid());
 		}
 
@@ -157,8 +184,23 @@ namespace gv::vmesh
 		}
 
 		//adjacency logic
-		constexpr VoxelElementKey<I_W, MORTON_> element(const bool bi, const bool bj, const bool bk) const;
-		constexpr VoxelElementKey<I_W, MORTON_> element(const int en) const;
+		inline constexpr auto element(int i) const {return elements()[i];}
+		constexpr std::array<VoxelElementKey<I_W,BC,MORTON_>,8> elements() const;
+
+		//the reference coordinate of this vertex in each of the 8 elements it belongs to
+		static constexpr auto ref_coord(const int i) {return ref_coords()[i];}
+		static constexpr std::array<gutil::Point<3,double>,8> ref_coords() {
+			return {
+				gutil::Point<3,double>{ 1.0,  1.0,  1.0},
+				gutil::Point<3,double>{ 1.0,  1.0, -1.0},
+				gutil::Point<3,double>{ 1.0, -1.0,  1.0},
+				gutil::Point<3,double>{ 1.0, -1.0, -1.0},
+				gutil::Point<3,double>{-1.0,  1.0,  1.0},
+				gutil::Point<3,double>{-1.0,  1.0, -1.0},
+				gutil::Point<3,double>{-1.0, -1.0,  1.0},
+				gutil::Point<3,double>{-1.0, -1.0, -1.0}
+			};
+		} 
 
 		//get the color of the feature by index modding. There are 8 unique colors.
 		//coloring means different things for differnet mesh elements, but for example,
