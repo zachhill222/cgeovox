@@ -143,7 +143,7 @@ namespace gv::vmesh
 		//find the vertex with the lowest index that is active and overlaps (geometrically)
 		//with the specified vertex
 		VoxelVertex first_active(VoxelVertex vtx) const {
-			assert(vtx.is_valid())
+			assert(vtx.is_valid());
 			//get lowest vertex
 			vtx = vtx.reduced_key();
 			while (vtx.exists()) {
@@ -392,8 +392,8 @@ namespace gv::vmesh
 			//of the vertices to write
 			//additionally, write the cell buffer
 			std::ostringstream cell_buffer;
-			const uint64_t n_elements = n_elements();
-			cell_buffer << "CELLS " << n_elements << " " << 9*n_elements << "\n";
+			const uint64_t n_elems = n_elements();
+			cell_buffer << "CELLS " << n_elems << " " << 9*n_elems << "\n";
 
 			uint64_t max_vtx_index=0;
 			auto action_c = [&](VoxelElement el) {
@@ -428,8 +428,8 @@ namespace gv::vmesh
 			point_buffer << "\n";
 
 			//Element type
-			cell_buffer << "CELL_TYPES " << n_elements << "\n";
-			for (size_t i=0; i<n_elements; ++i) {cell_buffer << "11 ";}
+			cell_buffer << "CELL_TYPES " << n_elems << "\n";
+			for (size_t i=0; i<n_elems; ++i) {cell_buffer << "11 ";}
 			cell_buffer << "\n\n";
 			
 			//write to file
