@@ -6,6 +6,18 @@
 
 namespace gv::vmesh
 {
+	//In order to allow DOF renumbering and excessive lookups, we need to compute permutation arrays
+	//to convert an arbitrary order of row/column selections into the standard order
+	template<typename Key_t>
+	static constexpr std::vector<uint64_t> get_sort_perm(const std::vector<Key_t>& select) {
+		std::vector<uint64_t> P(select.size());
+		std::iota(P.begin(), P.end(), 0); //set P=[0, 1, 2, ...]
+
+		//create a comparison to sort P
+		auto comp = [&select](uint64_t a, uint64_t b) {return select[a] < select[b];};
+		std::sort(P.begin(), P.end(), comp);
+		return P;
+	}
 
 	//each bilinear form will be represented by a matrix (TODO: add matrix free vector operations)
 	//the matrix can be incrementally updated between mesh refinements (TODO: add this)
@@ -68,6 +80,93 @@ namespace gv::vmesh
 			return std::lower_bound(entries.begin(), entries.end(), entry);
 		}
 
+		double value(const ColKey_t col) const {
+			CIter_t it = lower_bound(Entry_t{col,0.0});
+			return (it==entries.end() || it->col != col) ? 0.0 : it->val;
+		}
+
+		uint64_t row_nnz(const std::vector<ColKey_t>& col_select, 	//the requested columns (may or may not exist, arbitrary order, no duplicates)
+					const std::vector<uint64_t>& perm				//the permutation vector such that col_select[perm[k]] < col_select[perm[k+1]]
+					) const {
+
+			//start at the beginning of this row in standard order
+			CIter_t c_it = entries.begin();
+			uint64_t p = 0;
+
+			//number of stored entries
+			uint64_t r_nnz = 0;
+
+			//loop through the permutation vector and synchronize the iterators
+			const uint64_t cs_size = col_select.size();
+			while ( (c_it!=entries.end()) && (p<cs_size) ) {
+				const uint64_t col_select_idx = perm[p];
+				const ColKey_t c_k = col_select[col_select_idx];
+
+				//increase c_it until it reaches or goes past c_k
+				if      (c_it->col < c_k) {++c_it;} //haven't found the desired column
+				else if (c_it->col > c_k) {++p;}    //we found and dealt with the desired column or it didn't exist
+				else {
+					//we are at the desired column and it exists
+					++r_nnz;
+					++p; ++c_it;
+				}
+			}
+
+			return r_nnz;
+		}
+
+
+		//find the values at the requested columns provided the permutation vector
+		//results are appended to the supplied nz_idx and nv_vals. This is intended to be called as part of the 
+		//actual csr matrix assembly. The offset should be the number of non-zero entries BEFORE this row. 
+		//
+		//If A is the csr matrix, then we need A(r,c) (where r is this row) to satisfy
+		//A(r,c) = nv_vals[k] where c = col_idx[k] and RowOffset[r]<= k < RowOffset[r+1].
+		//
+		//note that it is best to find the requested values in the standard order, but they must be put into
+		//col_idx and nv_vals in the provided order. To do this, we make a first pass to compute the number of nonzero entries per row.
+		//then this method populates the column index and values in the requested order
+		//the random access iterators into where the column and values are being stored must be provided (both start and end for this row)
+		//
+		//Note that this method is thread safe during the second pass (as long as two threads don't have the same row)
+		template<typename ColIdx_iter, typename ValIdx_iter>
+		void csr_v_idx(const std::vector<ColKey_t>& col_select, 		//the requested columns (may or may not exist, arbitrary order, no duplicates)
+					const std::vector<uint64_t>& perm,					//the permutation vector such that col_select[perm[k]] < col_select[perm[k+1]]
+					ColIdx_iter c_idx_start, ColIdx_iter c_idx_end,		//range into the column index vector that belongs to this row (half open)
+					ValIdx_iter vals_start, ValIdx_iter vals_end)		//range into the values corresponding to the column index. (half open)
+					const {
+
+			//verify that the number of entries for the column index and values are the same
+			assert(std::distance(c_idx_start, c_idx_end) == std::distance(vals_start, vals_end));
+
+			//start at the beginning of this row in standard order
+			CIter_t c_it = entries.begin();
+			uint64_t p = 0;
+
+			//loop through the permutation vector and synchronize the iterators
+			const uint64_t cs_size = col_select.size();
+			while ( (c_it!=entries.end()) && (p<cs_size) && (c_idx_start!=c_idx_end) && (vals_start!=vals_end) ) {
+				const uint64_t col_select_idx = perm[p];
+				const ColKey_t c_k = col_select[col_select_idx];
+
+				//increase c_it until it reaches or goes past c_k
+				if      (c_it->col < c_k) {++c_it;} //haven't found the desired column
+				else if (c_it->col > c_k) {++p;}    //we found and dealt with the desired column or it didn't exist
+				else {
+					//we are at the desired column and it exists
+					*c_idx_start = col_select_idx;
+					*vals_start = c_it->val;
+
+					++c_idx_start; ++vals_start;
+					++p; ++c_it;
+				}
+			}
+
+			//verify that we actually found all the expected entries
+			assert(c_idx_start==c_idx_end);
+			assert(vals_start==vals_end);
+		}
+
 		//insert and preserve sorting
 		void insert(Entry_t&& entry) {
 			Iter_t it = lower_bound(entry);
@@ -91,7 +190,7 @@ namespace gv::vmesh
 		inline void emplace_back(ColKey_t col, double val) {entries.emplace_back(col,val);}
 		inline uint64_t size() const {return entries.size();}
 		inline void shrink_to_fit() {entries.shrink_to_fit();}
-		inline reserve(const uint64_t sz) {entries.reserve(sz);}
+		inline void reserve(const uint64_t sz) {entries.reserve(sz);}
 
 
 		//we can add entries to the end and then accumulate all at once
@@ -127,8 +226,8 @@ namespace gv::vmesh
 		//the row will need to be accumulated/compressed after this
 		inline void append(SparseRow<RowKey_t,ColKey_t>&& other) {
 			entries.insert(entries.end(),
-				std::make_move_iterator(other.begin()),
-				std::make_move_iterator(other.end()));
+				std::make_move_iterator(other.entries.begin()),
+				std::make_move_iterator(other.entries.end()));
 		}
 	};
 
@@ -149,13 +248,13 @@ namespace gv::vmesh
 	{
 		std::vector<SparseRow<RowKey_t>> rows;
 		using Row_t      = SparseRow<RowKey_t,ColKey_t>;
-		using Entry_t    = typename RowKey_t::Entry_t;
+		using Entry_t    = typename Row_t::Entry_t;
 		using CRowIter_t = std::vector<Row_t>::const_iterator;
 		using RowIter_t  = std::vector<Row_t>::iterator;
 
 		//accumulate and compress the rows
 		void accumulate_each_row() {
-			for_each_row_omp([this](uint64_t r){rows[r].accumulate();})
+			for_each_row_omp([this](Row_t& r){r.accumulate();})
 		}
 
 		//perform actions on the rows either in serial or parallel
@@ -193,21 +292,30 @@ namespace gv::vmesh
 		//access a current row or create a new row and return a reference
 		//the rows must be sorted for this to work. This is not always thread safe.
 		//we assume the rows are sorted and preserve this.
-		Row_t& row(const RowKey_t r_id) {
+		Row_t& get_row(const RowKey_t r_id) {
 			RowIter_t it = lower_bound(r_id);
-			if (it==rows.end()) {
-				entries.emplace_back(r_id);
-				return entries.back();
+			if ( (it!=rows.end()) && (it->row_id==r_id)) {
+				return *it;
 			}
-			return *it;
+
+			rows.emplace_back(r_id);
+			return rows.back();
+		}
+
+		const Row_t& get_row(const RowKey_t r_id) const {
+			CRowIter_t it = lower_bound(r_id);
+			if ( (it!=rows.end()) && (it->row_id==r_id)) {
+				return *it;
+			}
+			throw std::runtime_error("CSR_COO::get_row (const) - row not found");
 		}
 
 		//if we know that a new row needs to be created or are ok with
 		//accumulating two rows with the same id later, we can quickly append a new row
 		//and return a reference to it
 		Row_t& new_row(const RowKey_t r_id) {
-			entries.emplace_back(r_id);
-			return entries.back();
+			rows.emplace_back(r_id);
+			return rows.back();
 		}
 
 
@@ -218,7 +326,7 @@ namespace gv::vmesh
 
 			sort_rows();
 			RowIter_t it = rows.begin(); //write iterator
-			for (RowIter_t cur = start+1; cur != rows.end(); ++cur) {
+			for (RowIter_t cur = it+1; cur != rows.end(); ++cur) {
 				if (cur->row_id == it->row_id) {
 					it->append(*cur);
 				}
@@ -248,7 +356,10 @@ namespace gv::vmesh
 		//the structure must be in a valid state. call accumulate() first.
 		//any re-numbering of the DOFs occur in the ordering of row_select and col_select.
 		//row_select and col_select do not need to be sorted, but they must not contain
-		//duplicate entries.
+		//duplicate entries. We also assume that each requested row corresponds to one (and only one) existing row
+		//that is stored here and that for each row, there is at least one requested column that has a stored entry.
+
+		//Note Eigen sparse matrices must have signed index type. https://libeigen.gitlab.io/eigen/docs-5.0/classEigen_1_1SparseMatrix.html
 		Eigen::SparseMatrix<double,Eigen::RowMajor,int> to_eigen_csr(
 			const std::vector<RowKey_t>& row_select, 
 			const std::vector<ColKey_t>& col_select) const;
@@ -263,14 +374,78 @@ namespace gv::vmesh
 		const int n_rows = static_cast<int>(row_select.size());
 		const int n_cols = static_cast<int>(col_select.size());
 
-		//map the compressed row (the index into row_select) into an integer index into the global rows
-		auto global_row = [this](RowKey_t c_r) {
-			CRowIter_t it = lower_bound(c_r);
-			if (it == rows.end() || *it != c_r) {return -1;} //there are no entries for this row
-			return static_cast<int>(std::distance(rows.begin(), it));
-		}
+		//Because row/col_select are allowed to be in arbitrary order, we compute permutations
+		//that would put them into the standard order so that we can better look up values in the COO_CSR structure
+		const auto PR = get_sort_perm(row_select);
+		const auto PC = get_sort_perm(col_select);
 
 		//initialize the matrix
 		Eigen::SparseMatrix<double,Eigen::RowMajor,int> mat(n_rows,n_cols);
+
+		//recall that CSR matrices have the storage format:
+		//
+		//		row offset array : RO = {a_0, a_1, a_2, ... , a_{n_rows}}
+		//		column indices	 : CI = {b_0, b_1, b_2, b_3, b_4, ... , b_{nnz-1}}
+		//		values           :  V = {v_0, v_1, v_2, v_3, v_4, ... , v_{nnz-1}}
+		//
+		//where the indices into both CI and V for row r are the half open interval [RO[r], RO[r+1]).
+		//To read the matrix value at A(r,c), we first find k in [RO[r],RO[r+1]) such that CI[k]=c.
+		//If such a k exists, then A(r,c) = V[k]. If such a k does not exist, the entry is not stored
+		//and A(r,c)=0.
+		
+		//Note that RO is by far the smallest array. We write to the matrix in two passes.
+		//First, build RO and count the total number of nonzero values. Then we populate CI and V.
+		
+		//Build RO (Eigen outerIndexPtr when in Sparse RowMajor)
+		//Eigen reserves enough space when resizing to n_rows as RowMajor
+		//see around line 750 (April 15, 2026): https://libeigen.gitlab.io/eigen/docs-5.0/SparseMatrix_8h_source.html
+		assert(mat.outerSize() == n_rows); //If Eigen changes behavior, hopefully this will fail.
+		int* RO = mat.outerIndexPtr(); 
+		std::fill(RO, RO+n_rows+1, 0); //I think this is redundant, but would be uncaught if Eigen changes.
+		
+		//loop through the row permutation and synchronize the global/row keys
+		int p=0;
+		CRowIter_t r_it = rows.begin();
+		while ( (p < n_rows) && (r_it!=rows.end()) ) {
+			const int csr_r = PR[p]; //the row of the csr matrix that we are in
+			const RowKey_t r_k = row_select[csr_r]; //the selected row that we are working on
+
+			//increase the row iterator until we hit the row we are working on or pass it
+			if 		(r_it->row_id < r_k) {++r_it;} 	//we haven't found the desired row
+			else if (r_it->row_id > r_k) {++p;}		//we found and dealt with the desired row or it didn't exist
+			else {
+				//we are at the desired row and it exists
+				RO[csr_r+1] = r_it->row_nnz(col_select, PC);
+
+				++r_it; ++p;
+			}
+		}
+
+		//only the number of nonzero entries are stored for each row. the offsets must be accumulated.
+		for (int r=0; r<n_rows; ++r) {
+			RO[r+1] += RO[r];
+		}
+		
+		//the offsets are and number of nonzeros are known. initialize the matrix and build the inner(column) and value arrays
+		int nnz = RO[n_rows];
+		mat.resizeNonZeros(nnz);
+
+		#ifdef _OPENMP
+		#pragma omp parallel for
+		#endif
+		for (int r=0; r<n_rows; ++r) {
+			auto c_start = mat.innerIndexPtr() + mat.outerIndexPtr()[r];
+			auto c_end   = mat.innerIndexPtr() + mat.outerIndexPtr()[r+1];
+			auto v_start = mat.valuePtr()	   + mat.outerIndexPtr()[r];
+			auto v_end   = mat.valuePtr()      + mat.outerIndexPtr()[r+1];
+
+			const RowKey_t r_k = row_select[r];
+			CRowIter_t r_it = lower_bound(r_k);
+			if ( (r_it==rows.end()) || (r_it->row_id != r_k) ) {continue;} //TODO: terminate? the matrix has a zero row which is probably wrong.
+
+			r_it->csr_v_idx(col_select, PC, c_start, c_end, v_start, v_end);
+		}
+
+		return mat;
 	}
 }
