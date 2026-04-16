@@ -32,10 +32,12 @@ namespace gv::vmesh
 
 		//import useful operations that should be forwarded to the feature key
 		inline constexpr bool exists() const {return key.exists();}
-		inline constexpr bool depth() const {return key.depth();}
+		inline constexpr uint64_t depth() const {return key.depth();}
 		inline constexpr bool is_valid() const {return key.is_valid();}
 		inline constexpr bool operator==(const Derrived other) const {return key==other.key;}
-		inline constexpr auto operator<=>(const Derrived other) const {return key<=>other.key;}
+		inline constexpr bool operator!=(const Derrived other) const {return key!=other.key;}
+		inline constexpr bool operator<(const Derrived other) const {return key<other.key;}
+		inline constexpr bool operator>(const Derrived other) const {return key>other.key;}
 		inline constexpr uint64_t linear_index() const {return key.linear_index();}
 
 		//record any periodic boundary conditions

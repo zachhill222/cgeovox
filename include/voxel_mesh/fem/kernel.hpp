@@ -8,6 +8,7 @@
 #include<cstdlib>
 #include<tuple>
 #include<span>
+#include<cmath>
 #include<omp.h>
 
 #ifndef KERNEL_OMP__BASIS_THRESHOLD
@@ -30,12 +31,14 @@ namespace gv::vmesh
 	//multiple evaluation methods can be passed to the kernel. One local matrix is produced per evaluation method.
 	//The evaluation method must take the signature
 	//
-	//		static constexpr void eval(val,quad, psi_i,spt_i,X_i,Y_i,Z_i, phi_j,spt_j,X_j,Y_j,Z_j);
+	//		static constexpr void eval(val,Jxx,Jyy,Jzz, psi_i,spt_i,X_i,Y_i,Z_i, phi_j,spt_j,X_j,Y_j,Z_j);
 	//
-	//Where val is a reference to an (un-initialized) array<double,NQ> to store the values, quad is the quadrature element
+	//Where val is a reference to an (un-initialized) array<double,NQ> to store the values, J** are the diagonal entries of the jacobian,
 	//psi_i is the test dof, phi_j is the trial dof, X_*, Y_*, Z_* are const references to an array<double,NQ>
 	//that record the reference coordinate of basis psi_i or phi_j on its support element spt_*.
 	//The DOF types should provide vectorized methods for eval or grad as needed with a similar signature.
+	//Because gradients are present in some bilenear forms and not others, it is the eval's responsibiilty
+	//to handle the jacobian. this includes the final multiply by the determinant.
 	//
 	//For a bilinear form integral_D a(psi, phi) dx, the corresponding entry in the global matrix is 
 	//		A_IJ = integral_D a(psi_I,phi_J) = sum_E integral_E a(psi_I,phi_J)
@@ -61,9 +64,16 @@ namespace gv::vmesh
 		static constexpr uint64_t NQ_A = N_QUAD_POINTS;  //number of quadrature points along each axis
 		static constexpr uint64_t NQ   = NQ_A*NQ_A*NQ_A; //total number of quadrature points
 		static constexpr uint64_t MAX_DEPTH = QuadElem_t::MAX_DEPTH; //maximum depth that we may need to project points to
-		static constexpr std::array<double, NQ_A> quad_x = gauss_legendre_cartesian_coord_component<NQ_A, 3, 0, double>(); //xcoordinates
-		static constexpr std::array<double, NQ_A> quad_y = gauss_legendre_cartesian_coord_component<NQ_A, 3, 1, double>(); //ycoordinates
-		static constexpr std::array<double, NQ_A> quad_z = gauss_legendre_cartesian_coord_component<NQ_A, 3, 2, double>(); //zcoordinates
+
+		static constexpr std::array<double, NQ_A> gq_x = gauss_legendre_x<NQ_A>(); //x,y,z coordinates on the standard [-1,1] interval
+		
+		static constexpr std::array<double, NQ> p_qw = gauss_legendre_cartesian_weight<NQ_A, 3, double>(); //quadrature weight at each point (on [-1,1]^3 refrence element)
+
+		//collect the x,y,z coordinates of ALL quadrature points on the reference [-1,1]^3 element
+		// static constexpr std::array<double, NQ> quad_x = gauss_legendre_cartesian_coord_component<NQ_A, 3, 0, double>(); //xcoordinates
+		// static constexpr std::array<double, NQ> quad_y = gauss_legendre_cartesian_coord_component<NQ_A, 3, 1, double>(); //ycoordinates
+		// static constexpr std::array<double, NQ> quad_z = gauss_legendre_cartesian_coord_component<NQ_A, 3, 2, double>(); //zcoordinates
+		
 
 		//during a kernel call, we will need to convert the quadrature points from the quadrature element
 		//to the reference coordinates in the support element for each basis function. when doing this
@@ -71,17 +81,17 @@ namespace gv::vmesh
 		//depth of the basis function support elments and not on the basis function itself. we can "sweep"
 		//the computation from the depth of the quadrature element up to depth 0 one time rather than for each element.
 		//note that the quadrature points are a cartesian grid on each support element, so we only need to compute the unique x,y,z values once
-		
-		static constexpr std::array<double, NQ> p_qw = gauss_legendre_cartesian_weight<NQ_A, 3, double>(); //quadrature weight at each point.
-		std::array<std::array<double, NQ_A>, MAX_DEPTH> p_qx, p_qy, p_qz; //projected quadrature points
+		std::array<std::array<double, NQ_A>, MAX_DEPTH> p_qx, p_qy, p_qz; //projected quadrature points (unique only)
+		std::array<std::array<double, NQ>, MAX_DEPTH> p_qxa, p_qya, p_qza; //projected quadrature points (all assembled, use these to pass to eval)
 		std::array<QuadElem_t, MAX_DEPTH> s_el; //support element for each depth
 
 		constexpr void project_to_support(const QuadElem_t q_elem) {
 
 			const uint64_t md = q_elem.depth(); //max starting depth, work to depth 0
-			p_qx[md] = quad_x;
-			p_qy[md] = quad_y;
-			p_qz[md] = quad_z;
+			//the unique x,y,z coordinates are all the standard gauss-legendre points at the starting depth
+			p_qx[md] = gq_x;
+			p_qy[md] = gq_x;
+			p_qz[md] = gq_x;
 			s_el[md] = q_elem;
 
 			for (uint64_t dd = md; dd>0; --dd) {
@@ -92,7 +102,7 @@ namespace gv::vmesh
 				const double dz = static_cast<double>(s_el[dd].k() & 1) - 0.5;
 
 				#pragma omp simd
-				for (int q=0; q<NQ_A; ++q) {
+				for (uint64_t q=0; q<NQ_A; ++q) {
 					p_qx[dd-1][q] = 0.5*p_qx[dd][q] + dx;
 					p_qy[dd-1][q] = 0.5*p_qy[dd][q] + dy;
 					p_qz[dd-1][q] = 0.5*p_qz[dd][q] + dz;
@@ -110,19 +120,17 @@ namespace gv::vmesh
 		//
 		//		l = i + NQ_A*(j + NQ_A*k) = i + j*NQ_A + k*NQ_A^2
 		//
-		constexpr void collect_quad_points(
-			const uint64_t dd,
-			std::array<double, NQ>& pd_qx, 			//result x-component
-			std::array<double, NQ>& pd_qy,			//result y-component
-			std::array<double, NQ>& pd_qz) const 	//result z-component
+		constexpr void collect_quad_points(const uint64_t md)
 		{
-			for (uint64_t k=0; k<NQ_A; ++k) {
-				for (uint64_t j=0; j<NQ_A; ++j) {
-					for (uint64_t i=0; i<NQ_A; ++i) {
-						const uint64_t l = i + NQ_A*(j + NQ_A*k);
-						pd_qx[l] = p_qx[dd][i];
-						pd_qy[l] = p_qy[dd][j];
-						pd_qz[l] = p_qz[dd][k];
+			for (uint64_t dd=0; dd<=md; ++dd) {
+				for (uint64_t k=0; k<NQ_A; ++k) {
+					for (uint64_t j=0; j<NQ_A; ++j) {
+						for (uint64_t i=0; i<NQ_A; ++i) {
+							const uint64_t l = i + NQ_A*(j + NQ_A*k);
+							p_qxa[dd][l] = p_qx[dd][i];
+							p_qya[dd][l] = p_qy[dd][j];
+							p_qza[dd][l] = p_qz[dd][k];
+						}
 					}
 				}
 			}
@@ -140,6 +148,9 @@ namespace gv::vmesh
 	template<uint64_t N_QUAD_POINTS, typename... BilinearForm_ts>
 	struct Kernel
 	{
+		Kernel(const double dx, const double dy, const double dz) : mesh_diag{dx,dy,dz} {}
+
+
 		//organize forms and collect types
 		static constexpr uint64_t N_FORMS = sizeof...(BilinearForm_ts);
 		static_assert(N_FORMS>0, "Kernel - no bilenar form was provided");
@@ -174,13 +185,30 @@ namespace gv::vmesh
 
 		inline void set_element(QuadElem_t el) {
 			q_map.project_to_support(el);
+			q_map.collect_quad_points(el.depth());
 			q_elem = el;
+
+			Jac[0] = std::ldexp(mesh_diag[0], -static_cast<int>(el.depth()));
+			Jac[1] = std::ldexp(mesh_diag[1], -static_cast<int>(el.depth()));
+			Jac[2] = std::ldexp(mesh_diag[2], -static_cast<int>(el.depth()));
 		}
 
 		template<uint64_t I>
 		void compute();
 
-		private:
+		template<uint64_t I>
+		void compute_scatter() {
+			compute<I>();
+			form<I>().scatter();
+		}
+
+		void compute_and_scatter_all() {
+			[this]<uint64_t... Is>(std::index_sequence<Is...>) {
+				(compute_scatter<Is>(), ...);
+			}(std::make_index_sequence<N_FORMS>{});
+		}
+
+	private:
 		//total number of quadrature points
 		static constexpr uint64_t NQ = QuadPointMap<QuadElem_t,N_QUAD_POINTS>::NQ;
 
@@ -191,25 +219,8 @@ namespace gv::vmesh
 		//container to handle projecting from the quadrature element to the support elements
 		QuadPointMap<QuadElem_t,N_QUAD_POINTS> q_map;
 		QuadElem_t q_elem; //current quadrature element (pass to bilinear forms for jacobian)
-
-		//template logic to make sure that the kernels can be evaluated
-		template<uint64_t I> //what needs to be checked
-		static constexpr bool can_evaluate() {
-			return std::is_invocable_v<
-				decltype(&Form<I>::eval),
-				std::array<double, NQ>&,
-				const QuadElem_t&,
-				const typename Form<I>::TestDOF_t&,
-				const QuadElem_t&,
-				const std::array<double, NQ>&,
-				const std::array<double, NQ>&,
-				const std::array<double, NQ>&,
-				const typename Form<I>::TrialDOF_t&,
-				const QuadElem_t&,
-				const std::array<double, NQ>&,
-				const std::array<double, NQ>&,
-				const std::array<double, NQ>&>;
-		}
+		const double mesh_diag[3];
+		double Jac[3]; //jacobian diagonal
 	};
 	
 
@@ -217,8 +228,24 @@ namespace gv::vmesh
 	template<uint64_t I>
 	void Kernel<N_QUAD_POINTS,BilinearForm_ts...>::compute()
 	{
-		static_assert(can_evaluate<I>(), 
-			"Kernel - BilinearForm does not have an eval() method with the required signature.");
+		static_assert(requires {
+			Form<I>::eval(
+				std::declval<std::array<double,NQ>&>(),
+				std::declval<double>(),
+				std::declval<double>(),
+				std::declval<double>(),
+				std::declval<const typename Form<I>::TestDOF_t>(),
+				std::declval<const QuadElem_t>(),
+				std::declval<const std::array<double,NQ>&>(),
+				std::declval<const std::array<double,NQ>&>(),
+				std::declval<const std::array<double,NQ>&>(),
+				std::declval<const typename Form<I>::TrialDOF_t>(),
+				std::declval<const QuadElem_t>(),
+				std::declval<const std::array<double,NQ>&>(),
+				std::declval<const std::array<double,NQ>&>(),
+				std::declval<const std::array<double,NQ>&>()
+				);
+			}, "Kernel - BilinearForm does not have an eval() method with the required signature.");
 
 		const uint64_t m_trial=form<I>().m_trial;
 		const uint64_t n_test=form<I>().n_test;
@@ -235,9 +262,9 @@ namespace gv::vmesh
 				const auto phi_j = form<I>().trial_dofs[j];
 				const uint64_t depth_j = phi_j.depth();
 				const QuadElem_t spt_j = q_map.s_el[depth_j];
-				const auto& X_j = q_map.p_qx[depth_j];
-				const auto& Y_j = q_map.p_qy[depth_j];
-				const auto& Z_j = q_map.p_qz[depth_j];
+				const auto& X_j = q_map.p_qxa[depth_j];
+				const auto& Y_j = q_map.p_qya[depth_j];
+				const auto& Z_j = q_map.p_qza[depth_j];
 
 				for (uint64_t i=0; i<n_test; ++i) {
 					if constexpr (Form<I>::IS_SYMMETRIC) {if (i<j) {continue;}}
@@ -245,11 +272,11 @@ namespace gv::vmesh
 					const auto psi_i = form<I>().test_dofs[i];
 					const uint64_t depth_i = psi_i.depth();
 					const QuadElem_t spt_i = q_map.s_el[depth_i];
-					const auto& X_i = q_map.p_qx[depth_i];
-					const auto& Y_i = q_map.p_qy[depth_i];
-					const auto& Z_i = q_map.p_qz[depth_i];
+					const auto& X_i = q_map.p_qxa[depth_i];
+					const auto& Y_i = q_map.p_qya[depth_i];
+					const auto& Z_i = q_map.p_qza[depth_i];
 
-					Form<I>::eval(vals, q_elem,
+					Form<I>::eval(vals, Jac[0], Jac[1], Jac[2],
 							psi_i, spt_i, X_i, Y_i, Z_i,
 							phi_j, spt_j, X_j, Y_j, Z_j);
 

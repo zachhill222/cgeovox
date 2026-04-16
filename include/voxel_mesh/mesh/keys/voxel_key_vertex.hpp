@@ -237,4 +237,15 @@ namespace gv::vmesh
 			return *this;
 		}
 	};
+
+
+	//print debug
+	template<uint64_t I_W, uint64_t BC, bool MORTON>
+	std::ostream& operator<<(std::ostream& os, const VoxelVertexKey<I_W, BC, MORTON> k) {
+		os << static_cast<const typename VoxelVertexKey<I_W,BC,MORTON>::BASE&>(k);
+		os << "linear_index: " << k.linear_index() << "\n";
+		os << "coord (x,y,z): (" << k.x() << ", " << k.y() << ", " << k.z() << ")\n";
+		os << "color: " << k.color() << "\n";
+		return os;
+	}
 }

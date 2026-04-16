@@ -1,5 +1,7 @@
 #pragma once
 
+#include "voxel_mesh/fem/csr_storage.hpp"
+
 #include<vector>
 #include<span>
 
@@ -69,11 +71,13 @@ namespace gv::vmesh
 			"BilinearForm - The test and trial spaces/dofs must have compatible quadrature elements.");
 
 		std::vector<double>      	loc_m_v; 	//local matrix values (n_test by m_trial)
-		std::span<const TestDOF_t>  test_dofs;	//local test basis functions (row dofs)
+		std::span<const TestDOF_t>  test_dofs;	//local test basis functions (row dofs) (note a span is non-owning)
 		std::span<const TrialDOF_t> trial_dofs; //local trial basis functions (column dofs)
 
+		using MatStorage_t = CSR_COO<TestDOF_t,TrialDOF_t>;
+		using MatRow_t = typename MatStorage_t::Row_t;
+		MatStorage_t global_mat; //stores non-zero interaction between all dofs in a hybrid csr-coo format
 		
-
 		uint64_t n_test, m_trial;
 
 		void set_basis(const std::vector<TestDOF_t>& test_dofs_, const std::vector<TrialDOF_t>& trial_dofs_) requires (!IS_SYMMETRIC) {
@@ -102,6 +106,23 @@ namespace gv::vmesh
 			assert(i<n_test);
 			assert(j<m_trial);
 			return loc_m_v[j + i*m_trial]; //row-major is better for BC setting
+		}
+
+		void scatter() {
+			//add the results of the local matrix to the global matrix
+			//preserves sorted and accumulated
+			for (uint64_t i=0; i<n_test; ++i) {
+				MatRow_t& row = global_mat.get_row(test_dofs[i]);
+				row.reserve(row.size()+m_trial);
+				for (uint64_t j=0; j<m_trial; ++j) {
+					row.emplace_back(trial_dofs[j], local_mat(i,j));
+				}
+				row.accumulate();
+			}
+		}
+
+		inline auto to_eigen_csr(const std::vector<TestDOF_t>& test_dofs_, const std::vector<TrialDOF_t>& trial_dofs_) const {
+			return global_mat.to_eigen_csr(test_dofs_, trial_dofs_);
 		}
 	};
 }

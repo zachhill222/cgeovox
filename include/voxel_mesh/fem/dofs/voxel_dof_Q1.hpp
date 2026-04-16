@@ -63,14 +63,15 @@ namespace gv::vmesh
 		}
 
 		//vectorized evaluation
-		template<int N> requires (N>0)
-		void eval(	std::array<double,N>&			vl, //values 
-						QuadElem_t                  el, //support element
-						const std::array<double,N>& qx, //reference/quadrature points
-						const std::array<double,N>& qy, 
-						const std::array<double,N>& qz) const {
+		template<uint64_t N, typename Elem_type> requires (N>0 && VoxelEquivFeature<Elem_type,QuadElem_t>)
+		void eval(	std::array<double,N>&		vl, //values 
+					Elem_type                   el, //support element
+					const std::array<double,N>& qx, //reference/quadrature points
+					const std::array<double,N>& qy, 
+					const std::array<double,N>& qz) const {
 			//check that the index logic is correct
 			assert(el.is_valid());
+			assert(key.depth() == el.depth());
 			assert(key.i() - el.i() <= 1);
 			assert(key.j() - el.j() <= 1);
 			assert(key.k() - el.k() <= 1);
@@ -84,7 +85,7 @@ namespace gv::vmesh
 			const double sz = bz ? 1.0 : -1.0;
 
 			#pragma omp simd
-			for (size_t q=0; q<N; ++q) {
+			for (uint64_t q=0; q<N; ++q) {
 				vl[q] = 0.125 * (1.0+sx*qx[q]) * (1.0+sy*qy[q]) * (1.0+sz*qz[q]);
 			}
 		}

@@ -50,7 +50,7 @@ constexpr int int_pow()
 
 template<int N, int D, int C, typename scalar_type=double>
 	requires (N>0 && C < D && C >= 0)
-std::array<scalar_type, int_pow<N,D>()> gauss_legendre_cartesian_coord_component()
+constexpr std::array<scalar_type, int_pow<N,D>()> gauss_legendre_cartesian_coord_component()
 {
 	constexpr auto axis_x = gauss_legendre_x<N,scalar_type>();
 	constexpr int cpow = int_pow<N,C>();
@@ -66,7 +66,7 @@ std::array<scalar_type, int_pow<N,D>()> gauss_legendre_cartesian_coord_component
 //note that we must take the product of the weights along each coordinate at each point
 template<int N, int D, typename scalar_type=double>
 	requires (N>0 && D>0)
-std::array<scalar_type, int_pow<N,D>()> gauss_legendre_cartesian_weight()
+constexpr std::array<scalar_type, int_pow<N,D>()> gauss_legendre_cartesian_weight()
 {
 	constexpr auto axis_w = gauss_legendre_w<N,scalar_type>();
 	std::array<scalar_type,int_pow<N,D>()> result;

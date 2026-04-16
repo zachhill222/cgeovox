@@ -2,6 +2,8 @@
 
 #include<vector>
 #include<algorithm>
+#include<numeric>
+#include<memory_resource> //TODO: arena allocating didn't seem to do much. think about this.
 #include<Eigen/SparseCore>
 
 namespace gv::vmesh
@@ -34,8 +36,8 @@ namespace gv::vmesh
 			return col==other.col;
 		}
 
-		inline constexpr auto operator<=>(const SparseRowEntry& other) const {
-			return col<=>other.col;
+		inline constexpr auto operator<(const SparseRowEntry& other) const {
+			return col<other.col;
 		}
 
 		inline SparseRowEntry& operator+=(const SparseRowEntry& other) {
@@ -61,13 +63,16 @@ namespace gv::vmesh
 	struct SparseRow
 	{
 		using Entry_t = SparseRowEntry<ColKey_t>;
-		using Iter_t  = std::vector<Entry_t>::iterator;
-		using CIter_t = std::vector<Entry_t>::const_iterator;
+		using Iter_t  = std::pmr::vector<Entry_t>::iterator;
+		using CIter_t = std::pmr::vector<Entry_t>::const_iterator;
 
 		RowKey_t row_id;
-		std::vector<Entry_t> entries; 
+		std::pmr::vector<Entry_t> entries; 
 		SparseRow() : row_id{} {}
-		explicit SparseRow(const RowKey_t r_id, uint64_t nz=0) : row_id{r_id} {entries.reserve(nz);}
+		explicit SparseRow( const RowKey_t r_id, 
+							uint64_t nz=0,
+							std::pmr::memory_resource* mr = std::pmr::get_default_resource() //use arena/pool allocators
+							) : row_id{r_id}, entries{mr} {entries.reserve(nz);}
 		
 		//for accessing, the entries must be sorted
 		inline void sort() {std::sort(entries.begin(), entries.end());}
@@ -216,9 +221,7 @@ namespace gv::vmesh
 
 		//comparison for sorting rows by their id
 		constexpr bool operator==(const SparseRow& other) const {return row_id == other.row_id;}
-		constexpr auto operator<=>(const SparseRow& other) const {return row_id <=> other.row_id;}
-		constexpr bool operator==(const RowKey_t& other_r_id) const {return row_id == other_r_id;}
-		constexpr auto operator<=>(const RowKey_t& other_r_id) const {return row_id <=> other_r_id;}
+		constexpr bool operator==(const RowKey_t& r_id) const {return row_id < r_id;}
 
 		//add two rows with the same id
 		//this can be used as either a row sum (two different row ids) or as an accumulation
@@ -230,6 +233,22 @@ namespace gv::vmesh
 				std::make_move_iterator(other.entries.end()));
 		}
 	};
+
+	//for sorting rows, we need non-member comparisons to row_id and the row itself (otherwise we have to use a proxy row object)
+	template<typename RowKey_t, typename ColKey_t>
+	inline constexpr bool operator<(const RowKey_t& r_id, const SparseRow<RowKey_t,ColKey_t>& row) {return r_id < row.row_id;}
+
+	template<typename RowKey_t, typename ColKey_t>
+	inline constexpr bool operator>(const RowKey_t& r_id, const SparseRow<RowKey_t,ColKey_t>& row) {return r_id > row.row_id;}
+
+	// template<typename RowKey_t, typename ColKey_t>
+	// inline constexpr bool operator==(const SparseRow<RowKey_t,ColKey_t>& row, const RowKey_t& r_id) {return r_id == row.row_id;}
+	
+	template<typename RowKey_t, typename ColKey_t>
+	inline constexpr bool operator<(const SparseRow<RowKey_t,ColKey_t>& row, const RowKey_t& r_id) {return row.row_id < r_id;}
+
+	template<typename RowKey_t, typename ColKey_t>
+	inline constexpr bool operator>(const SparseRow<RowKey_t,ColKey_t>& row, const RowKey_t& r_id) {return row.row_id > r_id;}
 
 
 	//Pseudo CSR structure - essentially COO in disguise
@@ -246,15 +265,19 @@ namespace gv::vmesh
 	template<typename RowKey_t=uint64_t, typename ColKey_t=uint64_t>
 	struct CSR_COO
 	{
-		std::vector<SparseRow<RowKey_t>> rows;
+		std::pmr::monotonic_buffer_resource arena;
+
+		std::pmr::vector<SparseRow<RowKey_t,ColKey_t>> rows;
 		using Row_t      = SparseRow<RowKey_t,ColKey_t>;
 		using Entry_t    = typename Row_t::Entry_t;
-		using CRowIter_t = std::vector<Row_t>::const_iterator;
-		using RowIter_t  = std::vector<Row_t>::iterator;
+		using CRowIter_t = std::pmr::vector<Row_t>::const_iterator;
+		using RowIter_t  = std::pmr::vector<Row_t>::iterator;
+
+		explicit CSR_COO(const uint64_t initial_size = 1<<20) : arena{initial_size}, rows{&arena} {}
 
 		//accumulate and compress the rows
 		void accumulate_each_row() {
-			for_each_row_omp([this](Row_t& r){r.accumulate();})
+			for_each_row_omp([this](Row_t& r){r.accumulate();});
 		}
 
 		//perform actions on the rows either in serial or parallel
@@ -294,12 +317,17 @@ namespace gv::vmesh
 		//we assume the rows are sorted and preserve this.
 		Row_t& get_row(const RowKey_t r_id) {
 			RowIter_t it = lower_bound(r_id);
-			if ( (it!=rows.end()) && (it->row_id==r_id)) {
+			if (it==rows.end()) {
+				rows.emplace_back(r_id, 0, &arena);
+				return rows.back();
+			}
+			
+			if (it->row_id != r_id) {
+				return *rows.insert(it, Row_t{r_id, 0, &arena});
+			}
+			else {
 				return *it;
 			}
-
-			rows.emplace_back(r_id);
-			return rows.back();
 		}
 
 		const Row_t& get_row(const RowKey_t r_id) const {
@@ -314,7 +342,7 @@ namespace gv::vmesh
 		//accumulating two rows with the same id later, we can quickly append a new row
 		//and return a reference to it
 		Row_t& new_row(const RowKey_t r_id) {
-			rows.emplace_back(r_id);
+			rows.emplace_back(r_id, 0, &arena);
 			return rows.back();
 		}
 
@@ -348,7 +376,7 @@ namespace gv::vmesh
 		//remove extra reserved space
 		void shrink_to_fit() {
 			rows.shrink_to_fit();
-			for_each_row_omp([this](Row_t& row) {row.shrink_to_fit();})
+			for_each_row_omp([this](Row_t& row) {row.shrink_to_fit();});
 		}
 
 
@@ -441,7 +469,7 @@ namespace gv::vmesh
 
 			const RowKey_t r_k = row_select[r];
 			CRowIter_t r_it = lower_bound(r_k);
-			if ( (r_it==rows.end()) || (r_it->row_id != r_k) ) {continue;} //TODO: terminate? the matrix has a zero row which is probably wrong.
+			if ( (r_it==rows.end()) || (r_it->row_id != r_k) ) {assert(false); continue;} //TODO: terminate? the matrix has a zero row which is probably wrong.
 
 			r_it->csr_v_idx(col_select, PC, c_start, c_end, v_start, v_end);
 		}

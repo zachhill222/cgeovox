@@ -31,7 +31,7 @@ namespace gv::vmesh
 	//OC_W: other width - used by inherited classes, not touched by this or outside classes. IS USED for comparisoin.
 	//D_W : depth width - used by this and inherited classes, not touched by outside classes
 	//I_W : index width - used by this and inherited classes, not touched by outside classes
-	template<int RF_W, int ON_W, int OC_W, int I_W_> requires (RF_W + ON_W + OC_W + 3*I_W_ < 64)
+	template<int RF_W, int ON_W_, int OC_W_, int I_W_> requires (RF_W + ON_W_ + OC_W_ + 3*I_W_ < 64)
 	struct VoxelKey
 	{
 		//compute the required number of bits to represent the number of vertices with the
@@ -40,7 +40,9 @@ namespace gv::vmesh
 		static constexpr uint64_t MAX_INDEX = (uint64_t{1} << I_W_) -1;
 		static constexpr uint64_t MAX_DEPTH = I_W_-1; //maximum depth that is compatible with the index
 		static constexpr uint64_t D_W       = std::bit_width(MAX_DEPTH); //number of bits required to represent the max depth
-		
+		static constexpr uint64_t ON_W      = ON_W_;
+		static constexpr uint64_t OC_W      = OC_W_;
+
 		//absorb any extra bits into the free bits
 		static constexpr uint64_t F_W = 64 - (ON_W + OC_W + D_W + 3*I_W_);
 		static_assert(RF_W <= F_W); //make sure we can provide the required number of free bits
@@ -253,7 +255,9 @@ namespace gv::vmesh
 
 		//comparison operators do not depend on the free bits
 		inline constexpr bool operator==(VoxelKey other) const {return (_data_&COMPARE_MASK) == (other._data_&COMPARE_MASK);}
-		inline constexpr auto operator<=>(VoxelKey other) const {return (_data_&COMPARE_MASK) <=> (other._data_&COMPARE_MASK);}
+		inline constexpr bool operator!=(VoxelKey other) const {return (_data_&COMPARE_MASK) != (other._data_&COMPARE_MASK);}
+		inline constexpr bool operator<(VoxelKey other)  const {return (_data_&COMPARE_MASK) <  (other._data_&COMPARE_MASK);}
+		inline constexpr bool operator>(VoxelKey other)  const {return (_data_&COMPARE_MASK) >  (other._data_&COMPARE_MASK);}
 	};
 
 
@@ -263,13 +267,10 @@ namespace gv::vmesh
 
 		//print partitioned bits
 		os << "F";
-		if (k.O_W>0){
-			os << std::setw(k.F_W+1) << "O";
-			os << std::setw(k.O_W+1) << "D";
-		}
-		else {
-			os << std::setw(k.F_W+1) << "D";
-		}
+		if (k.ON_W > 0) os << std::setw(k.F_W+1) << "ON";
+		if (k.OC_W > 0) os << std::setw(k.F_W+1) << "OC";
+		if (k.O_W == 0) os << std::setw(k.F_W+1) << "D";
+		else os << std::setw(k.O_W+1) << "D";
 		os << std::setw(k.D_W+1) << "I";
 		os << std::setw(k.I_W+1) << "J";
 		os << std::setw(k.J_W+1) << "K";
@@ -285,8 +286,8 @@ namespace gv::vmesh
 
 		//print fields
 		os <<"\n\nraw:   " << k._data_;
-		os <<"\nfree:  " << k.free();
-		os <<"\nother: " << k.other();
+		os <<"\nfree:    " << k.free();
+		os <<"\nother_n: " << k.other_n();
 		os <<"\n(oc,d,i,j,k): (" 
 		   << k.other_c() 
 		   <<", " << k.depth() 

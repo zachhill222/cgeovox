@@ -1,5 +1,5 @@
 #set up the include directories
-INC_DIR = -I../include -I../libs/GeometryUtility/include -Ieigen3 -ISpectra
+INC_DIR = -I../include -I../libs/GeometryUtility/include -I/usr/include/eigen3 -ISpectra
 
 #get source/target names of all files in the specified directory
 DIR    ?= .
@@ -15,7 +15,7 @@ DEBUG      = -pg -g3 -Wall
 #redefine for testing optimizations
 # CXX        =  g++ -std=c++20
 OPT        = -O3
-PAR        = -fopenmp
+# PAR        = -fopenmp
 # DEBUG      = -DNDEBUG
 
 #final compiler command

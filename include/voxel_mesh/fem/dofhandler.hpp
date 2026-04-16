@@ -1,7 +1,6 @@
 #pragma once
 
 #include "voxel_mesh/mesh/voxel_mesh.hpp"
-#include "voxel_mesh/fem/fem_kernel.hpp"
 
 #include <type_traits>
 #include <cstdint>
@@ -98,6 +97,8 @@ namespace gv::vmesh
 		inline constexpr bool is_stale(const DOF_t dof) const {assert(dof.is_valid()); return stale_dofs->test(dof.key.linear_index());}
 		inline constexpr void set_stale(const DOF_t dof, const bool b) {assert(dof.is_valid()); stale_dofs->set(dof.key.linear_index(), b);}
 
+		inline const std::vector<DOF_t>& last_compressed_dofs() const {return active_dof_list_prev;}
+
 		//simple management operations
 		inline void reset_active() {active_dofs->reset();}
 		inline void reset_stale() {stale_dofs->reset();}
@@ -116,12 +117,15 @@ namespace gv::vmesh
 			auto action = [this](MeshKey_t key) {
 				const DOF_t dof{static_cast<DOFKey_t>(key)};
 				if (has_active_support(dof)) {
-					active_dofs->set(key.linear_index());
+					active_dofs->set(dof.linear_index());
 				}
 			};
 
 			//TODO: call in parallel if needed
 			mesh.template for_each_depth_omp<MeshKey_t>(dd,action);
+
+			//TODO: make this better if needed
+			compress_dof_numbers();
 		}
 
 		//check if a dof has an active support element
@@ -171,6 +175,15 @@ namespace gv::vmesh
 				el = el.parent();
 			}
 			return ba;
+		}
+
+		std::vector<DOF_t> basis_active(Elem_t el) const {
+			std::vector<DOF_t> b_a = basis_a(el);
+			std::vector<DOF_t> b_s = basis_s(el);
+			b_a.insert(b_a.end(),
+				std::make_move_iterator(b_s.begin()),
+				std::make_move_iterator(b_s.end()));
+			return b_a;
 		}
 
 		//atomic operations
