@@ -8,7 +8,7 @@
 
 namespace GV
 {
-	//A generic bilinear form type for assembling FEM matrices.
+	//A generic linear form type for assembling FEM right hand sides.
 	//This class will primarily be passed to a Kernel class which will coordinate everything.
 	//This class will construct one or more local matricies (e.g., mass/stiffness)
 	//over a single quadrature element of m trial basis functions (solution dofs) against
@@ -43,6 +43,9 @@ namespace GV
 	//Note that it is the responsibility of the evaluator method to correctly handle the jacobian.
 	//The jacobian depends only on the mapping from the reference element to the quadrature element.
 	//For an octree voxel mesh, this depends only on the depth of the quadrature element and the dimensions of the domain.
+
+
+
 
 
 
@@ -107,6 +110,7 @@ namespace GV
 		}
 
 		void scatter() {
+
 			//add the results of the local matrix to the global matrix
 			//preserves sorted and accumulated
 			for (uint64_t i=0; i<n_test; ++i) {

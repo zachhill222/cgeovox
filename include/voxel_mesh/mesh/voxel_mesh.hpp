@@ -2,6 +2,7 @@
 
 #include "gutil.hpp"
 #include "voxel_mesh/mesh/keys/voxel_key.hpp"
+#include "util/concepts.hpp"
 
 #include <cstdint>
 #include <type_traits>
@@ -14,7 +15,7 @@
 
 #include <omp.h>
 
-namespace gv::vmesh
+namespace GV
 {
 	//concepts to constrain feature types to exactly match the/a
 	//corresponding mesh feature
@@ -34,11 +35,6 @@ namespace gv::vmesh
 	concept VoxelMeshType = MeshElementType<typename M::VoxelElement, M> && 
 							MeshVertexType<typename M::VoxelVertex, M> && 
 							MeshFaceType<typename M::VoxelFace, M>;
-
-	//when forwarding functions, we use the type std::nullptr_t as a compile-time flag.
-	//this is a helpful check.
-	template<typename T>
-	concept NULLPTR_T = std::is_same_v<std::decay_t<T>, std::nullptr_t>;
 
 	//This class is for a hierarchical voxel mesh.
 	//This structure allows us to very efficiently store elements, vertices, faces, etc.
@@ -123,6 +119,8 @@ namespace gv::vmesh
 				request_deactive[0].push_back(el);
 			#endif
 		}
+
+		
 
 		//test if a feature is active.
 		//active elements are recorded int the active_elem bitset

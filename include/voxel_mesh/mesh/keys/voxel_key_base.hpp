@@ -9,7 +9,7 @@
 #include <iostream>
 #include <iomanip>
 
-namespace gv::vmesh
+namespace GV
 {
 	//these classes store the logic of a (limited to 64-bit storage) an infinite hierarchical voxel mesh
 	//this includes parent/child/adjacency relationships and is of course limited to the topology,

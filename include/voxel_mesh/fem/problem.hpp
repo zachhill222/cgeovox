@@ -5,7 +5,7 @@
 #include "voxel_mesh/mesh/voxel_mesh.hpp"
 
 
-namespace gv::fem
+namespace GV
 {
 	
 	//A base problem class to handle constructing matrices from bilinear forms

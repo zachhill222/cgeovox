@@ -6,7 +6,7 @@
 #include <cassert>
 #include <cmath>
 
-namespace gv::vmesh
+namespace GV
 {
 	//define the vertex key and implement most methods.
 	//adjacency methods must be implemented in a separate file after

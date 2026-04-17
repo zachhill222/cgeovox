@@ -5,7 +5,7 @@
 #include <cassert>
 
 
-namespace gv::vmesh
+namespace GV
 {
 	//define the face key and implement most methods.
 	//adjacency methods must be implemented in a separate file after

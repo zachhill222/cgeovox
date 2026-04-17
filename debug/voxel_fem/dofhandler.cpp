@@ -7,12 +7,12 @@
 #include <fstream>
 #include <cstdint>
 
-using Mesh_t  = gv::vmesh::HierarchicalVoxelMesh<10>;
-using Elem_t  = Mesh_t::VoxelElement;
-using Vert_t  = Mesh_t::VoxelVertex;
-using DofKey_t = gv::vmesh::VoxelVertexKey<11,1,0>;
-using DOF_t   = gv::vmesh::VoxelQ1<DofKey_t>;
-using Basis_t = gv::vmesh::DofHandler<Mesh_t,DOF_t>;
+using Mesh_t   = GV::HierarchicalVoxelMesh<10>;
+using Elem_t   = Mesh_t::VoxelElement;
+using Vert_t   = Mesh_t::VoxelVertex;
+using DofKey_t = GV::VoxelVertexKey<11,1,0>;
+using DOF_t    = GV::VoxelQ1<DofKey_t>;
+using Basis_t  = GV::DofHandler<Mesh_t,DOF_t>;
 
 int main(int argc, char* argv[])
 {
@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 
 	// refine the mesh to depth 6 in the radial band (0.4, 0.6)
 	for (uint64_t d=3; d<4; ++d) {
-		basis.snapshot_dof_list();
+		basis.save_dof_list();
 		std::vector<double> old_coefs = coefs;
 
 		basis.refine_depth<true>(d, [&mesh](Vert_t vtx) {

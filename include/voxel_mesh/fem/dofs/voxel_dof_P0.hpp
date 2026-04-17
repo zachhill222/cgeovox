@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <omp.h>
 
-namespace gv::vmesh
+namespace GV
 {
 	//P0 dofs (constant on each element)
 	template<VoxelElementKeyType Key_type>

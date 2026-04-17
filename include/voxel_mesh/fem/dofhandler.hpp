@@ -7,7 +7,7 @@
 #include <vector>
 #include <algorithm>
 
-namespace gv::vmesh
+namespace GV
 {
 	template<VoxelMeshType Mesh_type, typename DOF_type>
 	class DofHandler
@@ -102,9 +102,9 @@ namespace gv::vmesh
 		//simple management operations
 		inline void reset_active() {active_dofs->reset();}
 		inline void reset_stale() {stale_dofs->reset();}
-		void snapshot_dof_list() {
+		void save_dof_list() {
 			active_dof_list_prev = std::move(active_dof_list_curr);
-			active_dof_list_curr.clear();
+			// active_dof_list_curr.clear();
 		}
 
 		//activate all dofs at a certain depth if they have an active support element
@@ -440,14 +440,13 @@ namespace gv::vmesh
 				//evaluate the basis functions
 				for (Triple& tr : track_dof_eval) {
 					tr.dof.proj_to_support(tr.el, tr.pt);
-					auto it = std::lower_bound(active_dof_list_curr.begin(), active_dof_list_curr.end(), tr.dof);
-					assert (it != active_dof_list_curr.end());
-					uint64_t idx = std::distance(active_dof_list_curr.begin(), it);
+					auto it = std::lower_bound(active_dof_list_prev.begin(), active_dof_list_prev.end(), tr.dof);
+					assert (it != active_dof_list_prev.end());
+					uint64_t idx = std::distance(active_dof_list_prev.begin(), it);
 					result[i] += coefs[idx] * tr.dof.eval(tr.el, tr.pt);
 				}
 			}
 
-			// for (double c : result) {std::cout << c << std::endl;}
 			return result;
 		}
 	};

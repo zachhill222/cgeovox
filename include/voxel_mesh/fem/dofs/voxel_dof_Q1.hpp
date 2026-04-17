@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <omp.h>
 
-namespace gv::vmesh
+namespace GV
 {
 	//Q1 DOFs
 	template<VoxelVertexKeyType Key_type>

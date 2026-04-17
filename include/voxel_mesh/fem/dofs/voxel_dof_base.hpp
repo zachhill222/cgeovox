@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <omp.h>
 
-namespace gv::vmesh
+namespace GV
 {
 	//base DOF class to provide some utility methods.
 	//evaulation, storage of support elments and such must be done in the derived classes.

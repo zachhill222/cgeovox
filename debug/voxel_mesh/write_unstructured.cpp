@@ -3,7 +3,7 @@
 
 
 using Point_t = gutil::Point<3,double>;
-using Mesh_t  = gv::vmesh::HierarchicalVoxelMesh<6>;
+using Mesh_t  = GV::HierarchicalVoxelMesh<6>;
 using Elem_t  = Mesh_t::VoxelElement;
 using Vert_t  = Mesh_t::VoxelVertex;
 

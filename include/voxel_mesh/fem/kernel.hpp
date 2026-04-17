@@ -16,7 +16,7 @@
 #endif
 
 
-namespace gv::vmesh
+namespace GV
 {
 	//A generic kernel type for assembline FEM matrices.
 	//This class will construct one or more local matricies (e.g., mass/stiffness)

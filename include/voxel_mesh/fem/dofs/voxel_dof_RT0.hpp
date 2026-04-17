@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <omp.h>
 
-namespace gv::vmesh
+namespace GV
 {
 	template<VoxelFaceKeyType Key_type>
 	struct VoxelRT0 : public VoxelDOFBase<Key_type,VoxelRT0<Key_type>>

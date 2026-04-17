@@ -5,7 +5,7 @@
 #include <cassert>
 #include <array>
 
-namespace gv::vmesh
+namespace GV
 {
 	//define the element key and implement most methods.
 	//adjacency methods must be implemented in a separate file after

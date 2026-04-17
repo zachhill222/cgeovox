@@ -2,6 +2,12 @@
 
 #include<array>
 
+
+namespace GV
+{
+
+
+
 //quadrature rules for the [-1,1] interval
 
 template<int N, typename scalar_type=double> requires (N>0)
@@ -82,3 +88,4 @@ constexpr std::array<scalar_type, int_pow<N,D>()> gauss_legendre_cartesian_weigh
 	return result;
 }
 
+}

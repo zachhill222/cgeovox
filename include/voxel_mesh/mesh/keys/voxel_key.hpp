@@ -8,7 +8,7 @@
 #include "voxel_mesh/mesh/keys/voxel_key_vertex.hpp"
 #include "voxel_mesh/mesh/keys/voxel_key_face.hpp"
 
-namespace gv::vmesh
+namespace GV
 {
 	//concepts
 	template<typename T>

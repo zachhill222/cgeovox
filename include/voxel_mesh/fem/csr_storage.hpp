@@ -7,7 +7,7 @@
 #include<Eigen/SparseCore>
 #include "util/log_time.hpp"
 
-namespace gv::vmesh
+namespace GV
 {
 	//In order to allow DOF renumbering and excessive lookups, we need to compute permutation arrays
 	//to convert an arbitrary order of row/column selections into the standard order
@@ -400,7 +400,7 @@ namespace gv::vmesh
 		const std::vector<RowKey_t>& row_select, 
 		const std::vector<ColKey_t>& col_select) const
 	{
-		gv::util::LogTime t0{"build csr"};
+		LogTime t0{"build csr"};
 		const int n_rows = static_cast<int>(row_select.size());
 		const int n_cols = static_cast<int>(col_select.size());
 
@@ -434,7 +434,7 @@ namespace gv::vmesh
 		std::fill(RO, RO+n_rows+1, 0); //I think this is redundant, but would be uncaught if Eigen changes.
 		
 		//loop through the row permutation and synchronize the global/row keys
-		gv::util::LogTime* t1 = new gv::util::LogTime{"row offsets"};
+		LogTime* t1 = new LogTime{"row offsets"};
 
 		#ifdef _OPENMP
 		#pragma omp parallel for
@@ -455,7 +455,7 @@ namespace gv::vmesh
 		delete t1;
 		
 		//the offsets are and number of nonzeros are known. initialize the matrix and build the inner(column) and value arrays
-		gv::util::LogTime* t2 = new gv::util::LogTime{"reserve, populate col and val"};
+		LogTime* t2 = new LogTime{"reserve, populate col and val"};
 		int nnz = RO[n_rows];
 		mat.resizeNonZeros(nnz);
 

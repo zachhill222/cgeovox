@@ -11,7 +11,7 @@
 #include <omp.h>
 #endif
 
-namespace gv::util
+namespace GV
 {
 	//A log class to print to an output stream in a thread safe manner
 	//It also tracks the time elapsed since the beginning of the program and which thread called it

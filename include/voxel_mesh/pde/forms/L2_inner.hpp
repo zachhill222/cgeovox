@@ -6,11 +6,11 @@
 #include <cstdint>
 #include <omp.h>
 
-namespace gv::vmesh
+namespace GV
 {
 	//A symmetric mass kernel for bilinear forms a(psi,phi) = integral_D phi*psi
 	template<typename DOF_type>
-	struct SymmetricMassForm : public BilinearForm<DOF_type,DOF_type,true>
+	struct SymmetricL2 : public BilinearForm<DOF_type,DOF_type,true>
 	{
 		using BASE = BilinearForm<DOF_type,DOF_type,true>;
 		using QuadElem_t = typename BASE::QuadElem_t;
