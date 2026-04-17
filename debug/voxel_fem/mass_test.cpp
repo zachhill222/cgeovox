@@ -55,17 +55,23 @@ int main(int argc, char* argv[]) {
 	
 	Eigen::SparseMatrix<double,Eigen::RowMajor,int> mass_mat, stiff_mat;
 
+	#ifdef _OPENMP
 	omp_set_max_active_levels(2);
 	omp_set_nested(1);
 	#pragma omp parallel
 	#pragma omp single
+	#endif
 	{
+		#ifdef _OPENMP
 		#pragma omp task
+		#endif
 		{
 			mass_mat = mass_bl.to_eigen_csr(dofhandler.last_compressed_dofs(),dofhandler.last_compressed_dofs());
 		}
 
+		#ifdef _OPENMP
 		#pragma omp task
+		#endif
 		{
 			stiff_mat = stiff_bl.to_eigen_csr(dofhandler.last_compressed_dofs(),dofhandler.last_compressed_dofs());
 		}
