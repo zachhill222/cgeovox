@@ -5,6 +5,7 @@
 #include<numeric>
 #include<memory_resource> //TODO: arena allocating didn't seem to do much. think about this.
 #include<Eigen/SparseCore>
+#include "util/log_time.hpp"
 
 namespace gv::vmesh
 {
@@ -399,6 +400,7 @@ namespace gv::vmesh
 		const std::vector<RowKey_t>& row_select, 
 		const std::vector<ColKey_t>& col_select) const
 	{
+		gv::util::LogTime t0{"build csr"};
 		const int n_rows = static_cast<int>(row_select.size());
 		const int n_cols = static_cast<int>(col_select.size());
 
@@ -432,29 +434,28 @@ namespace gv::vmesh
 		std::fill(RO, RO+n_rows+1, 0); //I think this is redundant, but would be uncaught if Eigen changes.
 		
 		//loop through the row permutation and synchronize the global/row keys
-		int p=0;
-		CRowIter_t r_it = rows.begin();
-		while ( (p < n_rows) && (r_it!=rows.end()) ) {
-			const int csr_r = PR[p]; //the row of the csr matrix that we are in
-			const RowKey_t r_k = row_select[csr_r]; //the selected row that we are working on
+		gv::util::LogTime* t1 = new gv::util::LogTime{"row offsets"};
 
-			//increase the row iterator until we hit the row we are working on or pass it
-			if 		(r_it->row_id < r_k) {++r_it;} 	//we haven't found the desired row
-			else if (r_it->row_id > r_k) {++p;}		//we found and dealt with the desired row or it didn't exist
-			else {
-				//we are at the desired row and it exists
-				RO[csr_r+1] = r_it->row_nnz(col_select, PC);
-
-				++r_it; ++p;
+		#ifdef _OPENMP
+		#pragma omp parallel for
+		#endif
+		for (int r=0; r<n_rows; ++r) {
+			CRowIter_t it = lower_bound(row_select[r]);
+			if (it != rows.end() && it->row_id == row_select[r]) {
+				RO[r+1] = it->row_nnz(col_select, PC);
 			}
 		}
+
+
 
 		//only the number of nonzero entries are stored for each row. the offsets must be accumulated.
 		for (int r=0; r<n_rows; ++r) {
 			RO[r+1] += RO[r];
 		}
+		delete t1;
 		
 		//the offsets are and number of nonzeros are known. initialize the matrix and build the inner(column) and value arrays
+		gv::util::LogTime* t2 = new gv::util::LogTime{"reserve, populate col and val"};
 		int nnz = RO[n_rows];
 		mat.resizeNonZeros(nnz);
 
@@ -473,6 +474,7 @@ namespace gv::vmesh
 
 			r_it->csr_v_idx(col_select, PC, c_start, c_end, v_start, v_end);
 		}
+		delete t2;
 
 		return mat;
 	}

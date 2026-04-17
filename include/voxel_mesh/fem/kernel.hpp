@@ -148,7 +148,8 @@ namespace gv::vmesh
 	template<uint64_t N_QUAD_POINTS, typename... BilinearForm_ts>
 	struct Kernel
 	{
-		Kernel(const double dx, const double dy, const double dz) : mesh_diag{dx,dy,dz} {}
+		Kernel(const double dx, const double dy, const double dz,
+			BilinearForm_ts&... form_refs) : forms(form_refs...), mesh_diag{dx,dy,dz} {}
 
 
 		//organize forms and collect types
@@ -188,9 +189,10 @@ namespace gv::vmesh
 			q_map.collect_quad_points(el.depth());
 			q_elem = el;
 
-			Jac[0] = std::ldexp(mesh_diag[0], -static_cast<int>(el.depth()));
-			Jac[1] = std::ldexp(mesh_diag[1], -static_cast<int>(el.depth()));
-			Jac[2] = std::ldexp(mesh_diag[2], -static_cast<int>(el.depth()));
+			const double scale = std::ldexp(0.5, -static_cast<int>(el.depth()));
+			Jac[0] = mesh_diag[0] * scale;
+			Jac[1] = mesh_diag[1] * scale;
+			Jac[2] = mesh_diag[2] * scale;
 		}
 
 		template<uint64_t I>
@@ -212,9 +214,9 @@ namespace gv::vmesh
 		//total number of quadrature points
 		static constexpr uint64_t NQ = QuadPointMap<QuadElem_t,N_QUAD_POINTS>::NQ;
 
-		//instantiate copies of each bilinear form
+		//store references to the bilinear forms
 		//these hold the local matrix values and methods to compute the contributions at each quadrature point
-		std::tuple<BilinearForm_ts...> forms;
+		std::tuple<BilinearForm_ts&...> forms;
 
 		//container to handle projecting from the quadrature element to the support elements
 		QuadPointMap<QuadElem_t,N_QUAD_POINTS> q_map;

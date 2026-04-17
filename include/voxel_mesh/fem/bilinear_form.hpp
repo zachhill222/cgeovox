@@ -1,6 +1,7 @@
 #pragma once
 
 #include "voxel_mesh/fem/csr_storage.hpp"
+#include "util/log_time.hpp"
 
 #include<vector>
 #include<span>
@@ -109,6 +110,7 @@ namespace gv::vmesh
 		}
 
 		void scatter() {
+
 			//add the results of the local matrix to the global matrix
 			//preserves sorted and accumulated
 			for (uint64_t i=0; i<n_test; ++i) {

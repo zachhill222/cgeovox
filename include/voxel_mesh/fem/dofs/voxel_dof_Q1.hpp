@@ -91,11 +91,11 @@ namespace gv::vmesh
 		}
 
 		//vectorized grad
-		template<int N> requires (N>0)
+		template<uint64_t N, typename Elem_type> requires (N>0 && VoxelEquivFeature<Elem_type,QuadElem_t>)
 		void grad(	std::array<double,N>&		gx, //gradient result
 					std::array<double,N>& 		gy, 
 					std::array<double,N>& 		gz, 
-					QuadElem_t  	 			el, //support element
+					Elem_type  	 				el, //support element
 					const std::array<double,N>& qx, //reference/quadratrue points
 					const std::array<double,N>& qy, 
 					const std::array<double,N>& qz) const {
