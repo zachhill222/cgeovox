@@ -6,7 +6,10 @@
 
 #include <array>
 #include <cstdint>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace GV
 {

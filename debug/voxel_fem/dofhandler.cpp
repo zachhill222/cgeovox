@@ -7,7 +7,7 @@
 #include <fstream>
 #include <cstdint>
 
-using Mesh_t   = GV::HierarchicalVoxelMesh<10>;
+using Mesh_t   = GV::VoxelMesh<10>;
 using Elem_t   = Mesh_t::VoxelElement;
 using Vert_t   = Mesh_t::VoxelVertex;
 using DofKey_t = GV::VoxelVertexKey<11,1,0>;

@@ -9,7 +9,10 @@
 #include<tuple>
 #include<span>
 #include<cmath>
-#include<omp.h>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 #ifndef KERNEL_OMP__BASIS_THRESHOLD
 #define KERNEL_OMP__BASIS_THRESHOLD 64
@@ -138,6 +141,15 @@ namespace GV
 	};
 
 
+	//Helper type to pass two parameter packs to the kernel: one for
+	//bilinear forms and one for linear. The declaration without parameter packs is necessary.
+	template<typename... Ts>
+	struct TypeList {};
+
+	template<uint64_t N_QUAD_POINTS, typename BilinearList, typename LinearList>
+	struct Kernel;
+
+
 	//Kernel class allows multiple interactions (bilinear forms) to be integrated simultaneously
 	//The bilinear forms in the kernel are allowed to have different dof types
 	//but they must all have compatable quadrature element types (i.e., voxel elements with the same maximum depth)
@@ -145,43 +157,68 @@ namespace GV
 	//and then organizes the projection of the quadrature points from the quadrature element into the support elements
 	//of the dofs. Then it dispatches the dofs to appropriate bilinear forms and accumulates the results against the
 	//quadrature weights into the local matrix.
-	template<uint64_t N_QUAD_POINTS, typename... BilinearForm_ts>
-	struct Kernel
+	template<uint64_t N_QUAD_POINTS, typename... BiLinearForms_ts, typename... LinearForms_ts>
+	struct Kernel<N_QUAD_POINTS, TypeList<BiLinearForms_ts...>, TypeList<LinearForms_ts...>>
 	{
 		Kernel(const double dx, const double dy, const double dz,
-			BilinearForm_ts&... form_refs) : forms(form_refs...), mesh_diag{dx,dy,dz} {}
+			BiLinearForms_ts&... B_forms_,
+			LinearForms_ts&...   L_forms_) : 
+		B_forms(B_forms_...),
+		L_forms(L_forms_...),
+		mesh_diag{dx,dy,dz} {}
 
 
 		//organize forms and collect types
-		static constexpr uint64_t N_FORMS = sizeof...(BilinearForm_ts);
-		static_assert(N_FORMS>0, "Kernel - no bilenar form was provided");
+		static constexpr uint64_t N_L_FORMS = sizeof...(LinearForms_ts);
+		static constexpr uint64_t N_B_FORMS = sizeof...(BiLinearForms_ts);
+		static_assert(N_B_FORMS>0, "Kernel - no bilenar form was provided");
 
 		template<uint64_t I>
-		using Form = std::tuple_element_t<I, std::tuple<BilinearForm_ts...>>;
+		using B_Form = std::tuple_element_t<I, std::tuple<BiLinearForms_ts...>>;
+
+		template<uint64_t I>
+		using L_Form = std::tuple_element_t<I, std::tuple<LinearForms_ts...>>;
 		
 		template<uint64_t I>
-		using TrialDOF_t = typename Form<I>::TrialDOF_t;
+		using B_TrialDOF_t = typename B_Form<I>::TrialDOF_t;
 
 		template<uint64_t I>
-		using TestDOF_t = typename Form<I>::TestDOF_t;
+		using B_TestDOF_t = typename B_Form<I>::TestDOF_t;
 
-		using QuadElem_t = typename Form<0>::QuadElem_t;
+		template<uint64_t I>
+		using L_TestDOF_t = typename L_Form<I>::TestDOF_t;
+
+		using QuadElem_t = typename B_Form<0>::QuadElem_t;
 
 		//validity checks
-		static_assert((std::same_as<typename BilinearForm_ts::QuadElem_t, QuadElem_t> && ...),
-			"Kernel - all BilinearForms must share the same type of quadrature element (QuadElem_t).");
+		static_assert((std::same_as<typename BiLinearForms_ts::QuadElem_t, QuadElem_t> && ...),
+			"Kernel - all bilinear forms must share the same type of quadrature element (QuadElem_t).");
+
+		static_assert((std::same_as<typename LinearForms_ts::QuadElem_t, QuadElem_t> && ...),
+			"Kernel - all linear forms must share the same type of quadrature element (QuadElem_t).");
 
 		//access individual bilinear forms
 		template<int I>
-		auto& form() {return std::get<I>(forms);}
+		auto& B_form() {return std::get<I>(B_forms);}
 
 		template<int I>
-		const auto& form() const {return std::get<I>(forms);}
+		const auto& B_form() const {return std::get<I>(B_forms);}
+
+		template<int I>
+		auto& L_form() {return std::get<I>(L_forms);}
+
+		template<int I>
+		const auto& L_form() const {return std::get<I>(L_forms);}
 
 		//interface to use in the element loop
 		template<uint64_t I>
-		inline void set_basis(const std::vector<TestDOF_t<I>>& test_dofs, const std::vector<TrialDOF_t<I>>& trial_dofs) {
-			form<I>().set_basis(test_dofs,trial_dofs);
+		inline void B_set_basis(const std::vector<B_TestDOF_t<I>>& test_dofs, const std::vector<B_TrialDOF_t<I>>& trial_dofs) {
+			B_form<I>().set_basis(test_dofs,trial_dofs);
+		}
+
+		template<uint64_t I>
+		inline void L_set_basis(const std::vector<L_TestDOF_t<I>>& test_dofs) {
+			L_form<I>().set_basis(test_dofs);
 		}
 
 		inline void set_element(QuadElem_t el) {
@@ -196,27 +233,41 @@ namespace GV
 		}
 
 		template<uint64_t I>
-		void compute();
+		void B_compute();
 
 		template<uint64_t I>
-		void compute_scatter() {
-			compute<I>();
-			form<I>().scatter();
+		void L_compute();
+
+		template<uint64_t I>
+		void B_compute_scatter() {
+			B_compute<I>();
+			B_form<I>().scatter();
+		}
+
+		template<uint64_t I>
+		void L_compute_scatter() {
+			L_compute<I>();
+			L_form<I>().scatter();
 		}
 
 		void compute_and_scatter_all() {
 			[this]<uint64_t... Is>(std::index_sequence<Is...>) {
-				(compute_scatter<Is>(), ...);
-			}(std::make_index_sequence<N_FORMS>{});
+				(B_compute_scatter<Is>(), ...);
+			}(std::make_index_sequence<N_B_FORMS>{});
+
+			[this]<uint64_t... Is>(std::index_sequence<Is...>) {
+				(L_compute_scatter<Is>(), ...);
+			}(std::make_index_sequence<N_L_FORMS>{});
 		}
 
 	private:
 		//total number of quadrature points
 		static constexpr uint64_t NQ = QuadPointMap<QuadElem_t,N_QUAD_POINTS>::NQ;
 
-		//store references to the bilinear forms
+		//store references to the bilinear and linear forms
 		//these hold the local matrix values and methods to compute the contributions at each quadrature point
-		std::tuple<BilinearForm_ts&...> forms;
+		std::tuple<BiLinearForms_ts&...> B_forms;
+		std::tuple<LinearForms_ts&...> L_forms;
 
 		//container to handle projecting from the quadrature element to the support elements
 		QuadPointMap<QuadElem_t,N_QUAD_POINTS> q_map;
@@ -226,22 +277,22 @@ namespace GV
 	};
 	
 
-	template<uint64_t N_QUAD_POINTS, typename... BilinearForm_ts>
+	template<uint64_t N_QUAD_POINTS, typename... BiLinearForms_ts, typename... LinearForms_ts>
 	template<uint64_t I>
-	void Kernel<N_QUAD_POINTS,BilinearForm_ts...>::compute()
+	void Kernel<N_QUAD_POINTS, TypeList<BiLinearForms_ts...>, TypeList<LinearForms_ts...>>::B_compute()
 	{
 		static_assert(requires {
-			Form<I>::eval(
+			std::declval<const B_Form<I>&>().eval(
 				std::declval<std::array<double,NQ>&>(),
 				std::declval<double>(),
 				std::declval<double>(),
 				std::declval<double>(),
-				std::declval<const typename Form<I>::TestDOF_t>(),
+				std::declval<const typename B_Form<I>::TestDOF_t>(),
 				std::declval<const QuadElem_t>(),
 				std::declval<const std::array<double,NQ>&>(),
 				std::declval<const std::array<double,NQ>&>(),
 				std::declval<const std::array<double,NQ>&>(),
-				std::declval<const typename Form<I>::TrialDOF_t>(),
+				std::declval<const typename B_Form<I>::TrialDOF_t>(),
 				std::declval<const QuadElem_t>(),
 				std::declval<const std::array<double,NQ>&>(),
 				std::declval<const std::array<double,NQ>&>(),
@@ -249,8 +300,8 @@ namespace GV
 				);
 			}, "Kernel - BilinearForm does not have an eval() method with the required signature.");
 
-		const uint64_t m_trial=form<I>().m_trial;
-		const uint64_t n_test=form<I>().n_test;
+		const uint64_t m_trial=B_form<I>().m_trial;
+		const uint64_t n_test=B_form<I>().n_test;
 
 		#ifdef _OPENMP
 		#pragma omp parallel if(n_test*m_trial > KERNEL_OMP__BASIS_THRESHOLD)
@@ -261,7 +312,7 @@ namespace GV
 			#pragma omp for
 			#endif
 			for (uint64_t j=0; j<m_trial; ++j) {
-				const auto phi_j = form<I>().trial_dofs[j];
+				const auto phi_j = B_form<I>().trial_dofs[j];
 				const uint64_t depth_j = phi_j.depth();
 				const QuadElem_t spt_j = q_map.s_el[depth_j];
 				const auto& X_j = q_map.p_qxa[depth_j];
@@ -269,16 +320,16 @@ namespace GV
 				const auto& Z_j = q_map.p_qza[depth_j];
 
 				for (uint64_t i=0; i<n_test; ++i) {
-					if constexpr (Form<I>::IS_SYMMETRIC) {if (i<j) {continue;}}
+					if constexpr (B_Form<I>::IS_SYMMETRIC) {if (i<j) {continue;}}
 
-					const auto psi_i = form<I>().test_dofs[i];
+					const auto psi_i = B_form<I>().test_dofs[i];
 					const uint64_t depth_i = psi_i.depth();
 					const QuadElem_t spt_i = q_map.s_el[depth_i];
 					const auto& X_i = q_map.p_qxa[depth_i];
 					const auto& Y_i = q_map.p_qya[depth_i];
 					const auto& Z_i = q_map.p_qza[depth_i];
 
-					Form<I>::eval(vals, Jac[0], Jac[1], Jac[2],
+					B_form<I>().eval(vals, Jac[0], Jac[1], Jac[2],
 							psi_i, spt_i, X_i, Y_i, Z_i,
 							phi_j, spt_j, X_j, Y_j, Z_j);
 
@@ -288,9 +339,59 @@ namespace GV
 						v_ij += vals[l] * q_map.p_qw[l];
 					}
 
-					form<I>().local_mat(i,j) = v_ij;
-					if constexpr (Form<I>::IS_SYMMETRIC) {form<I>().local_mat(j,i) = v_ij;}
+					B_form<I>().local_mat(i,j) = v_ij;
+					if constexpr (B_Form<I>::IS_SYMMETRIC) {B_form<I>().local_mat(j,i) = v_ij;}
 				}
+			}
+		}
+	}
+
+	template<uint64_t N_QUAD_POINTS, typename... BiLinearForms_ts, typename... LinearForms_ts>
+	template<uint64_t I>
+	void Kernel<N_QUAD_POINTS, TypeList<BiLinearForms_ts...>, TypeList<LinearForms_ts...>>::L_compute()
+	{
+		static_assert(requires {
+			std::declval<const L_Form<I>&>().eval(
+				std::declval<std::array<double,NQ>&>(),
+				std::declval<double>(),
+				std::declval<double>(),
+				std::declval<double>(),
+				std::declval<const typename L_Form<I>::TestDOF_t>(),
+				std::declval<const QuadElem_t>(),
+				std::declval<const std::array<double,NQ>&>(),
+				std::declval<const std::array<double,NQ>&>(),
+				std::declval<const std::array<double,NQ>&>()
+				);
+			}, "Kernel - LinearForm does not have an eval() method with the required signature.");
+
+		const uint64_t n_test=L_form<I>().n_test;
+
+		#ifdef _OPENMP
+		#pragma omp parallel if(n_test > KERNEL_OMP__BASIS_THRESHOLD)
+		#endif
+		{
+			std::array<double,NQ> vals;
+			#ifdef _OPENMP
+			#pragma omp for
+			#endif
+			for (uint64_t i=0; i<n_test; ++i) {
+				const auto psi = L_form<I>().test_dofs[i];
+				const uint64_t depth = psi.depth();
+				const QuadElem_t spt = q_map.s_el[depth];
+				const auto& X = q_map.p_qxa[depth];
+				const auto& Y = q_map.p_qya[depth];
+				const auto& Z = q_map.p_qza[depth];
+
+				L_form<I>().eval(vals, Jac[0], Jac[1], Jac[2],
+						psi, spt, X, Y, Z);
+
+				double val = 0.0;
+				#pragma omp simd reduction(+:val)
+				for (uint64_t l=0; l<NQ; ++l) {
+					val += vals[l] * q_map.p_qw[l];
+				}
+
+				L_form<I>().loc_val(i) = val;
 			}
 		}
 	}

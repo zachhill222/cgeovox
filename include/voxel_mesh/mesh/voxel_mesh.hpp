@@ -45,14 +45,14 @@ namespace GV
 	//multiples of these meshes.
 
 	template<int MAX_DEPTH_=10, bool MORTON_ORDER=false> requires (MAX_DEPTH_>=0)
-	class HierarchicalVoxelMesh
+	class VoxelMesh
 	{
 	public:
 		//mesh features are never periodic
 		using VoxelElement = VoxelElementKey<MAX_DEPTH_+1,0,MORTON_ORDER>;
 		using VoxelVertex  = VoxelVertexKey<MAX_DEPTH_+1,0,MORTON_ORDER>;
 		using VoxelFace    = VoxelFaceKey<MAX_DEPTH_+1,0,MORTON_ORDER>;
-		using Mesh_t       = HierarchicalVoxelMesh<MAX_DEPTH_,MORTON_ORDER>; //this mesh type
+		using Mesh_t       = VoxelMesh<MAX_DEPTH_,MORTON_ORDER>; //this mesh type
 
 		static constexpr uint64_t MAX_DEPTH = MAX_DEPTH_;
 		static constexpr uint64_t TOTAL_POSSIBLE_ELEMENTS = total_possible<VoxelElement>(MAX_DEPTH);
@@ -80,7 +80,7 @@ namespace GV
 		const GeoPoint_t high;
 		const GeoPoint_t diag;
 
-		HierarchicalVoxelMesh(const GeoPoint_t low_, const GeoPoint_t high_) :
+		VoxelMesh(const GeoPoint_t low_, const GeoPoint_t high_) :
 			low{gutil::elmin(low_, high_)},
 			high{gutil::elmax(low_, high_)},
 			diag{high-low}
@@ -94,7 +94,7 @@ namespace GV
 			#endif
 		}
 
-		virtual ~HierarchicalVoxelMesh() {delete active_elem;}
+		virtual ~VoxelMesh() {delete active_elem;}
 
 		//simple querries and operations
 		inline void reset() {active_elem->reset();}
@@ -478,7 +478,7 @@ namespace GV
 		void save_unstructured_mesh(const std::string filename = "voxel_mesh_unstructured.vtk") const {
 			std::ofstream file(filename);
 			if (!file.is_open()) {
-				throw std::runtime_error("HierarchicalVoxelMesh::save_unstructured_mesh - could not open file: " + filename);
+				throw std::runtime_error("VoxelMesh::save_unstructured_mesh - could not open file: " + filename);
 			}
 
 			write_unstructured_vtk(file);
@@ -496,7 +496,7 @@ namespace GV
 	private:
 		template<typename Key_t, typename Action, typename Predicate = std::nullptr_t> requires (MeshFeatureType<Key_t,Mesh_t> && !OPENMP)
 		void for_each_depth_omp_impl(const uint64_t depth, Action&& action, Predicate&& pred = nullptr) const {
-			std::cerr << "HierarchicalVoxelMesh::for_each_depth_omp (const) called without OpenMP enabled\n";
+			std::cerr << "VoxelMesh::for_each_depth_omp (const) called without OpenMP enabled\n";
 			for_each_depth<Key_t>(depth, std::forward<Action>(action), std::forward<Predicate>(pred));
 		}
 

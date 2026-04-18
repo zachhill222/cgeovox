@@ -100,12 +100,12 @@ namespace GV
 		}
 
 		static constexpr std::array<double,8> child_coef_impl() {
-			return {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}
+			return {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 		}
 
 		constexpr std::array<VoxelP0,1> parents_impl() const {
 			if (key.depth()==0) {return {VoxelP0{}};}
-			return {VoxelP0{key.parent()};}
+			return {VoxelP0{key.parent()}};
 		}
 
 		static constexpr std::array<double,1> parent_coefs_impl() {

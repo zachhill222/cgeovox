@@ -8,6 +8,7 @@
 #include <bitset>
 #include <iostream>
 #include <iomanip>
+#include <functional>
 
 namespace GV
 {
@@ -127,6 +128,7 @@ namespace GV
 		//access the un-shifted essential/free bits (good for comparison below)
 		constexpr uint64_t essential_bits() const {return _data_&~F_M;}
 		constexpr uint64_t free_bits() const {return _data_&F_M;}
+		constexpr uint64_t compare_bits() const {return _data_&COMPARE_MASK;}
 
 		//access i,j,k as axis 0, 1, 2 with a mod fail safe (axis -1 is axis 2, but more work)
 		inline constexpr uint64_t index(const int a) const {return a==0 ? i() : a==1 ? j() : a==2 ? k() : index(a%3);}
@@ -258,6 +260,12 @@ namespace GV
 		inline constexpr bool operator!=(VoxelKey other) const {return (_data_&COMPARE_MASK) != (other._data_&COMPARE_MASK);}
 		inline constexpr bool operator<(VoxelKey other)  const {return (_data_&COMPARE_MASK) <  (other._data_&COMPARE_MASK);}
 		inline constexpr bool operator>(VoxelKey other)  const {return (_data_&COMPARE_MASK) >  (other._data_&COMPARE_MASK);}
+
+		//hash function to respect comparisons
+		struct Hash {
+			template<typename T> //template to work correctly with derived types
+			inline size_t operator()(const T& k) const {return std::hash<uint64_t>{}(k.compare_bits());}
+		};
 	};
 
 

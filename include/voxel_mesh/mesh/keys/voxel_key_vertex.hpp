@@ -36,6 +36,8 @@ namespace GV
 		using BASE::set_k;
 		using BASE::_data_;
 
+		using BASE::Hash;
+
 		//define useful constants
 		static constexpr uint64_t MAX_VERTEX_INDEX = BASE::MAX_INDEX;
 		static constexpr bool MORTON = MORTON_;

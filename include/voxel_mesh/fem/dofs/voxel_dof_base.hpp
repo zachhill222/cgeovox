@@ -5,7 +5,10 @@
 
 #include <array>
 #include <cstdint>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace GV
 {
@@ -16,7 +19,7 @@ namespace GV
 	//key was used. The "connonical" key is the one with the lower linear index.
 	//each bit of BC sets one periodic BC boundary condition (lsb-x to msb-z)
 	//for example 3 is 011 has X and Y periodic BC, while 6 is 110 has Y and Z
-	template<VoxelKeyType Key_type, typename Derrived>
+	template<VoxelKeyType Key_type, typename DERIVED>
 	struct VoxelDOFBase
 	{
 		//type aliases to distinguish reference coordinates and geometric coordinate
@@ -25,7 +28,7 @@ namespace GV
 		using GeoPoint_t = gutil::Point<3,double>;
 		using Key_t      = Key_type;
 		using QuadElem_t = VoxelElementKey<Key_t::I_W, Key_t::BC_FLAG, Key_t::MORTON>;
-
+		using Hash       = Key_t::Hash;
 		//store the logical key where this element lives
 		//note that this key does not need to correspond to an active feature of the mesh
 		Key_t key{};
@@ -34,13 +37,15 @@ namespace GV
 		inline constexpr bool exists() const {return key.exists();}
 		inline constexpr uint64_t depth() const {return key.depth();}
 		inline constexpr bool is_valid() const {return key.is_valid();}
-		inline constexpr bool operator==(const Derrived other) const {return key==other.key;}
-		inline constexpr bool operator!=(const Derrived other) const {return key!=other.key;}
-		inline constexpr bool operator<(const Derrived other) const {return key<other.key;}
-		inline constexpr bool operator>(const Derrived other) const {return key>other.key;}
+		inline constexpr bool operator==(const DERIVED other) const {return key==other.key;}
+		inline constexpr bool operator!=(const DERIVED other) const {return key!=other.key;}
+		inline constexpr bool operator<(const DERIVED other) const {return key<other.key;}
+		inline constexpr bool operator>(const DERIVED other) const {return key>other.key;}
 		inline constexpr uint64_t linear_index() const {return key.linear_index();}
+		inline constexpr uint64_t compare_bits() const {return key.compare_bits();} //for the hash
 
 		//record any periodic boundary conditions
+		static constexpr uint64_t MAX_DEPTH = Key_t::MAX_DEPTH;
 		static constexpr uint64_t BC = Key_t::BC_FLAG;
 		static constexpr bool PX = BC&1;
 		static constexpr bool PY = BC&2;
@@ -101,35 +106,35 @@ namespace GV
 		//it is the caller's responsibility to guarantee that support is actually a support element of the DOF
 
 		//we will often need to check the basis function's support elements
-		//the periodic templates should be set in the derrived class and passed to this class
-		//so that the derrived class correctly gets the support elements.
+		//the periodic templates should be set in the DERIVED class and passed to this class
+		//so that the DERIVED class correctly gets the support elements.
 		inline constexpr auto support() const {
-			return static_cast<const Derrived*>(this) -> support_impl();
+			return static_cast<const DERIVED*>(this) -> support_impl();
 		}
 
 		constexpr int n_dof_per_elem() const {
-			return static_cast<const Derrived*>(this) -> N_DOF_PER_ELEM;
+			return static_cast<const DERIVED*>(this) -> N_DOF_PER_ELEM;
 		}
 
 		constexpr auto dofs_on_elem(const QuadElem_t el) const {
-			return static_cast<const Derrived*>(this) -> dofs_on_elem_impl(el);
+			return static_cast<const DERIVED*>(this) -> dofs_on_elem_impl(el);
 		}
 
 		//charms specific interface. only here to enforce conformity
 		inline constexpr auto children() const {
-			return static_cast<const Derrived*>(this) -> children_impl();
+			return static_cast<const DERIVED*>(this) -> children_impl();
 		}
 
 		constexpr auto children_coef() const {
-			return static_cast<const Derrived*>(this) -> children_coef_impl();
+			return static_cast<const DERIVED*>(this) -> children_coef_impl();
 		}
 
 		constexpr auto parents() const {
-			return static_cast<const Derrived*>(this) -> parents_impl();
+			return static_cast<const DERIVED*>(this) -> parents_impl();
 		}
 
 		constexpr auto parent_coefs() const {
-			return static_cast<const Derrived*>(this) -> parent_coefs_impl();
+			return static_cast<const DERIVED*>(this) -> parent_coefs_impl();
 		}
 
 		//project a reference point on a deeper quadrature element to a support element

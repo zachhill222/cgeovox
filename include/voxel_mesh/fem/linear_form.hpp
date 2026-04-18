@@ -3,51 +3,34 @@
 #include "voxel_mesh/fem/csr_storage.hpp"
 #include "util/log_time.hpp"
 
-#include<vector>
-#include<span>
+#include <Eigen/Core>
+
+#include <vector>
+#include <span>
+#include <unordered_map>
 
 namespace GV
 {
 	//A generic linear form type for assembling FEM right hand sides.
 	//This class will primarily be passed to a Kernel class which will coordinate everything.
-	//This class will construct one or more local matricies (e.g., mass/stiffness)
-	//over a single quadrature element of m trial basis functions (solution dofs) against
-	//n test basis functions (also dofs, but can be of a different type than the trial).
-	//the result is an n-by-m local matrix (stored as a vector).
-	//This is designed for use in the CHARMS method, so m and n are unknown at compile time.
-	//The H in CHARMS stands for Hierarchical. For each quadrature point in the quadrature element,
-	//we must `project' it to the reference coordinate in the support element for each basis function.
-	//This only needs to be done once for each unique depth of the basis functions (in the mesh/function space hierarchy)
-	//To avoid doing this computation (and to avoid unnecessary looping through the mesh elements) more than necessary,
-	//multiple evaluation methods can be passed to the kernel. One local matrix is produced per evaluation method.
+	//This class will construct a single vector for the rhs in the global dofs. It can be sampled to get
+	//the rhs for currently active dofs in an arbitrary order.
 	//The evaluation method must take the signature
 	//
-	//		static constexpr void eval(val,quad, psi_i,spt_i,X_i,Y_i,Z_i, phi_j,spt_j,X_j,Y_j,Z_j);
+	//		constexpr void eval(val,Jxx,Jyy,Jzz, psi_,spt,X,Y,Z) const;
 	//
-	//Where val is a reference to an (un-initialized) array<double,NQ> to store the values, quad is the quadrature element
-	//psi_i is the test dof, phi_j is the trial dof, X_*, Y_*, Z_* are const references to an array<double,NQ>
-	//that record the reference coordinate of basis psi_i or phi_j on its support element spt_*.
+	//Where val is a reference to an (un-initialized) array<double,NQ> to store the values at each quadratrure point,
+	//Jxx,Jyy,Jzz are the diagonal entries of the jacobian, psi is the test dof, X, Y, Z are const references to an array<double,NQ>
+	//of quadrature points in the support element spt.
 	//The DOF types should provide vectorized methods for eval or grad as needed with a similar signature.
 	//
-	//For a bilinear form integral_D a(psi, phi) dx, the corresponding entry in the global matrix is 
-	//		A_IJ = integral_D a(psi_I,phi_J) = sum_E integral_E a(psi_I,phi_J)
-	//where D is the problem domain, a(*,*) is the bilinear form, and E is an element of the mesh of D.
-	//The local matrix for element E is then
-	//      a_ij = integral_E a(psi_I, phi_J) ~ sum_q a(psi_i, phi_j, q) * w_q
-	//where i and j are local dof numbers corresponding to the global numbers I and J, q is a quadrature point
-	//with w(q) its corresponding quadrature weight. For hierarchical methods, it is more feasible to convert
-	//the quadrature points to the correct reference points for each function psi_i and phi_j ahead of time.
-	//the supplied eval(*) method described above is responsible for evaluating a(psi_i, phi_j, q) at each of the
-	//supplied quadrature points. The values are then reduced with multiplication with the wieights into the local a_ij entry.
-	//
-	//Note that it is the responsibility of the evaluator method to correctly handle the jacobian.
-	//The jacobian depends only on the mapping from the reference element to the quadrature element.
-	//For an octree voxel mesh, this depends only on the depth of the quadrature element and the dimensions of the domain.
-
-
-
-
-
+	//For a linear form integral_D b(psi) dx, the corresponding entry in the global matrix is 
+	//		B_I = integral_D b(psi) = sum_E integral_E b(psi)
+	//where D is the problem domain, b(*) is the linear form, and E is an element of the mesh of D.
+	//The contrubution for element E is then
+	//      b_i = integral_E b(psi_I) ~ sum_q b(psi_i)(q) * w_q
+	//where i is the local dof number corresponding to the global numbers I, q is a quadrature point
+	//with w(q) its corresponding quadrature weight.
 
 
 	//information required for each evaluation method.
@@ -57,74 +40,73 @@ namespace GV
 	//additionally, based on boundary conditions, the bilinear form may be responsible for applying boundary condions to the
 	//local matrix after it is assembled by the kernel (with 'natural' BC).
 	//for better convenience when applying BC as a post processing step, the full local matrix is stored, even in the symmetric case.
-	template<typename TrialDOF_type,
-			 typename TestDOF_type,
-			 bool IS_SYMMETRIC_=false>
-	struct BilinearForm {
+	template<typename Mesh_type, typename TestDOF_type>			 
+	struct LinearForm {
 		using TestDOF_t  = TestDOF_type;
-		using TrialDOF_t = TrialDOF_type;
-		static constexpr bool IS_SYMMETRIC = IS_SYMMETRIC_;
-		static_assert(!IS_SYMMETRIC || (IS_SYMMETRIC && std::same_as<TrialDOF_type, TestDOF_type>),
-			"BilinearForm - The test and trial spaces/dofs must be the same for a symmetric bilinear form.");
-
-		using QuadElem_t = typename TrialDOF_t::QuadElem_t::NonPeriodicType;
-		static_assert(std::same_as<QuadElem_t, typename TestDOF_t::QuadElem_t::NonPeriodicType>,
-			"BilinearForm - The test and trial spaces/dofs must have compatible quadrature elements.");
-
-		std::vector<double>      	loc_m_v; 	//local matrix values (n_test by m_trial)
-		std::span<const TestDOF_t>  test_dofs;	//local test basis functions (row dofs) (note a span is non-owning)
-		std::span<const TrialDOF_t> trial_dofs; //local trial basis functions (column dofs)
-
-		using MatStorage_t = CSR_COO<TestDOF_t,TrialDOF_t>;
-		using MatRow_t = typename MatStorage_t::Row_t;
-		MatStorage_t global_mat; //stores non-zero interaction between all dofs in a hybrid csr-coo format
+		using Mesh_t     = Mesh_type;
+		using QuadElem_t = typename TestDOF_t::QuadElem_t::NonPeriodicType;
 		
-		uint64_t n_test, m_trial;
+		LinearForm(const Mesh_t& mesh) : mesh(mesh) {}
 
-		void set_basis(const std::vector<TestDOF_t>& test_dofs_, const std::vector<TrialDOF_t>& trial_dofs_) requires (!IS_SYMMETRIC) {
-			trial_dofs = trial_dofs_;
-			test_dofs  = test_dofs_;
-			n_test  = test_dofs.size();
-			m_trial = trial_dofs.size();
-			loc_m_v.resize(n_test*m_trial, 0.0);
-		}
+		const Mesh_t& 				mesh;       //link to mesh to project reference quadrature points to geometric points for evaluating weights
+		std::vector<double>      	loc_b_v; 	//local vector values (n_test)
+		std::span<const TestDOF_t>  test_dofs;	//local test basis functions (row dofs) (note a span is non-owning)
 
-		void set_basis(const std::vector<TestDOF_t>& test_dofs_, const std::vector<TrialDOF_t>& trial_dofs_) requires (IS_SYMMETRIC) {
-			trial_dofs = trial_dofs_;
-			test_dofs = trial_dofs_;
-			m_trial = trial_dofs.size();
-			n_test  = m_trial;
-			loc_m_v.resize(n_test*m_trial, 0.0);
-		}
+		using VecStorage_t = std::unordered_map<TestDOF_t, double, typename TestDOF_t::Hash>;
+		VecStorage_t global_vec; //stores non-zero interaction between all dofs in a hybrid csr-coo format
+		
+		uint64_t n_test;
 
-		inline double& local_mat(uint64_t i, uint64_t j) {
-			assert(i<n_test);
-			assert(j<m_trial);
-			return loc_m_v[j + i*m_trial]; //row-major is better for BC setting
-		}
-
-		inline double local_mat(uint64_t i, uint64_t j) const {
-			assert(i<n_test);
-			assert(j<m_trial);
-			return loc_m_v[j + i*m_trial]; //row-major is better for BC setting
+		void set_basis(const std::vector<TestDOF_t>& dofs) {
+			test_dofs = dofs;
+			n_test    = dofs.size();
+			loc_b_v.assign(n_test, 0.0);
 		}
 
 		void scatter() {
-
-			//add the results of the local matrix to the global matrix
-			//preserves sorted and accumulated
-			for (uint64_t i=0; i<n_test; ++i) {
-				MatRow_t& row = global_mat.get_row(test_dofs[i]);
-				row.reserve(row.size()+m_trial);
-				for (uint64_t j=0; j<m_trial; ++j) {
-					row.emplace_back(trial_dofs[j], local_mat(i,j));
-				}
-				row.accumulate();
+			for (size_t i=0; i<loc_b_v.size(); ++i) {
+				global_vec[test_dofs[i]] += loc_b_v[i];
 			}
 		}
 
-		inline auto to_eigen_csr(const std::vector<TestDOF_t>& test_dofs_, const std::vector<TrialDOF_t>& trial_dofs_) const {
-			return global_mat.to_eigen_csr(test_dofs_, trial_dofs_);
+		inline double loc_val(const uint64_t i) const {assert(i<loc_b_v.size()); return loc_b_v[i];}
+		inline double& loc_val(const uint64_t i) {assert(i<loc_b_v.size()); return loc_b_v[i];}
+
+		Eigen::VectorXd to_eigen_Xd(const std::vector<TestDOF_t>& dofs) const {
+			Eigen::VectorXd result(dofs.size());
+			for (size_t i=0; i<dofs.size(); ++i) {
+				const TestDOF_t dof = dofs[i];
+				auto it = global_vec.find(dof);
+				result[i] = (it!=global_vec.end()) ? it->second : 0.0;
+			}
+			return result;
+		}
+
+		//for weighted forms, it is convenient to evaluate in the mesh coordinates
+		template<uint64_t N>
+		void ref2geo(
+			std::array<double,N>& x,
+			std::array<double,N>& y,
+			std::array<double,N>& z,
+			const QuadElem_t spt,
+			const std::array<double,N> X,
+			const std::array<double,N> Y,
+			const std::array<double,N> Z) const 
+		{
+			const auto el   = static_cast<typename Mesh_t::VoxelElement>(spt);
+			const auto low  = mesh.ref2geo(el.vertex(0));
+			const auto high = mesh.ref2geo(el.vertex(7));
+			const auto mid  = 0.5*(low+high);
+			const auto del  = 0.5*(high-low);
+
+			#pragma omp simd
+			for (uint64_t i=0; i<N; ++i) {x[i] = mid[0] + X[i]*del[0];}
+
+			#pragma omp simd
+			for (uint64_t i=0; i<N; ++i) {y[i] = mid[1] + Y[i]*del[1];}
+
+			#pragma omp simd
+			for (uint64_t i=0; i<N; ++i) {z[i] = mid[2] + Z[i]*del[2];}
 		}
 	};
 }

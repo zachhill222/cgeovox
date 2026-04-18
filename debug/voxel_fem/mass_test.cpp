@@ -2,20 +2,41 @@
 #include "voxel_mesh/fem/dofs/voxel_dof_Q1.hpp"
 #include "voxel_mesh/fem/kernel.hpp"
 #include "voxel_mesh/mesh/voxel_mesh.hpp"
-#include "voxel_mesh/pde/forms/L2_inner.hpp"
-#include "voxel_mesh/pde/forms/H1_semi.hpp"
+#include "voxel_mesh/pde/forms/bilinear_L2.hpp"
+#include "voxel_mesh/pde/forms/bilinear_H1.hpp"
 #include "util/log_time.hpp"
 
-using Mesh_t    = GV::HierarchicalVoxelMesh<10>;
+
+using Mesh_t    = GV::VoxelMesh<10>;
 using Elem_t    = Mesh_t::VoxelElement;
 using Vert_t    = Mesh_t::VoxelVertex;
 using DofKey_t  = GV::VoxelVertexKey<11,0,0>;
 using DOF_t     = GV::VoxelQ1<DofKey_t>;
 using Handler_t = GV::DofHandler<Mesh_t,DOF_t>;
 
-using BiMass_t  = GV::SymmetricL2<DOF_t>;
-using BiStiff_t = GV::SymmetricH1<DOF_t>;
-using Kernel_t  = GV::Kernel<4,BiMass_t,BiStiff_t>;
+using BiMass_t  = GV::SymmetricL2<Mesh_t,DOF_t>;
+using BiStiff_t = GV::SymmetricH1<Mesh_t,DOF_t>;
+
+struct MassKernel : public GV::SymmetricL2<Mesh_t, DOF_t, MassKernel>
+{
+	using BASE = GV::SymmetricL2<Mesh_t, DOF_t, MassKernel>;
+	MassKernel(const Mesh_t& mesh) : BASE(mesh) {}
+
+	template<uint64_t N>
+	constexpr void eval_w(
+			std::array<double,N>& w_val,
+			const std::array<double,N>& x,
+			const std::array<double,N>& y,
+			const std::array<double,N>& z) const {
+		#pragma omp simd
+		for (uint64_t i=0; i<N; ++i) {
+			//evaluate weight
+			w_val[i] = 0.0;
+		}
+	}
+};
+
+using Kernel_t  = GV::Kernel<4,GV::TypeList<MassKernel,BiStiff_t>, GV::TypeList<>>;
 
 int main(int argc, char* argv[]) {
 	GV::LogTime t0{"Program"};
@@ -34,18 +55,18 @@ int main(int argc, char* argv[]) {
 
 	//define kernel (includes bilinear form)
 	const auto diag = mesh.high - mesh.low;
-	BiMass_t mass_bl;
-	BiStiff_t stiff_bl;
+	MassKernel mass_bl(mesh);
+	BiStiff_t stiff_bl(mesh);
 	Kernel_t kernel(diag[0], diag[1], diag[2], mass_bl, stiff_bl);
 
 	//integrate bilinear forms
 	auto integrate = [&kernel, &dofhandler](Elem_t el) {
 		const auto el_basis = dofhandler.basis_active(el);
 		kernel.set_element(el);
-		kernel.form<0>().set_basis(el_basis,el_basis);
-		kernel.form<1>().set_basis(el_basis,el_basis);
-		kernel.compute_scatter<0>();
-		kernel.compute_scatter<1>();
+		kernel.B_form<0>().set_basis(el_basis,el_basis);
+		kernel.B_form<1>().set_basis(el_basis,el_basis);
+		kernel.B_compute_scatter<0>();
+		kernel.B_compute_scatter<1>();
 	};
 
 	{

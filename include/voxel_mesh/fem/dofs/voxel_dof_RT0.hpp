@@ -64,13 +64,11 @@ namespace GV
 			return low_face ? -0.5 : 0.5;
 		}
 
-		//vectorized flux
+		//vectorized flux, nx is the normal distance to the face
 		template<int N> requires (N>0)
-		void flux(	std::array<double,N>&       vl, //values 
-					QuadElem_t             el, //support element
-					const std::array<double,N>& nx //reference/quadrature points (normal component)
-					) const {
+		void flux(	std::array<double,N>& vl, QuadElem_t el, const std::array<double,N>& nx) const {
 			
+
 			const uint64_t a    = key.axis();
 			const bool low_face = 	(a==0) ? (key.i() == el.i()) :
 									(a==1) ? (key.j() == el.j()) :
@@ -84,9 +82,7 @@ namespace GV
 
 		//vectorized div
 		template<int N> requires (N>0)
-		void div(	std::array<double,N>&       vl, //values 
-					QuadElem_t  	            el, //support element
-					) const {
+		void div(std::array<double,N>& vl, QuadElem_t el) const {
 			
 			const uint64_t a    = key.axis();
 			const bool low_face = 	(a==0) ? (key.i() == el.i()) :
@@ -196,8 +192,8 @@ namespace GV
 			return {1.0, 1.0};
 		}
 
-		static constexpr std::array<CharmsVoxelQ1,6> dofs_on_elem(const QuadElem_t el) {
-			std::array<CharmsVoxelQ1,6> dofs;
+		static constexpr std::array<VoxelRT0,6> dofs_on_elem(const QuadElem_t el) {
+			std::array<VoxelRT0,6> dofs;
 			for (int f=0; f<6; ++f) {dofs[f] = VoxelRT0{el.face(f)};}
 			return dofs;
 		}

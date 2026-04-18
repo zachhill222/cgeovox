@@ -22,9 +22,9 @@ namespace GV
 	//multiple evaluation methods can be passed to the kernel. One local matrix is produced per evaluation method.
 	//The evaluation method must take the signature
 	//
-	//		static constexpr void eval(val,quad, psi_i,spt_i,X_i,Y_i,Z_i, phi_j,spt_j,X_j,Y_j,Z_j);
+	//		constexpr void eval(val,Jxx,Jyy,Jzz, psi_i,spt_i,X_i,Y_i,Z_i, phi_j,spt_j,X_j,Y_j,Z_j) const;
 	//
-	//Where val is a reference to an (un-initialized) array<double,NQ> to store the values, quad is the quadrature element
+	//Where val is a reference to an (un-initialized) array<double,NQ> to store the values, J** are the diagonals of the jacobian,
 	//psi_i is the test dof, phi_j is the trial dof, X_*, Y_*, Z_* are const references to an array<double,NQ>
 	//that record the reference coordinate of basis psi_i or phi_j on its support element spt_*.
 	//The DOF types should provide vectorized methods for eval or grad as needed with a similar signature.
@@ -51,15 +51,18 @@ namespace GV
 	//bilinear forms will be constructed and passed to the kernel. the kernel will handle dispatching evaluations
 	//to accumulate the local matrix for each bilinear form. The storage of the local matrix and logic for accessing values
 	//is stored in the bilinear form, as this changes if the form is symmetric or not.
-	//additionally, based on boundary conditions, the bilinear form may be responsible for applying boundary condions to the
+	//additionally, based on boundary conditions, the bilinear form may be responsible for applying boundary conditions to the
 	//local matrix after it is assembled by the kernel (with 'natural' BC).
 	//for better convenience when applying BC as a post processing step, the full local matrix is stored, even in the symmetric case.
-	template<typename TrialDOF_type,
+	template<typename Mesh_type,
+			 typename TrialDOF_type,
 			 typename TestDOF_type,
 			 bool IS_SYMMETRIC_=false>
 	struct BilinearForm {
+		using Mesh_t     = Mesh_type;
 		using TestDOF_t  = TestDOF_type;
 		using TrialDOF_t = TrialDOF_type;
+		
 		static constexpr bool IS_SYMMETRIC = IS_SYMMETRIC_;
 		static_assert(!IS_SYMMETRIC || (IS_SYMMETRIC && std::same_as<TrialDOF_type, TestDOF_type>),
 			"BilinearForm - The test and trial spaces/dofs must be the same for a symmetric bilinear form.");
@@ -68,6 +71,9 @@ namespace GV
 		static_assert(std::same_as<QuadElem_t, typename TestDOF_t::QuadElem_t::NonPeriodicType>,
 			"BilinearForm - The test and trial spaces/dofs must have compatible quadrature elements.");
 
+		BilinearForm(const Mesh_t& mesh) : mesh(mesh) {}
+
+		const Mesh_t&               mesh;  		//link to mesh to project reference quadrature points to geometric points for evaluating weights
 		std::vector<double>      	loc_m_v; 	//local matrix values (n_test by m_trial)
 		std::span<const TestDOF_t>  test_dofs;	//local test basis functions (row dofs) (note a span is non-owning)
 		std::span<const TrialDOF_t> trial_dofs; //local trial basis functions (column dofs)
@@ -121,6 +127,33 @@ namespace GV
 
 		inline auto to_eigen_csr(const std::vector<TestDOF_t>& test_dofs_, const std::vector<TrialDOF_t>& trial_dofs_) const {
 			return global_mat.to_eigen_csr(test_dofs_, trial_dofs_);
+		}
+
+		//for weighted forms, it is convenient to evaluate in the mesh coordinates
+		template<uint64_t N>
+		void ref2geo(
+			std::array<double,N>& x,
+			std::array<double,N>& y,
+			std::array<double,N>& z,
+			const QuadElem_t spt,
+			const std::array<double,N> X,
+			const std::array<double,N> Y,
+			const std::array<double,N> Z) const 
+		{
+			const auto el   = static_cast<typename Mesh_t::VoxelElement>(spt);
+			const auto low  = mesh.ref2geo(el.vertex(0));
+			const auto high = mesh.ref2geo(el.vertex(7));
+			const auto mid  = 0.5*(low+high);
+			const auto del  = 0.5*(high-low);
+
+			#pragma omp simd
+			for (uint64_t i=0; i<N; ++i) {x[i] = mid[0] + X[i]*del[0];}
+
+			#pragma omp simd
+			for (uint64_t i=0; i<N; ++i) {y[i] = mid[1] + Y[i]*del[1];}
+
+			#pragma omp simd
+			for (uint64_t i=0; i<N; ++i) {z[i] = mid[2] + Z[i]*del[2];}
 		}
 	};
 }
